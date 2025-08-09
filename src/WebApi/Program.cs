@@ -9,30 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> 4de6550 (crm api in .netcore)
-// builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-//     .AddJwtBearer(options =>
-//     {
-//         options.TokenValidationParameters = new TokenValidationParameters
-//         {
-//             ValidateIssuer = true,
-//             ValidateAudience = true,
-//             ValidateLifetime = true,
-//             ValidateIssuerSigningKey = true,
-//             ValidIssuer = builder.Configuration["Jwt:Issuer"],
-//             ValidAudience = builder.Configuration["Jwt:Audience"],
-//             IssuerSigningKey = new SymmetricSecurityKey(
-//                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
-//         };
-//     });
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 16107fb (crm api in .netcore)
->>>>>>> 4de6550 (crm api in .netcore)
 
 // Custom service registrations
 builder.Services.AddInfrastructureServices(builder.Configuration);
