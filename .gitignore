@@ -1,0 +1,87 @@
+# --- Build output ---
+bin/
+obj/
+out/
+*.exe
+*.dll
+*.pdb
+*.app
+*.log
+
+# --- User-specific files ---
+*.user
+*.suo
+*.userosscache
+*.userprefs
+*.rsuser
+*.swp
+*.sln.docstates
+
+# --- Visual Studio / Rider cache ---
+.vs/
+.idea/
+*.iml
+.vscode/
+
+# --- NuGet packages ---
+*.nupkg
+# Ignore downloaded packages (if not restoring via nuget restore)
+packages/
+# Keep the package directory if it contains build dependencies
+!packages/build/
+
+# --- Logs ---
+*.log
+logs/
+log/
+
+# --- Temporary files ---
+*.tmp
+*.temp
+~$*
+*.cache
+*.pid
+*.seed
+*.bak
+*.backup
+*.orig
+
+# --- OS-specific ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# --- Entity Framework / Migrations ---
+#migrations snapshot files
+[Mm]igrations/
+*_efmigrationhistory.sql
+
+# --- Coverage / Testing ---
+*.coverage
+*.coveragexml
+TestResult*/
+TestResults/
+.coverage
+*.trx
+*.testlog
+*.gcov
+*.opencover.xml
+*.lcov
+
+# --- Tools ---
+node_modules/
+bower_components/
+wwwroot/lib/
+
+# --- Config secrets ---
+# Ignore local development settings
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+.env
+.env.*
