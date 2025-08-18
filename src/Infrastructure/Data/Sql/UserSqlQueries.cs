@@ -1,4 +1,4 @@
-// Infrastructure/Data/Sql/UserSqlQueries.cs
+namespace Lou.Infrastructure.Data.Sql;
 public static class UserSqlQueries
 {
     public const string GetById = @"

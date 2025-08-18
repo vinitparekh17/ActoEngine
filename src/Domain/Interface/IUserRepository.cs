@@ -1,4 +1,6 @@
-    // Domain/Interfaces/IUserRepository.cs
+// Domain/Interfaces/IUserRepository.cs
+using Lou.Domain.Entities;
+
 public interface IUserRepository
 {
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);

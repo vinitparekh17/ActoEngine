@@ -1,25 +1,14 @@
 using System.Diagnostics;
 using System.Text;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
-public class RequestLoggingMiddleware
+namespace Lou.WebApi.Middleware;
+public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger, IConfiguration config)
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<RequestLoggingMiddleware> _logger;
-    private readonly bool _logHeaders;
-    private readonly bool _logBody;
-    private readonly bool _logResponseBody;
-
-    public RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger, IConfiguration config)
-    {
-        _next = next;
-        _logger = logger;
-        _logHeaders = config.GetValue("Logging:LogHeaders", false);
-        _logBody = config.GetValue("Logging:LogBody", false);
-        _logResponseBody = config.GetValue("Logging:LogResponseBody", false);
-    }
+    private readonly RequestDelegate _next = next;
+    private readonly ILogger<RequestLoggingMiddleware> _logger = logger;
+    private readonly bool _logHeaders = config.GetValue("Logging:LogHeaders", false);
+    private readonly bool _logBody = config.GetValue("Logging:LogBody", false);
+    private readonly bool _logResponseBody = config.GetValue("Logging:LogResponseBody", false);
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -36,13 +25,13 @@ public class RequestLoggingMiddleware
                 }
 
                 var request = context.Request;
-                _logger.LogInformation("[Request] {Method} {Path}{QueryString}", 
+                _logger.LogInformation("[Request] {Method} {Path}{QueryString}",
                     request.Method, request.Path, request.QueryString.HasValue ? request.QueryString.Value : string.Empty);
 
                 if (_logHeaders)
                     _logger.LogDebug("[Headers] {Headers}", GetSafeHeaders(request));
 
-                if (_logBody && request.ContentLength > 0 && 
+                if (_logBody && request.ContentLength > 0 &&
                     (request.Method == HttpMethods.Post || request.Method == HttpMethods.Put || request.Method == HttpMethods.Patch) &&
                     request.ContentType?.StartsWith("application/json", StringComparison.OrdinalIgnoreCase) == true)
                 {
@@ -88,13 +77,13 @@ public class RequestLoggingMiddleware
             finally
             {
                 stopwatch.Stop();
-                _logger.LogInformation("[Response] {StatusCode} in {ElapsedMilliseconds} ms", 
+                _logger.LogInformation("[Response] {StatusCode} in {ElapsedMilliseconds} ms",
                     context.Response.StatusCode, stopwatch.ElapsedMilliseconds);
             }
         }
     }
 
-    private string GetSafeHeaders(HttpRequest request)
+    private static string GetSafeHeaders(HttpRequest request)
     {
         var sensitiveHeaders = new[] { "Authorization", "Cookie" };
         return string.Join("; ", request.Headers
@@ -102,7 +91,7 @@ public class RequestLoggingMiddleware
             .Select(h => $"{h.Key}: {h.Value}"));
     }
 
-    private async Task<string> ReadRequestBodyAsync(HttpRequest request, int maxLength = 1024)
+    private static async Task<string> ReadRequestBodyAsync(HttpRequest request, int maxLength = 1024)
     {
         if (request.ContentLength > maxLength) return $"[Truncated: {request.ContentLength}]";
         request.EnableBuffering();
@@ -112,7 +101,7 @@ public class RequestLoggingMiddleware
         return body.Contains("password", StringComparison.OrdinalIgnoreCase) ? "[Redacted]" : body;
     }
 
-    private string SafeResponseBody(string body, int maxLength = 1024)
+    private static string SafeResponseBody(string body, int maxLength = 1024)
     {
         if (string.IsNullOrWhiteSpace(body)) return "[Empty]";
         if (body.Length > maxLength) return $"[Truncated: {body.Length}]";

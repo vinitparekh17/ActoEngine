@@ -1,15 +1,14 @@
 // Infrastructure/Repositories/UserRepository.cs
+using Lou.Domain.Entities;
+using Lou.Domain.Exceptions;
+using Lou.Infrastructure.Data.Sql;
 using Microsoft.Extensions.Logging;
 
-public class UserRepository : BaseRepository, IUserRepository
+namespace Lou.Infrastructure.Repositories;
+public class UserRepository(
+    Data.IDbConnectionFactory connectionFactory,
+    ILogger<UserRepository> logger) : BaseRepository(connectionFactory, logger), IUserRepository
 {
-    public UserRepository(
-        IDbConnectionFactory connectionFactory, 
-        ILogger<UserRepository> logger) 
-        : base(connectionFactory, logger)
-    {
-    }
-
     public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var userDto = await QueryFirstOrDefaultAsync<UserDto>(
@@ -31,8 +30,8 @@ public class UserRepository : BaseRepository, IUserRepository
     }
 
     public async Task<(IEnumerable<User> Users, int TotalCount)> GetAllAsync(
-        int page = 1, 
-        int pageSize = 10, 
+        int page = 1,
+        int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
         var offset = (page - 1) * pageSize;
@@ -58,11 +57,11 @@ public class UserRepository : BaseRepository, IUserRepository
     {
         var parameters = new
         {
-            Id = user.Id,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            CreatedAt = user.CreatedAt
+            user.Id,
+            user.Email,
+            user.FirstName,
+            user.LastName,
+            user.CreatedAt
         };
 
         var userDto = await QueryFirstOrDefaultAsync<UserDto>(
@@ -77,9 +76,9 @@ public class UserRepository : BaseRepository, IUserRepository
     {
         var parameters = new
         {
-            Id = user.Id,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
+            user.Id,
+            user.FirstName,
+            user.LastName,
             UpdatedAt = DateTime.UtcNow
         };
 

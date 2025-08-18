@@ -1,4 +1,5 @@
 using Dapper;
+using Lou.Infrastructure.Data;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 

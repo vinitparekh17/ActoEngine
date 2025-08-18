@@ -4,6 +4,7 @@ using DbUp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
+namespace Lou.Infrastructure.Data;
 public class DatabaseMigrator
 {
     private readonly string _connectionString;

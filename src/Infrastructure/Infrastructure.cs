@@ -1,6 +1,10 @@
-﻿using Lou.Infrastructure.HealthChecks;
+﻿using Lou.Infrastructure.Data;
+using Lou.Infrastructure.HealthChecks;
+using Lou.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
+namespace Lou.Infrastructure;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(

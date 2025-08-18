@@ -1,6 +1,7 @@
 // Infrastructure/Data/BaseRepository.cs
 using System.Data;
 using Dapper;
+using Lou.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
 
 public abstract class BaseRepository
@@ -14,7 +15,7 @@ public abstract class BaseRepository
         _logger = logger;
     }
 
-    protected async Task<T> ExecuteScalarAsync<T>(
+    protected async Task<T?> ExecuteScalarAsync<T>(
         string sql, 
         object? parameters = null, 
         CancellationToken cancellationToken = default)

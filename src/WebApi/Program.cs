@@ -1,4 +1,7 @@
-using MyApp.WebApi.Configuration;
+using Lou.WebApi.Configuration;
+using Lou.Infrastructure;
+using Lou.WebApi.Middleware;
+using Lou.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -1,9 +1,10 @@
-// Domain/Exceptions/DomainException.cs
+namespace Lou.Domain.Exceptions;
+
 public abstract class DomainException : Exception
 {
     protected DomainException(string message) : base(message) { }
-    
-    protected DomainException(string message, Exception innerException) 
+
+    protected DomainException(string message, Exception innerException)
         : base(message, innerException) { }
 }
 
@@ -11,8 +12,8 @@ public abstract class DomainException : Exception
 public class NotFoundException : DomainException
 {
     public NotFoundException(string message) : base(message) { }
-    
-    public NotFoundException(string name, object key) 
+
+    public NotFoundException(string name, object key)
         : base($"{name} with key '{key}' was not found") { }
 }
 
@@ -20,22 +21,19 @@ public class NotFoundException : DomainException
 public class ValidationException : DomainException
 {
     public ValidationException(string message) : base(message) { }
-    
-    public ValidationException(string message, Exception innerException) 
+
+    public ValidationException(string message, Exception innerException)
         : base(message, innerException) { }
 }
 
 // Domain/Exceptions/BusinessRuleViolationException.cs
-public class BusinessRuleViolationException : DomainException
-{
-    public BusinessRuleViolationException(string message) : base(message) { }
-}
+public class BusinessRuleViolationException(string message) : DomainException(message) { }
 
 // Domain/Exceptions/DuplicateException.cs
 public class DuplicateException : DomainException
 {
     public DuplicateException(string message) : base(message) { }
-    
-    public DuplicateException(string name, object key) 
+
+    public DuplicateException(string name, object key)
         : base($"{name} with key '{key}' already exists") { }
 }

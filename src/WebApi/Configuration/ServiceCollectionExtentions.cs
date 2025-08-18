@@ -1,13 +1,12 @@
 using Lou.Application.Common;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text;
 
-namespace MyApp.WebApi.Configuration
+namespace Lou.WebApi.Configuration
 {
     public static class ServiceCollectionExtensions
     {
@@ -39,7 +38,7 @@ namespace MyApp.WebApi.Configuration
                 options.AddPolicy("ReactPolicy", builder =>
                 {
                     var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                        ?? new[] { "http://localhost:3000" };
+                        ?? ["http://localhost:3000"];
 
                     builder
                         .WithOrigins(allowedOrigins)
@@ -116,9 +115,9 @@ namespace MyApp.WebApi.Configuration
             {
                 c.SwaggerDoc("v1", new OpenApiInfo 
                 { 
-                    Title = "MyApp API", 
+                    Title = "Lou API", 
                     Version = "v1",
-                    Description = "A comprehensive .NET Core Web API"
+                    Description = "A robust crm api in .NET core 8"
                 });
 
                 // JWT Authentication in Swagger
