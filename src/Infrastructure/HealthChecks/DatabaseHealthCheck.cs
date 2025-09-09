@@ -1,14 +1,21 @@
-using Dapper;
-using Lou.Infrastructure.Data;
+// Infrastructure/HealthChecks/DatabaseHealthCheck.cs
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using ActoX.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
+using Dapper;
 
-namespace Lou.Infrastructure.HealthChecks
+namespace ActoX.Infrastructure.HealthChecks
 {
-    public class DatabaseHealthCheck(IDbConnectionFactory connectionFactory, ILogger<DatabaseHealthCheck> logger) : IHealthCheck
+    public class DatabaseHealthCheck : IHealthCheck
     {
-        private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
-        private readonly ILogger<DatabaseHealthCheck> _logger = logger;
+        private readonly IDbConnectionFactory _connectionFactory;
+        private readonly ILogger<DatabaseHealthCheck> _logger;
+
+        public DatabaseHealthCheck(IDbConnectionFactory connectionFactory, ILogger<DatabaseHealthCheck> logger)
+        {
+            _connectionFactory = connectionFactory;
+            _logger = logger;
+        }
 
         public async Task<HealthCheckResult> CheckHealthAsync(
             HealthCheckContext context, 
@@ -24,32 +31,31 @@ namespace Lou.Infrastructure.HealthChecks
                 var result = await connection.QuerySingleAsync<int>("SELECT 1");
                 
                 // Test users table exists
-                var tableExists = await connection.QuerySingleAsync<bool>(
-                    "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')");
+                //var tableExists = await connection.QuerySingleAsync<bool>(UserSqlQueries.CheckTableExists);
                 
-                // Get connection info
-                var version = await connection.QuerySingleAsync<string>("SELECT version()");
-                var currentDatabase = await connection.QuerySingleAsync<string>("SELECT current_database()");
-                var userCount = await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM users WHERE deleted_at IS NULL");
+                // Get SQL Server info
+                var version = await connection.QuerySingleAsync<string>("SELECT @@VERSION");
+                var currentDatabase = await connection.QuerySingleAsync<string>("SELECT DB_NAME()");
+                // var userCount = await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM Users WHERE DeletedAt IS NULL");
                 
                 stopwatch.Stop();
 
                 var data = new Dictionary<string, object>
                 {
                     ["connection_test"] = result == 1 ? "✅ Success" : "❌ Failed",
-                    ["users_table_exists"] = tableExists ? "✅ Yes" : "❌ No",
+                    // ["users_table_exists"] = tableExists ? "✅ Yes" : "❌ No",
                     ["database"] = currentDatabase,
-                    ["postgres_version"] = version.Split(' ')[1], // Extract just version number
-                    ["total_users"] = userCount,
+                    ["sql_server_version"] = ExtractSqlServerVersion(version),
+                    // ["total_users"] = userCount,
                     ["response_time_ms"] = stopwatch.ElapsedMilliseconds
                 };
 
-                if (!tableExists)
-                {
-                    return HealthCheckResult.Degraded(
-                        "Database connected but users table not found", 
-                        data: data);
-                }
+                // if (!tableExists)
+                // {
+                //     return HealthCheckResult.Degraded(
+                //         "Database connected but Users table not found", 
+                //         data: data);
+                // }
 
                 return HealthCheckResult.Healthy(
                     "Database is healthy and responsive", 
@@ -68,6 +74,28 @@ namespace Lou.Infrastructure.HealthChecks
                         ["error_type"] = ex.GetType().Name
                     });
             }
+        }
+
+        private static string ExtractSqlServerVersion(string version)
+        {
+            // Extract version from SQL Server version string
+            var lines = version.Split('\n');
+            if (lines.Length > 0)
+            {
+                var firstLine = lines[0];
+                if (firstLine.Contains("Microsoft SQL Server"))
+                {
+                    var parts = firstLine.Split(' ');
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        if (parts[i] == "Server" && i + 1 < parts.Length)
+                        {
+                            return parts[i + 1];
+                        }
+                    }
+                }
+            }
+            return "Unknown";
         }
     }
 }

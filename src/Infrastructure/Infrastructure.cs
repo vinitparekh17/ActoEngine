@@ -1,36 +1,36 @@
-﻿using Lou.Infrastructure.Data;
-using Lou.Infrastructure.HealthChecks;
-using Lou.Infrastructure.Repositories;
+﻿// Infrastructure/DependencyInjection.cs
+using ActoX.Infrastructure.Data;
+using ActoX.Infrastructure.HealthChecks;
+using ActoX.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Lou.Infrastructure;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(
-        this IServiceCollection services,
+        this IServiceCollection services, 
         IConfiguration configuration)
     {
-        // Database
-        services.AddSingleton<IDbConnectionFactory, PostgreSqlConnectionFactory>();
-
+        // Database - Updated for SQL Server
+        services.AddSingleton<IDbConnectionFactory, SqlServerConnectionFactory>();
+        
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
-
+        
         // Database Migration
         services.AddTransient<DatabaseMigrator>();
 
-        // Health Checks
+        // Health Checks - Updated for SQL Server
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>(
                 name: "database",
-                tags: ["database", "postgresql", "critical"])
+                tags: ["database", "sqlserver", "critical"])
             .AddCheck<SystemHealthCheck>(
-                name: "system",
+                name: "system", 
                 tags: ["system", "resources"])
-            .AddNpgSql(
+            .AddSqlServer(
                 configuration.GetConnectionString("DefaultConnection")!,
-                name: "postgresql-connection",
+                name: "sqlserver-connection",
                 tags: ["database", "connection"]);
 
         return services;

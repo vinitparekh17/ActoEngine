@@ -1,5 +1,5 @@
 // Application/Common/ApiResponse.cs
-namespace Lou.Application.Common
+namespace ActoX.Application.Common
 {
     public class ApiResponse<T>
     {

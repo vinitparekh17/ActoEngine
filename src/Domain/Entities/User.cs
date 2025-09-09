@@ -1,4 +1,4 @@
-namespace Lou.Domain.Entities;
+namespace ActoX.Domain.Entities;
 public class User
 {
     public Guid Id { get; private set; }

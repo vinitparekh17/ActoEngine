@@ -1,4 +1,4 @@
-namespace Lou.Domain.Exceptions;
+namespace ActoX.Domain.Exceptions;
 
 public abstract class DomainException : Exception
 {

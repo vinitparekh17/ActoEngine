@@ -2,7 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 
-namespace Lou.Infrastructure.HealthChecks;
+namespace ActoX.Infrastructure.HealthChecks;
 
 public class SystemHealthCheck(ILogger<SystemHealthCheck> logger) : IHealthCheck
 {

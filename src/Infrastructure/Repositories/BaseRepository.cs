@@ -1,7 +1,7 @@
 // Infrastructure/Data/BaseRepository.cs
 using System.Data;
 using Dapper;
-using Lou.Infrastructure.Data;
+using ActoX.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
 
 public abstract class BaseRepository

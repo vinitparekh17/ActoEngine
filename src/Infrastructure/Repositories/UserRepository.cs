@@ -1,10 +1,10 @@
 // Infrastructure/Repositories/UserRepository.cs
-using Lou.Domain.Entities;
-using Lou.Domain.Exceptions;
-using Lou.Infrastructure.Data.Sql;
+using ActoX.Domain.Entities;
+using ActoX.Domain.Exceptions;
+using ActoX.Infrastructure.Data.Sql;
 using Microsoft.Extensions.Logging;
 
-namespace Lou.Infrastructure.Repositories;
+namespace ActoX.Infrastructure.Repositories;
 public class UserRepository(
     Data.IDbConnectionFactory connectionFactory,
     ILogger<UserRepository> logger) : BaseRepository(connectionFactory, logger), IUserRepository

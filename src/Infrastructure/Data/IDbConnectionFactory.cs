@@ -1,23 +1,24 @@
 using System.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 
-namespace Lou.Infrastructure.Data;
+namespace ActoX.Infrastructure.Data;
+
 public interface IDbConnectionFactory
 {
     Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken = default);
     IDbConnection CreateConnection();
 }
 
-public class PostgreSqlConnectionFactory : IDbConnectionFactory
+public class SqlServerConnectionFactory : IDbConnectionFactory
 {
     private readonly string _connectionString;
-    private readonly ILogger<PostgreSqlConnectionFactory> _logger;
+    private readonly ILogger<SqlServerConnectionFactory> _logger;
 
-    public PostgreSqlConnectionFactory(
+    public SqlServerConnectionFactory(
         IConfiguration configuration, 
-        ILogger<PostgreSqlConnectionFactory> logger)
+        ILogger<SqlServerConnectionFactory> logger)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection") 
             ?? throw new InvalidOperationException("DefaultConnection not found");
@@ -26,14 +27,14 @@ public class PostgreSqlConnectionFactory : IDbConnectionFactory
 
     public async Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken = default)
     {
-        var connection = new NpgsqlConnection(_connectionString);
+        var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         return connection;
     }
 
     public IDbConnection CreateConnection()
     {
-        var connection = new NpgsqlConnection(_connectionString);
+        var connection = new SqlConnection(_connectionString);
         connection.Open();
         return connection;
     }

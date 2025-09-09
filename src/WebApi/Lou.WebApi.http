@@ -1,6 +1,0 @@
-@Lou.WebApi_HostAddress = http://localhost:5281
-
-GET {{Lou.WebApi_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

@@ -1,4 +1,4 @@
-namespace Lou.Infrastructure.Data.Sql;
+namespace ActoX.Infrastructure.Data.Sql;
 public static class UserSqlQueries
 {
     public const string GetById = @"

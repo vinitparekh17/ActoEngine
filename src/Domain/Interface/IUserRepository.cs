@@ -1,5 +1,5 @@
 // Domain/Interfaces/IUserRepository.cs
-using Lou.Domain.Entities;
+using ActoX.Domain.Entities;
 
 public interface IUserRepository
 {

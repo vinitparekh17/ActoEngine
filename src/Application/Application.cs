@@ -1,1 +1,1 @@
-﻿namespace Lou.Application;
+﻿namespace ActoX.Application;
