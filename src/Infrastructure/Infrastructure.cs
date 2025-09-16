@@ -11,7 +11,7 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services, 
         IConfiguration configuration)
     {
-        // Database - Updated for SQL Server
+        // Database
         services.AddSingleton<IDbConnectionFactory, SqlServerConnectionFactory>();
         
         // Repositories
@@ -20,7 +20,7 @@ public static class ServiceCollectionExtensions
         // Database Migration
         services.AddTransient<DatabaseMigrator>();
 
-        // Health Checks - Updated for SQL Server
+        // Health Checks
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>(
                 name: "database",

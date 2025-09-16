@@ -1,38 +1,80 @@
 // Infrastructure/Data/DatabaseMigrator.cs
-using System.Reflection;
 using Microsoft.Extensions.Configuration;
+using System.Reflection;
 using Microsoft.Extensions.Logging;
+using DbUp;
+using Microsoft.Data.SqlClient;
+using Dapper;
 
 namespace ActoX.Infrastructure.Data;
-public class DatabaseMigrator
-{
-    private readonly string _connectionString;
-    private readonly ILogger<DatabaseMigrator> _logger;
 
-    public DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigrator> logger)
+public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigrator> logger)
+{
+    private readonly string _connectionString = configuration.GetConnectionString("DefaultConnection")!;
+
+    public void MigrateDatabase()
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection")!;
-        _logger = logger;
+        logger.LogInformation("Starting database migration...");
+        EnsureDatabase.For.SqlDatabase(_connectionString);
+
+        var upgrader = DeployChanges.To
+    .SqlDatabase(_connectionString)
+    .WithScriptsEmbeddedInAssembly(
+        Assembly.GetExecutingAssembly(),
+        script => script.Contains("Data.Scripts.Migrations")) // Filter to migrations folder
+    .WithTransaction()
+    .LogToConsole()
+    .Build();
+
+        var result = upgrader.PerformUpgrade();
+
+        if (!result.Successful)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(result.Error);
+            Console.ResetColor();
+        }
+
+        logger.LogInformation("Database migration completed successfully.");
     }
 
-    // public void MigrateDatabase()
-    // {
-    //     _logger.LogInformation("Starting database migration...");
+    public async Task SeedDataAsync()
+    {
+        logger.LogInformation("Starting data seeding...");
 
-    //     var upgrader = DeployChanges.To
-    //         .PostgresqlDatabase(_connectionString)
-    //         .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
-    //         .LogToConsole()
-    //         .Build();
+        var seedScripts = new[]
+        {
+            "Data.Scripts.SeedData.DefaultRoles.sql",
+            "Data.Scripts.SeedData.AdminUser.sql"
+        };
 
-    //     var result = upgrader.PerformUpgrade();
+        using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync();
 
-    //     if (!result.Successful)
-    //     {
-    //         _logger.LogError("Database migration failed: {Error}", result.Error);
-    //         throw new InvalidOperationException("Database migration failed", result.Error);
-    //     }
+        foreach (var scriptName in seedScripts)
+        {
+            try
+            {
+                var script = GetEmbeddedScript(scriptName);
+                if (!string.IsNullOrEmpty(script))
+                {
+                    await connection.ExecuteAsync(script);
+                    logger.LogInformation("Executed seed script: {Script}", scriptName);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to execute seed script: {Script}", scriptName);
+            }
+        }
+    }
+    private string? GetEmbeddedScript(string scriptName)
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        using var stream = assembly.GetManifestResourceStream(scriptName);
+        if (stream == null) return null;
 
-    //     _logger.LogInformation("Database migration completed successfully");
-    // }
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
 }

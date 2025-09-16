@@ -11,19 +11,12 @@ public interface IDbConnectionFactory
     IDbConnection CreateConnection();
 }
 
-public class SqlServerConnectionFactory : IDbConnectionFactory
+public class SqlServerConnectionFactory(
+    IConfiguration configuration,
+    ILogger<SqlServerConnectionFactory> logger) : IDbConnectionFactory
 {
-    private readonly string _connectionString;
-    private readonly ILogger<SqlServerConnectionFactory> _logger;
-
-    public SqlServerConnectionFactory(
-        IConfiguration configuration, 
-        ILogger<SqlServerConnectionFactory> logger)
-    {
-        _connectionString = configuration.GetConnectionString("DefaultConnection") 
+    private readonly string _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("DefaultConnection not found");
-        _logger = logger;
-    }
 
     public async Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken = default)
     {

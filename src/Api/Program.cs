@@ -1,5 +1,4 @@
 using ActoX.Api.Configuration;
-using ActoX.Infrastructure;
 using ActoX.Api.Middleware;
 using ActoX.Infrastructure.Data;
 
@@ -22,8 +21,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
     using var scope = app.Services.CreateScope();
-    // var migrator = scope.ServiceProvider.GetRequiredService<DatabaseMigrator>();
-    // migrator.MigrateDatabase();
+    var migrator = scope.ServiceProvider.GetRequiredService<DatabaseMigrator>();
+    migrator.MigrateDatabase();
 }
 
 app.UseHttpsRedirection();

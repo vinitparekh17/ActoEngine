@@ -1,6 +1,11 @@
 namespace ActoX.Infrastructure.Data.Sql;
 public static class UserSqlQueries
 {
+    public const string CheckTableExists = @"
+        SELECT CASE 
+            WHEN OBJECT_ID('dbo.Users', 'U') IS NOT NULL THEN CAST(1 AS BIT) 
+            ELSE CAST(0 AS BIT) 
+        END";
     public const string GetById = @"
         SELECT id, email, first_name, last_name, created_at, updated_at
         FROM users 

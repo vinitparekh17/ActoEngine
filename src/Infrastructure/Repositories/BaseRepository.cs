@@ -4,16 +4,10 @@ using Dapper;
 using ActoX.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
 
-public abstract class BaseRepository
+public abstract class BaseRepository(IDbConnectionFactory connectionFactory, ILogger logger)
 {
-    protected readonly IDbConnectionFactory _connectionFactory;
-    protected readonly ILogger _logger;
-
-    protected BaseRepository(IDbConnectionFactory connectionFactory, ILogger logger)
-    {
-        _connectionFactory = connectionFactory;
-        _logger = logger;
-    }
+    protected readonly IDbConnectionFactory _connectionFactory = connectionFactory;
+    protected readonly ILogger _logger = logger;
 
     protected async Task<T?> ExecuteScalarAsync<T>(
         string sql, 
