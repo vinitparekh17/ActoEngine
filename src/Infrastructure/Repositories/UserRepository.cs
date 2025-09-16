@@ -1,6 +1,6 @@
-// Infrastructure/Repositories/UserRepository.cs
 using ActoX.Domain.Entities;
 using ActoX.Domain.Exceptions;
+using ActoX.Domain.Interface;
 using ActoX.Infrastructure.Data.Sql;
 using Microsoft.Extensions.Logging;
 
@@ -9,21 +9,21 @@ public class UserRepository(
     Data.IDbConnectionFactory connectionFactory,
     ILogger<UserRepository> logger) : BaseRepository(connectionFactory, logger), IUserRepository
 {
-    public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var userDto = await QueryFirstOrDefaultAsync<UserDto>(
             UserSqlQueries.GetById,
-            new { Id = id },
+            new { UserID = id },
             cancellationToken);
 
         return userDto?.ToDomain();
     }
 
-    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    public async Task<User?> GetByUserNameAsync(string userName, CancellationToken cancellationToken = default)
     {
         var userDto = await QueryFirstOrDefaultAsync<UserDto>(
-            UserSqlQueries.GetByEmail,
-            new { Email = email },
+            UserSqlQueries.GetByUserName,
+            new { Username = userName },
             cancellationToken);
 
         return userDto?.ToDomain();
@@ -57,11 +57,12 @@ public class UserRepository(
     {
         var parameters = new
         {
-            user.Id,
-            user.Email,
-            user.FirstName,
-            user.LastName,
-            user.CreatedAt
+            user.Username,
+            user.PasswordHash,
+            user.FullName,
+            user.Role,
+            user.CreatedAt,
+            user.CreatedBy
         };
 
         var userDto = await QueryFirstOrDefaultAsync<UserDto>(
@@ -76,10 +77,12 @@ public class UserRepository(
     {
         var parameters = new
         {
-            user.Id,
-            user.FirstName,
-            user.LastName,
-            UpdatedAt = DateTime.UtcNow
+            user.UserID,
+            user.FullName,
+            user.Role,
+            user.IsActive,
+            UpdatedAt = DateTime.UtcNow,
+            user.UpdatedBy
         };
 
         var rowsAffected = await ExecuteAsync(
@@ -88,38 +91,36 @@ public class UserRepository(
             cancellationToken);
 
         if (rowsAffected == 0)
-            throw new NotFoundException($"User with ID {user.Id} not found");
+            throw new NotFoundException($"User with ID {user.UserID} not found");
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var rowsAffected = await ExecuteAsync(
-            UserSqlQueries.SoftDelete,
-            new { Id = id, DeletedAt = DateTime.UtcNow },
+            UserSqlQueries.HardDelete,
+            new { UserID = id },
             cancellationToken);
 
         if (rowsAffected == 0)
             throw new NotFoundException($"User with ID {id} not found");
     }
-
-    public Task<IEnumerable<User>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
-    // Data Transfer Object for Database Mapping
+    
     private class UserDto
     {
-        public Guid Id { get; set; }
-        public string Email { get; set; } = string.Empty;
-        public string First_Name { get; set; } = string.Empty;
-        public string Last_Name { get; set; } = string.Empty;
-        public DateTime Created_At { get; set; }
-        public DateTime? Updated_At { get; set; }
+        public int UserID { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
+        public string? FullName { get; set; }
+        public bool IsActive { get; set; }
+        public string Role { get; set; } = "User";
+        public DateTime CreatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public string? UpdatedBy { get; set; }
 
         public User ToDomain()
         {
-            return new User(Id, Email, First_Name, Last_Name, Created_At, Updated_At);
+            return new User(UserID, Username, PasswordHash, FullName, IsActive, Role, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy);
         }
     }
 }

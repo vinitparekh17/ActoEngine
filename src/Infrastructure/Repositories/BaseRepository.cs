@@ -4,6 +4,7 @@ using Dapper;
 using ActoX.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
 
+namespace ActoX.Infrastructure.Repositories;
 public abstract class BaseRepository(IDbConnectionFactory connectionFactory, ILogger logger)
 {
     protected readonly IDbConnectionFactory _connectionFactory = connectionFactory;

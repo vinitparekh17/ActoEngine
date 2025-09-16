@@ -1,3 +1,5 @@
+namespace Actox.Api.Modals;
+
 public class HealthCheckResponse
 {
     public string Status { get; set; } = string.Empty;
