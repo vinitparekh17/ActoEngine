@@ -28,7 +28,7 @@ namespace ActoX.Infrastructure.HealthChecks
                 // Get SQL Server info
                 var version = await connection.QuerySingleAsync<string>("SELECT @@VERSION");
                 var currentDatabase = await connection.QuerySingleAsync<string>("SELECT DB_NAME()");
-                var userCount = await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM Users WHERE DeletedAt IS NULL");
+                var userCount = await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM Users");
                 
                 stopwatch.Stop();
 

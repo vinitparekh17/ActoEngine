@@ -1,6 +1,5 @@
 using System.Data;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
 
 namespace ActoX.Infrastructure.Data;
@@ -12,8 +11,7 @@ public interface IDbConnectionFactory
 }
 
 public class SqlServerConnectionFactory(
-    IConfiguration configuration,
-    ILogger<SqlServerConnectionFactory> logger) : IDbConnectionFactory
+    IConfiguration configuration) : IDbConnectionFactory
 {
     private readonly string _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("DefaultConnection not found");

@@ -1,10 +1,7 @@
 using ActoX.Application.Common;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
-using System.Text;
 
 namespace ActoX.Api.Configuration
 {
@@ -17,11 +14,8 @@ namespace ActoX.Api.Configuration
             // CORS
             services.AddCorsServices(configuration);
             
-            // Authentication & Authorization
-            services.AddAuthenticationServices(configuration);
-            
             // Swagger
-            services.AddSwaggerServices();
+            services.AddCustomSwagger();
             
             // API Behavior
             services.AddApiBehaviorServices();
@@ -51,112 +45,6 @@ namespace ActoX.Api.Configuration
 
             return services;
         }
-
-        private static IServiceCollection AddAuthenticationServices(
-            this IServiceCollection services, 
-            IConfiguration configuration)
-        {
-            var jwtSettings = configuration.GetSection("Jwt");
-            var secretKey = jwtSettings["Key"] ?? throw new InvalidOperationException("JWT Key not configured");
-
-            services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtSettings["Issuer"],
-                    ValidAudience = jwtSettings["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-                    ClockSkew = TimeSpan.FromMinutes(5)
-                };
-
-                // Handle JWT in SignalR/WebSocket scenarios
-                options.Events = new JwtBearerEvents
-                {
-                    OnMessageReceived = context =>
-                    {
-                        var accessToken = context.Request.Query["access_token"];
-                        var path = context.HttpContext.Request.Path;
-                        
-                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hub"))
-                        {
-                            context.Token = accessToken;
-                        }
-                        
-                        return Task.CompletedTask;
-                    }
-                };
-            });
-
-            services.AddAuthorization(options =>
-            {
-                options.AddPolicy("RequireAdminRole", policy => 
-                    policy.RequireRole("Admin"));
-                    
-                options.AddPolicy("RequireUserRole", policy => 
-                    policy.RequireRole("User", "Admin"));
-            });
-
-            return services;
-        }
-
-        private static IServiceCollection AddSwaggerServices(
-            this IServiceCollection services)
-        {
-            services.AddSwaggerGen(c =>
-            {
-                c.SwaggerDoc("v1", new OpenApiInfo 
-                { 
-                    Title = "ActoX API", 
-                    Version = "v1",
-                    Description = "A robust crm api in .NET core 8"
-                });
-
-                // JWT Authentication in Swagger
-                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-                {
-                    Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
-                    Name = "Authorization",
-                    In = ParameterLocation.Header,
-                    Type = SecuritySchemeType.ApiKey,
-                    Scheme = "Bearer"
-                });
-
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
-                {
-                    {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            }
-                        },
-                        Array.Empty<string>()
-                    }
-                });
-
-                // Include XML comments
-                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                if (File.Exists(xmlPath))
-                {
-                    c.IncludeXmlComments(xmlPath);
-                }
-            });
-
-            return services;
-        }
-
         private static IServiceCollection AddApiBehaviorServices(
             this IServiceCollection services)
         {

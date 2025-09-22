@@ -1,6 +1,6 @@
 using ActoX.Domain.Entities;
 using ActoX.Domain.Exceptions;
-using ActoX.Domain.Interface;
+using ActoX.Domain.Interfaces;
 using ActoX.Infrastructure.Data.Sql;
 using Microsoft.Extensions.Logging;
 

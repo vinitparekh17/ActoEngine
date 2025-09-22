@@ -1,9 +1,11 @@
 namespace ActoX.Domain.Entities;
+
 public class User
 {
-    public int UserID { get; private set; }
-    public string Username { get; private set; }
-    public string PasswordHash { get; private set; }
+    public int UserID { get; set; }
+    public string Username { get; set; } = default!;
+    public string PasswordHash { get; set; } = default!;
+    public byte[] PasswordSalt { get; set; } = default!;
     public string? FullName { get; private set; }
     public bool IsActive { get; private set; }
     public string Role { get; private set; }
@@ -13,21 +15,22 @@ public class User
     public string? UpdatedBy { get; private set; }
 
     // Constructor for creating new users
-    public User(string username, string passwordHash, string? fullName, string role = "User", string? createdBy = null)
+    public User(string username, string passwordHash, string? fullName = null, string role = "User", string? createdBy = null)
     {
         Username = username ?? throw new ArgumentNullException(nameof(username));
         PasswordHash = passwordHash ?? throw new ArgumentNullException(nameof(passwordHash));
         FullName = fullName;
-        Role = role;
-        CreatedBy = createdBy;
         IsActive = true;
+        Role = role;
         CreatedAt = DateTime.UtcNow;
+        CreatedBy = createdBy;
     }
 
     // Constructor for database hydration
-    public User(int userId, string username, string passwordHash, string? fullName, bool isActive, string role, DateTime createdAt, string? createdBy, DateTime? updatedAt, string? updatedBy)
+    public User(int userID, string username, string passwordHash, string? fullName, bool isActive,
+                string role, DateTime createdAt, string? createdBy, DateTime? updatedAt = null, string? updatedBy = null)
     {
-        UserID = userId;
+        UserID = userID;
         Username = username;
         PasswordHash = passwordHash;
         FullName = fullName;
@@ -39,18 +42,31 @@ public class User
         UpdatedBy = updatedBy;
     }
 
-    public void UpdateProfile(string? fullName, string role, string updatedBy)
+    public void UpdateProfile(string? fullName, string? updatedBy = null)
     {
         FullName = fullName;
-        Role = role;
-        UpdatedBy = updatedBy;
         UpdatedAt = DateTime.UtcNow;
+        UpdatedBy = updatedBy;
     }
 
-    public void Deactivate(string updatedBy)
+    public void ChangePassword(string newPasswordHash, string? updatedBy = null)
     {
-        IsActive = false;
-        UpdatedBy = updatedBy;
+        PasswordHash = newPasswordHash ?? throw new ArgumentNullException(nameof(newPasswordHash));
         UpdatedAt = DateTime.UtcNow;
+        UpdatedBy = updatedBy;
+    }
+
+    public void SetActiveStatus(bool isActive, string? updatedBy = null)
+    {
+        IsActive = isActive;
+        UpdatedAt = DateTime.UtcNow;
+        UpdatedBy = updatedBy;
+    }
+
+    public void ChangeRole(string newRole, string? updatedBy = null)
+    {
+        Role = newRole ?? throw new ArgumentNullException(nameof(newRole));
+        UpdatedAt = DateTime.UtcNow;
+        UpdatedBy = updatedBy;
     }
 }

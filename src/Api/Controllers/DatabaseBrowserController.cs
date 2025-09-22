@@ -4,7 +4,7 @@ namespace ActoX.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class DatabaseSchemaController : ControllerBase
+public class DatabaseBrowserController : ControllerBase
 {
     // Define your actions here
 }

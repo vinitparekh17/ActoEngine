@@ -1,6 +1,7 @@
 using ActoX.Domain.Entities;
 
-namespace ActoX.Domain.Interface;
+namespace ActoX.Domain.Interfaces;
+
 public interface IUserRepository
 {
     Task<(IEnumerable<User> Users, int TotalCount)> GetAllAsync(int page = 1, int pageSize = 10, CancellationToken cancellationToken = default);
