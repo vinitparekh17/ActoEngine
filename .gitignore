@@ -85,5 +85,6 @@ appsettings.Local.json
 secrets.json
 .env
 .env.*
+v-notes.*
 
 .fake
