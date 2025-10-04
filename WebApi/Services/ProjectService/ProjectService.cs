@@ -1,6 +1,7 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Database;
+using ActoEngine.WebApi.Services.Schema;
 using ActoEngine.WebApi.Sql.Queries;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -13,18 +14,19 @@ namespace ActoEngine.WebApi.Services.ProjectService
         Task<bool> VerifyConnectionAsync(VerifyConnectionRequest request);
         Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId);
         Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId);
-        Task<Project?> GetProjectByIdAsync(int projectId, int userId);
-        Task<IEnumerable<Project>> GetAllProjectsAsync(int userId, int offset = 0, int limit = 50);
+        Task<Project?> GetProjectByIdAsync(int projectId);
+        Task<IEnumerable<Project>> GetAllProjectsAsync();
         Task<bool> UpdateProjectAsync(int projectId, Project project, int userId);
         Task<bool> DeleteProjectAsync(int projectId, int userId);
     }
 
     public class ProjectService(IProjectRepository projectRepository, ISchemaSyncRepository schemaSyncRepository,
-    IDbConnectionFactory connectionFactory, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
+    IDbConnectionFactory connectionFactory, ISchemaService schemaService, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly ISchemaSyncRepository _schemaSyncRepository = schemaSyncRepository;
         private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
+        private readonly ISchemaService _schemaService = schemaService;
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
 
@@ -349,28 +351,28 @@ namespace ActoEngine.WebApi.Services.ProjectService
             }
         }
 
-        public async Task<Project?> GetProjectByIdAsync(int projectId, int userId)
+        public async Task<Project?> GetProjectByIdAsync(int projectId)
         {
             try
             {
-                return await _projectRepository.GetByIdAsync(projectId, userId);
+                return await _projectRepository.GetByIdAsync(projectId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving project {ProjectId} for user {UserId}", projectId, userId);
+                _logger.LogError(ex, "Error retrieving project {ProjectId}", projectId);
                 throw;
             }
         }
 
-        public async Task<IEnumerable<Project>> GetAllProjectsAsync(int userId, int offset = 0, int limit = 50)
+        public async Task<IEnumerable<Project>> GetAllProjectsAsync()
         {
             try
             {
-                return await _projectRepository.GetAllAsync(userId, offset, limit);
+                return await _projectRepository.GetAllAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving projects for user {UserId}", userId);
+                _logger.LogError(ex, "Error retrieving projects");
                 throw;
             }
         }

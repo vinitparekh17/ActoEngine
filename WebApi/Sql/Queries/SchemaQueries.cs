@@ -121,4 +121,41 @@ public static class SchemaSyncQueries
         VALUES (
             @TableId, @ForeignKeyName, @ColumnName, @ReferencedTable, @ReferencedColumn, GETUTCDATE()
         )";
+
+    public const string GetTableSchema = @"
+        SELECT 
+            c.TABLE_SCHEMA AS SchemaName,
+            c.TABLE_NAME AS TableName,
+            c.COLUMN_NAME AS ColumnName,
+            c.DATA_TYPE AS DataType,
+            c.CHARACTER_MAXIMUM_LENGTH AS MaxLength,
+            CASE WHEN c.IS_NULLABLE = 'YES' THEN 1 ELSE 0 END AS IsNullable,
+            CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END AS IsPrimaryKey,
+            CASE WHEN COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME, 'IsIdentity') = 1 
+                 THEN 1 ELSE 0 END AS IsIdentity,
+            CASE WHEN fk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END AS IsForeignKey,
+            c.COLUMN_DEFAULT AS DefaultValue
+        FROM 
+            INFORMATION_SCHEMA.COLUMNS c
+        LEFT JOIN 
+            INFORMATION_SCHEMA.KEY_COLUMN_USAGE pk 
+            ON c.TABLE_NAME = pk.TABLE_NAME 
+            AND c.COLUMN_NAME = pk.COLUMN_NAME
+            AND pk.CONSTRAINT_NAME LIKE 'PK_%'
+        LEFT JOIN
+            INFORMATION_SCHEMA.KEY_COLUMN_USAGE fk
+            ON c.TABLE_NAME = fk.TABLE_NAME
+            AND c.COLUMN_NAME = fk.COLUMN_NAME
+            AND fk.CONSTRAINT_NAME LIKE 'FK_%'
+        WHERE 
+            c.TABLE_NAME = @TableName
+        ORDER BY 
+            c.ORDINAL_POSITION";
+
+    public const string GetAllTables = @"
+SELECT s.name AS SchemaName,
+       t.name AS TableName
+FROM sys.tables t
+INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+ORDER BY s.name, t.name";
 }

@@ -41,9 +41,8 @@ public static class ProjectSqlQueries
         SELECT ProjectId, ProjectName, Description, DatabaseName, ConnectionString, 
                IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
         FROM Projects 
-        WHERE CreatedBy = @CreatedBy AND IsActive = 1
-        ORDER BY CreatedAt DESC
-        OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY";
+        WHERE IsActive = 1
+        ORDER BY CreatedAt DESC";
 
     public const string GetCount = @"
         SELECT COUNT(*) 

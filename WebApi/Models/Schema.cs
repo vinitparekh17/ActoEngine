@@ -32,3 +32,30 @@ public class SyncStatusResponse
     public int SyncProgress { get; set; }
     public DateTime? LastSyncAttempt { get; set; }
 }
+
+public class TableSchemaRequest
+{
+    public int ProjectId { get; set; }
+    public required string TableName { get; set; }
+}
+
+public class TableSchemaResponse
+{
+    public required string TableName { get; set; }
+    public required string SchemaName { get; set; }
+    public required List<ColumnSchema> Columns { get; set; }
+    public required List<string> PrimaryKeys { get; set; }
+}
+
+public class ColumnSchema
+{
+    public required string SchemaName { get; set; }
+    public required string ColumnName { get; set; }
+    public required string DataType { get; set; }
+    public int? MaxLength { get; set; }
+    public bool IsNullable { get; set; }
+    public bool IsPrimaryKey { get; set; }
+    public bool IsIdentity { get; set; }
+    public bool IsForeignKey { get; set; }
+    public string DefaultValue { get; set; } = string.Empty;
+}

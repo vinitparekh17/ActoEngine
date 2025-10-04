@@ -12,6 +12,8 @@ public interface ISchemaSyncRepository
     Task<int> SyncColumnsAsync(int tableId, IEnumerable<ColumnMetadata> columns, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncStoredProceduresAsync(int projectId, int clientId, IEnumerable<StoredProcedureMetadata> procedures, int userId, IDbConnection connection, IDbTransaction transaction);
     Task<IEnumerable<(int TableId, string TableName)>> GetProjectTablesAsync(int projectId, IDbConnection connection, IDbTransaction transaction);
+    Task<TableSchemaResponse> ReadTableSchema(string connectionString, string tableName);
+    Task<List<string>> GetAllTables(string connectionString);
 }
 
 public class SchemaSyncRepository(
@@ -83,6 +85,25 @@ public class SchemaSyncRepository(
         }
     }
 
+    public async Task<TableSchemaResponse> ReadTableSchema(string connectionString, string tableName)
+    {
+        using var conn = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+
+        var columns = await conn.QueryAsync<ColumnSchema>(
+            SchemaSyncQueries.GetTableSchema,
+            new { TableName = tableName });
+
+        var colList = columns.ToList();
+
+        return new TableSchemaResponse
+        {
+            TableName = tableName,
+            SchemaName = colList.FirstOrDefault()?.SchemaName ?? "dbo",
+            Columns = colList,
+            PrimaryKeys = colList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName).ToList()
+        };
+    }
+
     public async Task<int> SyncStoredProceduresAsync(
         int projectId,
         int clientId,
@@ -133,5 +154,12 @@ public class SchemaSyncRepository(
             _logger.LogError(ex, "Error getting tables for project {ProjectId}", projectId);
             throw;
         }
+    }
+        public async Task<List<string>> GetAllTables(string connectionString)
+    {
+        using var conn = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+        
+        var tables = await conn.QueryAsync<string>(SchemaSyncQueries.GetAllTables);
+        return tables.ToList();
     }
 }

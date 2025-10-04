@@ -6,10 +6,10 @@ namespace ActoEngine.WebApi.Repositories;
 
 public interface IProjectRepository
 {
-    Task<Project?> GetByIdAsync(int projectId, int userId, CancellationToken cancellationToken = default);
+    Task<Project?> GetByIdAsync(int projectId, CancellationToken cancellationToken = default);
     Task<int> AddOrUpdateProjectAsync(Project project, int userId);
     Task<Project?> GetByNameAsync(string projectName, int userId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Project>> GetAllAsync(int userId, int offset = 0, int limit = 50, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Project>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<int> GetCountAsync(int userId, CancellationToken cancellationToken = default);
     Task<int> CreateAsync(Project project, CancellationToken cancellationToken = default);
     Task<bool> UpdateAsync(Project project, CancellationToken cancellationToken = default);
@@ -24,7 +24,7 @@ public class ProjectRepository(
     ILogger<ProjectRepository> logger)
     : BaseRepository(connectionFactory, logger), IProjectRepository
 {
-    public async Task<Project?> GetByIdAsync(int projectId, int userId, CancellationToken cancellationToken = default)
+    public async Task<Project?> GetByIdAsync(int projectId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -37,7 +37,7 @@ public class ProjectRepository(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving project with ID {ProjectId} for user {UserId}", projectId, userId);
+            _logger.LogError(ex, "Error retrieving project with ID {ProjectId}", projectId);
             throw;
         }
     }
@@ -88,20 +88,19 @@ public class ProjectRepository(
         }
     }
 
-    public async Task<IEnumerable<Project>> GetAllAsync(int userId, int offset = 0, int limit = 50, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Project>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             var projectDtos = await QueryAsync<ProjectDto>(
                 ProjectSqlQueries.GetAll,
-                new { CreatedBy = userId, Offset = offset, Limit = limit },
                 cancellationToken);
 
             return projectDtos.Select(dto => dto.ToDomain());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving projects for user {UserId}", userId);
+            _logger.LogError(ex, "Error retrieving projects");
             throw;
         }
     }

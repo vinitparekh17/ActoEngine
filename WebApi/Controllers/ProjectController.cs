@@ -76,11 +76,8 @@ namespace ActoEngine.WebApi.Controllers
         [HttpGet("{projectId}")]
         public async Task<IActionResult> GetProject(int projectId)
         {
-            var userId = HttpContext.Items["UserId"] as int?;
-            if (userId == null)
-                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
-            var project = await _projectService.GetProjectByIdAsync(projectId, userId.Value);
+            var project = await _projectService.GetProjectByIdAsync(projectId);
             if (project == null)
                 return NotFound(ApiResponse<object>.Failure("Project not found"));
 
@@ -88,13 +85,13 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllProjects([FromQuery] int offset = 0, [FromQuery] int limit = 50)
+        public async Task<IActionResult> GetAllProjects()
         {
             var userId = HttpContext.Items["UserId"] as int?;
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
-            var projects = await _projectService.GetAllProjectsAsync(userId.Value, offset, limit);
+            var projects = await _projectService.GetAllProjectsAsync();
             return Ok(ApiResponse<IEnumerable<Project>>.Success(projects, "Projects retrieved successfully"));
         }
 

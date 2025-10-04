@@ -3,6 +3,7 @@ using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Middleware;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Auth;
+using ActoEngine.WebApi.Services.CodeGen;
 using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.Services.ProjectService;
 using Microsoft.AspNetCore.Authentication;
@@ -35,15 +36,19 @@ builder.Services.AddApiServices(builder.Configuration);
 
 
 builder.Services.AddScoped<IDbConnectionFactory, SqlServerConnectionFactory>();
+builder.Services.AddScoped<IDataSeeder, DatabaseSeeder>();
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
-builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
+builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<ISchemaSyncRepository, SchemaSyncRepository>();
+
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<ICodeGenService, CodeGenService>();
+
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenHasher, TokenHasher>();
-builder.Services.AddScoped<IDataSeeder, DatabaseSeeder>();
 
 builder.Services.AddTransient<DatabaseMigrator>();
 
