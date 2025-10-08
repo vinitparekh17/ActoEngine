@@ -1,21 +1,67 @@
 import './App.css'
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { Toaster } from 'sonner'
 import SPGeneratorPage from './pages/SpGen'
 import AppLayout from './components/layout/Layout'
+import { QueryProvider } from './providers/QueryProvider'
+import { useAuth } from './hooks/useAuth'
+import { ApiErrorBoundary } from './components/errors/ApiErrorBoundry'
+import FormBuilderPage from './pages/FormBuilder'
+import LoginPage from './pages/Login'
+import DashboardPage from './pages/Dashboard'
+
+// ============================================
+// Protected Route Wrapper
+// ============================================
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  // return <>{children}</>; // --- IGNORE ---
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path='/login' element={<LoginPage />} />
+      
+      {/* AppLayout should be a parent route with nested child routes */}
+      <Route
+        path='/'
+        element={
+          <ProtectedRoute>
+            <ApiErrorBoundary>
+              <AppLayout />
+            </ApiErrorBoundary>
+          </ProtectedRoute>
+        }
+      >
+        {/* Nested routes - these will render in the <Outlet /> */}
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="form-builder" element={<FormBuilderPage />} />
+        <Route path="sp-generator" element={<SPGeneratorPage />} />
+      </Route>
+    </Routes>
+  )
+}
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppLayout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/sp-generator" />} />
-          <Route path="/sp-generator" element={<SPGeneratorPage />} />
-          {/* <Route path="/patterns" element={<PatternsPage />} /> */}
-          {/* <Route path="/history" element={<HistoryPage />} /> */}
-          {/* <Route path="/settings" element={<SettingsPage />} /> */}
-        </Routes>
-      </AppLayout>
-    </BrowserRouter>
+    <QueryProvider>
+      <BrowserRouter>
+        <AppRoutes />
+        <Toaster position="top-right" richColors />
+      </BrowserRouter>
+    </QueryProvider>
   )
 }
 

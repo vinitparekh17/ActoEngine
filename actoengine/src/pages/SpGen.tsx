@@ -7,7 +7,7 @@ import { ChevronRight, ChevronLeft, Maximize2, Minimize2 } from "lucide-react"
 import CodeExportButton from "../components/codegen/CodeExportButton"
 import SPConfigPanel, { type SPConfigValues } from "../components/codegen/SPConfigPanel"
 import SPPreviewPane from "../components/codegen/SPPreviewPanel"
-import SPTypeCard from "../components/codegen/SPTypeCard"
+// import SPTypeCard from "../components/codegen/SPTypeCard"
 import DataTable, { type DataTableColumn } from "../components/database/DataTable"
 import TableSchemaViewer, { type TableSchema } from "../components/database/TableSchemaViewer"
 import TreeView from "../components/database/TreeView"
@@ -15,6 +15,7 @@ import TreeView from "../components/database/TreeView"
 import { Card } from "../components/ui/card"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/resizable"
 import { cn } from "../lib/utils"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../components/ui/accordion"
 
 type TreeNode = {
     id: string
@@ -229,32 +230,6 @@ export default function AppShell() {
 
     return (
         <div className="min-h-screen flex flex-col">
-            {/* Header */}
-            {/* <header className="w-full border-b bg-background">
-        <div className="mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleLeftPanel}
-              className="h-8 w-8"
-              title={isLeftPanelCollapsed ? "Show sidebar" : "Hide sidebar"}
-            >
-              {isLeftPanelCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            </Button>
-            <div className="font-semibold">ActoX</div>
-            <Separator orientation="vertical" className="h-6" />
-            <ProjectSelector projects={projects} onSelect={handleProjectSelect} />
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="outline" size="sm">
-              Help
-            </Button>
-          </div>
-        </div>
-      </header> */}
-
             {/* Main with collapsible left panel and resizable right panels */}
             <main className="flex-1">
                 <div className="flex">
@@ -284,7 +259,7 @@ export default function AppShell() {
                                         isLoading={isLoadingDbs}
                                     />
                                 </Card>
-                                <Card className="rounded-2xl p-4">
+                                {/* <Card className="rounded-2xl p-4">
                                     <div className="text-sm font-medium mb-2">History</div>
                                     <DataTable
                                         rows={historyRows}
@@ -292,7 +267,7 @@ export default function AppShell() {
                                         onRowClick={(row) => setSelectedTable(String((row as any).table))}
                                         isLoading={false}
                                     />
-                                </Card>
+                                </Card> */}
                             </div>
                         </div>
                     </div>
@@ -327,14 +302,16 @@ export default function AppShell() {
                         >
                             <ResizablePanel defaultSize={50}>
                                 <div className="h-full grid grid-rows-[auto_auto_1fr] gap-4">
-                                    <Card className="rounded-2xl p-4">
-                                        <div className="text-sm font-medium mb-2">Stored Procedure Type</div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <SPTypeCard type="CUD" selected={spType === "CUD"} onChange={onChangeType} />
-                                            <SPTypeCard type="SELECT" selected={spType === "SELECT"} onChange={onChangeType} />
-                                        </div>
+                                    <Card className="rounded-2xl p-4 overflow-hidden">
+                                        <Accordion type="single" collapsible>
+                                            <AccordionItem value="table-schema">
+                                                <AccordionTrigger className="hover:no-underline">Table Schema</AccordionTrigger>
+                                                <AccordionContent>
+                                                    <TableSchemaViewer schema={schema} selectedTable={selectedTable ?? ""} />
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        </Accordion>
                                     </Card>
-
                                     <Card className="rounded-2xl p-4">
                                         <div className="text-sm font-medium mb-2">Configuration</div>
                                         <SPConfigPanel
@@ -342,12 +319,8 @@ export default function AppShell() {
                                             config={config}
                                             availableColumns={availableColumns}
                                             onSubmit={handleConfigSubmit}
+                                            onChangeType={onChangeType}
                                         />
-                                    </Card>
-
-                                    <Card className="rounded-2xl p-4 overflow-hidden">
-                                        <div className="text-sm font-medium mb-3">Table Schema</div>
-                                        <TableSchemaViewer schema={schema} selectedTable={selectedTable ?? ""} />
                                     </Card>
                                 </div>
                             </ResizablePanel>
@@ -377,28 +350,34 @@ export default function AppShell() {
                         </ResizablePanelGroup>
                     </div>
                     {/* Fullscreen SQL Preview */}
-                    {isFullscreen && (
-                        <div className="fixed inset-0 z-50 bg-background">
-                            <Card className="rounded-2xl p-4 h-full flex flex-col gap-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="text-sm font-medium">SQL Preview</div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setIsFullscreen(false)}
-                                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                                            title="Exit Fullscreen"
-                                        >
-                                            <Minimize2 className="w-4 h-4" />
-                                        </button>
-                                        <CodeExportButton onExport={handleExport} />
-                                    </div>
+                    <div
+                        className={cn(
+                            "fixed inset-0 z-50 bg-background transition-all duration-300 ease-in-out",
+                            isFullscreen
+                                ? "opacity-100 scale-100 visible"
+                                : "opacity-0 scale-95 invisible"
+                        )}
+                    >
+                        <Card className="rounded-2xl p-4 h-full flex flex-col gap-3">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm font-medium">SQL Preview</div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setIsFullscreen(false)}
+                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                        title="Exit Fullscreen"
+                                    >
+                                        <Minimize2 className="w-4 h-4" />
+                                    </button>
+                                    <CodeExportButton onExport={handleExport} />
                                 </div>
-                                <div className="flex-1 min-h-0">
-                                    <SPPreviewPane sqlCode={sqlCode} onChange={setSqlCode} isLoading={isGenerating} />
-                                </div>
-                            </Card>
-                        </div>
-                    )}
+                            </div>
+                            <div className="flex-1 min-h-0">
+                                <SPPreviewPane sqlCode={sqlCode} onChange={setSqlCode} isLoading={isGenerating} />
+                            </div>
+                        </Card>
+                    </div>
+
                 </div>
             </main>
         </div>

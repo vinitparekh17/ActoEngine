@@ -1,4 +1,4 @@
-import { Database, FileCode, PanelLeft, PanelLeftClose, Settings, History } from "lucide-react"
+import { Database, FileCode, PanelLeft, PanelLeftClose, Settings, History, Palette } from "lucide-react"
 import { Button } from "../ui/button"
 import { NavLink, useLocation } from "react-router-dom"
 import { cn } from "../../lib/utils"
@@ -6,6 +6,7 @@ import { cn } from "../../lib/utils"
 // components/layout/AppSidebar.tsx
 const SIDEBAR_ITEMS = [
   { icon: Database, label: "SP Generator", href: "/sp-generator" },
+  { icon: Palette, label: "Form Builder", href: "/form-builder" },
   { icon: FileCode, label: "Code Patterns", href: "/patterns" },
   { icon: History, label: "Generation History", href: "/history" },
   { icon: Settings, label: "Settings", href: "/settings" },

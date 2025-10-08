@@ -1,9 +1,11 @@
 import { useState } from "react"
+import { Outlet } from 'react-router-dom';
 import AppHeader from "./AppHeader"
 import AppSidebar from "./Sidebar"
+import { ConfirmDialog } from "./ConfirmDialog";
 
 // components/layout/AppLayout.tsx
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   
   return (
@@ -20,7 +22,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         
         {/* Feature content area */}
         <main className="flex-1">
-          {children}
+          <ConfirmDialog />
+          <Outlet />
         </main>
       </div>
     </div>
