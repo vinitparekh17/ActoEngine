@@ -18,7 +18,7 @@ public static class SchemaSyncQueries
         FROM Projects
         WHERE ProjectId = @ProjectId";
 
-    // Table sync
+    // Table sync - Target database queries
     public const string GetTargetTables = @"
         SELECT name 
         FROM sys.tables 
@@ -41,7 +41,12 @@ public static class SchemaSyncQueries
         FROM TablesMetadata 
         WHERE ProjectId = @ProjectId AND TableName = @TableName";
 
-    // Column sync
+    public const string GetTableMetaByProjectId = @"
+        SELECT TableId, TableName 
+        FROM TablesMetadata 
+        WHERE ProjectId = @ProjectId";
+
+    // Column sync - Target database queries
     public const string GetTargetColumns = @"
         SELECT
             c.name AS ColumnName,
@@ -57,7 +62,7 @@ public static class SchemaSyncQueries
             INNER JOIN sys.tables t ON c.object_id = t.object_id
             INNER JOIN sys.types typ ON c.user_type_id = typ.user_type_id
             LEFT JOIN sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id AND ic.is_included_column = 0
-            LEFT JOIN sys.key_constraints kc ON kc.parent_object_id = c.object_id AND kc.unique_index_id = ic.index_id AND kc.type = 'PK' -- Join to key constraints
+            LEFT JOIN sys.key_constraints kc ON kc.parent_object_id = c.object_id AND kc.unique_index_id = ic.index_id AND kc.type = 'PK'
             LEFT JOIN sys.foreign_key_columns fk ON fk.parent_object_id = c.object_id AND fk.parent_column_id = c.column_id
         WHERE t.name = @TableName
         ORDER BY c.column_id";
@@ -76,7 +81,7 @@ public static class SchemaSyncQueries
             @IsNullable, @IsPrimaryKey, @IsForeignKey, @ColumnOrder
         )";
 
-    // Stored Procedure sync
+    // Stored Procedure sync - Target database queries
     public const string GetTargetStoredProcedures = @"
         SELECT 
             p.name AS ProcedureName,
@@ -97,7 +102,7 @@ public static class SchemaSyncQueries
             @ProjectId, @ClientId, @ProcedureName, @Definition, @UserId, GETUTCDATE()
         )";
 
-    // Foreign key relationships
+    // Foreign key relationships - Target database queries
     public const string GetForeignKeys = @"
         SELECT 
             fk.name AS ForeignKeyName,
@@ -122,6 +127,7 @@ public static class SchemaSyncQueries
             @TableId, @ForeignKeyName, @ColumnName, @ReferencedTable, @ReferencedColumn, GETUTCDATE()
         )";
 
+    // Schema reading - Target database queries
     public const string GetTableSchema = @"
         SELECT 
             c.TABLE_SCHEMA AS SchemaName,
@@ -153,9 +159,41 @@ public static class SchemaSyncQueries
             c.ORDINAL_POSITION";
 
     public const string GetAllTables = @"
-SELECT s.name AS SchemaName,
-       t.name AS TableName
-FROM sys.tables t
-INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
-ORDER BY s.name, t.name";
+        SELECT t.name AS TableName
+        FROM sys.tables t
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        ORDER BY s.name, t.name";
+
+    // Stored metadata queries - ActoEngine database queries
+    public const string GetStoredTables = @"
+        SELECT TableId, ProjectId, TableName, Description, CreatedAt 
+        FROM TablesMetadata 
+        WHERE ProjectId = @ProjectId
+        ORDER BY TableName";
+
+    public const string GetStoredColumns = @"
+        SELECT ColumnId, TableId, ColumnName, DataType, MaxLength, 
+               Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey, 
+               DefaultValue, Description, ColumnOrder
+        FROM ColumnsMetadata 
+        WHERE TableId = @TableId
+        ORDER BY ColumnOrder";
+
+    public const string GetStoredStoredProcedures = @"
+        SELECT SpId, ProjectId, ClientId, ProcedureName, Definition, 
+               Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
+        FROM SpMetadata 
+        WHERE ProjectId = @ProjectId
+        ORDER BY ProcedureName";
+
+    public const string GetStoredTableByName = @"
+        SELECT TableId, TableName 
+        FROM TablesMetadata 
+        WHERE ProjectId = @ProjectId AND TableName = @TableName";
+
+    public const string GetStoredTableColumns = @"
+        SELECT ColumnName, DataType, MaxLength, IsNullable, IsPrimaryKey, IsForeignKey, DefaultValue
+        FROM ColumnsMetadata 
+        WHERE TableId = @TableId
+        ORDER BY ColumnOrder";
 }

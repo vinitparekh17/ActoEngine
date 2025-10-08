@@ -29,10 +29,16 @@ namespace ActoEngine.WebApi.Controllers
             if (!result.Success)
                 return Unauthorized(ApiResponse<object>.Failure(result.ErrorMessage ?? "Authentication failed"));
 
+            var user = await _authService.GetUserAsync(result.UserId ?? 0);
+            if (user == null)
+                return Unauthorized(ApiResponse<object>.Failure("User not found"));
+
+            user.PasswordHash = string.Empty;
             var responseData = new AuthTokenResponse
             {
-                SessionToken = result.SessionToken!,
+                Token = result.SessionToken!,
                 RefreshToken = result.RefreshToken!,
+                User = user,
                 ExpiresAt = result.ExpiresAt
             };
 
@@ -64,7 +70,7 @@ namespace ActoEngine.WebApi.Controllers
 
             var responseData = new AuthTokenResponse
             {
-                SessionToken = result.SessionToken!,
+                Token = result.SessionToken!,
                 RefreshToken = result.RefreshToken!,
                 ExpiresAt = result.ExpiresAt
             };

@@ -6,6 +6,7 @@ using ActoEngine.WebApi.Services.Auth;
 using ActoEngine.WebApi.Services.CodeGen;
 using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.Services.ProjectService;
+using ActoEngine.WebApi.Services.Schema;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -44,6 +45,7 @@ builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<ISchemaSyncRepository, SchemaSyncRepository>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ICodeGenService, CodeGenService>();
 
@@ -62,12 +64,14 @@ await seeder.SeedAsync();
 
 // Configure middleware/pipeline
 app.UseRateLimiter();
+app.UseCors("ReactPolicy");
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCustomSwagger(app.Environment);
 app.UseAuthentication();
 app.UseTokenAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.MapControllers();

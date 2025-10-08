@@ -8,6 +8,16 @@ public interface ISchemaService
     Task<List<string>> GetAllTablesAsync(string connectionString);
     Task<TableSchemaResponse> GetTableSchemaAsync(string connectionString, string tableName);
     Task<List<DatabaseTableInfo>> GetDatabaseStructureAsync(string connectionString);
+    Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
+    
+    // Methods for stored metadata
+    Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
+    Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
+    Task<List<StoredProcedureMetadataDto>> GetStoredProceduresMetadataAsync(int projectId);
+    Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
+    
+    // Tree structure
+    Task<TreeNode> GetDatabaseTreeAsync(int projectId, string databaseName);
 }
 
 public class DatabaseTableInfo
@@ -27,8 +37,7 @@ public class SchemaService(
     {
         try
         {
-            _logger.LogInformation("Retrieving all tables from database");
-            return await _schemaRepository.GetAllTables(connectionString);
+            return await _schemaRepository.GetAllTablesAsync(connectionString);
         }
         catch (Exception ex)
         {
@@ -40,15 +49,13 @@ public class SchemaService(
     public async Task<TableSchemaResponse> GetTableSchemaAsync(string connectionString, string tableName)
     {
         try
-        {
-            _logger.LogInformation("Retrieving schema for table: {TableName}", tableName);
-            
+        {   
             if (string.IsNullOrWhiteSpace(tableName))
             {
                 throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
             }
 
-            return await _schemaRepository.ReadTableSchema(connectionString, tableName);
+            return await _schemaRepository.ReadTableSchemaAsync(connectionString, tableName);
         }
         catch (Exception ex)
         {
@@ -61,17 +68,12 @@ public class SchemaService(
     {
         try
         {
-            _logger.LogInformation("Retrieving database structure");
+            var tables = await _schemaRepository.GetAllTablesAsync(connectionString);
             
-            var tables = await _schemaRepository.GetAllTables(connectionString);
-            
-            // Parse the schema.table format returned by GetAllTables query
             var databaseStructure = new List<DatabaseTableInfo>();
             
             foreach (var table in tables)
             {
-                // Assuming the GetAllTables query returns "SchemaName.TableName" format
-                // If it returns just table names, we'll default to "dbo" schema
                 var parts = table.Split('.');
                 if (parts.Length == 2)
                 {
@@ -96,6 +98,179 @@ public class SchemaService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving database structure");
+            throw;
+        }
+    }
+
+    public async Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString)
+    {
+        try
+        {
+            return await _schemaRepository.GetStoredProceduresAsync(connectionString);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored procedures from database");
+            throw;
+        }
+    }
+
+    public async Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId)
+    {
+        try
+        {
+            return await _schemaRepository.GetStoredTablesAsync(projectId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored tables for project {ProjectId}", projectId);
+            throw;
+        }
+    }
+
+    public async Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId)
+    {
+        try
+        {
+            return await _schemaRepository.GetStoredColumnsAsync(tableId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored columns for table {TableId}", tableId);
+            throw;
+        }
+    }
+
+    public async Task<List<StoredProcedureMetadataDto>> GetStoredProceduresMetadataAsync(int projectId)
+    {
+        try
+        {
+            return await _schemaRepository.GetStoredStoredProceduresAsync(projectId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored procedure metadata for project {ProjectId}", projectId);
+            throw;
+        }
+    }
+
+    public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)
+    {
+        try
+        {            
+            if (string.IsNullOrWhiteSpace(tableName))
+            {
+                throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
+            }
+
+            return await _schemaRepository.GetStoredTableSchemaAsync(projectId, tableName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored table schema for table {TableName} in project {ProjectId}", tableName, projectId);
+            throw;
+        }
+    }
+
+    public async Task<TreeNode> GetDatabaseTreeAsync(int projectId, string databaseName)
+    {
+        try
+        {
+            var tables = await GetStoredTablesAsync(projectId);
+            var procedures = await GetStoredProceduresMetadataAsync(projectId);
+
+            var tablesChildren = new List<TreeNode>();
+            foreach (var table in tables.OrderBy(t => t.TableName))
+            {
+                // Get columns for this table
+                var columns = await GetStoredColumnsAsync(table.TableId);
+                
+                var columnNodes = columns
+                    .OrderBy(c => c.ColumnOrder)
+                    .Select(col => new TreeNode
+                    {
+                        Id = $"col-{table.TableId}-{col.ColumnId}",
+                        Name = col.ColumnName,
+                        Type = "column"
+                    })
+                    .ToList();
+
+                tablesChildren.Add(new TreeNode
+                {
+                    Id = $"table-{table.TableId}",
+                    Name = table.TableName,
+                    Type = "table",
+                    Children = columnNodes
+                });
+            }
+
+            var tablesFolder = new TreeNode
+            {
+                Id = $"db-{projectId}-tables",
+                Name = "Tables",
+                Type = "tables-folder",
+                Children = tablesChildren
+            };
+
+            // Build Stored Procedures folder
+            var spChildren = procedures
+                .OrderBy(sp => sp.ProcedureName)
+                .Select(sp => new TreeNode
+                {
+                    Id = $"sp-{sp.SpId}",
+                    Name = sp.ProcedureName,
+                    Type = "stored-procedure"
+                })
+                .ToList();
+
+            var storedProceduresFolder = new TreeNode
+            {
+                Id = $"db-{projectId}-sps",
+                Name = "Stored Procedures",
+                Type = "stored-procedures-folder",
+                Children = spChildren
+            };
+
+            // Build Functions folder (placeholder for future)
+            var functionsFolder = new TreeNode
+            {
+                Id = $"db-{projectId}-funcs",
+                Name = "Functions",
+                Type = "functions-folder",
+                Children = new List<TreeNode>()
+            };
+
+            // Build Programmability folder
+            var programmabilityFolder = new TreeNode
+            {
+                Id = $"db-{projectId}-prog",
+                Name = "Programmability",
+                Type = "programmability-folder",
+                Children = new List<TreeNode>
+                {
+                    storedProceduresFolder,
+                    functionsFolder
+                }
+            };
+
+            // Build root database node
+            var databaseNode = new TreeNode
+            {
+                Id = $"db-{projectId}",
+                Name = databaseName,
+                Type = "database",
+                Children = new List<TreeNode>
+                {
+                    tablesFolder,
+                    programmabilityFolder
+                }
+            };
+
+            return databaseNode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error building database tree for project {ProjectId}", projectId);
             throw;
         }
     }

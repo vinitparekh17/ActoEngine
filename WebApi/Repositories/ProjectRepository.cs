@@ -4,12 +4,35 @@ using ActoEngine.WebApi.Sql.Queries;
 
 namespace ActoEngine.WebApi.Repositories;
 
+/// <summary>
+/// Public DTO for Project - excludes sensitive information like ConnectionString
+/// </summary>
+public class PublicProjectDto
+{
+    public int ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public int ClientId { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public string DatabaseName { get; set; } = string.Empty;
+    public string? DatabaseType { get; set; } = "SqlServer";
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public int CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public int? UpdatedBy { get; set; }
+    public bool HasConnection { get; set; }
+}
+
 public interface IProjectRepository
 {
-    Task<Project?> GetByIdAsync(int projectId, CancellationToken cancellationToken = default);
+    // Public methods - return data without connection strings
+    Task<PublicProjectDto?> GetByIdAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<PublicProjectDto?> GetByNameAsync(string projectName, int userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<PublicProjectDto>> GetAllAsync(CancellationToken cancellationToken = default);
+    
+    // Internal methods - include connection strings for system operations
+    Task<Project?> GetByIdInternalAsync(int projectId, CancellationToken cancellationToken = default);
     Task<int> AddOrUpdateProjectAsync(Project project, int userId);
-    Task<Project?> GetByNameAsync(string projectName, int userId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Project>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<int> GetCountAsync(int userId, CancellationToken cancellationToken = default);
     Task<int> CreateAsync(Project project, CancellationToken cancellationToken = default);
     Task<bool> UpdateAsync(Project project, CancellationToken cancellationToken = default);
@@ -24,12 +47,30 @@ public class ProjectRepository(
     ILogger<ProjectRepository> logger)
     : BaseRepository(connectionFactory, logger), IProjectRepository
 {
-    public async Task<Project?> GetByIdAsync(int projectId, CancellationToken cancellationToken = default)
+    public async Task<PublicProjectDto?> GetByIdAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var publicDto = await QueryFirstOrDefaultAsync<PublicProjectDto>(
+                ProjectSqlQueries.GetById,
+                new { ProjectID = projectId },
+                cancellationToken);
+
+            return publicDto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving project with ID {ProjectId}", projectId);
+            throw;
+        }
+    }
+
+    public async Task<Project?> GetByIdInternalAsync(int projectId, CancellationToken cancellationToken = default)
     {
         try
         {
             var projectDto = await QueryFirstOrDefaultAsync<ProjectDto>(
-                ProjectSqlQueries.GetById,
+                ProjectSqlQueries.GetByIdInternal,
                 new { ProjectID = projectId },
                 cancellationToken);
 
@@ -70,16 +111,16 @@ public class ProjectRepository(
         }
     }
 
-    public async Task<Project?> GetByNameAsync(string projectName, int userId, CancellationToken cancellationToken = default)
+    public async Task<PublicProjectDto?> GetByNameAsync(string projectName, int userId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var projectDto = await QueryFirstOrDefaultAsync<ProjectDto>(
+            var publicDto = await QueryFirstOrDefaultAsync<PublicProjectDto>(
                 ProjectSqlQueries.GetByName,
                 new { ProjectName = projectName, CreatedBy = userId },
                 cancellationToken);
 
-            return projectDto?.ToDomain();
+            return publicDto;
         }
         catch (Exception ex)
         {
@@ -88,15 +129,15 @@ public class ProjectRepository(
         }
     }
 
-    public async Task<IEnumerable<Project>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<PublicProjectDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var projectDtos = await QueryAsync<ProjectDto>(
+            var publicDtos = await QueryAsync<PublicProjectDto>(
                 ProjectSqlQueries.GetAll,
                 cancellationToken);
 
-            return projectDtos.Select(dto => dto.ToDomain());
+            return publicDtos;
         }
         catch (Exception ex)
         {
@@ -127,10 +168,10 @@ public class ProjectRepository(
     {
         try
         {
+
             var parameters = new
             {
                 project.ProjectName,
-                project.ClientId,
                 project.Description,
                 project.DatabaseName,
                 project.ConnectionString,

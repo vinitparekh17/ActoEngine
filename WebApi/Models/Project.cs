@@ -8,10 +8,9 @@ namespace ActoEngine.WebApi.Models
         {
         }
 
-        public Project(string projectName, int clientId, string databaseName, string connectionString, DateTime createdAt, int createdBy, string description = "", string databaseType = "SqlServer")
+        public Project(string projectName, string databaseName, string connectionString, DateTime createdAt, int createdBy, string description = "", string databaseType = "SqlServer")
         {
             ProjectName = projectName;
-            ClientId = clientId;
             DatabaseName = databaseName;
             ConnectionString = connectionString;
             Description = description;
@@ -23,8 +22,6 @@ namespace ActoEngine.WebApi.Models
 
         public int ProjectId { get; set; }
         public string ProjectName { get; set; } = string.Empty;
-
-        public int ClientId { get; set; }
         public string Description { get; set; } = string.Empty;
         public string DatabaseName { get; set; } = string.Empty;
         public string ConnectionString { get; set; } = string.Empty;
@@ -81,8 +78,6 @@ namespace ActoEngine.WebApi.Models
 
         [StringLength(50, ErrorMessage = "Database type cannot exceed 50 characters")]
         public string DatabaseType { get; set; } = "SqlServer";
-
-        public int ClientId { get; set; }
     }
 
     public class ProjectResponse
@@ -120,8 +115,8 @@ namespace ActoEngine.WebApi.Models
 
         [StringLength(50, ErrorMessage = "Database type cannot exceed 50 characters")]
         public string DatabaseType { get; set; } = "SqlServer";
-
-        public int ClientId { get; set; }
     }
+
+
 
 }

@@ -12,8 +12,15 @@ public interface ISchemaSyncRepository
     Task<int> SyncColumnsAsync(int tableId, IEnumerable<ColumnMetadata> columns, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncStoredProceduresAsync(int projectId, int clientId, IEnumerable<StoredProcedureMetadata> procedures, int userId, IDbConnection connection, IDbTransaction transaction);
     Task<IEnumerable<(int TableId, string TableName)>> GetProjectTablesAsync(int projectId, IDbConnection connection, IDbTransaction transaction);
-    Task<TableSchemaResponse> ReadTableSchema(string connectionString, string tableName);
-    Task<List<string>> GetAllTables(string connectionString);
+    Task<TableSchemaResponse> ReadTableSchemaAsync(string connectionString, string tableName);
+    Task<List<string>> GetAllTablesAsync(string connectionString);
+    Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
+    
+    // Methods to retrieve stored metadata
+    Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
+    Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
+    Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId);
+    Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
 }
 
 public class SchemaSyncRepository(
@@ -85,25 +92,6 @@ public class SchemaSyncRepository(
         }
     }
 
-    public async Task<TableSchemaResponse> ReadTableSchema(string connectionString, string tableName)
-    {
-        using var conn = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
-
-        var columns = await conn.QueryAsync<ColumnSchema>(
-            SchemaSyncQueries.GetTableSchema,
-            new { TableName = tableName });
-
-        var colList = columns.ToList();
-
-        return new TableSchemaResponse
-        {
-            TableName = tableName,
-            SchemaName = colList.FirstOrDefault()?.SchemaName ?? "dbo",
-            Columns = colList,
-            PrimaryKeys = colList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName).ToList()
-        };
-    }
-
     public async Task<int> SyncStoredProceduresAsync(
         int projectId,
         int clientId,
@@ -115,7 +103,7 @@ public class SchemaSyncRepository(
         try
         {
             var count = 0;
-            foreach (var sp in procedures)
+            foreach (var procedure in procedures)
             {
                 await connection.ExecuteAsync(
                     SchemaSyncQueries.InsertSpMetadata,
@@ -123,8 +111,8 @@ public class SchemaSyncRepository(
                     {
                         ProjectId = projectId,
                         ClientId = clientId,
-                        sp.ProcedureName,
-                        sp.Definition,
+                        ProcedureName = procedure.ProcedureName,
+                        Definition = procedure.Definition,
                         UserId = userId
                     },
                     transaction);
@@ -146,8 +134,10 @@ public class SchemaSyncRepository(
     {
         try
         {
-            const string query = "SELECT TableId, TableName FROM TablesMetadata WHERE ProjectId = @ProjectId";
-            return await connection.QueryAsync<(int, string)>(query, new { ProjectId = projectId }, transaction);
+            return await connection.QueryAsync<(int, string)>(
+                SchemaSyncQueries.GetTableMetaByProjectId, 
+                new { ProjectId = projectId }, 
+                transaction);
         }
         catch (Exception ex)
         {
@@ -155,11 +145,123 @@ public class SchemaSyncRepository(
             throw;
         }
     }
-        public async Task<List<string>> GetAllTables(string connectionString)
+
+    public async Task<TableSchemaResponse> ReadTableSchemaAsync(string connectionString, string tableName)
     {
-        using var conn = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+        // Note: Uses external connection string, cannot use BaseRepository methods
+        try
+        {
+            using var connection = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+
+            var columns = await connection.QueryAsync<ColumnSchema>(
+                SchemaSyncQueries.GetTableSchema,
+                new { TableName = tableName });
+
+            var columnsList = columns.ToList();
+
+            return new TableSchemaResponse
+            {
+                TableName = tableName,
+                SchemaName = columnsList.FirstOrDefault()?.SchemaName ?? "dbo",
+                Columns = columnsList,
+                PrimaryKeys = columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName).ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading table schema for table {TableName}", tableName);
+            throw;
+        }
+    }
+
+    public async Task<List<string>> GetAllTablesAsync(string connectionString)
+    {
+        // Note: Uses external connection string, cannot use BaseRepository methods
+        try
+        {
+            using var connection = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+            
+            var tables = await connection.QueryAsync<string>(SchemaSyncQueries.GetAllTables);
+            return tables.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all tables from connection string");
+            throw;
+        }
+    }
+
+    public async Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString)
+    {
+        // Note: Uses external connection string, cannot use BaseRepository methods
+        try
+        {
+            using var connection = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+            
+            var procedures = await connection.QueryAsync<StoredProcedureMetadata>(
+                SchemaSyncQueries.GetTargetStoredProcedures);
+            
+            return procedures.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting stored procedures from connection string");
+            throw;
+        }
+    }
+
+    public async Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId)
+    {
+        var tables = await QueryAsync<TableMetadataDto>(
+            SchemaSyncQueries.GetStoredTables, 
+            new { ProjectId = projectId });
         
-        var tables = await conn.QueryAsync<string>(SchemaSyncQueries.GetAllTables);
         return tables.ToList();
+    }
+
+    public async Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId)
+    {
+        var columns = await QueryAsync<ColumnMetadataDto>(
+            SchemaSyncQueries.GetStoredColumns, 
+            new { TableId = tableId });
+        
+        return columns.ToList();
+    }
+
+    public async Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId)
+    {
+        var procedures = await QueryAsync<StoredProcedureMetadataDto>(
+            SchemaSyncQueries.GetStoredStoredProcedures, 
+            new { ProjectId = projectId });
+        
+        return procedures.ToList();
+    }
+
+    public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)
+    {
+        // First get the table
+        var table = await QueryFirstOrDefaultAsync<(int TableId, string TableName)>(
+            SchemaSyncQueries.GetStoredTableByName, 
+            new { ProjectId = projectId, TableName = tableName });
+        
+        if (table.TableId == 0)
+        {
+            throw new InvalidOperationException($"Table '{tableName}' not found for project {projectId}");
+        }
+
+        // Then get the columns
+        var columns = await QueryAsync<ColumnSchema>(
+            SchemaSyncQueries.GetStoredTableColumns, 
+            new { TableId = table.TableId });
+        
+        var columnsList = columns.ToList();
+
+        return new TableSchemaResponse
+        {
+            TableName = tableName,
+            SchemaName = "dbo", // Default schema
+            Columns = columnsList,
+            PrimaryKeys = columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName).ToList()
+        };
     }
 }

@@ -30,13 +30,15 @@ public class CodeGenController : ControllerBase
     /// Generate CUD or SELECT stored procedure
     /// </summary>
     [HttpPost("generate")]
+    [ProducesResponseType(typeof(ApiResponse<GeneratedSpResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ApiResponse<GeneratedSpResponse>>> Generate(
         [FromBody] SpGenerationRequest req)
     {
         try
         {
-            _log.LogInformation("Generating {Type} SP for: {Table}", req.Type, req.TableName);
-            
             var result = await _codeGen.GenerateStoredProcedure(req);
 
             if (result == null)
@@ -47,7 +49,7 @@ public class CodeGenController : ControllerBase
 
             var spName = result.StoredProcedure?.SpName ?? "Unknown";
             return Ok(ApiResponse<GeneratedSpResponse>.Success(
-                result, 
+                result,
                 $"Generated {req.Type} SP: {spName}"));
         }
         catch (Exception ex)
@@ -62,6 +64,10 @@ public class CodeGenController : ControllerBase
     /// Get table schema
     /// </summary>
     [HttpPost("schema/table")]
+    [ProducesResponseType(typeof(ApiResponse<TableSchemaResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ApiResponse<TableSchemaResponse>>> GetSchema(
         [FromBody] TableSchemaRequest req)
     {
@@ -69,7 +75,7 @@ public class CodeGenController : ControllerBase
         {
             var result = await _codeGen.GetTableSchema(req);
             return Ok(ApiResponse<TableSchemaResponse>.Success(
-                result, 
+                result,
                 $"Found {result.Columns.Count} columns"));
         }
         catch (Exception ex)
@@ -84,15 +90,18 @@ public class CodeGenController : ControllerBase
     /// Get all tables from project
     /// </summary>
     [HttpGet("schema/tables/{projectId}")]
+    [ProducesResponseType(typeof(ApiResponse<List<string>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<ApiResponse<List<string>>>> GetTables(int projectId)
     {
         try
         {
-            var project = await _projectRepo.GetByIdAsync(projectId) ?? throw new InvalidOperationException($"Project with ID {projectId} not found.");
-            var tables = await _schemaRepo.GetAllTables(project.ConnectionString);
-            
+            var project = await _projectRepo.GetByIdInternalAsync(projectId) ?? throw new InvalidOperationException($"Project with ID {projectId} not found.");
+            var tables = await _schemaRepo.GetAllTablesAsync(project.ConnectionString);
+
             return Ok(ApiResponse<List<string>>.Success(
-                tables, 
+                tables,
                 $"Found {tables.Count} tables"));
         }
         catch (Exception ex)
@@ -113,7 +122,7 @@ public class CodeGenController : ControllerBase
         try
         {
             _log.LogInformation("Quick CUD for: {Table}", req.TableName);
-            
+
             var schema = await _codeGen.GetTableSchema(new TableSchemaRequest
             {
                 ProjectId = req.ProjectId,
@@ -133,7 +142,7 @@ public class CodeGenController : ControllerBase
             });
 
             return Ok(ApiResponse<GeneratedSpResponse>.Success(
-                result, 
+                result,
                 $"Generated CUD SP: {result.StoredProcedure?.SpName ?? "Unknown"}"));
         }
         catch (Exception ex)
@@ -154,7 +163,7 @@ public class CodeGenController : ControllerBase
         try
         {
             _log.LogInformation("Quick SELECT for: {Table}", req.TableName);
-            
+
             var schema = await _codeGen.GetTableSchema(new TableSchemaRequest
             {
                 ProjectId = req.ProjectId,
@@ -174,7 +183,7 @@ public class CodeGenController : ControllerBase
             });
 
             return Ok(ApiResponse<GeneratedSpResponse>.Success(
-                result, 
+                result,
                 $"Generated SELECT SP: {result.StoredProcedure?.SpName ?? "Unknown"}"));
         }
         catch (Exception ex)

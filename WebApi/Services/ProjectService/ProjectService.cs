@@ -14,8 +14,8 @@ namespace ActoEngine.WebApi.Services.ProjectService
         Task<bool> VerifyConnectionAsync(VerifyConnectionRequest request);
         Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId);
         Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId);
-        Task<Project?> GetProjectByIdAsync(int projectId);
-        Task<IEnumerable<Project>> GetAllProjectsAsync();
+        Task<PublicProjectDto?> GetProjectByIdAsync(int projectId);
+        Task<IEnumerable<PublicProjectDto>> GetAllProjectsAsync();
         Task<bool> UpdateProjectAsync(int projectId, Project project, int userId);
         Task<bool> DeleteProjectAsync(int projectId, int userId);
     }
@@ -59,14 +59,13 @@ namespace ActoEngine.WebApi.Services.ProjectService
                 Description = request.Description,
                 DatabaseName = request.DatabaseName,
                 ConnectionString = request.ConnectionString,
-                ClientId = request.ClientId,
                 IsActive = true
             };
 
             var projectId = await _projectRepository.AddOrUpdateProjectAsync(project, userId);
 
             // Start background sync
-            _ = Task.Run(async () => await SyncSchemaWithProgressAsync(projectId, request.ClientId, request.ConnectionString, userId));
+            _ = Task.Run(async () => await SyncSchemaWithProgressAsync(projectId, request.ConnectionString, userId));
 
             return new ProjectResponse
             {
@@ -81,7 +80,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             return await _projectRepository.GetSyncStatusAsync(projectId);
         }
 
-        private async Task SyncSchemaWithProgressAsync(int projectId, int clientId, string targetConnectionString, int userId)
+        private async Task SyncSchemaWithProgressAsync(int projectId, string targetConnectionString, int userId)
         {
             try
             {
@@ -102,7 +101,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
                     else
                     {
                         _logger.LogInformation("Target database is on a different server. Using cross-server sync for project {ProjectId}", projectId);
-                        await SyncViaCrossServerAsync(projectId, clientId, targetConnectionString, userId, actoxConn, transaction);
+                        await SyncViaCrossServerAsync(projectId, targetConnectionString, userId, actoxConn, transaction);
                     }
 
                     transaction.Commit();
@@ -125,7 +124,6 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
         private async Task SyncViaCrossServerAsync(
             int projectId,
-            int clientId,
             string targetConnectionString,
             int userId,
             IDbConnection actoxConn,
@@ -137,7 +135,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
             // Step 1: Sync Tables
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing tables...", 10);
-            var tables = await ReadTablesFromTargetAsync(targetConn);
+            var tables = await _schemaService.GetAllTablesAsync(targetConnectionString);
             var tableCount = await _schemaSyncRepository.SyncTablesAsync(projectId, tables, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {tableCount} tables", 33);
 
@@ -148,23 +146,12 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
             // Step 3: Sync SPs
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 70);
-            var procedures = await ReadStoredProceduresFromTargetAsync(targetConn);
-            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, clientId, procedures, userId, actoxConn, transaction);
+            var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
+            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, 0, procedures, userId, actoxConn, transaction); // TODO: Handle clientId properly
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
 
-        private static async Task<IEnumerable<string>> ReadTablesFromTargetAsync(SqlConnection targetConn)
-        {
-            using var cmd = new SqlCommand(SchemaSyncQueries.GetTargetTables, targetConn);
-            using var reader = await cmd.ExecuteReaderAsync();
 
-            var tables = new List<string>();
-            while (await reader.ReadAsync())
-            {
-                tables.Add(reader.GetString(0));
-            }
-            return tables;
-        }
 
         private async Task<int> SyncColumnsForAllTablesAsync(
             int projectId,
@@ -210,22 +197,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             return columns;
         }
 
-        private static async Task<IEnumerable<StoredProcedureMetadata>> ReadStoredProceduresFromTargetAsync(SqlConnection targetConn)
-        {
-            using var cmd = new SqlCommand(SchemaSyncQueries.GetTargetStoredProcedures, targetConn);
-            using var reader = await cmd.ExecuteReaderAsync();
 
-            var procedures = new List<StoredProcedureMetadata>();
-            while (await reader.ReadAsync())
-            {
-                procedures.Add(new StoredProcedureMetadata
-                {
-                    ProcedureName = reader.GetString(0),
-                    Definition = reader.IsDBNull(1) ? null : reader.GetString(1)
-                });
-            }
-            return procedures;
-        }
 
         private static async Task SyncViaSameServerAsync(
             int projectId,
@@ -332,7 +304,6 @@ namespace ActoEngine.WebApi.Services.ProjectService
             {
                 var project = new Project(
                     request.ProjectName,
-                    request.ClientId,
                     request.DatabaseName,
                     request.ConnectionString,
                     DateTime.UtcNow,
@@ -351,7 +322,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             }
         }
 
-        public async Task<Project?> GetProjectByIdAsync(int projectId)
+        public async Task<PublicProjectDto?> GetProjectByIdAsync(int projectId)
         {
             try
             {
@@ -364,7 +335,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             }
         }
 
-        public async Task<IEnumerable<Project>> GetAllProjectsAsync()
+        public async Task<IEnumerable<PublicProjectDto>> GetAllProjectsAsync()
         {
             try
             {

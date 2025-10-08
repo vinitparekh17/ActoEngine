@@ -30,7 +30,7 @@ namespace ActoEngine.WebApi.Config
                 options.AddPolicy("ReactPolicy", builder =>
                 {
                     var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                        ?? ["http://localhost:3000"];
+                        ?? ["http://localhost:5173"];
 
                     builder
                         .WithOrigins(allowedOrigins)

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.ProjectService;
+using ActoEngine.WebApi.Repositories;
 
 namespace ActoEngine.WebApi.Controllers
 {
@@ -81,18 +82,14 @@ namespace ActoEngine.WebApi.Controllers
             if (project == null)
                 return NotFound(ApiResponse<object>.Failure("Project not found"));
 
-            return Ok(ApiResponse<Project>.Success(project, "Project retrieved successfully"));
+            return Ok(ApiResponse<PublicProjectDto>.Success(project, "Project retrieved successfully"));
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAllProjects()
         {
-            var userId = HttpContext.Items["UserId"] as int?;
-            if (userId == null)
-                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
-
             var projects = await _projectService.GetAllProjectsAsync();
-            return Ok(ApiResponse<IEnumerable<Project>>.Success(projects, "Projects retrieved successfully"));
+            return Ok(ApiResponse<IEnumerable<PublicProjectDto>>.Success(projects, "Projects retrieved successfully"));
         }
 
         [HttpPut("{projectId}")]

@@ -16,6 +16,37 @@ public class DatabaseBrowserController(
     private readonly IProjectRepository _projectRepository = projectRepository;
     private readonly ILogger<DatabaseBrowserController> _logger = logger;
 
+        /// <summary>
+    /// Get database tree structure for frontend display
+    /// </summary>
+    /// <param name="projectId">The project ID</param>
+    /// <returns>Tree structure with database, tables, columns, stored procedures, etc.</returns>
+    [HttpGet("projects/{projectId}/tree")]
+    public async Task<ActionResult<TreeNode>> GetDatabaseTree(int projectId)
+    {
+        try
+        {
+            _logger.LogInformation("Getting database tree for project {ProjectId}", projectId);
+            
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            if (project == null)
+            {
+                return NotFound($"Project with ID {projectId} not found");
+            }
+
+            // Use project name or database name from connection string
+            var databaseName = project.ProjectName ?? "Database";
+            
+            var tree = await _schemaService.GetDatabaseTreeAsync(projectId, databaseName);
+            return Ok(tree);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting database tree for project {ProjectId}", projectId);
+            return StatusCode(500, "An error occurred while retrieving database tree");
+        }
+    }
+
     /// <summary>
     /// Get all tables in the database for a project
     /// </summary>
@@ -28,7 +59,7 @@ public class DatabaseBrowserController(
         {
             _logger.LogInformation("Getting all tables for project {ProjectId}", projectId);
             
-            var project = await _projectRepository.GetByIdAsync(projectId);
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
             if (project == null)
             {
                 return NotFound($"Project with ID {projectId} not found");
@@ -61,7 +92,7 @@ public class DatabaseBrowserController(
         {
             _logger.LogInformation("Getting database structure for project {ProjectId}", projectId);
             
-            var project = await _projectRepository.GetByIdAsync(projectId);
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
             if (project == null)
             {
                 return NotFound($"Project with ID {projectId} not found");
@@ -100,7 +131,7 @@ public class DatabaseBrowserController(
                 return BadRequest("Table name cannot be empty");
             }
 
-            var project = await _projectRepository.GetByIdAsync(projectId);
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
             if (project == null)
             {
                 return NotFound($"Project with ID {projectId} not found");
@@ -122,61 +153,155 @@ public class DatabaseBrowserController(
     }
 
     /// <summary>
-    /// Get table schema using connection string directly (for testing/development)
+    /// Get all stored procedures for a project
     /// </summary>
-    /// <param name="request">Table schema request with connection details</param>
-    /// <returns>Table schema with columns and metadata</returns>
-    [HttpPost("table-schema")]
-    public async Task<ActionResult<TableSchemaResponse>> GetTableSchemaByConnectionString([FromBody] TableSchemaDirectRequest request)
+    /// <param name="projectId">The project ID</param>
+    /// <returns>List of stored procedures</returns>
+    [HttpGet("projects/{projectId}/stored-procedures")]
+    public async Task<ActionResult<List<StoredProcedureMetadata>>> GetStoredProcedures(int projectId)
     {
         try
         {
-            _logger.LogInformation("Getting schema for table {TableName} using direct connection", request.TableName);
+            _logger.LogInformation("Getting stored procedures for project {ProjectId}", projectId);
             
-            if (string.IsNullOrWhiteSpace(request.TableName))
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            if (project == null)
             {
-                return BadRequest("Table name cannot be empty");
+                return NotFound($"Project with ID {projectId} not found");
             }
 
-            if (string.IsNullOrWhiteSpace(request.ConnectionString))
+            if (string.IsNullOrEmpty(project.ConnectionString))
             {
-                return BadRequest("Connection string cannot be empty");
+                return BadRequest("Project connection string is not configured");
             }
 
-            var schema = await _schemaService.GetTableSchemaAsync(request.ConnectionString, request.TableName);
-            return Ok(schema);
+            var procedures = await _schemaService.GetStoredProceduresAsync(project.ConnectionString);
+            return Ok(procedures);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting schema for table {TableName}", request.TableName);
-            return StatusCode(500, "An error occurred while retrieving table schema");
+            _logger.LogError(ex, "Error getting stored procedures for project {ProjectId}", projectId);
+            return StatusCode(500, "An error occurred while retrieving stored procedures");
         }
     }
 
+    // ===== STORED METADATA ENDPOINTS =====
+    // These endpoints retrieve the stored metadata from ActoEngine database
+    // instead of querying the target database directly
+
     /// <summary>
-    /// Get all tables using connection string directly (for testing/development)
+    /// Get stored tables metadata for a project from ActoEngine database
     /// </summary>
-    /// <param name="request">Direct connection request</param>
-    /// <returns>List of table names</returns>
-    [HttpPost("tables")]
-    public async Task<ActionResult<List<string>>> GetAllTablesByConnectionString([FromBody] DirectConnectionRequest request)
+    /// <param name="projectId">The project ID</param>
+    /// <returns>List of stored table metadata</returns>
+    [HttpGet("projects/{projectId}/stored-tables")]
+    public async Task<ActionResult<List<TableMetadataDto>>> GetStoredTables(int projectId)
     {
         try
         {
-            _logger.LogInformation("Getting all tables using direct connection");
+            _logger.LogInformation("Getting stored tables metadata for project {ProjectId}", projectId);
             
-            if (string.IsNullOrWhiteSpace(request.ConnectionString))
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            if (project == null)
             {
-                return BadRequest("Connection string cannot be empty");
+                return NotFound($"Project with ID {projectId} not found");
             }
 
-            var tables = await _schemaService.GetAllTablesAsync(request.ConnectionString);
+            var tables = await _schemaService.GetStoredTablesAsync(projectId);
             return Ok(tables);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting tables using direct connection");
-            return StatusCode(500, "An error occurred while retrieving tables");
+            _logger.LogError(ex, "Error getting stored tables metadata for project {ProjectId}", projectId);
+            return StatusCode(500, "An error occurred while retrieving stored tables metadata");
+        }
+    }
+
+    /// <summary>
+    /// Get stored columns metadata for a table from ActoEngine database
+    /// </summary>
+    /// <param name="tableId">The table ID</param>
+    /// <returns>List of stored column metadata</returns>
+    [HttpGet("tables/{tableId}/stored-columns")]
+    public async Task<ActionResult<List<ColumnMetadataDto>>> GetStoredColumns(int tableId)
+    {
+        try
+        {
+            _logger.LogInformation("Getting stored columns metadata for table {TableId}", tableId);
+            
+            var columns = await _schemaService.GetStoredColumnsAsync(tableId);
+            return Ok(columns);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting stored columns metadata for table {TableId}", tableId);
+            return StatusCode(500, "An error occurred while retrieving stored columns metadata");
+        }
+    }
+
+    /// <summary>
+    /// Get stored procedure metadata for a project from ActoEngine database
+    /// </summary>
+    /// <param name="projectId">The project ID</param>
+    /// <returns>List of stored procedure metadata</returns>
+    [HttpGet("projects/{projectId}/stored-procedures-metadata")]
+    public async Task<ActionResult<List<StoredProcedureMetadataDto>>> GetStoredProceduresMetadata(int projectId)
+    {
+        try
+        {
+            _logger.LogInformation("Getting stored procedure metadata for project {ProjectId}", projectId);
+            
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            if (project == null)
+            {
+                return NotFound($"Project with ID {projectId} not found");
+            }
+
+            var procedures = await _schemaService.GetStoredProceduresMetadataAsync(projectId);
+            return Ok(procedures);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting stored procedure metadata for project {ProjectId}", projectId);
+            return StatusCode(500, "An error occurred while retrieving stored procedure metadata");
+        }
+    }
+
+    /// <summary>
+    /// Get stored table schema for a specific table from ActoEngine database
+    /// </summary>
+    /// <param name="projectId">The project ID</param>
+    /// <param name="tableName">The table name</param>
+    /// <returns>Stored table schema with columns and metadata</returns>
+    [HttpGet("projects/{projectId}/stored-tables/{tableName}/schema")]
+    public async Task<ActionResult<TableSchemaResponse>> GetStoredTableSchema(int projectId, string tableName)
+    {
+        try
+        {
+            _logger.LogInformation("Getting stored table schema for table {TableName} in project {ProjectId}", tableName, projectId);
+            
+            if (string.IsNullOrWhiteSpace(tableName))
+            {
+                return BadRequest("Table name cannot be empty");
+            }
+
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            if (project == null)
+            {
+                return NotFound($"Project with ID {projectId} not found");
+            }
+
+            var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName);
+            return Ok(schema);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting stored table schema for table {TableName} in project {ProjectId}", tableName, projectId);
+            return StatusCode(500, "An error occurred while retrieving stored table schema");
         }
     }
 }

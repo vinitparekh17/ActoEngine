@@ -13,6 +13,8 @@ public interface IAuthService
     Task LogoutByUserIdAsync(int userId);
     ClaimsPrincipal? ValidateAccessToken(string accessToken);
     Task<TokenRotationResult?> RotateTokensAsync(string currentAccessToken, string refreshToken);
+
+    Task<User?> GetUserAsync(int userId);
 }
 
 public class AuthService(
@@ -27,6 +29,11 @@ public class AuthService(
     private readonly IPasswordHasher _passwordHasher = passwordHasher;
     private readonly ITokenHasher _tokenHasher = tokenHasher;
     private readonly ILogger<AuthService> _logger = logger;
+
+    public async Task<User?> GetUserAsync(int userId)
+    {
+        return await _userRepository.GetByIdAsync(userId);
+    }
 
     public async Task<AuthResult> LoginAsync(string username, string password)
     {

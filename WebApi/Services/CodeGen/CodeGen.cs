@@ -82,7 +82,7 @@ public class CodeGenService(ISchemaSyncRepository schemaRepo, IProjectRepository
 
     public async Task<TableSchemaResponse> GetTableSchema(TableSchemaRequest req)
     {
-        var project = await _projectRepo.GetByIdAsync(req.ProjectId) ?? throw new InvalidOperationException($"Project with ID {req.ProjectId} not found.");
-        return await _schemaRepo.ReadTableSchema(project.ConnectionString, req.TableName);
+        var project = await _projectRepo.GetByIdInternalAsync(req.ProjectId) ?? throw new InvalidOperationException($"Project with ID {req.ProjectId} not found.");
+        return await _schemaRepo.ReadTableSchemaAsync(project.ConnectionString, req.TableName);
     }
 }

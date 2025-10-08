@@ -1,4 +1,5 @@
 namespace ActoEngine.WebApi.Models;
+
 public class ColumnMetadata
 {
     public required string ColumnName { get; set; }
@@ -58,4 +59,64 @@ public class ColumnSchema
     public bool IsIdentity { get; set; }
     public bool IsForeignKey { get; set; }
     public string DefaultValue { get; set; } = string.Empty;
+}
+
+
+/// <summary>
+/// Represents a node in the database tree structure
+/// </summary>
+public class TreeNode
+{
+    public required string Id { get; set; }
+    public required string Name { get; set; }
+    public required string Type { get; set; }
+    public List<TreeNode>? Children { get; set; }
+}
+
+/// <summary>
+/// Database tree response containing the complete tree structure
+/// </summary>
+public class DatabaseTreeResponse
+{
+    public required TreeNode Root { get; set; }
+}
+// DTOs for stored metadata
+public class TableMetadataDto
+{
+    public int TableId { get; set; }
+    public int ProjectId { get; set; }
+    public required string TableName { get; set; }
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class ColumnMetadataDto
+{
+    public int ColumnId { get; set; }
+    public int TableId { get; set; }
+    public required string ColumnName { get; set; }
+    public required string DataType { get; set; }
+    public int? MaxLength { get; set; }
+    public int? Precision { get; set; }
+    public int? Scale { get; set; }
+    public bool IsNullable { get; set; }
+    public bool IsPrimaryKey { get; set; }
+    public bool IsForeignKey { get; set; }
+    public string? DefaultValue { get; set; }
+    public string? Description { get; set; }
+    public int? ColumnOrder { get; set; }
+}
+
+public class StoredProcedureMetadataDto
+{
+    public int SpId { get; set; }
+    public int ProjectId { get; set; }
+    public int ClientId { get; set; }
+    public required string ProcedureName { get; set; }
+    public required string Definition { get; set; }
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? UpdatedBy { get; set; }
 }
