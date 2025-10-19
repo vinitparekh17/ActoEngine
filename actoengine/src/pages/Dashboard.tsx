@@ -32,7 +32,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="ml-4 space-y-6">
+    <div className="space-y-6">
       {/* Welcome Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">

@@ -276,6 +276,10 @@ export const queryKeys = {
     all: () => ['projects'] as const,
     detail: (id: number) => ['projects', id] as const,
   },
+  clients: {
+    all: () => ['clients'] as const,
+    detail: (id: number) => ['clients', id] as const,
+  },
   tables: {
     all: (projectId: number) => ['tables', projectId] as const,
     schema: (projectId: number, tableName: string) => ['tables', projectId, tableName, 'schema'] as const,
@@ -288,4 +292,4 @@ export const queryKeys = {
 // ============================================
 // Export API client for direct use
 // ============================================
-export { api as apiClient };
+export { api as apiClient }

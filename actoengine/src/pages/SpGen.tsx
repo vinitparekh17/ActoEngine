@@ -8,14 +8,13 @@ import CodeExportButton from "../components/codegen/CodeExportButton"
 import SPConfigPanel, { type SPConfigValues } from "../components/codegen/SPConfigPanel"
 import SPPreviewPane from "../components/codegen/SPPreviewPanel"
 // import SPTypeCard from "../components/codegen/SPTypeCard"
-import DataTable, { type DataTableColumn } from "../components/database/DataTable"
-import TableSchemaViewer, { type TableSchema } from "../components/database/TableSchemaViewer"
+import { type TableSchema } from "../components/database/TableSchemaViewer"
 import TreeView from "../components/database/TreeView"
-// import type { ProjectOption } from "../components/project/ProjectSelector"
 import { Card } from "../components/ui/card"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/resizable"
 import { cn } from "../lib/utils"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../components/ui/accordion"
+import { useProject, useProjectTables, useTableSchema } from "../hooks/useProject"
+import { useApiMutation } from "../hooks/useApi"
 
 type TreeNode = {
     id: string
@@ -30,10 +29,31 @@ export default function AppShell() {
     const [spType, setSpType] = useState<SPType>("CUD")
     const [sqlCode, setSqlCode] = useState<string>("-- Generated SQL will appear here")
     const [isGenerating, setIsGenerating] = useState(false)
-    const [isLoadingDbs] = useState(false)
     const [treeSearch, setTreeSearch] = useState("")
     const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false)
     const [isFullscreen, setIsFullscreen] = useState(false)
+
+    // Project and table hooks
+    const { selectedProject } = useProject()
+    const { tables, isLoading: isLoadingTables } = useProjectTables()
+    const { schema: tableSchema, isLoading: isLoadingSchema, error: schemaError } = useTableSchema(selectedTable || undefined)
+
+    // API mutation for code generation
+    const generateMutation = useApiMutation(
+        '/CodeGen/generate',
+        'POST',
+        {
+            onSuccess: (result: any) => {
+                const generatedCode = result.storedProcedure?.code || "-- No code generated"
+                setSqlCode(generatedCode)
+                toast({ title: "Success", description: `Generated ${spType} stored procedure` })
+            },
+            onError: (error) => {
+                setSqlCode(`-- Error generating SQL: ${error.message}`)
+                toast({ title: "Error", description: "Failed to generate stored procedure" })
+            },
+        }
+    )
 
     // Default config values by mode
     const [config, setConfig] = useState<SPConfigValues>({
@@ -48,95 +68,74 @@ export default function AppShell() {
     })
 
     const treeData = useMemo<TreeNode[]>(
-        () => [
-            {
-                id: "db1",
-                name: "MyDatabase",
-                type: "database",
-                children: [
-                    {
-                        id: "db1-tables",
-                        name: "Tables",
-                        type: "tables-folder",
-                        children: [
-                            {
-                                id: "table1",
-                                name: "Users",
-                                type: "table",
-                                children: [
-                                    { id: "col1", name: "UserId", type: "column" },
-                                    { id: "col2", name: "Username", type: "column" },
-                                    { id: "idx1", name: "IX_Users_Username", type: "index" }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        id: "db1-prog",
-                        name: "Programmability",
-                        type: "programmability-folder",
-                        children: [
-                            {
-                                id: "db1-sps",
-                                name: "Stored Procedures",
-                                type: "stored-procedures-folder",
-                                children: [
-                                    { id: "sp1", name: "GetUserById", type: "stored-procedure" }
-                                ]
-                            },
-                            {
-                                id: "db1-funcs",
-                                name: "Functions",
-                                type: "functions-folder",
-                                children: [
-                                    { id: "fn1", name: "CalculateTotal", type: "scalar-function" },
-                                    { id: "fn2", name: "GetUserOrders", type: "table-function" }
-                                ]
-                            }
-                        ]
-                    }
-                ]
+        () => {
+            if (!selectedProject || !tables.length) {
+                return []
             }
-        ],
-        [],
+
+            return [
+                {
+                    id: `db-${selectedProject.projectId}`,
+                    name: selectedProject.databaseName || selectedProject.projectName,
+                    type: "database",
+                    children: [
+                        {
+                            id: `db-${selectedProject.projectId}-tables`,
+                            name: "Tables",
+                            type: "tables-folder",
+                            children: tables.map((tableName, index) => ({
+                                id: `table-${index}`,
+                                name: tableName,
+                                type: "table" as const,
+                                children: [] // Could expand to show columns later
+                            }))
+                        }
+                    ]
+                }
+            ]
+        },
+        [selectedProject, tables],
     )
 
-    const schema = useMemo<TableSchema>(
-        () => ({
-            tableName: selectedTable ?? "",
-            schemaName: "dbo",
-            columns: [
-                { name: "id", dataType: "uuid", constraints: ["PK", "NOT NULL", "DEFAULT gen_random_uuid()"] },
-                { name: "email", dataType: "varchar(255)", constraints: ["UNIQUE", "NOT NULL"] },
-                { name: "created_at", dataType: "timestamp", constraints: ["DEFAULT now()"] },
-            ],
-        }),
-        [selectedTable],
-    )
+    const schema = useMemo<TableSchema>(() => {
+        if (!tableSchema || !selectedTable) {
+            return {
+                tableName: selectedTable || "",
+                schemaName: "",
+                columns: []
+            }
+        }
 
-    const availableColumns = useMemo(() => schema.columns.map((c) => c.name), [schema])
+        return {
+            tableName: tableSchema.tableName,
+            schemaName: tableSchema.schemaName,
+            columns: tableSchema.columns.map(col => {
+                // Format data type with appropriate length/precision info
+                let dataType = col.dataType;
+                if (col.maxLength && col.maxLength > 0 && col.maxLength !== -1) {
+                    dataType += `(${col.maxLength})`;
+                } else if (col.precision && col.scale !== undefined) {
+                    dataType += `(${col.precision},${col.scale})`;
+                } else if (col.precision && col.scale === 0) {
+                    dataType += `(${col.precision})`;
+                }
 
-    const historyColumns = useMemo<DataTableColumn[]>(
-        () => [
-            { header: "Table", accessorKey: "table" },
-            { header: "Type", accessorKey: "type" },
-            { header: "When", accessorKey: "time" },
-            { header: "Status", accessorKey: "status" },
-        ],
-        [],
-    )
-    const historyRows = useMemo(
-        () => [
-            { id: "1", table: "users", type: "CUD", time: "2m ago", status: "draft" },
-            { id: "2", table: "orders", type: "SELECT", time: "10m ago", status: "exported" },
-        ],
-        [],
-    )
+                return {
+                    name: col.columnName,
+                    dataType,
+                    constraints: [
+                        col.isPrimaryKey ? "PK" : "",
+                        !col.isNullable ? "NOT NULL" : "",
+                        col.isIdentity ? "IDENTITY" : "",
+                        col.isForeignKey ? "FK" : "",
+                        col.defaultValue ? `DEFAULT ${col.defaultValue}` : "",
+                    ].filter(Boolean)
+                };
+            })
+        }
+    }, [tableSchema, selectedTable])
 
     const handleTreeSelect = useCallback((node: TreeNode) => {
-        // Now you receive the full node object instead of just the table name
-
-        // Handle different node types
         switch (node.type) {
             case "table":
                 setSelectedTable(node.name)
@@ -177,20 +176,55 @@ export default function AppShell() {
 
     const handleConfigSubmit = useCallback(
         (values: SPConfigValues) => {
-            setConfig(values)
+            if (!selectedProject || !selectedTable || !tableSchema) {
+                toast({ title: "Error", description: "Please select a project and table first" })
+                return
+            }
+
             setIsGenerating(true)
-            // Simulate SQL generation preview
-            const preview = `-- Type: ${spType}
--- Table: ${selectedTable ?? "(none)"}
--- Config: ${JSON.stringify(values, null, 2)}
--- SQL preview...
-`
-            setTimeout(() => {
-                setSqlCode(preview)
-                setIsGenerating(false)
-            }, 600)
+
+            // Convert frontend config to backend format
+            const requestData = {
+                projectId: selectedProject.projectId,
+                tableName: selectedTable,
+                type: values.mode === "CUD" ? "Cud" : "Select",
+                columns: tableSchema.columns.map(col => ({
+                    columnName: col.columnName,
+                    dataType: col.dataType,
+                    maxLength: col.maxLength,
+                    isNullable: col.isNullable,
+                    isPrimaryKey: col.isPrimaryKey,
+                    isIdentity: col.isIdentity,
+                    includeInCreate: values.mode === "CUD" ? (values as any).generateCreate ?? true : true,
+                    includeInUpdate: values.mode === "CUD" ? (values as any).generateUpdate ?? true : true,
+                    defaultValue: col.defaultValue || "",
+                })),
+                cudOptions: values.mode === "CUD" ? {
+                    spPrefix: (values as any).spPrefix || "usp",
+                    includeErrorHandling: (values as any).includeErrorHandling ?? true,
+                    includeTransaction: (values as any).includeTransaction ?? true,
+                    actionParamName: (values as any).actionParamName || "Action",
+                } : undefined,
+                selectOptions: values.mode === "SELECT" ? {
+                    spPrefix: "usp",
+                    filters: (values as any).filters?.map((f: any) => ({
+                        columnName: f.column,
+                        operator: f.operator === "=" ? "Equals" :
+                            f.operator === "LIKE" ? "Like" :
+                                f.operator === ">" ? "GreaterThan" :
+                                    f.operator === "<" ? "LessThan" : "Between",
+                        isOptional: f.optional,
+                    })) || [],
+                    orderByColumns: (values as any).orderBy || [],
+                    includePagination: (values as any).includePagination ?? true,
+                } : undefined,
+            }
+
+            generateMutation.mutate(requestData as any, {
+                onSettled: () => setIsGenerating(false)
+            })
         },
-        [selectedTable, spType],
+        [selectedProject, selectedTable, tableSchema, toast, generateMutation],
     )
 
     const handleExport = useCallback(
@@ -244,19 +278,12 @@ export default function AppShell() {
                             <div className="h-full min-w-[300px] grid grid-rows-[auto_1fr_auto] gap-4">
                                 <Card className="rounded-2xl p-4">
                                     <div className="text-sm font-medium mb-2">Databases</div>
-                                    {/* <TreeView
-                                        treeData={treeData}
-                                        onSelectTable={handleTreeSelect}
-                                        searchQuery={treeSearch}
-                                        onSearchChange={setTreeSearch}
-                                        isLoading={isLoadingDbs}
-                                    /> */}
                                     <TreeView
                                         treeData={treeData}
-                                        onSelectNode={handleTreeSelect}  // renamed from onSelectTable
+                                        onSelectNode={handleTreeSelect}
                                         searchQuery={treeSearch}
                                         onSearchChange={setTreeSearch}
-                                        isLoading={isLoadingDbs}
+                                        isLoading={isLoadingTables}
                                     />
                                 </Card>
                                 {/* <Card className="rounded-2xl p-4">
@@ -301,26 +328,36 @@ export default function AppShell() {
                             className={`h-full ${isFullscreen ? 'hidden' : ''}`}
                         >
                             <ResizablePanel defaultSize={50}>
-                                <div className="h-full grid grid-rows-[auto_auto_1fr] gap-4">
-                                    <Card className="rounded-2xl p-4 overflow-hidden">
-                                        <Accordion type="single" collapsible>
-                                            <AccordionItem value="table-schema">
-                                                <AccordionTrigger className="hover:no-underline">Table Schema</AccordionTrigger>
-                                                <AccordionContent>
-                                                    <TableSchemaViewer schema={schema} selectedTable={selectedTable ?? ""} />
-                                                </AccordionContent>
-                                            </AccordionItem>
-                                        </Accordion>
-                                    </Card>
+                                <div className="h-full grid grid-rows-[auto_1fr] gap-4">
                                     <Card className="rounded-2xl p-4">
                                         <div className="text-sm font-medium mb-2">Configuration</div>
-                                        <SPConfigPanel
-                                            spType={spType}
-                                            config={config}
-                                            availableColumns={availableColumns}
-                                            onSubmit={handleConfigSubmit}
-                                            onChangeType={onChangeType}
-                                        />
+                                        {isLoadingSchema ? (
+                                            <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                                    <span>Loading schema...</span>
+                                                </div>
+                                            </div>
+                                        ) : schemaError ? (
+                                            <div className="flex items-center justify-center py-12 text-destructive">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <span>❌ Error loading schema</span>
+                                                    <span className="text-xs text-muted-foreground">{schemaError.message}</span>
+                                                </div>
+                                            </div>
+                                        ) : !selectedTable ? (
+                                            <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                                <span>👈 Select a table from the tree</span>
+                                            </div>
+                                        ) : (
+                                            <SPConfigPanel
+                                                spType={spType}
+                                                config={config}
+                                                schema={schema}
+                                                onSubmit={handleConfigSubmit}
+                                                onChangeType={onChangeType}
+                                            />
+                                        )}
                                     </Card>
                                 </div>
                             </ResizablePanel>

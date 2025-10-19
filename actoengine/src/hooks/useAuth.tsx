@@ -25,7 +25,14 @@ interface LoginResponse {
   token: string;
   refreshToken: string;
   expiresAt: string;
-  user: User;
+  user: User | null;
+}
+
+interface RefreshResponse {
+  token: string;
+  refreshToken: string;
+  expiresAt: string;
+  user: User | null;
 }
 
 // ============================================
@@ -35,7 +42,7 @@ interface AuthStore {
   token: string | null;
   refreshToken: string | null;
   user: User | null;
-  setAuth: (token: string, refreshToken: string, user: User, expiresAt: string) => void;
+  setAuth: (token: string, refreshToken: string, user: User | null, expiresAt: string) => void;
   clearAuth: () => void;
   getTokenExpiry: () => string | null;
 }
@@ -99,13 +106,13 @@ export function useAuth() {
   });
 
   // Refresh Token Function (called automatically)
-  const refreshTokenMutation = useApiPost<LoginResponse, { refreshToken: string }>(
+  const refreshTokenMutation = useApiPost<RefreshResponse, { refreshToken: string }>(
     '/Auth/refresh',
     {
       showSuccessToast: false,
       showErrorToast: false,
       onSuccess: (data) => {
-        setAuth(data.token, data.refreshToken, data.user, data.expiresAt);
+        setAuth(data.token, data.refreshToken, data.user || user, data.expiresAt);
       },
       onError: () => {
         // Refresh failed - logout

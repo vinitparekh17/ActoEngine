@@ -9,6 +9,7 @@ import { ApiErrorBoundary } from './components/errors/ApiErrorBoundry'
 import FormBuilderPage from './pages/FormBuilder'
 import LoginPage from './pages/Login'
 import DashboardPage from './pages/Dashboard'
+import ClientManagementPage from './pages/ClientManagement'
 
 // ============================================
 // Protected Route Wrapper
@@ -49,6 +50,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="form-builder" element={<FormBuilderPage />} />
         <Route path="sp-generator" element={<SPGeneratorPage />} />
+        <Route path="clients" element={<ClientManagementPage />} />
       </Route>
     </Routes>
   )

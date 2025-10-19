@@ -138,7 +138,7 @@ export function useProject() {
   );
 
   // Get current selected project from cache
-  const selectedProject = projectDetails || 
+  const selectedProject = projectDetails ||
     queryClient.getQueryData<Project>(projectQueryKeys.detail(store.selectedProjectId!));
 
   const safeProject: SafeProject | null = selectedProject ? {
@@ -153,27 +153,30 @@ export function useProject() {
   // Select project and invalidate dependent queries
   const selectProject = (project: Project | number) => {
     const projectId = typeof project === 'number' ? project : project.projectId;
-    
+
     store.setSelectedProjectId(projectId);
 
-    queryClient.invalidateQueries({ 
-      queryKey: projectQueryKeys.tables(projectId) 
+    queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.tables(projectId)
     });
-    queryClient.invalidateQueries({ 
-      queryKey: ['CodeGen', 'schema', 'tables', String(projectId)] 
+    queryClient.invalidateQueries({
+      queryKey: ['DatabaseBrowser', 'projects', projectId]
     });
-    queryClient.invalidateQueries({ 
-      queryKey: ['CodeGen', 'history'] 
+    queryClient.invalidateQueries({
+      queryKey: ['CodeGen', 'history']
     });
   };
 
   // Clear project and invalidate queries
   const clearProject = () => {
     store.clearSelectedProject();
-    
-    // Invalidate all CodeGen queries
-    queryClient.invalidateQueries({ 
-      queryKey: ['CodeGen'] 
+
+    // Invalidate all DatabaseBrowser and CodeGen queries
+    queryClient.invalidateQueries({
+      queryKey: ['DatabaseBrowser']
+    });
+    queryClient.invalidateQueries({
+      queryKey: ['CodeGen']
     });
   };
 
@@ -189,20 +192,20 @@ export function useProject() {
     } as SafeProject)),
     selectedProject: safeProject,
     selectedProjectId: store.selectedProjectId,
-    
+
     // Loading states
     isLoadingProjects,
     isLoadingDetails,
     isLoading: isLoadingProjects || isLoadingDetails,
-    
+
     // Errors
     error: projectsError || projectDetailsError,
-    
+
     // Actions
     selectProject,
     clearProject,
     refetchProjects,
-    
+
     // Computed
     hasProject: !!store.selectedProjectId && !!selectedProject,
     databaseName: selectedProject?.databaseName,
@@ -273,10 +276,10 @@ export function useTableSchema(tableName: string | undefined) {
     isLoading,
     error,
   } = useApi<TableSchemaResponse>(
-    `/CodeGen/schema/table`,
+    `/DatabaseBrowser/projects/${selectedProjectId}/tables/${tableName}/schema`,
     {
       queryKey: ['projects', selectedProjectId, 'tables', tableName, 'schema'],
-      enabled: hasProject && !!tableName,
+      enabled: hasProject && !!tableName && !!selectedProjectId,
       staleTime: 5 * 60 * 1000,
       retry: 2,
     }

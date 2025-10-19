@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import type { SPType } from "./SPTypeCard"
 import { Trash2, Plus } from "lucide-react"
 import SPTypeCard from "./SPTypeCard"
+import TableSchemaViewer, { type TableSchema } from "../database/TableSchemaViewer"
 
 const CUDSchema = z.object({
   mode: z.literal("CUD"),
@@ -45,13 +46,13 @@ export default function SPConfigPanel({
   spType,
   config,
   onSubmit,
-  availableColumns = [],
+  schema,
   onChangeType,
 }: {
   spType: SPType
   config: SPConfigValues
   onSubmit: (values: SPConfigValues) => void
-  availableColumns?: string[],
+  schema: TableSchema
   onChangeType: (type: SPType) => void
 }) {
   const form = useForm<SPConfigValues>({
@@ -103,8 +104,10 @@ export default function SPConfigPanel({
     }
   })
 
+  const availableColumns = schema.columns.map(c => c.name)
   return (
     <>
+      <TableSchemaViewer schema={schema} selectedTable={schema.tableName} />
       <div className="mb-6">
         <label className="text-sm font-medium mb-3 block">Procedure Type</label>
         <div className="grid grid-cols-2 gap-3">
@@ -148,6 +151,42 @@ export default function SPConfigPanel({
                   <Label htmlFor="includeTransaction" className="text-sm">
                     Include Transaction
                   </Label>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm">Operations to Generate</Label>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={(form.watch("generateCreate") as boolean) ?? true}
+                      onCheckedChange={(v) => form.setValue("generateCreate" as any, Boolean(v) as any)}
+                      id="generateCreate"
+                    />
+                    <Label htmlFor="generateCreate" className="text-sm">
+                      Create
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={(form.watch("generateUpdate") as boolean) ?? true}
+                      onCheckedChange={(v) => form.setValue("generateUpdate" as any, Boolean(v) as any)}
+                      id="generateUpdate"
+                    />
+                    <Label htmlFor="generateUpdate" className="text-sm">
+                      Update
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={(form.watch("generateDelete") as boolean) ?? true}
+                      onCheckedChange={(v) => form.setValue("generateDelete" as any, Boolean(v) as any)}
+                      id="generateDelete"
+                    />
+                    <Label htmlFor="generateDelete" className="text-sm">
+                      Delete
+                    </Label>
+                  </div>
                 </div>
               </div>
 

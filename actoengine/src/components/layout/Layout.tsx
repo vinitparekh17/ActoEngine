@@ -23,7 +23,9 @@ export default function AppLayout() {
         {/* Feature content area */}
         <main className="flex-1">
           <ConfirmDialog />
-          <Outlet />
+          <div className="p-6">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
