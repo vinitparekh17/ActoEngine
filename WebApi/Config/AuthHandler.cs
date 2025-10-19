@@ -16,7 +16,7 @@ public class CustomTokenAuthenticationHandler(
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
         if (string.IsNullOrEmpty(authHeader))
         {
             _logger.LogDebug("No Authorization header found for path: {Path}", Request.Path);

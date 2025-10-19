@@ -9,7 +9,7 @@ namespace ActoEngine.WebApi.Middleware
         private readonly RequestDelegate _next = next;
         private readonly ILogger<TokenMiddleware> _logger = logger;
         private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
-        private readonly string[] _excludedPaths = {
+        private readonly string[] _excludedPaths = [
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/refresh",
@@ -17,7 +17,7 @@ namespace ActoEngine.WebApi.Middleware
             "/health",
             "/swagger",
             "/favicon.ico"
-        };
+        ];
 
         public async Task InvokeAsync(HttpContext context)
         {
@@ -27,14 +27,12 @@ namespace ActoEngine.WebApi.Middleware
                 return;
             }
 
-            // Proceed to authentication handler
-            await _next(context);
-
-            // If authentication failed, try refreshing tokens
             if (context.User.Identity?.IsAuthenticated != true)
             {
                 await TryRefreshTokens(context);
             }
+
+            await _next(context);
         }
 
         private async Task TryRefreshTokens(HttpContext context)
@@ -71,14 +69,14 @@ namespace ActoEngine.WebApi.Middleware
             if (principal != null)
             {
                 context.User = principal;
-                
+
                 // Set UserId in context items for controllers to use
                 var userIdClaim = principal.FindFirst("user_id")?.Value;
                 if (userIdClaim != null && int.TryParse(userIdClaim, out var userId))
                 {
                     context.Items["UserId"] = userId;
                 }
-                
+
                 _logger.LogInformation("Tokens rotated successfully for user {UserId}", result.UserId);
                 // Re-run the pipeline to re-authenticate
                 await _next(context);
@@ -92,7 +90,7 @@ namespace ActoEngine.WebApi.Middleware
 
         private static string? ExtractAccessToken(HttpRequest request)
         {
-            var authHeader = request.Headers["Authorization"].FirstOrDefault();
+            var authHeader = request.Headers.Authorization.FirstOrDefault();
             if (string.IsNullOrEmpty(authHeader))
                 return null;
 
@@ -135,7 +133,9 @@ namespace ActoEngine.WebApi.Middleware
         private static async Task WriteUnauthorizedResponse(HttpContext context, string message)
         {
             if (context.Response.HasStarted)
+            {
                 return;
+            }
 
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             context.Response.ContentType = "application/json";

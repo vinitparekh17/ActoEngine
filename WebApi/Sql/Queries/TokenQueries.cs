@@ -29,6 +29,12 @@ public static class TokenSqlQueries
                 RefreshExpiresAt = @RefreshExpiresAt
             WHERE UserID = @UserID";
 
+    public const string UpdateAccessToken = @"
+            UPDATE TokenSessions 
+            SET SessionToken = @SessionToken, 
+                SessionExpiresAt = @SessionExpiresAt
+            WHERE UserID = @UserID";
+
     public const string DeleteByRefreshToken = @"
             DELETE FROM TokenSessions WHERE RefreshToken = @RefreshToken";
 

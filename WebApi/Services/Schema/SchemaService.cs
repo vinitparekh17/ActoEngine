@@ -237,7 +237,7 @@ public class SchemaService(
                 Id = $"db-{projectId}-funcs",
                 Name = "Functions",
                 Type = "functions-folder",
-                Children = new List<TreeNode>()
+                Children = []
             };
 
             // Build Programmability folder
@@ -246,11 +246,11 @@ public class SchemaService(
                 Id = $"db-{projectId}-prog",
                 Name = "Programmability",
                 Type = "programmability-folder",
-                Children = new List<TreeNode>
-                {
+                Children =
+                [
                     storedProceduresFolder,
                     functionsFolder
-                }
+                ]
             };
 
             // Build root database node
@@ -259,11 +259,11 @@ public class SchemaService(
                 Id = $"db-{projectId}",
                 Name = databaseName,
                 Type = "database",
-                Children = new List<TreeNode>
-                {
+                Children =
+                [
                     tablesFolder,
                     programmabilityFolder
-                }
+                ]
             };
 
             return databaseNode;

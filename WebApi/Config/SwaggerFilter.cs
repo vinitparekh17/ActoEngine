@@ -27,7 +27,7 @@ namespace ActoEngine.WebApi.Config
             // For protected endpoints, ensure security requirements are present
             if (requiresAuth || ShouldRequireAuthByDefault(context))
             {
-                operation.Security ??= new List<OpenApiSecurityRequirement>();
+                operation.Security ??= [];
 
                 if (!operation.Security.Any())
                 {

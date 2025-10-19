@@ -1,53 +1,56 @@
-// Middleware/ExceptionHandlingMiddleware.cs
 using System.Text.Json;
-using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Models;
 
-namespace ActoEngine.WebApi.Middleware;
-public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+public class ExceptionHandlingMiddleware
 {
+    private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionHandlingMiddleware> _logger;
+
+    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
     public async Task InvokeAsync(HttpContext context)
     {
         try
         {
-            await next(context);
+            await _next(context);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An unhandled exception occurred");
             await HandleExceptionAsync(context, ex);
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        _logger.LogError(exception, "An unhandled exception occurred for path: {Path}", context.Request.Path);
+
+        if (context.Response.HasStarted)
+        {
+            _logger.LogWarning("Cannot handle exception for {Path}; response has already started.", context.Request.Path);
+            return;
+        }
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
 
-        var response = exception switch
+        var response = new ErrorResponse
         {
-            NotFoundException => new
-            {
-                StatusCode = 404,
-                exception.Message
-            },
-            ValidationException => new
-            {
-                StatusCode = 400,
-                exception.Message
-            },
-            _ => new
-            {
-                StatusCode = 500,
-                Message = "An internal server error occurred"
-            }
+            Error = "Internal Server Error",
+            Message = exception.Message,
+            Timestamp = DateTime.UtcNow.ToString("O"),
+            Path = context.Request.Path.Value ?? string.Empty
         };
 
-        context.Response.StatusCode = response.StatusCode;
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        };
 
-        var jsonResponse = JsonSerializer.Serialize(
-            ApiResponse<object>.Failure(response.Message)
-        );
-
-        await context.Response.WriteAsync(jsonResponse);
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
     }
 }

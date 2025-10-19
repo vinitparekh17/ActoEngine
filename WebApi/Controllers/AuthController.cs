@@ -42,6 +42,9 @@ namespace ActoEngine.WebApi.Controllers
                 ExpiresAt = result.ExpiresAt
             };
 
+            // Set refresh token as HttpOnly cookie for automatic refresh
+            SetRefreshTokenCookie(result.RefreshToken!, DateTime.UtcNow.AddDays(7));
+
             return Ok(ApiResponse<AuthTokenResponse>.Success(responseData, "Login successful"));
         }
 
@@ -75,6 +78,9 @@ namespace ActoEngine.WebApi.Controllers
                 ExpiresAt = result.ExpiresAt
             };
 
+            // Note: Refresh token cookie is not updated here since we keep the same refresh token
+            // with its original expiration for security reasons
+
             return Ok(ApiResponse<AuthTokenResponse>.Success(responseData, "Token refreshed successfully"));
         }
 
@@ -91,6 +97,10 @@ namespace ActoEngine.WebApi.Controllers
 
             await _authService.LogoutAsync(request.RefreshToken);
             var responseData = new MessageResponse { Message = "Logged out successfully" };
+
+            // Clear refresh token cookie
+            ClearRefreshTokenCookie();
+
             return Ok(ApiResponse<MessageResponse>.Success(responseData, "Logged out successfully"));
         }
 
@@ -122,6 +132,30 @@ namespace ActoEngine.WebApi.Controllers
             };
 
             return Ok(ApiResponse<ProtectedResourceResponse>.Success(responseData, "Protected resource accessed successfully"));
+        }
+
+        private void SetRefreshTokenCookie(string refreshToken, DateTime expiresAt)
+        {
+            Response.Cookies.Append("refresh_token", refreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Strict,
+                Expires = expiresAt,
+                Path = "/",
+                IsEssential = true
+            });
+        }
+
+        private void ClearRefreshTokenCookie()
+        {
+            Response.Cookies.Delete("refresh_token", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Strict,
+                Path = "/"
+            });
         }
     }
 }

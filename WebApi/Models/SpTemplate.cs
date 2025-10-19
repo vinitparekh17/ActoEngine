@@ -27,8 +27,8 @@ public class CudSpOptions
 public class SelectSpOptions
 {
     public string SpPrefix { get; set; } = "usp";
-    public List<FilterColumn> Filters { get; set; } = new();
-    public List<string> OrderByColumns { get; set; } = new();
+    public List<FilterColumn> Filters { get; set; } = [];
+    public List<string> OrderByColumns { get; set; } = [];
     public bool IncludePagination { get; set; } = false;
 }
 

@@ -93,24 +93,21 @@ public class AuthService(
             }
 
             var newAccessToken = GenerateToken();
-            var newRefreshToken = GenerateToken();
             var newAccessExpiry = DateTime.UtcNow.AddMinutes(15);
-            var newRefreshExpiry = DateTime.UtcNow.AddDays(7);
 
-            await _tokenRepository.RotateTokensAsync(
+            // Update only the access token, keep the same refresh token
+            await _tokenRepository.UpdateAccessTokenAsync(
                 tokenRecord.UserID,
                 _tokenHasher.HashToken(newAccessToken),
-                _tokenHasher.HashToken(newRefreshToken),
-                newAccessExpiry,
-                newRefreshExpiry);
+                newAccessExpiry);
 
-            _logger.LogInformation("Tokens rotated successfully for user {UserId}", tokenRecord.UserID);
+            _logger.LogInformation("Access token refreshed successfully for user {UserId}", tokenRecord.UserID);
 
             return new AuthResult
             {
                 Success = true,
                 SessionToken = newAccessToken,
-                RefreshToken = newRefreshToken,
+                RefreshToken = refreshToken, // Return the same refresh token
                 ExpiresAt = newAccessExpiry,
                 UserId = tokenRecord.UserID
             };

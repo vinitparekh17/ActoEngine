@@ -11,6 +11,7 @@ public interface ITokenRepository
     Task<TokenSession?> GetBySessionTokenHashAsync(string sessionToken);
     Task<TokenSession?> GetByUserIdAsync(int userId);
     Task RotateTokensAsync(int userId, string newSessionToken, string newRefreshToken, DateTime newSessionExpiry, DateTime newRefreshExpiry);
+    Task UpdateAccessTokenAsync(int userId, string newSessionToken, DateTime newSessionExpiry);
     Task DeleteByRefreshTokenHashAsync(string refreshToken);
     Task DeleteByUserIdAsync(int userId);
     Task CleanupExpiredTokensAsync();
@@ -84,6 +85,20 @@ public class TokenRepository(
         };
 
         var rowsAffected = await ExecuteAsync(TokenSqlQueries.Update, parameters);
+        if (rowsAffected == 0)
+            throw new InvalidOperationException($"No token session found for UserID {userId}");
+    }
+
+    public async Task UpdateAccessTokenAsync(int userId, string newSessionToken, DateTime newSessionExpiry)
+    {
+        var parameters = new
+        {
+            UserID = userId,
+            SessionToken = newSessionToken,
+            SessionExpiresAt = newSessionExpiry
+        };
+
+        var rowsAffected = await ExecuteAsync(TokenSqlQueries.UpdateAccessToken, parameters);
         if (rowsAffected == 0)
             throw new InvalidOperationException($"No token session found for UserID {userId}");
     }

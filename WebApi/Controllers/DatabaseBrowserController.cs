@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.Schema;
 using ActoEngine.WebApi.Repositories;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ActoEngine.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class DatabaseBrowserController(
     ISchemaService schemaService,
@@ -38,12 +40,12 @@ public class DatabaseBrowserController(
             var databaseName = project.ProjectName ?? "Database";
             
             var tree = await _schemaService.GetDatabaseTreeAsync(projectId, databaseName);
-            return Ok(tree);
+            return Ok(ApiResponse<TreeNode>.Success(tree));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting database tree for project {ProjectId}", projectId);
-            return StatusCode(500, "An error occurred while retrieving database tree");
+            return StatusCode(500, ApiResponse<TreeNode>.Failure("An error occurred while retrieving database tree"));
         }
     }
 
@@ -71,7 +73,7 @@ public class DatabaseBrowserController(
             }
 
             var tables = await _schemaService.GetAllTablesAsync(project.ConnectionString);
-            return Ok(tables);
+            return Ok(ApiResponse<List<string>>.Success(tables));
         }
         catch (Exception ex)
         {
@@ -104,12 +106,12 @@ public class DatabaseBrowserController(
             }
 
             var structure = await _schemaService.GetDatabaseStructureAsync(project.ConnectionString);
-            return Ok(structure);
+            return Ok(ApiResponse<List<DatabaseTableInfo>>.Success(structure));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting database structure for project {ProjectId}", projectId);
-            return StatusCode(500, "An error occurred while retrieving database structure");
+            return StatusCode(500, ApiResponse<List<DatabaseTableInfo>>.Failure("An error occurred while retrieving database structure"));
         }
     }
 
@@ -143,12 +145,12 @@ public class DatabaseBrowserController(
             }
 
             var schema = await _schemaService.GetTableSchemaAsync(project.ConnectionString, tableName);
-            return Ok(schema);
+            return Ok(ApiResponse<TableSchemaResponse>.Success(schema));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting schema for table {TableName} in project {ProjectId}", tableName, projectId);
-            return StatusCode(500, "An error occurred while retrieving table schema");
+            return StatusCode(500, ApiResponse<TableSchemaResponse>.Failure("An error occurred while retrieving table schema"));
         }
     }
 
@@ -176,12 +178,12 @@ public class DatabaseBrowserController(
             }
 
             var procedures = await _schemaService.GetStoredProceduresAsync(project.ConnectionString);
-            return Ok(procedures);
+            return Ok(ApiResponse<List<StoredProcedureMetadata>>.Success(procedures));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting stored procedures for project {ProjectId}", projectId);
-            return StatusCode(500, "An error occurred while retrieving stored procedures");
+            return StatusCode(500, ApiResponse<List<StoredProcedureMetadata>>.Failure("An error occurred while retrieving stored procedures"));
         }
     }
 
@@ -213,7 +215,7 @@ public class DatabaseBrowserController(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting stored tables metadata for project {ProjectId}", projectId);
-            return StatusCode(500, "An error occurred while retrieving stored tables metadata");
+            return StatusCode(500, ApiResponse<List<TableMetadataDto>>.Failure("An error occurred while retrieving stored tables metadata"));
         }
     }
 
@@ -230,12 +232,12 @@ public class DatabaseBrowserController(
             _logger.LogInformation("Getting stored columns metadata for table {TableId}", tableId);
             
             var columns = await _schemaService.GetStoredColumnsAsync(tableId);
-            return Ok(columns);
+            return Ok(ApiResponse<List<ColumnMetadataDto>>.Success(columns));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting stored columns metadata for table {TableId}", tableId);
-            return StatusCode(500, "An error occurred while retrieving stored columns metadata");
+            return StatusCode(500, ApiResponse<List<ColumnMetadataDto>>.Failure("An error occurred while retrieving stored columns metadata"));
         }
     }
 
@@ -254,16 +256,16 @@ public class DatabaseBrowserController(
             var project = await _projectRepository.GetByIdInternalAsync(projectId);
             if (project == null)
             {
-                return NotFound($"Project with ID {projectId} not found");
+                return NotFound(ApiResponse<List<StoredProcedureMetadataDto>>.Failure($"Project with ID {projectId} not found"));
             }
 
             var procedures = await _schemaService.GetStoredProceduresMetadataAsync(projectId);
-            return Ok(procedures);
+            return Ok(ApiResponse<List<StoredProcedureMetadataDto>>.Success(procedures));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting stored procedure metadata for project {ProjectId}", projectId);
-            return StatusCode(500, "An error occurred while retrieving stored procedure metadata");
+            return StatusCode(500, ApiResponse<List<StoredProcedureMetadataDto>>.Failure("An error occurred while retrieving stored procedure metadata"));
         }
     }
 
@@ -288,11 +290,11 @@ public class DatabaseBrowserController(
             var project = await _projectRepository.GetByIdInternalAsync(projectId);
             if (project == null)
             {
-                return NotFound($"Project with ID {projectId} not found");
+                return NotFound(ApiResponse<TableSchemaResponse>.Failure($"Project with ID {projectId} not found"));
             }
 
             var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName);
-            return Ok(schema);
+            return Ok(ApiResponse<TableSchemaResponse>.Success(schema));
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
@@ -301,7 +303,7 @@ public class DatabaseBrowserController(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting stored table schema for table {TableName} in project {ProjectId}", tableName, projectId);
-            return StatusCode(500, "An error occurred while retrieving stored table schema");
+            return StatusCode(500, ApiResponse<TableSchemaResponse>.Failure("An error occurred while retrieving stored table schema"));
         }
     }
 }
