@@ -270,7 +270,6 @@ export function useProjectTables() {
 // ============================================
 export function useTableSchema(tableName: string | undefined) {
   const { selectedProjectId, hasProject } = useProject();
-
   const {
     data: schema,
     isLoading,

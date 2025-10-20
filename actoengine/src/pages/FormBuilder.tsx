@@ -1,17 +1,28 @@
 // pages/FormBuilderSimple.tsx
-// SIMPLIFIED VERSION - Just the essentials
-
-import { useState, lazy } from 'react';
-import { useFormBuilder, type GeneratedCode } from '../hooks/useFormBuilder';
+import { useState, lazy, useEffect } from 'react';
+import { useFormBuilder, type GeneratedCode, type TableSchema } from '../hooks/useFormBuilder';
 import { useProject } from '../hooks/useProject';
-import { Save, Code, Plus, Trash2, Copy } from 'lucide-react';
+import { useApi } from '../hooks/useApi';
+import { Save, Code, Plus, Trash2, Copy, Table } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Input } from '../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { cn } from '../lib/utils';
 
-const MonacoEditor = lazy(() => import("@monaco-editor/react"));
+const MonacoEditor = lazy(() => import('@monaco-editor/react'));
 
 export default function FormBuilderSimple() {
   const { selectedProject } = useProject();
@@ -21,37 +32,44 @@ export default function FormBuilderSimple() {
     generatedCode,
     isSaving,
     isGenerating,
-    initializeForm,
+    initializeFromTable,
     saveConfig,
     generateCode,
+    tableSchema,
   } = useFormBuilder();
 
-  const [activeTab, setActiveTab] = useState<'builder' | 'preview' | 'code'>('builder');
-  const [tableName, setTableName] = useState('');
+  const [activeTab, setActiveTab] = useState<
+    'builder' | 'preview' | 'code'
+  >('builder');
+  const [selectedTable, setSelectedTable] = useState('');
 
-  // Initialize form
-  const handleInitialize = () => {
-    if (!tableName.trim()) {
-      toast.error('Please enter a table name');
-      return;
-    }
-    if (!selectedProject) {
-      toast.error('Please select a project');
-      return;
-    }
+  // Fetch tables for the project (you'll need to add this endpoint)
+  const tablesUrl = selectedProject
+    ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables`
+    : '';
+  const { data: tablesData } = useApi<string[]>(tablesUrl);
 
-    // Check if a form already exists for this table/project
-    if (config && config.tableName === tableName.trim() && config.projectId === selectedProject.projectId) {
-      const confirmed = window.confirm(
-        `A form for table "${tableName}" already exists. Initializing will reset any unsaved changes. Continue?`
+  // Fetch schema when table is selected
+  const schemaUrl = selectedProject && selectedTable
+    ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${selectedTable}/schema`
+    : '';
+  const { data: schemaData, isLoading: loadingSchema } = useApi<TableSchema>(schemaUrl);
+
+  const availableTables = tablesData || [];
+
+  // Auto-initialize when schema is loaded
+  useEffect(() => {
+    if (schemaUrl && schemaData && selectedTable && selectedProject && !config) {
+      initializeFromTable(
+        selectedTable,
+        selectedProject.projectId,
+        schemaData
       );
-      if (!confirmed) {
-        return;
-      }
+      toast.success(
+        `Loaded ${schemaData.columns.length} fields from ${selectedTable}`
+      );
     }
-
-    initializeForm(tableName.trim(), selectedProject.projectId);
-  };
+  }, [schemaData, selectedTable, selectedProject, config, schemaUrl]);
 
   if (!selectedProject) {
     return (
@@ -79,12 +97,7 @@ export default function FormBuilderSimple() {
 
           {config && (
             <div className="flex items-center gap-3">
-              {/* Actions */}
-              <Button
-                onClick={saveConfig}
-                disabled={isSaving}
-                variant="default"
-              >
+              <Button onClick={saveConfig} disabled={isSaving} variant="default">
                 <Save className="h-4 w-4" />
                 {isSaving ? 'Saving...' : 'Save'}
               </Button>
@@ -105,47 +118,81 @@ export default function FormBuilderSimple() {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {!config ? (
-          // Initialize Form Modal
+          // Table Selection
           <div className="flex h-full items-center justify-center bg-gray-50">
             <Card className="w-96">
               <CardHeader>
-                <CardTitle>Create New Form</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Table className="h-5 w-5" />
+                  Select Table
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <Input
-                  type="text"
-                  value={tableName}
-                  onChange={(e) => setTableName(e.target.value)}
-                  placeholder="Enter table name (e.g., Users)"
-                  onKeyDown={(e) => e.key === 'Enter' && handleInitialize()}
-                />
-                <div className="mt-4">
-                  <Button
-                    onClick={handleInitialize}
-                    className="w-full"
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Choose a table to create form
+                  </label>
+                  <Select
+                    value={selectedTable}
+                    onValueChange={setSelectedTable}
+                    disabled={loadingSchema}
                   >
-                    Create Form
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select table..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTables.map((table) => (
+                        <SelectItem key={table} value={table}>
+                          {table}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {loadingSchema && (
+                  <p className="text-center text-sm text-gray-500">
+                    Loading schema...
+                  </p>
+                )}
+
+                {tableSchema && (
+                  <div className="rounded border bg-gray-50 p-3 text-sm">
+                    <p className="font-medium">
+                      {tableSchema.columns.length} columns found
+                    </p>
+                    <p className="text-gray-600">
+                      Primary Keys: {tableSchema.primaryKeys.join(', ')}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'builder' | 'preview' | 'code')} className="h-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) =>
+              setActiveTab(value as 'builder' | 'preview' | 'code')
+            }
+            className="h-full"
+          >
             <div className="border-b px-6 py-2">
               <TabsList>
                 <TabsTrigger value="builder">Builder</TabsTrigger>
                 <TabsTrigger value="preview">Preview</TabsTrigger>
-                <TabsTrigger value="code" disabled={!generatedCode?.success}>Code</TabsTrigger>
+                <TabsTrigger value="code" disabled={!generatedCode?.success}>
+                  Code
+                </TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent value="builder" className="h-full m-0">
+            <TabsContent value="builder" className="m-0 h-full">
               <BuilderTab />
             </TabsContent>
-            <TabsContent value="preview" className="h-full m-0">
+            <TabsContent value="preview" className="m-0 h-full">
               <PreviewTab />
             </TabsContent>
-            <TabsContent value="code" className="h-full m-0">
+            <TabsContent value="code" className="m-0 h-full">
               {generatedCode && <CodeTab code={generatedCode} />}
             </TabsContent>
           </Tabs>
@@ -404,15 +451,17 @@ function CodeTab({ code }: { code: GeneratedCode }) {
         <div className="flex gap-2">
           <Button
             onClick={() => setShowHtml(true)}
-            className={`rounded px-4 py-1 text-sm ${showHtml ? 'bg-blue-600 text-white' : 'bg-gray-100'
-              }`}
+            variant={showHtml ? "default" : "outline"}
+            size="sm"
+            className={cn("text-sm", showHtml && "bg-blue-600 hover:bg-blue-700")} // Use Tailwind colors
           >
             HTML
           </Button>
           <Button
             onClick={() => setShowHtml(false)}
-            className={`rounded px-4 py-1 text-sm ${!showHtml ? 'bg-blue-600 text-white' : 'bg-gray-100'
-              }`}
+            variant={!showHtml ? "default" : "outline"}
+            size="sm"
+            className={cn("text-sm", !showHtml && "bg-blue-600 hover:bg-blue-700")}
           >
             JavaScript
           </Button>
@@ -420,10 +469,12 @@ function CodeTab({ code }: { code: GeneratedCode }) {
             onClick={() => {
               const codeToCopy = showHtml ? code.html : code.javaScript;
               navigator.clipboard.writeText(codeToCopy).then(() => {
-                toast.success('Code copied to clipboard');
+                toast.success("Code copied to clipboard");
               });
             }}
-            className="rounded px-4 py-1 text-sm bg-gray-100 hover:bg-gray-200 flex items-center gap-1"
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 text-sm"
           >
             <Copy className="h-4 w-4" />
             Copy

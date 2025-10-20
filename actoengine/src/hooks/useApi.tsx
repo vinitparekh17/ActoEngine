@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient,type UseQueryOptions, type UseMutationOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseMutationOptions } from '@tanstack/react-query';
 import { getAuthHeaders, useAuthStore } from './useAuth';
 import { toast } from 'sonner';
 
@@ -32,7 +32,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     // Merge headers with defaults
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -50,7 +50,7 @@ class ApiClient {
     if (response.status === 401) {
       const { clearAuth } = useAuthStore.getState();
       clearAuth();
-      
+
       // Throw error to be caught by error boundary
       const error = new Error('Session expired. Please login again.');
       (error as any).status = 401;
@@ -76,7 +76,7 @@ class ApiClient {
         (err as any).errors = error.errors; // Validation errors
         throw err;
       }
-      
+
       const err = new Error(`Request failed: ${response.statusText}`);
       (err as any).status = response.status;
       throw err;
@@ -155,10 +155,10 @@ export function useApi<T>(
 function generateQueryKey(endpoint: string): string[] {
   // Remove leading slash and query params
   const cleanEndpoint = endpoint.replace(/^\//, '').split('?')[0];
-  
+
   // Split by / to create hierarchical key
   const parts = cleanEndpoint.split('/').filter(Boolean);
-  
+
   return parts;
 }
 
@@ -194,15 +194,31 @@ export function useApiMutation<TData = unknown, TVariables = void>(
 
   return useMutation<TData, Error, TVariables>({
     mutationFn: (variables: TVariables) => {
+      const paramMatches = Array.from(endpoint.matchAll(/:([a-zA-Z0-9_]+)/g));
+      const paramKeys = paramMatches.map((match) => match[1]);
+
+      let url = endpoint.replace(/:([a-zA-Z0-9_]+)/g, (_, key) => {
+        const value = (variables as Record<string, unknown>)?.[key];
+        if (value === undefined || value === null) {
+          throw new Error(`Missing required URL parameter: ${key}`);
+        }
+        return encodeURIComponent(String(value));
+      });
+
+      const bodyVariables = variables ? { ...(variables as Record<string, unknown>) } : {};
+      for (const key of paramKeys) {
+        delete bodyVariables[key];
+      }
+
       switch (method) {
         case 'POST':
-          return api.post<TData>(endpoint, variables);
+          return api.post<TData>(url, bodyVariables);
         case 'PUT':
-          return api.put<TData>(endpoint, variables);
-        case 'DELETE':
-          return api.delete<TData>(endpoint);
+          return api.put<TData>(url, bodyVariables);
         case 'PATCH':
-          return api.patch<TData>(endpoint, variables);
+          return api.patch<TData>(url, bodyVariables);
+        case 'DELETE':
+          return api.delete<TData>(url);
         default:
           throw new Error(`Unsupported method: ${method}`);
       }

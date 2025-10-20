@@ -33,7 +33,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
 
                 // Get or compile template
                 var cacheKey = $"{templateType}_{framework}_{template.Version}";
-                Template compiledTemplate;
+                Template? compiledTemplate = null;
 
                 lock (_cacheLock)
                 {
@@ -47,7 +47,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
                 }
 
                 // Render template
-                var result = await compiledTemplate.RenderAsync(context);
+                var result = await compiledTemplate!.RenderAsync(context);
 
                 _logger.LogInformation("Rendered template: {TemplateType}/{Framework} v{TemplateVersion}",
                     templateType, framework, template.Version);
@@ -74,7 +74,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
 
                 // Get or compile template
                 var cacheKey = templateName;
-                Template compiledTemplate;
+                Template? compiledTemplate = null;
 
                 lock (_cacheLock)
                 {

@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { TableSkeleton, PageHeaderSkeleton, LoadingContainer } from '../components/ui/skeletons';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 
@@ -30,7 +30,8 @@ export interface CreateClientRequest {
 
 export default function ClientManagementPage() {
     const [editingClient, setEditingClient] = useState<Client | null>(null);
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState<CreateClientRequest>({ clientName: '', projectId: 1 });
     const { confirm } = useConfirm();
 
@@ -71,7 +72,7 @@ export default function ClientManagementPage() {
         if (!formData.clientName.trim()) return;
         createClientMutation.mutate(formData, {
             onSuccess: () => {
-                setIsCreateModalOpen(false);
+                setIsModalOpen(false);
                 setFormData({ clientName: '', projectId: 1 });
             },
         });
@@ -82,6 +83,7 @@ export default function ClientManagementPage() {
         const updatedClient = { ...editingClient, clientName: formData.clientName, projectId: formData.projectId };
         updateClientMutation.mutate(updatedClient, {
             onSuccess: () => {
+                setIsModalOpen(false);
                 setEditingClient(null);
                 setFormData({ clientName: '', projectId: 1 });
             },
@@ -105,8 +107,26 @@ export default function ClientManagementPage() {
     };
 
     const openEditModal = (client: Client) => {
+        setIsEditing(true);
         setEditingClient(client);
         setFormData({ clientName: client.clientName, projectId: client.projectId });
+        setIsModalOpen(true);
+    };
+
+    const openCreateModal = () => {
+        setIsEditing(false);
+        setEditingClient(null);
+        setFormData({ clientName: '', projectId: 1 });
+        setIsModalOpen(true);
+    };
+
+    const handleModalClose = (open: boolean) => {
+        if (!open) {
+            setIsModalOpen(false);
+            setEditingClient(null);
+            setIsEditing(false);
+            setFormData({ clientName: '', projectId: 1 });
+        }
     };
 
     return (
@@ -132,48 +152,10 @@ export default function ClientManagementPage() {
                         </div>
 
                         {/* Create Client Button */}
-                        <Dialog open={isCreateModalOpen} onOpenChange={(open) => {
-                            setIsCreateModalOpen(open);
-                            if (open) {
-                                // Reset form when opening create modal
-                                setFormData({ clientName: '', projectId: 1 });
-                            }
-                        }}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Client
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Create New Client</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                    <div>
-                                        <Label htmlFor="clientName">Client Name</Label>
-                                        <Input
-                                            id="clientName"
-                                            value={formData.clientName}
-                                            onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                                            placeholder="Enter client name"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="projectId">Project ID</Label>
-                                        <Input
-                                            id="projectId"
-                                            type="number"
-                                            value={formData.projectId}
-                                            onChange={(e) => setFormData({ ...formData, projectId: parseInt(e.target.value, 10) })}
-                                        />
-                                    </div>
-                                    <Button onClick={handleCreate} disabled={createClientMutation.isPending}>
-                                        {createClientMutation.isPending ? 'Creating...' : 'Create Client'}
-                                    </Button>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                        <Button onClick={openCreateModal}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Client
+                        </Button>
                     </div>
 
                     {/* Clients Table */}
@@ -229,37 +211,58 @@ export default function ClientManagementPage() {
                         </Table>
                     </div>
 
-                    {/* Edit Modal */}
-                    <Dialog open={!!editingClient} onOpenChange={(open) => !open && setEditingClient(null)}>
-                        <DialogContent>
+                    {/* Unified Modal */}
+                    <Dialog open={isModalOpen} onOpenChange={handleModalClose}>
+                        <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
-                                <DialogTitle>Edit Client</DialogTitle>
+                                <DialogTitle>{isEditing ? 'Edit Client' : 'Create New Client'}</DialogTitle>
+                                <DialogDescription>
+                                    {isEditing
+                                        ? 'Update the client details below and click “Update Client” to save changes.'
+                                        : 'Enter the details below and click “Create Client” to add a new client.'
+                                    }
+                                </DialogDescription>
                             </DialogHeader>
-                            <div className="space-y-4">
-                                <div>
-                                    <Label htmlFor="editClientName">Client Name</Label>
+
+                            <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="clientName" className="text-right">
+                                        Name
+                                    </Label>
                                     <Input
-                                        id="editClientName"
+                                        id="clientName"
                                         value={formData.clientName}
                                         onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
                                         placeholder="Enter client name"
+                                        className="col-span-3"
                                     />
                                 </div>
-                                <div>
-                                    <Label htmlFor="editProjectId">Project ID</Label>
+
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="projectId" className="text-right">
+                                        Project ID
+                                    </Label>
                                     <Input
-                                        id="editProjectId"
+                                        id="projectId"
                                         type="number"
                                         value={formData.projectId}
                                         onChange={(e) => setFormData({ ...formData, projectId: parseInt(e.target.value, 10) })}
+                                        className="col-span-3"
                                     />
                                 </div>
-                                <Button onClick={handleUpdate} disabled={updateClientMutation.isPending}>
-                                    {updateClientMutation.isPending ? 'Updating...' : 'Update Client'}
-                                </Button>
                             </div>
+
+                            <DialogFooter>
+                                <Button onClick={isEditing ? handleUpdate : handleCreate} disabled={isEditing ? updateClientMutation.isPending : createClientMutation.isPending}>
+                                    {isEditing
+                                        ? (updateClientMutation.isPending ? 'Updating...' : 'Update Client')
+                                        : (createClientMutation.isPending ? 'Creating...' : 'Create Client')
+                                    }
+                                </Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
+
                 </div>
             )}
         </LoadingContainer>

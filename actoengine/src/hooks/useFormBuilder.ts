@@ -1,15 +1,27 @@
+// hooks/useFormBuilder.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { useApiPost } from './useApi';
-import { toast } from 'sonner';
 import { nanoid } from 'nanoid';
-
-// ============================================
-// Types of Inputs and Form Structures
-// ============================================
+import { toast } from 'sonner';
+import { useApiPost } from './useApi';
 
 export type InputType =
-  | 'text' | 'number' | 'email' | 'date' | 'select' | 'textarea' | 'checkbox' | 'password' | 'radio' | 'file' | 'hidden';
+  | 'text'
+  | 'number'
+  | 'email'
+  | 'date'
+  | 'select'
+  | 'textarea'
+  | 'checkbox'
+  | 'password'
+  | 'radio'
+  | 'file'
+  | 'hidden';
+
+export interface SelectOption {
+  label: string;
+  value: string;
+}
 
 export interface FormField {
   id: string;
@@ -37,11 +49,6 @@ export interface FormField {
   options?: SelectOption[];
   disabled: boolean;
   readonly: boolean;
-}
-
-export interface SelectOption {
-  label: string;
-  value: string;
 }
 
 export interface FormGroup {
@@ -93,17 +100,44 @@ export interface GeneratedCode {
   message?: string;
 }
 
-// ============================================
-// Zustand Store for Form Builder State Management
-// ============================================
+export interface TableColumn {
+  schemaName: string;
+  columnName: string;
+  dataType: string;
+  maxLength: number | null;
+  isNullable: boolean;
+  isPrimaryKey: boolean;
+  isIdentity: boolean;
+  isForeignKey: boolean;
+  defaultValue: string;
+}
+
+export interface TableSchema {
+    tableName: string;
+    schemaName: string;
+    columns: Array<{
+      schemaName: string;
+      columnName: string;
+      dataType: string;
+      maxLength: number | null;
+      isNullable: boolean;
+      isPrimaryKey: boolean;
+      isIdentity: boolean;
+      isForeignKey: boolean;
+      defaultValue: string;
+    }>;
+    primaryKeys: string[];
+}
 
 interface FormBuilderStore {
   config: FormConfig | null;
   selectedFieldId: string | null;
   selectedGroupId: string | null;
   generatedCode: GeneratedCode | null;
+  tableSchema: TableSchema | null;
 
   setConfig: (config: FormConfig) => void;
+  setTableSchema: (schema: TableSchema | null) => void;
   addGroup: (group?: Partial<FormGroup>) => void;
   updateGroup: (groupId: string, updates: Partial<FormGroup>) => void;
   deleteGroup: (groupId: string) => void;
@@ -118,146 +152,96 @@ interface FormBuilderStore {
 
 const useFormBuilderStore = create<FormBuilderStore>()(
   persist(
-    (set) => ({
+    (set, _get) => ({
       config: null,
       selectedFieldId: null,
       selectedGroupId: null,
       generatedCode: null,
+      tableSchema: null,
 
       setConfig: (config) => set({ config }),
-
+      setTableSchema: (schema) => set({ tableSchema: schema }),
       addGroup: (group) => set((state) => {
         if (!state.config) return state;
-
         const newGroup: FormGroup = {
-          id: `group-${nanoid(6)}`,
+          id: group?.id || `group-${nanoid(6)}`,
           title: group?.title || 'New Group',
           description: group?.description,
-          fields: [],
+          fields: group?.fields || [],
           layout: group?.layout || 'row',
-          order: state.config.groups.length,
-          collapsible: group?.collapsible || false,
-          collapsed: group?.collapsed || false,
+          order: group?.order ?? state.config.groups.length,
+          collapsible: group?.collapsible ?? false,
+          collapsed: group?.collapsed ?? false,
         };
-
-        return {
-          config: {
-            ...state.config,
-            groups: [...state.config.groups, newGroup],
-          },
-          selectedGroupId: newGroup.id,
-        };
+        return { config: { ...state.config, groups: [...state.config.groups, newGroup] } };
       }),
-
       updateGroup: (groupId, updates) => set((state) => {
         if (!state.config) return state;
-
-        return {
-          config: {
-            ...state.config,
-            groups: state.config.groups.map(g =>
-              g.id === groupId ? { ...g, ...updates } : g
-            ),
-          },
-        };
+        const groups = state.config.groups.map(g => g.id === groupId ? { ...g, ...updates } : g);
+        return { config: { ...state.config, groups } };
       }),
-
       deleteGroup: (groupId) => set((state) => {
         if (!state.config) return state;
-
-        return {
-          config: {
-            ...state.config,
-            groups: state.config.groups.filter(g => g.id !== groupId),
-          },
-          selectedGroupId: state.selectedGroupId === groupId ? null : state.selectedGroupId,
-        };
+        const groups = state.config.groups.filter(g => g.id !== groupId);
+        return { config: { ...state.config, groups } };
       }),
-
       addField: (groupId, field) => set((state) => {
         if (!state.config) return state;
-
-        const newField: FormField = {
-          id: `field-${nanoid(6)}`,
-          columnName: field.columnName || '',
-          dataType: field.dataType || 'NVARCHAR',
-          label: field.label || '',
-          inputType: field.inputType || 'text',
-          placeholder: field.placeholder,
-          defaultValue: field.defaultValue,
-          helpText: field.helpText,
-          colSize: field.colSize || 12,
-          order: 0, // Will be set below
-          required: field.required || false,
-          minLength: field.minLength,
-          maxLength: field.maxLength,
-          min: field.min,
-          max: field.max,
-          pattern: field.pattern,
-          errorMessage: field.errorMessage,
-          includeInInsert: field.includeInInsert ?? true,
-          includeInUpdate: field.includeInUpdate ?? true,
-          isPrimaryKey: field.isPrimaryKey || false,
-          isIdentity: field.isIdentity || false,
-          isForeignKey: field.isForeignKey || false,
-          options: field.options,
-          disabled: field.disabled || false,
-          readonly: field.readonly || false,
-        };
-
-        return {
-          config: {
-            ...state.config,
-            groups: state.config.groups.map(g => {
-              if (g.id === groupId) {
-                newField.order = g.fields.length;
-                return {
-                  ...g,
-                  fields: [...g.fields, newField],
-                };
-              }
-              return g;
-            }),
-          },
-          selectedFieldId: newField.id,
-        };
+        const groups = state.config.groups.map(g => {
+          if (g.id === groupId) {
+            const newField: FormField = {
+              id: field.id || `field-${nanoid(6)}`,
+              columnName: field.columnName || '',
+              dataType: field.dataType || 'varchar',
+              label: field.label || 'New Field',
+              inputType: field.inputType || 'text',
+              placeholder: field.placeholder,
+              defaultValue: field.defaultValue,
+              helpText: field.helpText,
+              colSize: field.colSize ?? 6,
+              order: field.order ?? g.fields.length,
+              required: field.required ?? false,
+              minLength: field.minLength,
+              maxLength: field.maxLength,
+              min: field.min,
+              max: field.max,
+              pattern: field.pattern,
+              errorMessage: field.errorMessage,
+              includeInInsert: field.includeInInsert ?? true,
+              includeInUpdate: field.includeInUpdate ?? true,
+              isPrimaryKey: field.isPrimaryKey ?? false,
+              isIdentity: field.isIdentity ?? false,
+              isForeignKey: field.isForeignKey ?? false,
+              options: field.options,
+              disabled: field.disabled ?? false,
+              readonly: field.readonly ?? false,
+            };
+            return { ...g, fields: [...g.fields, newField] };
+          }
+          return g;
+        });
+        return { config: { ...state.config, groups } };
       }),
-
       updateField: (fieldId, updates) => set((state) => {
         if (!state.config) return state;
-
-        return {
-          config: {
-            ...state.config,
-            groups: state.config.groups.map(g => ({
-              ...g,
-              fields: g.fields.map(f =>
-                f.id === fieldId ? { ...f, ...updates } : f
-              ),
-            })),
-          },
-        };
+        const groups = state.config.groups.map(g => ({
+          ...g,
+          fields: g.fields.map(f => f.id === fieldId ? { ...f, ...updates } : f)
+        }));
+        return { config: { ...state.config, groups } };
       }),
-
       deleteField: (fieldId) => set((state) => {
         if (!state.config) return state;
-
-        return {
-          config: {
-            ...state.config,
-            groups: state.config.groups.map(g => ({
-              ...g,
-              fields: g.fields.filter(f => f.id !== fieldId),
-            })),
-          },
-          selectedFieldId: state.selectedFieldId === fieldId ? null : state.selectedFieldId,
-        };
+        const groups = state.config.groups.map(g => ({
+          ...g,
+          fields: g.fields.filter(f => f.id !== fieldId)
+        }));
+        return { config: { ...state.config, groups } };
       }),
-
       selectField: (fieldId) => set({ selectedFieldId: fieldId }),
       selectGroup: (groupId) => set({ selectedGroupId: groupId }),
       setGeneratedCode: (code) => set({ generatedCode: code }),
-      reset: () => set({ config: null, selectedFieldId: null, selectedGroupId: null, generatedCode: null }),
+      reset: () => set({ config: null, selectedFieldId: null, selectedGroupId: null, generatedCode: null, tableSchema: null }),
     }),
     {
       name: 'actox-form-builder',
@@ -265,84 +249,63 @@ const useFormBuilderStore = create<FormBuilderStore>()(
       partialize: (state) => ({
         selectedFieldId: state.selectedFieldId,
         selectedGroupId: state.selectedGroupId,
-        config: state.config,
-        generatedCode: state.generatedCode,
       }),
-      migrate: (persistedState: any, version: number) => {
-        if (version === 0) {
-          return {
-            selectedFieldId: persistedState.selectedFieldId || null,
-            selectedGroupId: persistedState.selectedGroupId || null,
-            config: persistedState.config || {},
-            generatedCode: persistedState.generatedCode || '',
-          };
-        }
-        return persistedState as FormBuilderStore;
-      },
     }
   )
 );
-
-// ============================================
-// Query Keys (Structured)
-// ============================================
-
-export const formBuilderQueryKeys = {
-  all: () => ['formbuilder'] as const,
-  configs: (projectId: number) => ['formbuilder', 'configs', projectId] as const,
-  generated: (configId: string) => ['formbuilder', 'generated', configId] as const,
-};
-
-// ============================================
-// Main Hook
-// ============================================
 
 export function useFormBuilder() {
   const store = useFormBuilderStore();
 
   // Save form config
-  const saveConfigMutation = useApiPost<{ success: boolean; formId: number; config: FormConfig }, { projectId: number; config: FormConfig; description?: string }>(
-    '/formbuilder/save',
-    {
-      onSuccess: (data) => {
-        if (data.formId && store.config) {
-          store.setConfig({
-            ...store.config,
-            id: data.formId.toString()
-          });
-        }
-      }
-    });
+  const saveConfigMutation = useApiPost<
+    { success: boolean; formId: number; config: FormConfig },
+    { projectId: number; config: FormConfig; description?: string }
+  >('/formbuilder/save', {
+    onSuccess: () => {
+      toast.success('Form configuration saved!');
+    },
+  });
 
   // Generate code
-  const generateCodeMutation = useApiPost<GeneratedCode, { config: FormConfig; generateStoredProcedures?: boolean; preview?: boolean }>(
-    '/formbuilder/generate',
+  const generateCodeMutation = useApiPost<
+    GeneratedCode,
     {
-      onSuccess: (data) => {
-        const { success, message, warnings } = data || {};
-        if (success) {
-          store.setGeneratedCode(data);
-
-          // show success or partial-success notification
-          if (warnings?.length) {
-            toast.warning(`Code generated with warnings: ${warnings.join(', ')}`);
-          } else {
-            toast.success(message || 'Code generated successfully!');
-          }
-        } else {
-          // handle soft failure (validation, logical error)
-          toast.error(message || 'Failed to generate code. Please review inputs.');
-        }
-      },
-      onError: (error) => {
-        console.error(error);
-        toast.error('Server error while generating code.');
-      },
+      config: FormConfig;
+      generateStoredProcedures?: boolean;
+      preview?: boolean;
     }
-  );
+  >('/formbuilder/generate', {
+    onSuccess: (data) => {
+      const { success, message, warnings } = data || {};
+      if (success) {
+        store.setGeneratedCode(data);
 
-  // Initialize a new form
-  const initializeForm = (tableName: string, projectId: number) => {
+        if (warnings?.length) {
+          toast.warning(
+            `Code generated with warnings: ${warnings.join(', ')}`
+          );
+        } else {
+          toast.success(message || 'Code generated successfully!');
+        }
+      } else {
+        toast.error(
+          message || 'Failed to generate code. Please review inputs.'
+        );
+      }
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Server error while generating code.');
+    },
+  });
+
+  // Initialize from table schema
+  const initializeFromTable = (
+    tableName: string,
+    projectId: number,
+    schema: TableSchema
+  ) => {
     const config: FormConfig = {
       id: `form-${nanoid(6)}`,
       projectId,
@@ -353,50 +316,65 @@ export function useFormBuilder() {
     };
 
     store.setConfig(config);
-    // Add a default group
-    store.addGroup({ title: 'Main Fields' });
-    return config;
-  };
+    store.setTableSchema(schema);
 
-  // Import fields from schema (simplified)
-  const importFromSchema = (columns: any[]) => {
-    if (!store.config || !Array.isArray(store.config.groups) || store.config.groups.length === 0) {
-      toast.error('No groups defined — please create a group in the form first');
-      return;
-    }
+    // Create default group
+    const groupId = `group-${nanoid(6)}`;
+    const newGroup: FormGroup = {
+      id: groupId,
+      title: 'Main Fields',
+      fields: [],
+      layout: 'row',
+      order: 0,
+      collapsible: false,
+      collapsed: false,
+    };
 
-    const firstGroupId = store.config.groups[0].id;
-    const fields = columns
-      .filter(col => !col.isIdentity) // Skip identity columns
-      .map(col => ({
+    // Auto-map columns to fields
+    const fields: FormField[] = schema.columns
+      .filter((col) => !col.isIdentity)
+      .map((col, index) => ({
+        id: `field-${nanoid(6)}`,
         columnName: col.columnName,
         dataType: col.dataType,
         label: formatLabel(col.columnName),
-        inputType: mapSqlTypeToInput(col.dataType),
+        inputType: mapColumnToInputType(col),
+        placeholder: `Enter ${formatLabel(col.columnName).toLowerCase()}`,
+        colSize: suggestColSize(col),
+        order: index,
         required: !col.isNullable,
-        colSize: 12,
-        includeInInsert: true,
-        includeInUpdate: true,
-        isPrimaryKey: col.isPrimaryKey || false,
-        isIdentity: col.isIdentity || false,
-        isForeignKey: col.isForeignKey || false,
+        includeInInsert: !col.isPrimaryKey && !col.isIdentity,
+        includeInUpdate: !col.isPrimaryKey && !col.isIdentity,
+        isPrimaryKey: col.isPrimaryKey,
+        isIdentity: col.isIdentity,
+        isForeignKey: col.isForeignKey,
+        disabled: col.isPrimaryKey || col.isIdentity,
+        readonly: col.isPrimaryKey || col.isIdentity,
+        maxLength: col.maxLength || undefined,
       }));
 
-    if (fields.length === 0) {
-      toast.info('No non-identity columns to import');
-      return;
-    }
+    newGroup.fields = fields;
 
-    fields.forEach(field => store.addField(firstGroupId, field));
-    toast.success(`Imported ${fields.length} fields`);
+    store.setConfig({
+      ...config,
+      groups: [newGroup],
+    });
+
+    return config;
   };
+
   // Get selected field
-  const selectedField = store.config?.groups
-    .flatMap(g => g.fields)
-    .find(f => f.id === store.selectedFieldId) || null;
+  const selectedField =
+    store.config?.groups
+      .flatMap((g) => g.fields)
+      .find((f) => f.id === store.selectedFieldId) || null;
+
+  // Get selected group
+  const selectedGroup =
+    store.config?.groups.find((g) => g.id === store.selectedGroupId) || null;
 
   // Get all fields (flattened from all groups)
-  const allFields = store.config?.groups.flatMap(g => g.fields) || [];
+  const allFields = store.config?.groups.flatMap((g) => g.fields) || [];
 
   return {
     // State
@@ -404,27 +382,27 @@ export function useFormBuilder() {
     groups: store.config?.groups || [],
     fields: allFields,
     selectedField,
-    selectedGroup: store.config?.groups.find(g => g.id === store.selectedGroupId) || null,
+    selectedGroup,
     generatedCode: store.generatedCode,
+    tableSchema: store.tableSchema,
 
     // Loading states
     isSaving: saveConfigMutation.isPending,
     isGenerating: generateCodeMutation.isPending,
 
     // Actions
-    initializeForm,
-    importFromSchema,
+    initializeFromTable,
     saveConfig: () => {
       if (!store.config) return;
       saveConfigMutation.mutate({
         projectId: store.config.projectId,
-        config: store.config
+        config: store.config,
       });
     },
     generateCode: () => {
       if (!store.config) return;
       generateCodeMutation.mutate({
-        config: store.config
+        config: store.config,
       });
     },
 
@@ -445,14 +423,48 @@ export function useFormBuilder() {
     deleteField: store.deleteField,
     selectField: store.selectField,
 
+    // Schema
+    setTableSchema: store.setTableSchema,
+
     // Reset
     reset: store.reset,
   };
 }
 
-// ============================================
-// Utility Functions
-// ============================================
+// Enhanced mapping function
+function mapColumnToInputType(col: TableColumn): InputType {
+  const type = col.dataType.toUpperCase();
+
+  // Foreign keys become dropdowns
+  if (col.isForeignKey) return 'select';
+
+  // Type-based mapping
+  if (
+    type.includes('INT') ||
+    type.includes('DECIMAL') ||
+    type.includes('NUMERIC')
+  )
+    return 'number';
+  if (type.includes('DATE') || type.includes('DATETIME')) return 'date';
+  if (type.includes('BIT')) return 'checkbox';
+  if (
+    type.includes('TEXT') ||
+    type.includes('NVARCHAR(MAX)') ||
+    (col.maxLength && col.maxLength > 200)
+  )
+    return 'textarea';
+
+  return 'text';
+}
+
+// Suggest column size based on data type
+function suggestColSize(col: TableColumn): number {
+  if (col.dataType === 'bit') return 12; // Checkbox full width
+  if (col.isForeignKey) return 6; // Dropdowns half width
+  if (col.dataType.includes('date')) return 6;
+  if (col.maxLength && col.maxLength > 100) return 12;
+  return 6; // Default half width
+}
 
 function formatLabel(columnName: string): string {
   return columnName
@@ -460,17 +472,6 @@ function formatLabel(columnName: string): string {
     .replace(/[_-]/g, ' ')
     .trim()
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
-}
-
-function mapSqlTypeToInput(sqlType: string): InputType {
-  const type = sqlType.toUpperCase();
-
-  if (type.includes('INT') || type.includes('DECIMAL')) return 'number';
-  if (type.includes('DATE')) return 'date';
-  if (type.includes('BIT')) return 'checkbox';
-  if (type.includes('TEXT') || type.includes('NVARCHAR(MAX)')) return 'textarea';
-
-  return 'text';
 }
