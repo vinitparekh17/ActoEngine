@@ -1,33 +1,31 @@
-import { useState } from "react"
 import { Outlet } from 'react-router-dom';
 import AppHeader from "./AppHeader"
-import AppSidebar from "./Sidebar"
+import AppSidebar from "./AppSidebar"
 import { ConfirmDialog } from "./ConfirmDialog";
+import { SidebarProvider, SidebarInset } from "../ui/sidebar";
 
 // components/layout/AppLayout.tsx
 export default function AppLayout() {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Global Header */}
-      <AppHeader />
-      
-      <div className="flex-1 flex">
+    <SidebarProvider defaultOpen={true}>
+      <div className="min-h-screen flex w-full">
         {/* Global Sidebar - Navigation between features */}
-        <AppSidebar 
-          isCollapsed={isSidebarCollapsed} 
-          onToggle={setIsSidebarCollapsed} 
-        />
+        <AppSidebar />
         
-        {/* Feature content area */}
-        <main className="flex-1">
-          <ConfirmDialog />
-          <div className="p-6">
-            <Outlet />
-          </div>
-        </main>
+        {/* Main content area */}
+        <SidebarInset>
+          {/* Global Header */}
+          <AppHeader />
+          
+          {/* Feature content area */}
+          <main className="flex-1">
+            <ConfirmDialog />
+            <div className="p-6">
+              <Outlet />
+            </div>
+          </main>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }

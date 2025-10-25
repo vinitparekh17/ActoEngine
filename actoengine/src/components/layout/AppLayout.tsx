@@ -1,11 +1,9 @@
-import { useState } from "react"
 import AppHeader from "./AppHeader"
-import AppSidebar from "./Sidebar"
+import AppSidebar from "./AppSidebar"
 import { Outlet } from "react-router-dom"
 
 // components/layout/AppLayout.tsx
 export default function AppLayout() {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -14,10 +12,7 @@ export default function AppLayout() {
 
       <div className="flex-1 flex">
         {/* Global Sidebar - Navigation between features */}
-        <AppSidebar
-          isCollapsed={isSidebarCollapsed}
-          onToggle={setIsSidebarCollapsed}
-        />
+        <AppSidebar />
 
         {/* Feature content area */}
         <main className="flex-1">

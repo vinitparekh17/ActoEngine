@@ -46,6 +46,7 @@ export interface FormField {
   isPrimaryKey: boolean;
   isIdentity: boolean;
   isForeignKey: boolean;
+  referencedTable?: string;
   options?: SelectOption[];
   disabled: boolean;
   readonly: boolean;
@@ -80,7 +81,7 @@ export interface FormGenerationOptions {
 export interface FormConfig {
   id?: string;
   projectId: number;
-  tableName: string;
+  tableName: string | null;
   formName: string;
   title: string;
   description?: string;
@@ -363,6 +364,56 @@ export function useFormBuilder() {
     return config;
   };
 
+  // Initialize without table
+  const initializeCustomForm = (formName: string, projectId: number) => {
+  const config: FormConfig = {
+    id: `form-${nanoid(6)}`,
+    projectId,
+    tableName: null,
+    formName,
+    title: formName,
+    groups: [],
+  };
+
+  const groupId = `group-${nanoid(6)}`;
+  const newGroup: FormGroup = {
+    id: groupId,
+    title: 'Main Fields',
+    fields: [
+      {
+        id: `field-${nanoid(6)}`,
+        columnName: 'field_1',
+        dataType: 'varchar',
+        label: 'New Field',
+        inputType: 'text',
+        colSize: 6,
+        order: 0,
+        required: false,
+        includeInInsert: true,
+        includeInUpdate: true,
+        isPrimaryKey: false,
+        isIdentity: false,
+        isForeignKey: false,
+        disabled: false,
+        readonly: false,
+      },
+    ],
+    layout: 'row',
+    order: 0,
+    collapsible: false,
+    collapsed: false,
+  };
+
+  store.setConfig({
+    ...config,
+    groups: [newGroup],
+  });
+  store.setTableSchema(null);
+  store.selectGroup(groupId);
+
+  return config;
+};
+
   // Get selected field
   const selectedField =
     store.config?.groups
@@ -392,6 +443,7 @@ export function useFormBuilder() {
 
     // Actions
     initializeFromTable,
+    initializeCustomForm,
     saveConfig: () => {
       if (!store.config) return;
       saveConfigMutation.mutate({
