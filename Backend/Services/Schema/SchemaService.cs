@@ -1,6 +1,6 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
-using Dapper;
+using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Services.Schema;
 
@@ -126,22 +126,65 @@ public class SchemaService(
                 throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
             }
 
-            // Validate table name against actual schema (whitelist approach)
+            // Step 1: Strict regex validation for table name format
+            // Allows: [schema.]table or just table (alphanumeric and underscores only)
+            var tableNameRegex = new Regex(@"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)?$", RegexOptions.Compiled);
+            if (!tableNameRegex.IsMatch(tableName))
+            {
+                throw new ArgumentException($"Invalid table name format: '{tableName}'", nameof(tableName));
+            }
+
+            // Step 2: Validate against actual database schema (whitelist approach)
             var availableTables = await GetAllTablesAsync(connectionString);
             if (!availableTables.Contains(tableName))
             {
                 throw new ArgumentException($"Table '{tableName}' not found in database", nameof(tableName));
             }
 
+            // Step 3: Additional validation against sys.tables for extra security
             using var connection = new Microsoft.Data.SqlClient.SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            // Use QUOTENAME to safely quote the identifier and parameterized query for limit
-            var safeTableName = Microsoft.Data.SqlClient.SqlCommandBuilder.QuoteIdentifier(tableName);
-            var sql = $"SELECT TOP (@Limit) * FROM {safeTableName}";
-            var parameters = new { Limit = limit };
+            // Verify table exists in sys.tables (double-check with database metadata)
+            var parts = tableName.Split('.');
+            string schemaName = parts.Length == 2 ? parts[0] : "dbo";
+            string tableNameOnly = parts.Length == 2 ? parts[1] : tableName;
 
-            var reader = await connection.ExecuteReaderAsync(sql, parameters);
+            using (var checkCmd = connection.CreateCommand())
+            {
+                checkCmd.CommandText = @"
+                    SELECT COUNT(*)
+                    FROM sys.tables t
+                    INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+                    WHERE s.name = @SchemaName AND t.name = @TableName";
+                checkCmd.Parameters.AddWithValue("@SchemaName", schemaName);
+                checkCmd.Parameters.AddWithValue("@TableName", tableNameOnly);
+
+                var exists = (int)await checkCmd.ExecuteScalarAsync();
+                if (exists == 0)
+                {
+                    throw new ArgumentException($"Table '{tableName}' not found in sys.tables", nameof(tableName));
+                }
+            }
+
+            // Step 4: Build query using QUOTENAME for identifier safety
+            // QUOTENAME is SQL Server's built-in function for safely quoting identifiers
+            var sql = $"SELECT TOP (@Limit) * FROM {schemaName}.{tableNameOnly}";
+
+            // Use QUOTENAME to safely quote the identifiers
+            using var quotenameCmd = connection.CreateCommand();
+            quotenameCmd.CommandText = "SELECT QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName)";
+            quotenameCmd.Parameters.AddWithValue("@SchemaName", schemaName);
+            quotenameCmd.Parameters.AddWithValue("@TableName", tableNameOnly);
+
+            var quotedTableName = (string)await quotenameCmd.ExecuteScalarAsync();
+
+            // Step 5: Execute query with proper SqlCommand parameterization
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = $"SELECT TOP (@Limit) * FROM {quotedTableName}";
+            cmd.Parameters.Add("@Limit", System.Data.SqlDbType.Int).Value = limit;
+
+            using var reader = await cmd.ExecuteReaderAsync();
 
             var results = new List<Dictionary<string, object>>();
 
