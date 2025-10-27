@@ -126,17 +126,22 @@ public class SchemaService(
                 throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
             }
 
-            // Sanitize table name to prevent SQL injection (basic check)
-            if (tableName.Contains(';') || tableName.Contains("--") || tableName.Contains("/*"))
+            // Validate table name against actual schema (whitelist approach)
+            var availableTables = await GetAllTablesAsync(connectionString);
+            if (!availableTables.Contains(tableName))
             {
-                throw new ArgumentException("Invalid table name", nameof(tableName));
+                throw new ArgumentException($"Table '{tableName}' not found in database", nameof(tableName));
             }
 
             using var connection = new Microsoft.Data.SqlClient.SqlConnection(connectionString);
             await connection.OpenAsync();
 
-            var sql = $"SELECT TOP {limit} * FROM {tableName}";
-            var reader = await connection.ExecuteReaderAsync(sql);
+            // Use QUOTENAME to safely quote the identifier and parameterized query for limit
+            var safeTableName = Microsoft.Data.SqlClient.SqlCommandBuilder.QuoteIdentifier(tableName);
+            var sql = $"SELECT TOP (@Limit) * FROM {safeTableName}";
+            var parameters = new { Limit = limit };
+
+            var reader = await connection.ExecuteReaderAsync(sql, parameters);
 
             var results = new List<Dictionary<string, object>>();
 

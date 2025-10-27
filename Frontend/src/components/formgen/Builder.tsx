@@ -11,7 +11,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Switch } from "@radix-ui/react-switch";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useApi } from "../../hooks/useApi";
+import { useApi, api } from "../../hooks/useApi";
 import { useProject } from "../../hooks/useProject";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
@@ -255,55 +255,38 @@ export function FieldProperties({
                                         return;
                                     }
                                     if (availableTables.includes(fkTable)) {
-                                        // Fetch real data from the table
+                                        // Fetch real data from the table using the API client
                                         try {
                                             toast.info(`Loading options from ${fkTable}...`);
-                                            const response = await fetch(
-                                                `/api/DatabaseBrowser/projects/${selectedProject?.projectId}/tables/${fkTable}/data?limit=50`,
-                                                {
-                                                    credentials: 'include',
-                                                    headers: {
-                                                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                                                    }
-                                                }
+                                            const tableData = await api.get<Record<string, any>[]>(
+                                                `/DatabaseBrowser/projects/${selectedProject?.projectId}/tables/${fkTable}/data?limit=50`
                                             );
 
-                                            if (response.ok) {
-                                                const result = await response.json();
-                                                const tableData = result.data || [];
+                                            // Try to find ID and display columns
+                                            const firstRow = tableData[0];
+                                            if (firstRow && Object.keys(firstRow).length > 0) {
+                                                const columns = Object.keys(firstRow);
+                                                // Use first column as value (usually ID), second or first as label
+                                                const valueCol = columns[0];
+                                                const labelCol = columns.length > 1 ? columns[1] : columns[0];
 
-                                                // Try to find ID and display columns
-                                                const firstRow = tableData[0];
-                                                if (firstRow && Object.keys(firstRow).length > 0) {
-                                                    const columns = Object.keys(firstRow);
-                                                    // Use first column as value (usually ID), second or first as label
-                                                    const valueCol = columns[0];
-                                                    const labelCol = columns.length > 1 ? columns[1] : columns[0];
+                                                const options = tableData.map((row: any) => ({
+                                                    value: String(row[valueCol] || ''),
+                                                    label: String(row[labelCol] || row[valueCol] || 'Unknown'),
+                                                }));
 
-                                                    const options = tableData.map((row: any) => ({
-                                                        value: String(row[valueCol] || ''),
-                                                        label: String(row[labelCol] || row[valueCol] || 'Unknown'),
-                                                    }));
-
-                                                    onUpdate(field.id, {
-                                                        referencedTable: fkTable,
-                                                        options: [{ label: `Select ${fkTable}`, value: '' }, ...options],
-                                                    });
-                                                    toast.success(`Loaded ${options.length} options from ${fkTable}`);
-                                                } else {
-                                                    // No data in table
-                                                    onUpdate(field.id, {
-                                                        referencedTable: fkTable,
-                                                        options: [{ label: `No data in ${fkTable}`, value: '' }],
-                                                    });
-                                                    toast.warning(`Table ${fkTable} is empty`);
-                                                }
-                                            } else {
-                                                toast.error(`Failed to load data from ${fkTable}`);
                                                 onUpdate(field.id, {
                                                     referencedTable: fkTable,
-                                                    options: [{ label: `Select from ${fkTable}`, value: '' }],
+                                                    options: [{ label: `Select ${fkTable}`, value: '' }, ...options],
                                                 });
+                                                toast.success(`Loaded ${options.length} options from ${fkTable}`);
+                                            } else {
+                                                // No data in table
+                                                onUpdate(field.id, {
+                                                    referencedTable: fkTable,
+                                                    options: [{ label: `No data in ${fkTable}`, value: '' }],
+                                                });
+                                                toast.warning(`Table ${fkTable} is empty`);
                                             }
                                         } catch (error) {
                                             console.error('Error loading table data:', error);
