@@ -277,11 +277,11 @@ export function useApiPut<TData = unknown, TVariables = void>(
 /**
  * useApiDelete - DELETE mutation shorthand
  */
-export function useApiDelete<TData = unknown>(
+export function useApiDelete<TData = unknown, TVariables = void>(
   endpoint: string,
-  options?: UseApiMutationOptions<TData, void>
+  options?: UseApiMutationOptions<TData, TVariables>
 ) {
-  return useApiMutation<TData, void>(endpoint, 'DELETE', options);
+  return useApiMutation<TData, TVariables>(endpoint, 'DELETE', options);
 }
 
 // ============================================

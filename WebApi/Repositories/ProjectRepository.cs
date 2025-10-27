@@ -21,6 +21,9 @@ public class PublicProjectDto
     public DateTime? UpdatedAt { get; set; }
     public int? UpdatedBy { get; set; }
     public bool HasConnection { get; set; }
+    public string? SyncStatus { get; set; }
+    public int SyncProgress { get; set; }
+    public DateTime? LastSyncAttempt { get; set; }
 }
 
 public interface IProjectRepository
@@ -29,7 +32,7 @@ public interface IProjectRepository
     Task<PublicProjectDto?> GetByIdAsync(int projectId, CancellationToken cancellationToken = default);
     Task<PublicProjectDto?> GetByNameAsync(string projectName, int userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<PublicProjectDto>> GetAllAsync(CancellationToken cancellationToken = default);
-    
+
     // Internal methods - include connection strings for system operations
     Task<Project?> GetByIdInternalAsync(int projectId, CancellationToken cancellationToken = default);
     Task<int> AddOrUpdateProjectAsync(Project project, int userId);

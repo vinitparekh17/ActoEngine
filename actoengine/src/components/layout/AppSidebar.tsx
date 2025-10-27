@@ -1,4 +1,4 @@
-import { Database, FileCode, History, Palette, Users, Settings, ChevronDown, LogOut, ChevronsUpDown, User, Layers } from "lucide-react"
+import { Database, History, Palette, Users, Settings, ChevronDown, LogOut, ChevronsUpDown, User, Layers, Sparkles } from "lucide-react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
   Sidebar,
@@ -24,10 +24,10 @@ import { toast } from "sonner"
 
 // components/layout/AppSidebar.tsx
 const SIDEBAR_ITEMS = [
+  { icon: Sparkles, label: 'Projects', href: '/projects' },
   { icon: Database, label: "SP Generator", href: "/sp-generator" },
   { icon: Palette, label: "Form Builder", href: "/form-builder" },
   { icon: Users, label: "Client Management", href: "/clients" },
-  { icon: FileCode, label: "Code Patterns", href: "/patterns" },
   { icon: History, label: "Generation History", href: "/history" },
   { icon: Settings, label: "Settings", href: "/settings" },
 ]

@@ -89,7 +89,25 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> GetAllProjects()
         {
             var projects = await _projectService.GetAllProjectsAsync();
+            // getting sync status for each project;
+            foreach (var project in projects)
+            {
+                var syncStatus = await _projectService.GetSyncStatusAsync(project.ProjectId);
+                project.SyncStatus = syncStatus?.Status;
+                project.SyncProgress = syncStatus?.SyncProgress ?? 0;
+                project.LastSyncAttempt = syncStatus?.LastSyncAttempt;
+            }
             return Ok(ApiResponse<IEnumerable<PublicProjectDto>>.Success(projects, "Projects retrieved successfully"));
+        }
+
+        [HttpGet("{projectId}/stats")]
+        public async Task<IActionResult> GetProjectStats(int projectId)
+        {
+            var stats = await _projectService.GetProjectStatsAsync(projectId);
+            if (stats == null)
+                return NotFound(ApiResponse<object>.Failure("Project not found"));
+
+            return Ok(ApiResponse<ProjectStatsResponse>.Success(stats, "Project stats retrieved successfully"));
         }
 
         [HttpPut("{projectId}")]

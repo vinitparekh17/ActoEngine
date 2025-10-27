@@ -1,7 +1,7 @@
 "use client"
 
 import { Card } from "../ui/card"
-import { cn } from "../..//lib/utils"
+import { cn } from "../../lib/utils"
 
 export type SPType = "CUD" | "SELECT"
 

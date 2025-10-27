@@ -3,19 +3,11 @@ import { persist } from 'zustand/middleware';
 import { useApi } from './useApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import type { Project } from '../types/api';
 
 // ============================================
 // Types
 // ============================================
-export interface Project {
-  projectId: number;
-  projectName: string;
-  databaseName?: string;
-  serverName?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
 export interface TableSchemaResponse {
   tableName: string;
   schemaName: string;
@@ -141,17 +133,22 @@ export function useProject() {
   const selectedProject = projectDetails ||
     queryClient.getQueryData<Project>(projectQueryKeys.detail(store.selectedProjectId!));
 
-  const safeProject: SafeProject | null = selectedProject ? {
-    projectId: selectedProject.projectId,
-    projectName: selectedProject.projectName,
-    databaseName: selectedProject.databaseName,
-    serverName: selectedProject.serverName,
-    createdAt: selectedProject.createdAt,
-    updatedAt: selectedProject.updatedAt,
-  } : null;
+  const safeProject: SafeProject | null = useMemo(() => {
+    if (!selectedProject) return null;
+    return {
+      projectId: selectedProject.projectId,
+      projectName: selectedProject.projectName,
+      description: selectedProject.description,
+      databaseName: selectedProject.databaseName,
+      serverName: selectedProject.serverName,
+      createdAt: selectedProject.createdAt,
+      updatedAt: selectedProject.updatedAt,
+    };
+  }, [selectedProject?.projectId]);
+
 
   // Select project and invalidate dependent queries
-  const selectProject = (project: Project | number) => {
+  const selectProject = useCallback((project: Project | number) => {
     const projectId = typeof project === 'number' ? project : project.projectId;
 
     store.setSelectedProjectId(projectId);
@@ -165,10 +162,10 @@ export function useProject() {
     queryClient.invalidateQueries({
       queryKey: ['CodeGen', 'history']
     });
-  };
+  }, [store, queryClient]);
 
   // Clear project and invalidate queries
-  const clearProject = () => {
+  const clearProject = useCallback(() => {
     store.clearSelectedProject();
 
     // Invalidate all DatabaseBrowser and CodeGen queries
@@ -178,15 +175,20 @@ export function useProject() {
     queryClient.invalidateQueries({
       queryKey: ['CodeGen']
     });
-  };
+  }, [store, queryClient]);
 
   return {
     // State (sanitized - no connectionString)
     projects: projects?.map(p => ({
       projectId: p.projectId,
       projectName: p.projectName,
+      description: p.description,
       databaseName: p.databaseName,
       serverName: p.serverName,
+      isActive: p.isActive,
+      lastSyncAttempt: p.lastSyncAttempt,
+      syncStatus: p.syncStatus,
+      syncProgress: p.syncProgress,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     } as SafeProject)),
@@ -216,7 +218,7 @@ export function useProject() {
 // Hook - useRequireProject (with redirect)
 // ============================================
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 export function useRequireProject(redirectTo = '/projects') {
   const { selectedProject, isLoading, hasProject } = useProject();

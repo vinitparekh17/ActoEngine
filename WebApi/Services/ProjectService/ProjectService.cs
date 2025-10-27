@@ -18,6 +18,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
         Task<IEnumerable<PublicProjectDto>> GetAllProjectsAsync();
         Task<bool> UpdateProjectAsync(int projectId, Project project, int userId);
         Task<bool> DeleteProjectAsync(int projectId, int userId);
+        Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId);
     }
 
     public class ProjectService(IProjectRepository projectRepository, ISchemaSyncRepository schemaSyncRepository,
@@ -373,6 +374,52 @@ namespace ActoEngine.WebApi.Services.ProjectService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting project {ProjectId} for user {UserId}", projectId, userId);
+                throw;
+            }
+        }
+
+        public async Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId)
+        {
+            try
+            {
+                var project = await _projectRepository.GetByIdAsync(projectId);
+                if (project == null)
+                {
+                    return null;
+                }
+
+                using var conn = await _connectionFactory.CreateConnectionAsync();
+
+                // Count tables
+                int tableCount;
+                using (var cmd = conn.CreateCommand() as SqlCommand ?? throw new InvalidOperationException("Failed to create SqlCommand."))
+                {
+                    cmd.CommandText = "SELECT COUNT(*) FROM TablesMetadata WHERE ProjectId = @ProjectId";
+                    cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                    tableCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+                }
+
+                // Count stored procedures (distinct by name)
+                int spCount;
+                using (var cmd = conn.CreateCommand() as SqlCommand ?? throw new InvalidOperationException("Failed to create SqlCommand."))
+                {
+                    cmd.CommandText = "SELECT COUNT(DISTINCT ProcedureName) FROM SpMetadata WHERE ProjectId = @ProjectId";
+                    cmd.Parameters.AddWithValue("@ProjectId", projectId);
+                    spCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+                }
+
+                var syncStatus = await _projectRepository.GetSyncStatusAsync(projectId);
+
+                return new ProjectStatsResponse
+                {
+                    TableCount = tableCount,
+                    SpCount = spCount,
+                    LastSync = syncStatus?.LastSyncAttempt
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving stats for project {ProjectId}", projectId);
                 throw;
             }
         }

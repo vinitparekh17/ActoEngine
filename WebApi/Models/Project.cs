@@ -117,6 +117,18 @@ namespace ActoEngine.WebApi.Models
         public string DatabaseType { get; set; } = "SqlServer";
     }
 
+    public class ProjectStatsResponse
+    {
+        public int TableCount { get; set; }
+        public int SpCount { get; set; }
+        public DateTime? LastSync { get; set; }
+    }
 
-
+    public class ActivityItem
+    {
+        public required string Type { get; set; }
+        public required string Description { get; set; }
+        public DateTime Timestamp { get; set; }
+        public required string User { get; set; }
+    }
 }

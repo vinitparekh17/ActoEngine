@@ -8,25 +8,7 @@ import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { TableSkeleton, PageHeaderSkeleton, LoadingContainer } from '../components/ui/skeletons';
 import { Pencil, Trash2, Plus } from 'lucide-react';
-
-// ============================================
-// Types
-// ============================================
-export interface Client {
-    clientId: number;
-    clientName: string;
-    projectId: number;
-    isActive: boolean;
-    createdAt: string;
-    createdBy: number;
-    updatedAt: string | null;
-    updatedBy: number | null;
-}
-
-export interface CreateClientRequest {
-    clientName: string;
-    projectId: number;
-}
+import type { Client, CreateClientRequest } from '../types/api';
 
 export default function ClientManagementPage() {
     const [editingClient, setEditingClient] = useState<Client | null>(null);
