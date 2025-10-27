@@ -15,6 +15,7 @@ import { useApi, api } from "../../hooks/useApi";
 import { useProject } from "../../hooks/useProject";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function BuilderTab() {
     const {
@@ -156,6 +157,7 @@ export function FieldProperties({
     const { config } = useFormBuilder();
     const { selectedProject } = useProject();
     const [fkTable, setFkTable] = useState(field.referencedTable || '');
+    const queryClient = useQueryClient();
 
     // Sync fkTable with field.referencedTable
     useEffect(() => {
@@ -167,6 +169,58 @@ export function FieldProperties({
         ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables`
         : '';
     const { data: availableTables, isLoading: loadingTables } = useApi<string[]>(tablesUrl);
+
+    // Function to load table data using React Query's fetchQuery
+    const loadTableData = async (tableName: string) => {
+        if (!selectedProject?.projectId) return;
+
+        try {
+            toast.info(`Loading options from ${tableName}...`);
+
+            // Use queryClient.fetchQuery to leverage React Query with the API client
+            const tableData = await queryClient.fetchQuery({
+                queryKey: ['DatabaseBrowser', 'projects', selectedProject.projectId, 'tables', tableName, 'data'],
+                queryFn: () => api.get<Record<string, any>[]>(
+                    `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${tableName}/data?limit=50`
+                ),
+                staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+            });
+
+            // Try to find ID and display columns
+            const firstRow = tableData[0];
+            if (firstRow && Object.keys(firstRow).length > 0) {
+                const columns = Object.keys(firstRow);
+                // Use first column as value (usually ID), second or first as label
+                const valueCol = columns[0];
+                const labelCol = columns.length > 1 ? columns[1] : columns[0];
+
+                const options = tableData.map((row: any) => ({
+                    value: String(row[valueCol] || ''),
+                    label: String(row[labelCol] || row[valueCol] || 'Unknown'),
+                }));
+
+                onUpdate(field.id, {
+                    referencedTable: tableName,
+                    options: [{ label: `Select ${tableName}`, value: '' }, ...options],
+                });
+                toast.success(`Loaded ${options.length} options from ${tableName}`);
+            } else {
+                // No data in table
+                onUpdate(field.id, {
+                    referencedTable: tableName,
+                    options: [{ label: `No data in ${tableName}`, value: '' }],
+                });
+                toast.warning(`Table ${tableName} is empty`);
+            }
+        } catch (error) {
+            console.error('Error loading table data:', error);
+            toast.error(`Error loading data from ${tableName}`);
+            onUpdate(field.id, {
+                referencedTable: tableName,
+                options: [{ label: `Select from ${tableName}`, value: '' }],
+            });
+        }
+    };
 
     return (
         <Card className="flex-1 min-h-0 overflow-auto p-6">
@@ -247,7 +301,7 @@ export function FieldProperties({
                             placeholder="Enter referenced table name"
                             value={fkTable}
                             onChange={(e) => setFkTable(e.target.value)}
-                            onBlur={async () => {
+                            onBlur={() => {
                                 if (fkTable) {
                                     // Only validate if tables are loaded
                                     if (loadingTables || availableTables === undefined || availableTables === null) {
@@ -255,47 +309,8 @@ export function FieldProperties({
                                         return;
                                     }
                                     if (availableTables.includes(fkTable)) {
-                                        // Fetch real data from the table using the API client
-                                        try {
-                                            toast.info(`Loading options from ${fkTable}...`);
-                                            const tableData = await api.get<Record<string, any>[]>(
-                                                `/DatabaseBrowser/projects/${selectedProject?.projectId}/tables/${fkTable}/data?limit=50`
-                                            );
-
-                                            // Try to find ID and display columns
-                                            const firstRow = tableData[0];
-                                            if (firstRow && Object.keys(firstRow).length > 0) {
-                                                const columns = Object.keys(firstRow);
-                                                // Use first column as value (usually ID), second or first as label
-                                                const valueCol = columns[0];
-                                                const labelCol = columns.length > 1 ? columns[1] : columns[0];
-
-                                                const options = tableData.map((row: any) => ({
-                                                    value: String(row[valueCol] || ''),
-                                                    label: String(row[labelCol] || row[valueCol] || 'Unknown'),
-                                                }));
-
-                                                onUpdate(field.id, {
-                                                    referencedTable: fkTable,
-                                                    options: [{ label: `Select ${fkTable}`, value: '' }, ...options],
-                                                });
-                                                toast.success(`Loaded ${options.length} options from ${fkTable}`);
-                                            } else {
-                                                // No data in table
-                                                onUpdate(field.id, {
-                                                    referencedTable: fkTable,
-                                                    options: [{ label: `No data in ${fkTable}`, value: '' }],
-                                                });
-                                                toast.warning(`Table ${fkTable} is empty`);
-                                            }
-                                        } catch (error) {
-                                            console.error('Error loading table data:', error);
-                                            toast.error(`Error loading data from ${fkTable}`);
-                                            onUpdate(field.id, {
-                                                referencedTable: fkTable,
-                                                options: [{ label: `Select from ${fkTable}`, value: '' }],
-                                            });
-                                        }
+                                        // Load table data using React Query
+                                        loadTableData(fkTable);
                                     } else {
                                         toast.error(`Table '${fkTable}' not found in project`);
                                         setFkTable(field.referencedTable || '');
