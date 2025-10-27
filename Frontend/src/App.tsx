@@ -30,7 +30,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
-  // return <>{children}</>; // --- IGNORE ---
 }
 
 function AppRoutes() {
@@ -38,7 +37,6 @@ function AppRoutes() {
     <Routes>
       <Route path='/login' element={<LoginPage />} />
       
-      {/* AppLayout should be a parent route with nested child routes */}
       <Route
         path='/'
         element={

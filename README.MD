@@ -19,9 +19,9 @@ A project to manage your projects and databases with ease.
 
 ### Backend
 
-1. Navigate to the WebApi directory:
+1. Navigate to the Backend directory:
    ```
-   cd WebApi
+   cd Backend
    ```
 
 2. Restore dependencies:
@@ -38,9 +38,9 @@ A project to manage your projects and databases with ease.
 
 ### Frontend
 
-1. Navigate to the actoengine directory:
+1. Navigate to the Frontend directory:
    ```
-   cd actoengine
+   cd Frontend
    ```
 
 2. Install dependencies:
