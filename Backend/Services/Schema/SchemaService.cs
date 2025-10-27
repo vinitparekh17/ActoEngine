@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
+using Dapper;
 
 namespace ActoEngine.WebApi.Services.Schema;
 
@@ -9,13 +10,14 @@ public interface ISchemaService
     Task<TableSchemaResponse> GetTableSchemaAsync(string connectionString, string tableName);
     Task<List<DatabaseTableInfo>> GetDatabaseStructureAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
-    
+    Task<List<Dictionary<string, object>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100);
+
     // Methods for stored metadata
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredProceduresMetadataAsync(int projectId);
     Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
-    
+
     // Tree structure
     Task<TreeNode> GetDatabaseTreeAsync(int projectId, string databaseName);
 }
@@ -111,6 +113,50 @@ public class SchemaService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving stored procedures from database");
+            throw;
+        }
+    }
+
+    public async Task<List<Dictionary<string, object>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(tableName))
+            {
+                throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
+            }
+
+            // Sanitize table name to prevent SQL injection (basic check)
+            if (tableName.Contains(';') || tableName.Contains("--") || tableName.Contains("/*"))
+            {
+                throw new ArgumentException("Invalid table name", nameof(tableName));
+            }
+
+            using var connection = new Microsoft.Data.SqlClient.SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            var sql = $"SELECT TOP {limit} * FROM {tableName}";
+            var reader = await connection.ExecuteReaderAsync(sql);
+
+            var results = new List<Dictionary<string, object>>();
+
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object>();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    var fieldName = reader.GetName(i);
+                    var fieldValue = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    row[fieldName] = fieldValue ?? DBNull.Value;
+                }
+                results.Add(row);
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving data from table: {TableName}", tableName);
             throw;
         }
     }

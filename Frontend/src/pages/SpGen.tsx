@@ -143,24 +143,20 @@ export default function AppShell() {
                 break
 
             case "stored-procedure":
-                // Handle SP selection
-                console.log("Selected SP:", node.name)
+                // Handle SP selection if needed
                 break
 
             case "scalar-function":
             case "table-function":
-                // Handle function selection
-                console.log("Selected function:", node.name)
+                // Handle function selection if needed
                 break
 
             case "column":
-                // Handle column selection
-                console.log("Selected column:", node.name)
+                // Handle column selection if needed
                 break
 
             case "index":
-                // Handle index selection
-                console.log("Selected index:", node.name)
+                // Handle index selection if needed
                 break
 
             // Folder nodes - you might want to ignore these or handle differently

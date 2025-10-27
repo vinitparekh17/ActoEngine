@@ -306,6 +306,51 @@ public class DatabaseBrowserController(
             return StatusCode(500, ApiResponse<TableSchemaResponse>.Failure("An error occurred while retrieving stored table schema"));
         }
     }
+
+    /// <summary>
+    /// Get data from a specific table in a project's database
+    /// </summary>
+    /// <param name="projectId">The project ID</param>
+    /// <param name="tableName">The table name</param>
+    /// <param name="limit">Maximum number of rows to return (default: 100)</param>
+    /// <returns>List of rows from the table</returns>
+    [HttpGet("projects/{projectId}/tables/{tableName}/data")]
+    public async Task<ActionResult<List<Dictionary<string, object>>>> GetTableData(int projectId, string tableName, [FromQuery] int limit = 100)
+    {
+        try
+        {
+            _logger.LogInformation("Getting data from table {TableName} for project {ProjectId}", tableName, projectId);
+
+            if (string.IsNullOrWhiteSpace(tableName))
+            {
+                return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure("Table name cannot be empty"));
+            }
+
+            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            if (project == null)
+            {
+                return NotFound(ApiResponse<List<Dictionary<string, object>>>.Failure($"Project with ID {projectId} not found"));
+            }
+
+            if (string.IsNullOrEmpty(project.ConnectionString))
+            {
+                return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure("Project connection string is not configured"));
+            }
+
+            var data = await _schemaService.GetTableDataAsync(project.ConnectionString, tableName, limit);
+            return Ok(ApiResponse<List<Dictionary<string, object>>>.Success(data));
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid request for table data from {TableName} in project {ProjectId}", tableName, projectId);
+            return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting data from table {TableName} for project {ProjectId}", tableName, projectId);
+            return StatusCode(500, ApiResponse<List<Dictionary<string, object>>>.Failure("An error occurred while retrieving table data"));
+        }
+    }
 }
 
 /// <summary>

@@ -247,20 +247,72 @@ export function FieldProperties({
                             placeholder="Enter referenced table name"
                             value={fkTable}
                             onChange={(e) => setFkTable(e.target.value)}
-                            onBlur={() => {
+                            onBlur={async () => {
                                 if (fkTable) {
                                     // Only validate if tables are loaded
                                     if (loadingTables || availableTables === undefined || availableTables === null) {
-                                        // Optionally show a transient loading state, but do not reject
                                         toast.info("Validating table name... (table list is still loading)");
                                         return;
                                     }
                                     if (availableTables.includes(fkTable)) {
-                                        onUpdate(field.id, {
-                                            referencedTable: fkTable,
-                                            options: [{ label: `Select from ${fkTable}`, value: '' }],
-                                        });
-                                        toast.success(`Linked to ${fkTable} table`);
+                                        // Fetch real data from the table
+                                        try {
+                                            toast.info(`Loading options from ${fkTable}...`);
+                                            const response = await fetch(
+                                                `/api/DatabaseBrowser/projects/${selectedProject?.projectId}/tables/${fkTable}/data?limit=50`,
+                                                {
+                                                    credentials: 'include',
+                                                    headers: {
+                                                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                                    }
+                                                }
+                                            );
+
+                                            if (response.ok) {
+                                                const result = await response.json();
+                                                const tableData = result.data || [];
+
+                                                // Try to find ID and display columns
+                                                const firstRow = tableData[0];
+                                                if (firstRow && Object.keys(firstRow).length > 0) {
+                                                    const columns = Object.keys(firstRow);
+                                                    // Use first column as value (usually ID), second or first as label
+                                                    const valueCol = columns[0];
+                                                    const labelCol = columns.length > 1 ? columns[1] : columns[0];
+
+                                                    const options = tableData.map((row: any) => ({
+                                                        value: String(row[valueCol] || ''),
+                                                        label: String(row[labelCol] || row[valueCol] || 'Unknown'),
+                                                    }));
+
+                                                    onUpdate(field.id, {
+                                                        referencedTable: fkTable,
+                                                        options: [{ label: `Select ${fkTable}`, value: '' }, ...options],
+                                                    });
+                                                    toast.success(`Loaded ${options.length} options from ${fkTable}`);
+                                                } else {
+                                                    // No data in table
+                                                    onUpdate(field.id, {
+                                                        referencedTable: fkTable,
+                                                        options: [{ label: `No data in ${fkTable}`, value: '' }],
+                                                    });
+                                                    toast.warning(`Table ${fkTable} is empty`);
+                                                }
+                                            } else {
+                                                toast.error(`Failed to load data from ${fkTable}`);
+                                                onUpdate(field.id, {
+                                                    referencedTable: fkTable,
+                                                    options: [{ label: `Select from ${fkTable}`, value: '' }],
+                                                });
+                                            }
+                                        } catch (error) {
+                                            console.error('Error loading table data:', error);
+                                            toast.error(`Error loading data from ${fkTable}`);
+                                            onUpdate(field.id, {
+                                                referencedTable: fkTable,
+                                                options: [{ label: `Select from ${fkTable}`, value: '' }],
+                                            });
+                                        }
                                     } else {
                                         toast.error(`Table '${fkTable}' not found in project`);
                                         setFkTable(field.referencedTable || '');
@@ -277,7 +329,11 @@ export function FieldProperties({
                         <p className="mt-1 text-xs text-gray-600">
                             Dropdown will load data from this table
                         </p>
-                        {/* TODO: Implement loading real options from the referenced table */}
+                        {field.options && field.options.length > 1 && (
+                            <p className="mt-1 text-xs text-green-600">
+                                ✓ {field.options.length - 1} options loaded
+                            </p>
+                        )}
                     </div>
                 )}
 

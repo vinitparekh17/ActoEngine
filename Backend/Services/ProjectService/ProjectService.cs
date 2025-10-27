@@ -22,12 +22,13 @@ namespace ActoEngine.WebApi.Services.ProjectService
     }
 
     public class ProjectService(IProjectRepository projectRepository, ISchemaSyncRepository schemaSyncRepository,
-    IDbConnectionFactory connectionFactory, ISchemaService schemaService, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
+    IDbConnectionFactory connectionFactory, ISchemaService schemaService, IClientRepository clientRepository, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly ISchemaSyncRepository _schemaSyncRepository = schemaSyncRepository;
         private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
         private readonly ISchemaService _schemaService = schemaService;
+        private readonly IClientRepository _clientRepository = clientRepository;
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
 
@@ -148,7 +149,18 @@ namespace ActoEngine.WebApi.Services.ProjectService
             // Step 3: Sync SPs
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 70);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
-            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, 0, procedures, userId, actoxConn, transaction); // TODO: Handle clientId properly
+
+            // Get the first client for this project (default client)
+            var clients = await _clientRepository.GetAllByProjectAsync(projectId);
+            var defaultClient = clients.FirstOrDefault();
+            var clientId = defaultClient?.ClientId ?? 0;
+
+            if (clientId == 0)
+            {
+                _logger.LogWarning("No client found for project {ProjectId}. Using clientId = 0", projectId);
+            }
+
+            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, clientId, procedures, userId, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
 
