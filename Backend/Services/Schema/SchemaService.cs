@@ -10,7 +10,7 @@ public interface ISchemaService
     Task<TableSchemaResponse> GetTableSchemaAsync(string connectionString, string tableName);
     Task<List<DatabaseTableInfo>> GetDatabaseStructureAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
-    Task<List<Dictionary<string, object>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100);
+    Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100);
 
     // Methods for stored metadata
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
@@ -111,7 +111,7 @@ public class SchemaService(
         }
     }
 
-    public async Task<List<Dictionary<string, object>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100)
+    public async Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100)
     {
         try
         {

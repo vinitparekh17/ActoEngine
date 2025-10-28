@@ -315,7 +315,7 @@ public class DatabaseBrowserController(
     /// <param name="limit">Maximum number of rows to return (default: 100)</param>
     /// <returns>List of rows from the table</returns>
     [HttpGet("projects/{projectId}/tables/{tableName}/data")]
-    public async Task<ActionResult<List<Dictionary<string, object>>>> GetTableData(int projectId, string tableName, [FromQuery] int limit = 100)
+    public async Task<ActionResult<List<Dictionary<string, object?>>>> GetTableData(int projectId, string tableName, [FromQuery] int limit = 100)
     {
         try
         {
@@ -336,7 +336,7 @@ public class DatabaseBrowserController(
             }
 
             var data = await _schemaService.GetTableDataAsync(project.ConnectionString, tableName, limit);
-            return Ok(ApiResponse<List<Dictionary<string, object>>>.Success(data));
+            return Ok(ApiResponse<List<Dictionary<string, object?>>>.Success(data));
         }
         catch (ArgumentException ex)
         {

@@ -21,7 +21,7 @@ public interface ISchemaSyncRepository
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId);
     Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
-    Task<List<Dictionary<string, object>>> GetTableDataAsync(string connectionString, string tableName, int limit);
+    Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit);
 }
 
 public class SchemaSyncRepository(
@@ -266,7 +266,7 @@ public class SchemaSyncRepository(
         };
     }
 
-    public async Task<List<Dictionary<string, object>>> GetTableDataAsync(string connectionString, string tableName, int limit)
+    public async Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit)
     {
         // Note: Uses external connection string, cannot use BaseRepository methods
         try
@@ -297,16 +297,16 @@ public class SchemaSyncRepository(
             var sql = $"SELECT TOP (@Limit) * FROM {quotedTableName}";
             using var reader = await connection.ExecuteReaderAsync(sql, new { Limit = limit });
 
-            var results = new List<Dictionary<string, object>>();
+            var results = new List<Dictionary<string, object?>>();
 
             while (await reader.ReadAsync())
             {
-                var row = new Dictionary<string, object>();
+                var row = new Dictionary<string, object?>();
                 for (int i = 0; i < reader.FieldCount; i++)
                 {
                     var fieldName = reader.GetName(i);
                     var fieldValue = reader.IsDBNull(i) ? null : reader.GetValue(i);
-                    row[fieldName] = fieldValue ?? DBNull.Value;
+                    row[fieldName] = fieldValue;
                 }
                 results.Add(row);
             }

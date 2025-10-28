@@ -146,7 +146,11 @@ namespace ActoEngine.WebApi.Services.ProjectService
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 70);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
-            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, 1, procedures, userId, actoxConn, transaction);
+            var defaultClient = await _clientRepository.GetByNameAsync("Default Client", projectId);
+            if (defaultClient == null)
+                throw new InvalidOperationException($"Default client not found for project {projectId}");
+
+            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
 
