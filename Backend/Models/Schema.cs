@@ -120,3 +120,9 @@ public class StoredProcedureMetadataDto
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
 }
+
+public class DatabaseTableInfo
+{
+    public required string SchemaName { get; set; }
+    public required string TableName { get; set; }
+}

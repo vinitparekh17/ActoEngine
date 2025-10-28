@@ -11,10 +11,11 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Switch } from "@radix-ui/react-switch";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useApi } from "../../hooks/useApi";
+import { useApi, api } from "../../hooks/useApi";
 import { useProject } from "../../hooks/useProject";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function BuilderTab() {
     const {
@@ -156,6 +157,7 @@ export function FieldProperties({
     const { config } = useFormBuilder();
     const { selectedProject } = useProject();
     const [fkTable, setFkTable] = useState(field.referencedTable || '');
+    const queryClient = useQueryClient();
 
     // Sync fkTable with field.referencedTable
     useEffect(() => {
@@ -167,6 +169,58 @@ export function FieldProperties({
         ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables`
         : '';
     const { data: availableTables, isLoading: loadingTables } = useApi<string[]>(tablesUrl);
+
+    // Function to load table data using React Query's fetchQuery
+    const loadTableData = async (tableName: string) => {
+        if (!selectedProject?.projectId) return;
+
+        try {
+            toast.info(`Loading options from ${tableName}...`);
+
+            // Use queryClient.fetchQuery to leverage React Query with the API client
+            const tableData = await queryClient.fetchQuery({
+                queryKey: ['DatabaseBrowser', 'projects', selectedProject.projectId, 'tables', tableName, 'data'],
+                queryFn: () => api.get<Record<string, any>[]>(
+                    `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${tableName}/data?limit=50`
+                ),
+                staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+            });
+
+            // Try to find ID and display columns
+            const firstRow = tableData[0];
+            if (firstRow && Object.keys(firstRow).length > 0) {
+                const columns = Object.keys(firstRow);
+                // Use first column as value (usually ID), second or first as label
+                const valueCol = columns[0];
+                const labelCol = columns.length > 1 ? columns[1] : columns[0];
+
+                const options = tableData.map((row: any) => ({
+                    value: String(row[valueCol] || ''),
+                    label: String(row[labelCol] || row[valueCol] || 'Unknown'),
+                }));
+
+                onUpdate(field.id, {
+                    referencedTable: tableName,
+                    options: [{ label: `Select ${tableName}`, value: '' }, ...options],
+                });
+                toast.success(`Loaded ${options.length} options from ${tableName}`);
+            } else {
+                // No data in table
+                onUpdate(field.id, {
+                    referencedTable: tableName,
+                    options: [{ label: `No data in ${tableName}`, value: '' }],
+                });
+                toast.warning(`Table ${tableName} is empty`);
+            }
+        } catch (error) {
+            console.error('Error loading table data:', error);
+            toast.error(`Error loading data from ${tableName}`);
+            onUpdate(field.id, {
+                referencedTable: tableName,
+                options: [{ label: `Select from ${tableName}`, value: '' }],
+            });
+        }
+    };
 
     return (
         <Card className="flex-1 min-h-0 overflow-auto p-6">
@@ -251,16 +305,12 @@ export function FieldProperties({
                                 if (fkTable) {
                                     // Only validate if tables are loaded
                                     if (loadingTables || availableTables === undefined || availableTables === null) {
-                                        // Optionally show a transient loading state, but do not reject
                                         toast.info("Validating table name... (table list is still loading)");
                                         return;
                                     }
                                     if (availableTables.includes(fkTable)) {
-                                        onUpdate(field.id, {
-                                            referencedTable: fkTable,
-                                            options: [{ label: `Select from ${fkTable}`, value: '' }],
-                                        });
-                                        toast.success(`Linked to ${fkTable} table`);
+                                        // Load table data using React Query
+                                        loadTableData(fkTable);
                                     } else {
                                         toast.error(`Table '${fkTable}' not found in project`);
                                         setFkTable(field.referencedTable || '');
@@ -277,7 +327,11 @@ export function FieldProperties({
                         <p className="mt-1 text-xs text-gray-600">
                             Dropdown will load data from this table
                         </p>
-                        {/* TODO: Implement loading real options from the referenced table */}
+                        {field.options && field.options.length > 1 && (
+                            <p className="mt-1 text-xs text-green-600">
+                                ✓ {field.options.length - 1} options loaded
+                            </p>
+                        )}
                     </div>
                 )}
 

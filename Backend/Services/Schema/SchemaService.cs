@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
+using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Services.Schema;
 
@@ -9,21 +10,16 @@ public interface ISchemaService
     Task<TableSchemaResponse> GetTableSchemaAsync(string connectionString, string tableName);
     Task<List<DatabaseTableInfo>> GetDatabaseStructureAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
-    
+    Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100);
+
     // Methods for stored metadata
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredProceduresMetadataAsync(int projectId);
     Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
-    
+
     // Tree structure
     Task<TreeNode> GetDatabaseTreeAsync(int projectId, string databaseName);
-}
-
-public class DatabaseTableInfo
-{
-    public required string SchemaName { get; set; }
-    public required string TableName { get; set; }
 }
 
 public class SchemaService(
@@ -111,6 +107,38 @@ public class SchemaService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving stored procedures from database");
+            throw;
+        }
+    }
+
+    public async Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(tableName))
+            {
+                throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
+            }
+
+            // Validate table name format: allows [schema.]table (alphanumeric and underscores only)
+            var tableNameRegex = new Regex(@"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)?$", RegexOptions.Compiled);
+            if (!tableNameRegex.IsMatch(tableName))
+            {
+                throw new ArgumentException($"Invalid table name format: '{tableName}'", nameof(tableName));
+            }
+
+            // Verify table exists in the database
+            var availableTables = await GetAllTablesAsync(connectionString);
+            if (!availableTables.Contains(tableName))
+            {
+                throw new ArgumentException($"Table '{tableName}' not found in database", nameof(tableName));
+            }
+
+            return await _schemaRepository.GetTableDataAsync(connectionString, tableName, limit);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving data from table: {TableName}", tableName);
             throw;
         }
     }

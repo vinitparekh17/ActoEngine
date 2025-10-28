@@ -22,12 +22,13 @@ namespace ActoEngine.WebApi.Services.ProjectService
     }
 
     public class ProjectService(IProjectRepository projectRepository, ISchemaSyncRepository schemaSyncRepository,
-    IDbConnectionFactory connectionFactory, ISchemaService schemaService, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
+    IDbConnectionFactory connectionFactory, ISchemaService schemaService, IClientRepository clientRepository, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly ISchemaSyncRepository _schemaSyncRepository = schemaSyncRepository;
         private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
         private readonly ISchemaService _schemaService = schemaService;
+        private readonly IClientRepository _clientRepository = clientRepository;
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
 
@@ -36,13 +37,9 @@ namespace ActoEngine.WebApi.Services.ProjectService
             var connectionString = $"Server={request.Server},{request.Port};Database={request.DatabaseName};User Id={request.Username};Password={request.Password};TrustServerCertificate=True";
             try
             {
-                using (var conn = new SqlConnection(connectionString))
-                {
-                    await conn.OpenAsync();
-
-                    _logger.LogInformation("Successfully verified connection to database {DatabaseName} on server {Server}", request.DatabaseName, request.Server);
-                    return true;
-                }
+                using var conn = new SqlConnection(connectionString);
+                await conn.OpenAsync();
+                return true;
             }
             catch (Exception ex)
             {
@@ -148,11 +145,14 @@ namespace ActoEngine.WebApi.Services.ProjectService
             // Step 3: Sync SPs
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 70);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
-            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, 0, procedures, userId, actoxConn, transaction); // TODO: Handle clientId properly
+
+            var defaultClient = await _clientRepository.GetByNameAsync("Default Client", projectId);
+            if (defaultClient == null)
+                throw new InvalidOperationException($"Default client not found for project {projectId}");
+
+            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
-
-
 
         private async Task<int> SyncColumnsForAllTablesAsync(
             int projectId,
