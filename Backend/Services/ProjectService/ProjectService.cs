@@ -37,13 +37,9 @@ namespace ActoEngine.WebApi.Services.ProjectService
             var connectionString = $"Server={request.Server},{request.Port};Database={request.DatabaseName};User Id={request.Username};Password={request.Password};TrustServerCertificate=True";
             try
             {
-                using (var conn = new SqlConnection(connectionString))
-                {
-                    await conn.OpenAsync();
-
-                    _logger.LogInformation("Successfully verified connection to database {DatabaseName} on server {Server}", request.DatabaseName, request.Server);
-                    return true;
-                }
+                using var conn = new SqlConnection(connectionString);
+                await conn.OpenAsync();
+                return true;
             }
             catch (Exception ex)
             {
@@ -150,21 +146,9 @@ namespace ActoEngine.WebApi.Services.ProjectService
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 70);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
-            // Get the first client for this project (default client)
-            var clients = await _clientRepository.GetAllByProjectAsync(projectId);
-            var defaultClient = clients.FirstOrDefault();
-            var clientId = defaultClient?.ClientId ?? 0;
-
-            if (clientId == 0)
-            {
-                _logger.LogWarning("No client found for project {ProjectId}. Using clientId = 0", projectId);
-            }
-
-            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, clientId, procedures, userId, actoxConn, transaction);
+            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, 1, procedures, userId, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
-
-
 
         private async Task<int> SyncColumnsForAllTablesAsync(
             int projectId,

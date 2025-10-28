@@ -21,6 +21,7 @@ public interface ISchemaSyncRepository
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId);
     Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
+    Task<List<Dictionary<string, object>>> GetTableDataAsync(string connectionString, string tableName, int limit);
 }
 
 public class SchemaSyncRepository(
@@ -151,7 +152,7 @@ public class SchemaSyncRepository(
         // Note: Uses external connection string, cannot use BaseRepository methods
         try
         {
-            using var connection = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
 
             var columns = await connection.QueryAsync<ColumnSchema>(
                 SchemaSyncQueries.GetTableSchema,
@@ -179,7 +180,7 @@ public class SchemaSyncRepository(
         // Note: Uses external connection string, cannot use BaseRepository methods
         try
         {
-            using var connection = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
             
             var tables = await connection.QueryAsync<string>(SchemaSyncQueries.GetAllTables);
             return tables.ToList();
@@ -196,7 +197,7 @@ public class SchemaSyncRepository(
         // Note: Uses external connection string, cannot use BaseRepository methods
         try
         {
-            using var connection = _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
             
             var procedures = await connection.QueryAsync<StoredProcedureMetadata>(
                 SchemaSyncQueries.GetTargetStoredProcedures);
@@ -263,5 +264,59 @@ public class SchemaSyncRepository(
             Columns = columnsList,
             PrimaryKeys = columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName).ToList()
         };
+    }
+
+    public async Task<List<Dictionary<string, object>>> GetTableDataAsync(string connectionString, string tableName, int limit)
+    {
+        // Note: Uses external connection string, cannot use BaseRepository methods
+        try
+        {
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+
+            // Parse schema and table name
+            var parts = tableName.Split('.');
+            string schemaName = parts.Length == 2 ? parts[0] : "dbo";
+            string tableNameOnly = parts.Length == 2 ? parts[1] : tableName;
+
+            // Verify table exists in sys.tables
+            var exists = await connection.QueryFirstOrDefaultAsync<int>(
+                SchemaSyncQueries.VerifyTableExists,
+                new { SchemaName = schemaName, TableName = tableNameOnly });
+
+            if (exists == 0)
+            {
+                throw new InvalidOperationException($"Table '{tableName}' not found in database");
+            }
+
+            // Get safely quoted table name
+            var quotedTableName = await connection.QueryFirstOrDefaultAsync<string>(
+                SchemaSyncQueries.GetQuotedTableName,
+                new { SchemaName = schemaName, TableName = tableNameOnly });
+
+            // Execute query with proper parameterization
+            var sql = $"SELECT TOP (@Limit) * FROM {quotedTableName}";
+            using var reader = await connection.ExecuteReaderAsync(sql, new { Limit = limit });
+
+            var results = new List<Dictionary<string, object>>();
+
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object>();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    var fieldName = reader.GetName(i);
+                    var fieldValue = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    row[fieldName] = fieldValue ?? DBNull.Value;
+                }
+                results.Add(row);
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting table data for table {TableName}", tableName);
+            throw;
+        }
     }
 }

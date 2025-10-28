@@ -319,8 +319,6 @@ public class DatabaseBrowserController(
     {
         try
         {
-            _logger.LogInformation("Getting data from table {TableName} for project {ProjectId}", tableName, projectId);
-
             if (string.IsNullOrWhiteSpace(tableName))
             {
                 return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure("Table name cannot be empty"));
@@ -351,21 +349,4 @@ public class DatabaseBrowserController(
             return StatusCode(500, ApiResponse<List<Dictionary<string, object>>>.Failure("An error occurred while retrieving table data"));
         }
     }
-}
-
-/// <summary>
-/// Request model for getting table schema with direct connection string
-/// </summary>
-public class TableSchemaDirectRequest
-{
-    public required string ConnectionString { get; set; }
-    public required string TableName { get; set; }
-}
-
-/// <summary>
-/// Request model for direct database connection operations
-/// </summary>
-public class DirectConnectionRequest
-{
-    public required string ConnectionString { get; set; }
 }

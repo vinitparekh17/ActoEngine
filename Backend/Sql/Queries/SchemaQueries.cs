@@ -196,4 +196,13 @@ public static class SchemaSyncQueries
         FROM ColumnsMetadata 
         WHERE TableId = @TableId
         ORDER BY ColumnOrder";
+
+    public const string VerifyTableExists = @"
+        SELECT COUNT(*)
+        FROM sys.tables t
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE s.name = @SchemaName AND t.name = @TableName";
+
+    public const string GetQuotedTableName = @"
+        SELECT QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName)";
 }
