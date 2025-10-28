@@ -324,6 +324,11 @@ public class DatabaseBrowserController(
                 return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure("Table name cannot be empty"));
             }
 
+            if( limit <= 0 || limit > 1000)
+            {
+                return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure("Limit must be between 1 and 1000"));
+            }
+
             var project = await _projectRepository.GetByIdInternalAsync(projectId);
             if (project == null)
             {
@@ -341,12 +346,12 @@ public class DatabaseBrowserController(
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, "Invalid request for table data from {TableName} in project {ProjectId}", tableName, projectId);
-            return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure(ex.Message));
+            return BadRequest(ApiResponse<List<Dictionary<string, object?>>>.Failure(ex.Message));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting data from table {TableName} for project {ProjectId}", tableName, projectId);
-            return StatusCode(500, ApiResponse<List<Dictionary<string, object>>>.Failure("An error occurred while retrieving table data"));
+            return StatusCode(500, ApiResponse<List<Dictionary<string, object?>>>.Failure("An error occurred while retrieving table data"));
         }
     }
 }
