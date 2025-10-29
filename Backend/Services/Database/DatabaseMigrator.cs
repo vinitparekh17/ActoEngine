@@ -65,7 +65,7 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
             }
         }
     }
-    private string? GetEmbeddedScript(string scriptName)
+    private static string? GetEmbeddedScript(string scriptName)
     {
         var assembly = Assembly.GetExecutingAssembly();
         using var stream = assembly.GetManifestResourceStream(scriptName);

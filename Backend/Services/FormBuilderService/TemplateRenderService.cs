@@ -25,11 +25,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
             try
             {
                 // Get template content
-                var template = await _templateRepository.GetTemplateAsync(templateType, framework, version);
-                if (template == null)
-                {
-                    throw new InvalidOperationException($"Template not found: {templateType}/{framework}");
-                }
+                var template = await _templateRepository.GetTemplateAsync(templateType, framework, version) ?? throw new InvalidOperationException($"Template not found: {templateType}/{framework}");
 
                 // Get or compile template
                 var cacheKey = $"{templateType}_{framework}_{template.Version}";
@@ -66,11 +62,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
             try
             {
                 // Get template by name
-                var template = await _templateRepository.GetByNameAsync(templateName);
-                if (template == null)
-                {
-                    throw new InvalidOperationException($"Template not found: {templateName}");
-                }
+                var template = await _templateRepository.GetByNameAsync(templateName) ?? throw new InvalidOperationException($"Template not found: {templateName}");
 
                 // Get or compile template
                 var cacheKey = templateName;

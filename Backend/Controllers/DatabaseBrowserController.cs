@@ -72,8 +72,10 @@ public class DatabaseBrowserController(
                 return BadRequest("Project connection string is not configured");
             }
 
-            var tables = await _schemaService.GetAllTablesAsync(project.ConnectionString);
-            return Ok(ApiResponse<List<string>>.Success(tables));
+            var tables = await _schemaService.GetStoredTablesAsync(projectId);
+            // Return just the table names
+            var tableNames = tables.Select(t => t.TableName).ToList();
+            return Ok(ApiResponse<List<string>>.Success(tableNames));
         }
         catch (Exception ex)
         {
@@ -105,7 +107,15 @@ public class DatabaseBrowserController(
                 return BadRequest("Project connection string is not configured");
             }
 
-            var structure = await _schemaService.GetDatabaseStructureAsync(project.ConnectionString);
+            // Use stored metadata to build structure
+            var tables = await _schemaService.GetStoredTablesAsync(projectId);
+            var structure = tables.Select(t => new DatabaseTableInfo
+            {
+                TableName = t.TableName,
+                SchemaName = GetSchemaNameWithFallback(t.SchemaName, project.DatabaseType),
+                Description = t.Description,
+                // Add more fields as needed from metadata
+            }).ToList();
             return Ok(ApiResponse<List<DatabaseTableInfo>>.Success(structure));
         }
         catch (Exception ex)
@@ -144,7 +154,7 @@ public class DatabaseBrowserController(
                 return BadRequest("Project connection string is not configured");
             }
 
-            var schema = await _schemaService.GetTableSchemaAsync(project.ConnectionString, tableName);
+            var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName);
             return Ok(ApiResponse<TableSchemaResponse>.Success(schema));
         }
         catch (Exception ex)
@@ -177,8 +187,9 @@ public class DatabaseBrowserController(
                 return BadRequest("Project connection string is not configured");
             }
 
-            var procedures = await _schemaService.GetStoredProceduresAsync(project.ConnectionString);
-            return Ok(ApiResponse<List<StoredProcedureMetadata>>.Success(procedures));
+            var procedures = await _schemaService.GetStoredProceduresMetadataAsync(projectId);
+            // If you want to return the same DTO as before, you may need to map it
+            return Ok(ApiResponse<List<StoredProcedureMetadataDto>>.Success(procedures));
         }
         catch (Exception ex)
         {
@@ -314,8 +325,10 @@ public class DatabaseBrowserController(
     /// <param name="tableName">The table name</param>
     /// <param name="limit">Maximum number of rows to return (default: 100)</param>
     /// <returns>List of rows from the table</returns>
-    [HttpGet("projects/{projectId}/tables/{tableName}/data")]
-    public async Task<ActionResult<List<Dictionary<string, object?>>>> GetTableData(int projectId, string tableName, [FromQuery] int limit = 100)
+    [HttpGet("projects/{projectId}/tables/{tableName}/columns")]
+    public async Task<ActionResult<List<string>>> GetTableColumns(
+        int projectId, 
+        string tableName)
     {
         try
         {
@@ -324,34 +337,57 @@ public class DatabaseBrowserController(
                 return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure("Table name cannot be empty"));
             }
 
-            if( limit <= 0 || limit > 1000)
-            {
-                return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure("Limit must be between 1 and 1000"));
-            }
-
-            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            // Validate project exists and get connection string
+            var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
                 return NotFound(ApiResponse<List<Dictionary<string, object>>>.Failure($"Project with ID {projectId} not found"));
             }
 
-            if (string.IsNullOrEmpty(project.ConnectionString))
-            {
-                return BadRequest(ApiResponse<List<Dictionary<string, object>>>.Failure("Project connection string is not configured"));
-            }
-
-            var data = await _schemaService.GetTableDataAsync(project.ConnectionString, tableName, limit);
-            return Ok(ApiResponse<List<Dictionary<string, object?>>>.Success(data));
+            // Get actual data from the database using the connection string
+            var data = await _schemaService.GetStoredTableSchemaAsync(project.ProjectId, tableName);
+            var columnList = data.Columns.Select(c => c.ColumnName).ToList();
+            return Ok(ApiResponse<List<string>>.Success(columnList));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            _logger.LogWarning(ex, "Table {TableName} not found in project {ProjectId}", tableName, projectId);
+            return NotFound(ApiResponse<List<string>>.Failure(ex.Message));
         }
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, "Invalid request for table data from {TableName} in project {ProjectId}", tableName, projectId);
-            return BadRequest(ApiResponse<List<Dictionary<string, object?>>>.Failure(ex.Message));
+            return BadRequest(ApiResponse<List<string>>.Failure(ex.Message));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting data from table {TableName} for project {ProjectId}", tableName, projectId);
             return StatusCode(500, ApiResponse<List<Dictionary<string, object?>>>.Failure("An error occurred while retrieving table data"));
         }
+    }
+
+    /// <summary>
+    /// Get schema name with provider-specific fallback
+    /// </summary>
+    /// <param name="schemaName">The schema name from metadata (may be null)</param>
+    /// <param name="databaseType">The database type (SqlServer, PostgreSQL, MySQL, etc.)</param>
+    /// <returns>Schema name or provider-specific default</returns>
+    private static string GetSchemaNameWithFallback(string? schemaName, string? databaseType)
+    {
+        // If schema name is provided and not empty, use it
+        if (!string.IsNullOrWhiteSpace(schemaName))
+        {
+            return schemaName;
+        }
+
+        // Otherwise, return provider-specific default
+        return (databaseType?.ToLower()) switch
+        {
+            "postgresql" or "postgres" => "public",
+            "mysql" => "", // MySQL doesn't use schemas in the same way
+            "sqlserver" or "mssql" => "dbo",
+            "oracle" => "SYSTEM", // Common default, but often user-specific
+            _ => "dbo" // Default fallback to SQL Server convention
+        };
     }
 }

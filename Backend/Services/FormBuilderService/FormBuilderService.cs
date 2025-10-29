@@ -1,12 +1,8 @@
-// Services/FormBuilderService/FormBuilderService.cs
-// Updated to work with your existing TemplateRenderService
-
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using System.Text.Json;
 using Dapper;
 using ActoEngine.WebApi.Services.Database;
-using System.Linq;
 
 namespace ActoEngine.WebApi.Services.FormBuilderService
 {
@@ -161,7 +157,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
                     ORDER BY UpdatedAt DESC";
 
                 var configs = await connection.QueryAsync<FormConfigListItem>(sql, new { ProjectId = projectId });
-                return configs.ToList();
+                return [.. configs];
             }
             catch (Exception ex)
             {
@@ -177,31 +173,61 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         {
             try
             {
-                var config = request.Config;
+                var config = request.Config ?? throw new Exception("Form configuration is required for generation");
+                var tableName = config.TableName ?? throw new Exception("Config.TableName is required");
+                var formName = config.FormName ?? throw new Exception("Config.FormName is required");
 
+                // Prepare template context
                 // Prepare template context
                 var templateContext = new
                 {
-                    title = config.Title,
-                    form_name = config.FormName,
-                    fields = config.Groups?.SelectMany(g => g.Fields).Select(f => new
+                    form = new  // <-- Wrap everything in a 'form' object
                     {
-                        column_name = f.ColumnName,
-                        label = f.Label,
-                        input_type = f.InputType.ToLower(),
-                        required = f.Required,
-                        col_size = f.ColSize,
-                        placeholder = f.Placeholder ?? "",
-                        help_text = f.HelpText ?? "",
-                        min_length = f.MinLength,
-                        max_length = f.MaxLength,
-                        default_value = f.DefaultValue ?? "",
-                        options = f.Options != null
-                            ? f.Options.Select(o => new { value = o.Value, label = o.Label }).Cast<object>()
-                            : []
-                    }).ToList()
-                };
+                        title = config.Title,
+                        form_name = config.FormName,
+                        description = config.Description,
+                        options = config.Options != null ? new
+                        {
+                            generate_grid = config.Options.GenerateGrid
 
+                        } : new
+                        {
+                            generate_grid = false
+                        },
+                        groups = config.Groups?.Select(g => new
+                        {
+                            id = g.Id,
+                            title = g.Title,
+                            description = g.Description,
+                            collapsible = g.Collapsible,
+                            fields = g.Fields?.Select(f => new
+                            {
+                                column_name = f.ColumnName,
+                                label = f.Label,
+                                input_type = (f.InputType ?? "text").ToLower(),
+                                required = f.Required,
+                                col_size = f.ColSize,
+                                placeholder = f.Placeholder ?? "",
+                                help_text = f.HelpText ?? "",
+                                min_length = f.MinLength,
+                                max_length = f.MaxLength,
+                                default_value = f.DefaultValue ?? "",
+                                options = f.Options != null
+                                    ? f.Options.Select(o => new { value = o.Value, label = o.Label }).Cast<object>()
+                                    : [],
+                                foreign_key_info = f?.ForeignKeyInfo != null ? new
+                                {
+                                    referenced_table = f.ForeignKeyInfo.ReferencedTable ?? "",
+                                    referenced_column = f.ForeignKeyInfo.ReferencedColumn ?? "",
+                                    display_column = f.ForeignKeyInfo.DisplayColumn ?? "Not Set"
+                                } : null,
+                            }).ToList()
+                        }).ToList()
+                    }
+                };
+                _logger.LogDebug("----------------------Template Context----------------------");
+                _logger.LogDebug(JsonSerializer.Serialize(templateContext, new JsonSerializerOptions { WriteIndented = true }));
+                _logger.LogDebug("----------------------Template Context----------------------");
                 string html, javascript;
 
                 try
@@ -225,30 +251,27 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
                 {
                     storedProcedures.Add(new GeneratedSpInfo
                     {
-                        SpName = $"usp_{config.TableName}_CUD",
+                        SpName = $"usp_{tableName}_CUD",
                         SpType = "CUD",
-                        Code = GenerateCrudStoredProcedure(config),
-                        FileName = $"usp_{config.TableName}_CUD.sql"
+                        Code = GenerateCrudStoredProcedure(config!),
+                        FileName = $"usp_{tableName}_CUD.sql"
                     });
 
                     storedProcedures.Add(new GeneratedSpInfo
                     {
-                        SpName = $"usp_{config.TableName}_Select",
+                        SpName = $"usp_{tableName}_Select",
                         SpType = "SELECT",
-                        Code = GenerateSelectStoredProcedure(config),
-                        FileName = $"usp_{config.TableName}_Select.sql"
+                        Code = GenerateSelectStoredProcedure(config!),
+                        FileName = $"usp_{tableName}_Select.sql"
                     });
                 }
-
-                // Log generation history
-                await LogGenerationHistory(config, "Full");
 
                 return new GenerateFormResponse
                 {
                     Html = html,
                     JavaScript = javascript,
                     StoredProcedures = storedProcedures,
-                    FileName = config.FormName,
+                    FileName = formName,
                     Success = true
                 };
             }
@@ -262,7 +285,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         // ============================================
         // Fallback Templates (when DB templates not available)
         // ============================================
-        private string RenderFallbackHtmlTemplate(dynamic context)
+        private static string RenderFallbackHtmlTemplate(dynamic context)
         {
             var template = Scriban.Template.Parse(@"<!DOCTYPE html>
 <html lang=""en"">
@@ -340,7 +363,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
             return template.Render(context);
         }
 
-        private string RenderFallbackJsTemplate(dynamic context)
+        private static string RenderFallbackJsTemplate(dynamic context)
         {
             var template = Scriban.Template.Parse(@"// {{ form_name }}.js
 $(document).ready(function() {
@@ -463,7 +486,7 @@ $(document).ready(function() {
             return sb.ToString();
         }
 
-        private string GenerateSelectStoredProcedure(FormConfig config)
+        private static string GenerateSelectStoredProcedure(FormConfig config)
         {
             var tableName = config.TableName;
             var pkField = config.Groups?.SelectMany(g => g.Fields).FirstOrDefault(f => f.IsPrimaryKey);
@@ -488,7 +511,7 @@ $(document).ready(function() {
             return sb.ToString();
         }
 
-        private string MapToSqlType(string dataType)
+        private static string MapToSqlType(string dataType)
         {
             return dataType?.ToUpper() switch
             {

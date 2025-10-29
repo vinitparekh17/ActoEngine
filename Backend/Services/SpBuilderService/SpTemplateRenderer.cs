@@ -1,7 +1,7 @@
 using ActoEngine.WebApi.Models;
 using System.Text;
 
-namespace ActoEngine.WebApi.Services.CodeGen;
+namespace ActoEngine.WebApi.Services.SpBuilder;
 
 public class SpTemplateRenderer
 {
@@ -40,16 +40,28 @@ public class SpTemplateRenderer
 
     public string RenderSelect(string tableName, List<SpColumnConfig> cols, SelectSpOptions opts)
     {
+        if (cols == null || cols.Count == 0)
+            throw new ArgumentException("Columns collection cannot be empty when rendering SELECT stored procedure.", nameof(cols));
+
         var spName = $"{opts.SpPrefix}_{tableName}_Select";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
-        var orderByCols = opts.OrderByColumns.Any() 
+        var orderByCols = opts.OrderByColumns.Count != 0
             ? opts.OrderByColumns 
-            : pkCols.Select(c => c.ColumnName).ToList();
+            : [.. pkCols.Select(c => c.ColumnName)];
 
-        if (!orderByCols.Any())
-            orderByCols.Add(cols.First().ColumnName); // Fallback
+        if (orderByCols.Count == 0)
+        {
+            var firstCol = cols.FirstOrDefault() ?? throw new InvalidOperationException("Cannot determine ORDER BY columns because no columns were provided.");
+            orderByCols.Add(firstCol.ColumnName); // Fallback
+        }
 
         var template = SpTemplateStore.SelectTemplate;
+        // Determine the exact table identifier used by the main SELECT's FROM clause,
+        // so the TOTAL COUNT query uses the same source. If the provided tableName is
+        // already schema-qualified (schema.Table), use that; otherwise default to dbo.
+        string mainFromIdentifier = tableName.Contains('.')
+            ? BracketQualifiedName(tableName)
+            : $"{BracketIdentifier("dbo")}.{BracketIdentifier(tableName)}";
         
         template = template.Replace("{SP_NAME}", spName);
         template = template.Replace("{TABLE_NAME}", tableName);
@@ -57,7 +69,7 @@ public class SpTemplateRenderer
         template = template.Replace("{ORDER_BY_CLAUSE}", BuildOrderByClause(orderByCols));
         
         // Filters
-        if (opts.Filters.Any())
+        if (opts.Filters.Count != 0)
         {
             template = template.Replace("{FILTER_PARAMETERS}", BuildFilterParameters(opts.Filters, cols));
             template = template.Replace("{WHERE_FILTERS}", BuildWhereFilters(opts.Filters));
@@ -71,10 +83,11 @@ public class SpTemplateRenderer
         // Pagination
         if (opts.IncludePagination)
         {
-            template = template.Replace("{PAGINATION_PARAMS}", BuildPaginationParams(opts.Filters.Any()));
+            template = template.Replace("{PAGINATION_PARAMS}", BuildPaginationParams(opts.Filters.Count != 0));
             template = template.Replace("{PAGINATION_LOGIC}", BuildPaginationLogic());
             template = template.Replace("{PAGINATION_FETCH}", BuildPaginationFetch());
-            template = template.Replace("{TOTAL_COUNT}", BuildTotalCount(tableName, opts.Filters));
+            // Use the same qualified identifier for count that the main SELECT intends to use
+            template = template.Replace("{TOTAL_COUNT}", BuildTotalCount(mainFromIdentifier, opts.Filters));
         }
         else
         {
@@ -88,9 +101,9 @@ public class SpTemplateRenderer
     }
 
     // Helper methods
-    private string BuildParameters(List<SpColumnConfig> cols)
+    private static string BuildParameters(List<SpColumnConfig> cols)
     {
-        if (!cols.Any()) return "";
+        if (cols.Count == 0) return "";
         
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
@@ -178,9 +191,9 @@ public class SpTemplateRenderer
         return sb.ToString().TrimEnd();
     }
 
-    private string BuildFilterParameters(List<FilterColumn> filters, List<SpColumnConfig> allCols)
+    private static string BuildFilterParameters(List<FilterColumn> filters, List<SpColumnConfig> allCols)
     {
-        if (!filters.Any()) return "";
+        if (filters.Count == 0) return "";
 
         var sb = new StringBuilder();
         foreach (var filter in filters)
@@ -188,16 +201,29 @@ public class SpTemplateRenderer
             var col = allCols.FirstOrDefault(c => c.ColumnName == filter.ColumnName);
             if (col == null) continue;
 
-            sb.Append($"    @{filter.ColumnName} {GetSqlType(col)}");
-            if (filter.IsOptional) sb.Append(" = NULL");
-            sb.AppendLine(",");
+            if (filter.Operator == FilterOperator.Between)
+            {
+                // BETWEEN requires two parameters: Start and End
+                sb.Append($"    @{filter.ColumnName}Start {GetSqlType(col)}");
+                if (filter.IsOptional) sb.Append(" = NULL");
+                sb.AppendLine(",");
+                sb.Append($"    @{filter.ColumnName}End {GetSqlType(col)}");
+                if (filter.IsOptional) sb.Append(" = NULL");
+                sb.AppendLine(",");
+            }
+            else
+            {
+                sb.Append($"    @{filter.ColumnName} {GetSqlType(col)}");
+                if (filter.IsOptional) sb.Append(" = NULL");
+                sb.AppendLine(",");
+            }
         }
         return sb.ToString().TrimEnd(',', '\n', '\r');
     }
 
     private static string BuildWhereFilters(List<FilterColumn> filters)
     {
-        if (!filters.Any()) return "";
+        if (filters.Count == 0) return "";
 
         var sb = new StringBuilder();
         sb.AppendLine("    WHERE 1=1");
@@ -206,7 +232,14 @@ public class SpTemplateRenderer
         {
             if (filter.IsOptional)
             {
-                sb.Append($"        AND (@{filter.ColumnName} IS NULL OR ");
+                if (filter.Operator == FilterOperator.Between)
+                {
+                    sb.Append($"        AND (@{filter.ColumnName}Start IS NULL OR @{filter.ColumnName}End IS NULL OR ");
+                }
+                else
+                {
+                    sb.Append($"        AND (@{filter.ColumnName} IS NULL OR ");
+                }
             }
             else
             {
@@ -219,7 +252,7 @@ public class SpTemplateRenderer
                     sb.Append($"[{filter.ColumnName}] = @{filter.ColumnName}");
                     break;
                 case FilterOperator.Like:
-                    sb.Append($"[{filter.ColumnName}] LIKE '%' + @{filter.ColumnName} + '%'");
+                    sb.Append($"[{filter.ColumnName}] LIKE CONCAT('%', COALESCE(@{filter.ColumnName}, ''), '%')");
                     break;
                 case FilterOperator.GreaterThan:
                     sb.Append($"[{filter.ColumnName}] > @{filter.ColumnName}");
@@ -255,10 +288,57 @@ public class SpTemplateRenderer
         return "\n    OFFSET @Offset ROWS\n    FETCH NEXT @PageSize ROWS ONLY";
     }
 
-    private string BuildTotalCount(string tableName, List<FilterColumn> filters)
+    private static string BuildTotalCount(string schemaQualifiedTableName, List<FilterColumn> filters)
     {
-        var whereClause = filters.Any() ? BuildWhereFilters(filters) : "";
-        return $"\n    \n    -- Total count\n    SELECT COUNT(*) AS TotalRecords\n    FROM [dbo].[{tableName}]\n{whereClause};";
+        var whereClause = filters.Count != 0 ? BuildWhereFilters(filters) : "";
+        var fromIdentifier = schemaQualifiedTableName; // expected to be bracketed/escaped already
+        return $"\n    \n    -- Total count\n    SELECT COUNT(*) AS TotalRecords\n    FROM {fromIdentifier}\n{whereClause};";
+    }
+
+    /// <summary>
+    /// Brackets and escapes a possibly schema-qualified identifier like "schema.Table" or "Table".
+    /// If the parts are already bracketed, they will be normalized.
+    /// </summary>
+    private static string BracketQualifiedName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return name;
+
+        // Split on '.' to handle schema-qualified names; simple approach assuming 2 parts max.
+        var parts = name.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 1)
+        {
+            return BracketIdentifier(parts[0]);
+        }
+        else if (parts.Length >= 2)
+        {
+            // Only use the first two parts (schema.table); if more, join remaining as table segment
+            var schema = parts[0];
+            var table = string.Join('.', parts.Skip(1));
+            return $"{BracketIdentifier(schema)}.{BracketIdentifier(table)}";
+        }
+
+        return BracketIdentifier(name);
+    }
+
+    /// <summary>
+    /// Wraps the identifier in brackets and escapes any closing bracket characters.
+    /// Accepts identifiers that may already be bracketed and normalizes them.
+    /// </summary>
+    private static string BracketIdentifier(string identifier)
+    {
+        if (string.IsNullOrWhiteSpace(identifier)) return identifier;
+
+        var trimmed = identifier.Trim();
+        // Remove outer brackets if present
+        if (trimmed.StartsWith("[") && trimmed.EndsWith("]") && trimmed.Length >= 2)
+        {
+            trimmed = trimmed.Substring(1, trimmed.Length - 2);
+        }
+
+        // Escape any closing brackets inside the name
+        trimmed = trimmed.Replace("]", "]]");
+
+        return $"[{trimmed}]";
     }
 
     private static string ReplaceErrorHandling(string template, CudSpOptions opts)
@@ -289,12 +369,19 @@ public class SpTemplateRenderer
         
         if (dt == "VARCHAR" || dt == "NVARCHAR" || dt == "CHAR" || dt == "NCHAR")
         {
-            var len = col.MaxLength.HasValue ? col.MaxLength.Value.ToString() : "MAX";
+            // SQL Server uses -1 to represent MAX for (VAR)CHAR/N(VARCHAR) types; also treat null as MAX
+            var len = (!col.MaxLength.HasValue || col.MaxLength.Value == -1)
+                ? "MAX"
+                : col.MaxLength.Value.ToString();
             return $"{col.DataType}({len})";
         }
         
         if (dt == "DECIMAL" || dt == "NUMERIC")
-            return $"{col.DataType}(18,2)";
+        {
+            var precision = col.Precision ?? 18; // Default precision
+            var scale = col.Scale ?? 2; // Default scale
+            return $"{col.DataType}({precision},{scale})";
+        }
         
         return col.DataType;
     }

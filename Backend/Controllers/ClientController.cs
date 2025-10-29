@@ -88,7 +88,7 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> UpdateClient(int clientId, [FromBody] Client client)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
             var userId = HttpContext.Items["UserId"] as int?;
             if (userId == null)

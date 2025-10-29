@@ -1,4 +1,3 @@
-using ActoEngine.WebApi.Models;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -65,7 +64,7 @@ namespace ActoEngine.WebApi.Repositories
             query += " ORDER BY TemplateType, Framework, Version DESC";
 
             var templates = await connection.QueryAsync<CodeTemplate>(query, parameters);
-            return templates.ToList();
+            return [.. templates];
         }
 
         public async Task<CodeTemplate?> GetByNameAsync(string templateName)

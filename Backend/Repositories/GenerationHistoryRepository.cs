@@ -1,4 +1,3 @@
-using ActoEngine.WebApi.Models;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -47,7 +46,7 @@ namespace ActoEngine.WebApi.Repositories
                   ORDER BY gh.GeneratedAt DESC",
                 new { FormConfigId = formConfigId, UserId = userId });
 
-            return history.ToList();
+            return [.. history];
         }
 
         public async Task<GenerationHistory?> GetLatestAsync(string formConfigId, int userId)
@@ -82,7 +81,7 @@ namespace ActoEngine.WebApi.Repositories
                   ORDER BY gh.GeneratedAt DESC",
                 new { UserId = userId, Limit = limit });
 
-            return history.ToList();
+            return [.. history];
         }
     }
 

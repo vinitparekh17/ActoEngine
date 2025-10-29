@@ -1,14 +1,13 @@
 // ============================================
-// Builder Tab - Simplified field management with groups
+// Builder Tab - field management with groups
 // ============================================
-import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { Plus, Trash2 } from "lucide-react";
+import { ScrollArea } from "../ui/scroll-area";
+import { AlertCircleIcon, Download, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useFormBuilder, type FormField } from "../../hooks/useFormBuilder";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Label } from "../ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@radix-ui/react-select";
-import { Switch } from "@radix-ui/react-switch";
+import { Switch } from "../ui/switch";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useApi, api } from "../../hooks/useApi";
@@ -16,6 +15,7 @@ import { useProject } from "../../hooks/useProject";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "../ui/select";
 
 export default function BuilderTab() {
     const {
@@ -156,13 +156,15 @@ export function FieldProperties({
 }) {
     const { config } = useFormBuilder();
     const { selectedProject } = useProject();
-    const [fkTable, setFkTable] = useState(field.referencedTable || '');
+    const [fkTable, setFkTable] = useState(field.foreignKeyInfo?.referencedTable || field.referencedTable || '');
+    const [fkDisplayColumn, setFkDisplayColumn] = useState(field.foreignKeyInfo?.displayColumn || '');
     const queryClient = useQueryClient();
 
-    // Sync fkTable with field.referencedTable
+    // Sync fkTable with field.foreignKeyInfo
     useEffect(() => {
-        setFkTable(field.referencedTable || '');
-    }, [field.referencedTable]);
+        setFkTable(field.foreignKeyInfo?.referencedTable || field.referencedTable || '');
+        setFkDisplayColumn(field.foreignKeyInfo?.displayColumn || '');
+    }, [field.foreignKeyInfo, field.referencedTable]);
 
     // Fetch available tables for validation
     const tablesUrl = selectedProject
@@ -171,54 +173,56 @@ export function FieldProperties({
     const { data: availableTables, isLoading: loadingTables } = useApi<string[]>(tablesUrl);
 
     // Function to load table data using React Query's fetchQuery
-    const loadTableData = async (tableName: string) => {
+    const loadTableData = async (tableName: string, displayColumn?: string) => {
         if (!selectedProject?.projectId) return;
 
         try {
-            toast.info(`Loading options from ${tableName}...`);
+            toast.info(`Fetching columns from ${tableName}...`);
 
-            // Use queryClient.fetchQuery to leverage React Query with the API client
-            const tableData = await queryClient.fetchQuery({
+            const columnNameList = await queryClient.fetchQuery({
                 queryKey: ['DatabaseBrowser', 'projects', selectedProject.projectId, 'tables', tableName, 'data'],
-                queryFn: () => api.get<Record<string, any>[]>(
-                    `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${tableName}/data?limit=50`
-                ),
-                staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+                queryFn: () =>
+                    api.get<string[]>(
+                        `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${tableName}/data`
+                    ),
+                staleTime: 5 * 60 * 1000,
             });
 
-            // Try to find ID and display columns
-            const firstRow = tableData[0];
-            if (firstRow && Object.keys(firstRow).length > 0) {
-                const columns = Object.keys(firstRow);
-                // Use first column as value (usually ID), second or first as label
-                const valueCol = columns[0];
-                const labelCol = columns.length > 1 ? columns[1] : columns[0];
+            if (columnNameList && Array.isArray(columnNameList) && columnNameList.length > 0) {
+                const sampleColumns = columnNameList;
 
-                const options = tableData.map((row: any) => ({
-                    value: String(row[valueCol] || ''),
-                    label: String(row[labelCol] || row[valueCol] || 'Unknown'),
-                }));
+                // Set displayColumn to first column if not provided
+                const finalDisplayColumn = displayColumn || field.foreignKeyInfo?.displayColumn || sampleColumns[0];
 
                 onUpdate(field.id, {
                     referencedTable: tableName,
-                    options: [{ label: `Select ${tableName}`, value: '' }, ...options],
+                    foreignKeyInfo: {
+                        ...field.foreignKeyInfo,
+                        referencedTable: tableName,
+                        displayColumn: finalDisplayColumn,
+                        sampleColumns,
+                    },
+                    // Clear options since we only have column names, not actual data
+                    options: [],
                 });
-                toast.success(`Loaded ${options.length} options from ${tableName}`);
+
+                toast.success(`Fetched ${sampleColumns.length} columns from ${tableName}`);
             } else {
-                // No data in table
+                toast.warning(`No columns found in ${tableName}`);
                 onUpdate(field.id, {
                     referencedTable: tableName,
-                    options: [{ label: `No data in ${tableName}`, value: '' }],
+                    foreignKeyInfo: {
+                        ...field.foreignKeyInfo,
+                        referencedTable: tableName,
+                        displayColumn: displayColumn || field.foreignKeyInfo?.displayColumn || '',
+                        sampleColumns: [],
+                    },
+                    options: [],
                 });
-                toast.warning(`Table ${tableName} is empty`);
             }
         } catch (error) {
-            console.error('Error loading table data:', error);
-            toast.error(`Error loading data from ${tableName}`);
-            onUpdate(field.id, {
-                referencedTable: tableName,
-                options: [{ label: `Select from ${tableName}`, value: '' }],
-            });
+            console.error('Error loading table columns:', error);
+            toast.error(`Error fetching columns from ${tableName}`);
         }
     };
 
@@ -279,58 +283,170 @@ export function FieldProperties({
                             <SelectValue placeholder="Select input type" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="text">Text</SelectItem>
-                            <SelectItem value="number">Number</SelectItem>
-                            <SelectItem value="email">Email</SelectItem>
-                            <SelectItem value="date">Date</SelectItem>
-                            <SelectItem value="select">Dropdown</SelectItem>
-                            <SelectItem value="textarea">Text Area</SelectItem>
-                            <SelectItem value="checkbox">Checkbox</SelectItem>
-                            <SelectItem value="password">Password</SelectItem>
+                            <SelectGroup>
+                                <SelectLabel>Input Types</SelectLabel>
+                                <SelectItem value="text">Text</SelectItem>
+                                <SelectItem value="number">Number</SelectItem>
+                                <SelectItem value="email">Email</SelectItem>
+                                <SelectItem value="date">Date</SelectItem>
+                                <SelectItem value="select">Dropdown</SelectItem>
+                                <SelectItem value="textarea">Text Area</SelectItem>
+                                <SelectItem value="checkbox">Checkbox</SelectItem>
+                                <SelectItem value="password">Password</SelectItem>
+                            </SelectGroup>
                         </SelectContent>
                     </Select>
                 </div>
 
                 {/* Foreign Key Config */}
                 {field.isForeignKey && field.inputType === 'select' && (
-                    <div className="rounded-md border border-purple-200 bg-purple-50 p-4">
-                        <Label className="mb-2 block text-sm font-medium">
-                            Foreign Key Reference
-                        </Label>
-                        <Input
-                            placeholder="Enter referenced table name"
-                            value={fkTable}
-                            onChange={(e) => setFkTable(e.target.value)}
-                            onBlur={() => {
-                                if (fkTable) {
-                                    // Only validate if tables are loaded
-                                    if (loadingTables || availableTables === undefined || availableTables === null) {
-                                        toast.info("Validating table name... (table list is still loading)");
-                                        return;
-                                    }
-                                    if (availableTables.includes(fkTable)) {
-                                        // Load table data using React Query
-                                        loadTableData(fkTable);
-                                    } else {
-                                        toast.error(`Table '${fkTable}' not found in project`);
-                                        setFkTable(field.referencedTable || '');
-                                    }
-                                } else {
-                                    // Clear reference if empty
-                                    onUpdate(field.id, {
-                                        referencedTable: undefined,
-                                        options: [],
-                                    });
-                                }
-                            }}
-                        />
-                        <p className="mt-1 text-xs text-gray-600">
-                            Dropdown will load data from this table
-                        </p>
-                        {field.options && field.options.length > 1 && (
-                            <p className="mt-1 text-xs text-green-600">
-                                ✓ {field.options.length - 1} options loaded
-                            </p>
+                    <div className="rounded-md border border-purple-200 bg-purple-50 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">
+                                Foreign Key Reference
+                            </Label>
+                            {field.foreignKeyInfo && (
+                                <Badge variant="secondary" className="text-xs bg-purple-200 text-purple-900">
+                                    Auto-detected
+                                </Badge>
+                            )}
+                        </div>
+
+                        {field.foreignKeyInfo ? (
+                            <>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-600">Referenced Table:</span>
+                                        <Badge variant="outline" className="bg-white">
+                                            {field.foreignKeyInfo.referencedTable}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-600">Referenced Column:</span>
+                                        <Badge variant="outline" className="bg-white">
+                                            {field.foreignKeyInfo.referencedColumn}
+                                        </Badge>
+                                    </div>
+                                </div>
+
+                                {/* Display Column + Auto-Fetch */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="displayColumn">Display Column</Label>
+
+                                    {/* Once FK data is fetched, show dropdown selector */}
+                                    {field.foreignKeyInfo?.sampleColumns?.length ? (
+                                        <div className="flex items-center gap-2">
+                                            <Select
+                                                value={fkDisplayColumn}
+                                                onValueChange={(col) => {
+                                                    setFkDisplayColumn(col);
+                                                    loadTableData(field.foreignKeyInfo!.referencedTable, col);
+                                                }}
+                                            >
+                                                <SelectTrigger className="flex-1">
+                                                    <SelectValue placeholder="Select display column" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectGroup>
+                                                        <SelectLabel>Columns</SelectLabel>
+                                                        {field.foreignKeyInfo.sampleColumns.map((col) => (
+                                                            <SelectItem key={col} value={col}>
+                                                                {col}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                </SelectContent>
+                                            </Select>
+
+                                            <Button
+                                                onClick={() =>
+                                                    loadTableData(
+                                                        field.foreignKeyInfo!.referencedTable,
+                                                        fkDisplayColumn || undefined
+                                                    )
+                                                }
+                                                size="icon"
+                                                variant="ghost"
+                                                title="Refresh options"
+                                            >
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* If no sample columns yet, show input + fetch button */}
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    id="displayColumn"
+                                                    placeholder="e.g., Name, Title, Description"
+                                                    value={fkDisplayColumn}
+                                                    onChange={(e) => setFkDisplayColumn(e.target.value)}
+                                                />
+                                                <Button
+                                                    onClick={() =>
+                                                        loadTableData(
+                                                            field.foreignKeyInfo!.referencedTable,
+                                                            fkDisplayColumn || undefined
+                                                        )
+                                                    }
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    title="Fetch columns"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            <p className="text-xs text-gray-600">
+                                                Fetch columns to select a display label for dropdown
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+
+                                {field.foreignKeyInfo?.sampleColumns && field.foreignKeyInfo.sampleColumns.length > 0 && (
+                                    <p className="text-xs text-green-600">
+                                        ✓ {field.foreignKeyInfo.sampleColumns.length} columns loaded
+                                        {field.foreignKeyInfo.displayColumn && ` (display: ${field.foreignKeyInfo.displayColumn})`}
+                                    </p>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-xs text-amber-600 mb-2 flex items-center">
+                                    <AlertCircleIcon className="inline-block mr-1 h-4 w-4 align-middle" /> No foreign key metadata found. Manual configuration required.
+                                </p>
+                                <Input
+                                    placeholder="Enter referenced table name"
+                                    value={fkTable}
+                                    onChange={(e) => setFkTable(e.target.value)}
+                                    onBlur={() => {
+                                        if (fkTable) {
+                                            // Only validate if tables are loaded
+                                            if (loadingTables || availableTables === undefined || availableTables === null) {
+                                                toast.info("Validating table name... (table list is still loading)");
+                                                return;
+                                            }
+                                            if (availableTables.includes(fkTable)) {
+                                                // Load table data using React Query
+                                                loadTableData(fkTable);
+                                            } else {
+                                                toast.error(`Table '${fkTable}' not found in project`);
+                                                setFkTable(field.referencedTable || '');
+                                            }
+                                        } else {
+                                            // Clear reference if empty
+                                            onUpdate(field.id, {
+                                                referencedTable: undefined,
+                                                foreignKeyInfo: undefined,
+                                                options: [],
+                                            });
+                                        }
+                                    }}
+                                />
+                                <p className="text-xs text-gray-600">
+                                    Dropdown will load data from this table
+                                </p>
+                            </>
                         )}
                     </div>
                 )}

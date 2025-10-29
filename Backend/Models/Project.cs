@@ -131,4 +131,15 @@ namespace ActoEngine.WebApi.Models
         public DateTime Timestamp { get; set; }
         public required string User { get; set; }
     }
+
+    /// <summary>
+    /// Request model for database operations that require a connection string.
+    /// Used for GetTableData endpoint when connection string is not stored.
+    /// </summary>
+    public class DatabaseOperationRequest
+    {
+        [Required(ErrorMessage = "Connection string is required")]
+        [StringLength(1000, ErrorMessage = "Connection string cannot exceed 1000 characters")]
+        public string ConnectionString { get; set; } = default!;
+    }
 }

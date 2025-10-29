@@ -142,14 +142,17 @@ namespace ActoEngine.WebApi.Services.ProjectService
             var columnCount = await SyncColumnsForAllTablesAsync(projectId, targetConn, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {columnCount} columns", 66);
 
-            // Step 3: Sync SPs
-            await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 70);
+            // Step 3: Sync Foreign Keys
+            await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing foreign keys...", 67);
+            var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
+            var fkCount = await _schemaSyncRepository.SyncForeignKeysAsync(projectId, foreignKeys, actoxConn, transaction);
+            await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
+
+            // Step 4: Sync SPs
+            await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 89);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
-            var defaultClient = await _clientRepository.GetByNameAsync("Default Client", projectId);
-            if (defaultClient == null)
-                throw new InvalidOperationException($"Default client not found for project {projectId}");
-
+            var defaultClient = await _clientRepository.GetByNameAsync("Default Client", projectId) ?? throw new InvalidOperationException($"Default client not found for project {projectId}");
             var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }

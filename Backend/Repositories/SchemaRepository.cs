@@ -15,13 +15,21 @@ public interface ISchemaSyncRepository
     Task<TableSchemaResponse> ReadTableSchemaAsync(string connectionString, string tableName);
     Task<List<string>> GetAllTablesAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
-    
+
     // Methods to retrieve stored metadata
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId);
     Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
     Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit);
+
+    Task<int> SyncForeignKeysAsync(
+        int projectId,
+        IEnumerable<ForeignKeyScanResult> foreignKeys,
+        IDbConnection connection,
+        IDbTransaction transaction);
+
+    Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<string> tableNames);
 }
 
 public class SchemaSyncRepository(
@@ -136,8 +144,8 @@ public class SchemaSyncRepository(
         try
         {
             return await connection.QueryAsync<(int, string)>(
-                SchemaSyncQueries.GetTableMetaByProjectId, 
-                new { ProjectId = projectId }, 
+                SchemaSyncQueries.GetTableMetaByProjectId,
+                new { ProjectId = projectId },
                 transaction);
         }
         catch (Exception ex)
@@ -165,7 +173,7 @@ public class SchemaSyncRepository(
                 TableName = tableName,
                 SchemaName = columnsList.FirstOrDefault()?.SchemaName ?? "dbo",
                 Columns = columnsList,
-                PrimaryKeys = columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName).ToList()
+                PrimaryKeys = [.. columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName)]
             };
         }
         catch (Exception ex)
@@ -181,9 +189,9 @@ public class SchemaSyncRepository(
         try
         {
             using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
-            
+
             var tables = await connection.QueryAsync<string>(SchemaSyncQueries.GetAllTables);
-            return tables.ToList();
+            return [.. tables];
         }
         catch (Exception ex)
         {
@@ -198,11 +206,11 @@ public class SchemaSyncRepository(
         try
         {
             using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
-            
+
             var procedures = await connection.QueryAsync<StoredProcedureMetadata>(
                 SchemaSyncQueries.GetTargetStoredProcedures);
-            
-            return procedures.ToList();
+
+            return [.. procedures];
         }
         catch (Exception ex)
         {
@@ -214,55 +222,78 @@ public class SchemaSyncRepository(
     public async Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId)
     {
         var tables = await QueryAsync<TableMetadataDto>(
-            SchemaSyncQueries.GetStoredTables, 
+            SchemaSyncQueries.GetStoredTables,
             new { ProjectId = projectId });
-        
-        return tables.ToList();
+
+        return [.. tables];
     }
 
     public async Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId)
     {
         var columns = await QueryAsync<ColumnMetadataDto>(
-            SchemaSyncQueries.GetStoredColumns, 
+            SchemaSyncQueries.GetStoredColumns,
             new { TableId = tableId });
-        
-        return columns.ToList();
+
+        return [.. columns];
     }
 
     public async Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId)
     {
         var procedures = await QueryAsync<StoredProcedureMetadataDto>(
-            SchemaSyncQueries.GetStoredStoredProcedures, 
+            SchemaSyncQueries.GetStoredStoredProcedures,
             new { ProjectId = projectId });
-        
-        return procedures.ToList();
+
+        return [.. procedures];
     }
 
     public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)
     {
         // First get the table
         var table = await QueryFirstOrDefaultAsync<(int TableId, string TableName)>(
-            SchemaSyncQueries.GetStoredTableByName, 
+            SchemaSyncQueries.GetStoredTableByName,
             new { ProjectId = projectId, TableName = tableName });
-        
+
         if (table.TableId == 0)
         {
             throw new InvalidOperationException($"Table '{tableName}' not found for project {projectId}");
         }
 
-        // Then get the columns
-        var columns = await QueryAsync<ColumnSchema>(
-            SchemaSyncQueries.GetStoredTableColumns, 
+        // Then get the columns with foreign key information
+        var columns = await QueryAsync<dynamic>(
+            SchemaSyncQueries.GetStoredTableColumns,
             new { TableId = table.TableId });
-        
-        var columnsList = columns.ToList();
+
+        var columnsList = columns.Select(c => new ColumnSchema
+        {
+            SchemaName = "dbo",
+            ColumnName = c.ColumnName,
+            DataType = c.DataType,
+            MaxLength = c.MaxLength,
+            Precision = c.Precision,
+            Scale = c.Scale,
+            IsNullable = c.IsNullable,
+            IsPrimaryKey = c.IsPrimaryKey,
+            IsIdentity = false, // Set from metadata if needed
+            IsForeignKey = c.IsForeignKey,
+            DefaultValue = c.DefaultValue ?? string.Empty,
+            ForeignKeyInfo = c.IsForeignKey && c.ReferencedTable != null
+                ? new ForeignKeyInfo
+                {
+                    ReferencedTable = c.ReferencedTable,
+                    ReferencedColumn = c.ReferencedColumn ?? string.Empty,
+                    DisplayColumn = null, // User will set this in the form builder
+                    OnDeleteAction = c.OnDeleteAction ?? "NO ACTION",
+                    OnUpdateAction = c.OnUpdateAction ?? "NO ACTION"
+                }
+                : null
+        }).ToList();
 
         return new TableSchemaResponse
         {
             TableName = tableName,
             SchemaName = "dbo", // Default schema
             Columns = columnsList,
-            PrimaryKeys = columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName).ToList()
+            PrimaryKeys = [.. columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName)]
         };
     }
 
@@ -275,8 +306,23 @@ public class SchemaSyncRepository(
 
             // Parse schema and table name
             var parts = tableName.Split('.');
-            string schemaName = parts.Length == 2 ? parts[0] : "dbo";
-            string tableNameOnly = parts.Length == 2 ? parts[1] : tableName;
+            string schemaName;
+            string tableNameOnly;
+
+            if (parts.Length == 2)
+            {
+                schemaName = parts[0];
+                tableNameOnly = parts[1];
+            }
+            else
+            {
+                tableNameOnly = tableName;
+                // Auto-detect schema if not provided
+                schemaName = await connection.QueryFirstOrDefaultAsync<string>(
+                    SchemaSyncQueries.FindTableSchema,
+                    new { TableName = tableNameOnly }) ?? "dbo";
+                _logger.LogInformation("Auto-detected schema '{Schema}' for table '{TableName}'", schemaName, tableNameOnly);
+            }
 
             // Verify table exists in sys.tables
             var exists = await connection.QueryFirstOrDefaultAsync<int>(
@@ -285,6 +331,12 @@ public class SchemaSyncRepository(
 
             if (exists == 0)
             {
+                // Get available tables for better error message
+                var availableTables = await connection.QueryAsync<string>(
+                    "SELECT s.name + '.' + t.name FROM sys.tables t INNER JOIN sys.schemas s ON t.schema_id = s.schema_id");
+                var tableList = string.Join(", ", availableTables.Take(10));
+                _logger.LogWarning("Table '{TableName}' not found. Schema: '{Schema}', TableOnly: '{TableOnly}'. Available tables: {Tables}",
+                    tableName, schemaName, tableNameOnly, tableList);
                 throw new InvalidOperationException($"Table '{tableName}' not found in database");
             }
 
@@ -305,7 +357,41 @@ public class SchemaSyncRepository(
                 for (int i = 0; i < reader.FieldCount; i++)
                 {
                     var fieldName = reader.GetName(i);
-                    var fieldValue = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    object? fieldValue = null;
+
+                    try
+                    {
+                        if (!reader.IsDBNull(i))
+                        {
+                            var fieldType = reader.GetFieldType(i);
+
+                            // Handle problematic types that don't convert well
+                            if (fieldType.FullName == "Microsoft.SqlServer.Types.SqlGeography" ||
+                                fieldType.FullName == "Microsoft.SqlServer.Types.SqlGeometry" ||
+                                fieldType.FullName == "Microsoft.SqlServer.Types.SqlHierarchyId")
+                            {
+                                // Convert spatial/hierarchyid types to string representation
+                                fieldValue = reader.GetValue(i)?.ToString();
+                            }
+                            else if (fieldType == typeof(byte[]))
+                            {
+                                // Convert binary data to base64 string for JSON serialization
+                                var bytes = (byte[])reader.GetValue(i);
+                                fieldValue = Convert.ToBase64String(bytes);
+                            }
+                            else
+                            {
+                                fieldValue = reader.GetValue(i);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log the error but continue processing other fields
+                        _logger.LogWarning(ex, "Error reading field '{FieldName}' at index {Index}, using null value", fieldName, i);
+                        fieldValue = $"<Error reading value: {ex.Message}>";
+                    }
+
                     row[fieldName] = fieldValue;
                 }
                 results.Add(row);
@@ -316,6 +402,73 @@ public class SchemaSyncRepository(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting table data for table {TableName}", tableName);
+            throw;
+        }
+    }
+public async Task<int> SyncForeignKeysAsync(
+    int projectId,
+    IEnumerable<ForeignKeyScanResult> foreignKeys,
+    IDbConnection connection,
+    IDbTransaction transaction)
+{
+    try
+    {
+        var count = 0;
+        foreach (var fk in foreignKeys)
+        {
+            // Insert by resolving IDs from names within SQL to avoid FK issues
+            await connection.ExecuteAsync(
+                SchemaSyncQueries.InsertForeignKeyMetadataByNames,
+                new
+                {
+                    ProjectId = projectId,
+                    fk.TableName,
+                    fk.ColumnName,
+                    fk.ReferencedTable,
+                    fk.ReferencedColumn,
+                    fk.OnDeleteAction,
+                    fk.OnUpdateAction
+                },
+                transaction);
+            count++;
+        }
+        return count;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error syncing foreign keys for project {ProjectId}", projectId);
+        throw;
+    }
+}
+
+    public async Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(
+        string connectionString, 
+        IEnumerable<string> tableNames)
+    {
+        try
+        {
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+
+            var foreignKeys = await connection.QueryAsync<dynamic>(
+                SchemaSyncQueries.GetForeignKeysForTables,
+                new { TableNames = tableNames });
+
+            // Map dynamic results to ForeignKeyScanResult with names and actions
+            var result = foreignKeys.Select(fk => new ForeignKeyScanResult
+            {
+                TableName = (string)fk.TableName,
+                ColumnName = (string)fk.ColumnName,
+                ReferencedTable = (string)fk.ReferencedTable,
+                ReferencedColumn = (string)fk.ReferencedColumn,
+                OnDeleteAction = (string)(fk.OnDeleteAction ?? "NO ACTION"),
+                OnUpdateAction = (string)(fk.OnUpdateAction ?? "NO ACTION")
+            });
+
+            return result.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting foreign keys from connection string");
             throw;
         }
     }

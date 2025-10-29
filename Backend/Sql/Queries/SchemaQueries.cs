@@ -30,8 +30,8 @@ public static class SchemaSyncQueries
             SELECT 1 FROM TablesMetadata 
             WHERE ProjectId = @ProjectId AND TableName = @TableName
         )
-        INSERT INTO TablesMetadata (ProjectId, TableName, CreatedAt)
-        VALUES (@ProjectId, @TableName, GETUTCDATE());
+        INSERT INTO TablesMetadata (ProjectId, TableName, SchemaName, CreatedAt)
+        VALUES (@ProjectId, @TableName, @SchemaName, GETUTCDATE());
         
         SELECT TableId FROM TablesMetadata 
         WHERE ProjectId = @ProjectId AND TableName = @TableName";
@@ -115,17 +115,73 @@ public static class SchemaSyncQueries
         INNER JOIN sys.tables t ON fk.parent_object_id = t.object_id
         WHERE t.name = @TableName";
 
+    public const string GetForeignKeysForTables = @"
+        SELECT 
+            fk.name AS ForeignKeyName,
+            OBJECT_NAME(fk.parent_object_id) AS TableName,
+            COL_NAME(fkc.parent_object_id, fkc.parent_column_id) AS ColumnName,
+            OBJECT_NAME(fk.referenced_object_id) AS ReferencedTable,
+            COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS ReferencedColumn,
+            fk.delete_referential_action_desc AS OnDeleteAction,
+            fk.update_referential_action_desc AS OnUpdateAction
+        FROM sys.foreign_keys fk
+        INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+        INNER JOIN sys.tables t ON fk.parent_object_id = t.object_id
+        WHERE t.name IN @TableNames";
+
     public const string InsertForeignKeyMetadata = @"
         IF NOT EXISTS (
             SELECT 1 FROM ForeignKeyMetadata 
-            WHERE TableId = @TableId AND ForeignKeyName = @ForeignKeyName
+            WHERE TableId = @TableId AND ColumnId = @ColumnId 
+                AND ReferencedTableId = @ReferencedTableId 
+                AND ReferencedColumnId = @ReferencedColumnId
         )
         INSERT INTO ForeignKeyMetadata (
-            TableId, ForeignKeyName, ColumnName, ReferencedTable, ReferencedColumn, CreatedAt
+            TableId, ColumnId, ReferencedTableId, ReferencedColumnId, OnDeleteAction, OnUpdateAction
         )
         VALUES (
-            @TableId, @ForeignKeyName, @ColumnName, @ReferencedTable, @ReferencedColumn, GETUTCDATE()
+            @TableId, @ColumnId, @ReferencedTableId, @ReferencedColumnId, @OnDeleteAction, @OnUpdateAction
         )";
+
+    public const string InsertForeignKeyMetadataByNames = @"
+        -- Resolve IDs from names and project
+        DECLARE @ParentTableId INT = (
+            SELECT TableId FROM TablesMetadata 
+            WHERE ProjectId = @ProjectId AND TableName = @TableName
+        );
+        DECLARE @RefTableId INT = (
+            SELECT TableId FROM TablesMetadata 
+            WHERE ProjectId = @ProjectId AND TableName = @ReferencedTable
+        );
+        DECLARE @ParentColumnId INT = (
+            SELECT ColumnId FROM ColumnsMetadata 
+            WHERE TableId = @ParentTableId AND ColumnName = @ColumnName
+        );
+        DECLARE @RefColumnId INT = (
+            SELECT ColumnId FROM ColumnsMetadata 
+            WHERE TableId = @RefTableId AND ColumnName = @ReferencedColumn
+        );
+
+        IF @ParentTableId IS NOT NULL AND @RefTableId IS NOT NULL 
+           AND @ParentColumnId IS NOT NULL AND @RefColumnId IS NOT NULL
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 
+                FROM ForeignKeyMetadata 
+                WHERE TableId = @ParentTableId 
+                  AND ColumnId = @ParentColumnId 
+                  AND ReferencedTableId = @RefTableId 
+                  AND ReferencedColumnId = @RefColumnId
+            )
+            BEGIN
+                INSERT INTO ForeignKeyMetadata (
+                    TableId, ColumnId, ReferencedTableId, ReferencedColumnId, OnDeleteAction, OnUpdateAction
+                )
+                VALUES (
+                    @ParentTableId, @ParentColumnId, @RefTableId, @RefColumnId, @OnDeleteAction, @OnUpdateAction
+                );
+            END
+        END";
 
     // Schema reading - Target database queries
     public const string GetTableSchema = @"
@@ -166,7 +222,7 @@ public static class SchemaSyncQueries
 
     // Stored metadata queries - ActoEngine database queries
     public const string GetStoredTables = @"
-        SELECT TableId, ProjectId, TableName, Description, CreatedAt 
+        SELECT TableId, ProjectId, TableName, SchemaName, Description, CreatedAt 
         FROM TablesMetadata 
         WHERE ProjectId = @ProjectId
         ORDER BY TableName";
@@ -192,16 +248,40 @@ public static class SchemaSyncQueries
         WHERE ProjectId = @ProjectId AND TableName = @TableName";
 
     public const string GetStoredTableColumns = @"
-        SELECT ColumnName, DataType, MaxLength, IsNullable, IsPrimaryKey, IsForeignKey, DefaultValue
-        FROM ColumnsMetadata 
-        WHERE TableId = @TableId
-        ORDER BY ColumnOrder";
+        SELECT 
+            c.ColumnName, 
+            c.DataType, 
+            c.MaxLength,
+            c.Precision,
+            c.Scale,
+            c.IsNullable, 
+            c.IsPrimaryKey, 
+            c.IsForeignKey, 
+            c.DefaultValue,
+            -- Foreign Key Information
+            rt.TableName AS ReferencedTable,
+            rc.ColumnName AS ReferencedColumn,
+            fk.OnDeleteAction,
+            fk.OnUpdateAction
+        FROM ColumnsMetadata c
+        LEFT JOIN ForeignKeyMetadata fk ON c.ColumnId = fk.ColumnId
+        LEFT JOIN TablesMetadata rt ON fk.ReferencedTableId = rt.TableId
+        LEFT JOIN ColumnsMetadata rc ON fk.ReferencedColumnId = rc.ColumnId
+        WHERE c.TableId = @TableId
+        ORDER BY c.ColumnOrder";
 
     public const string VerifyTableExists = @"
         SELECT COUNT(*)
         FROM sys.tables t
         INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
-        WHERE s.name = @SchemaName AND t.name = @TableName";
+        WHERE LOWER(s.name) = LOWER(@SchemaName) AND LOWER(t.name) = LOWER(@TableName)";
+
+    public const string FindTableSchema = @"
+        SELECT TOP 1 s.name
+        FROM sys.tables t
+        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE LOWER(t.name) = LOWER(@TableName)
+        ORDER BY CASE WHEN s.name = 'dbo' THEN 0 ELSE 1 END, s.name";
 
     public const string GetQuotedTableName = @"
         SELECT QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName)";

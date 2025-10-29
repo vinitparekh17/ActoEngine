@@ -1,15 +1,15 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 
-namespace ActoEngine.WebApi.Services.CodeGen;
+namespace ActoEngine.WebApi.Services.SpBuilder;
 
-public interface ICodeGenService
+public interface ISpBuilderService
 {
     Task<GeneratedSpResponse> GenerateStoredProcedure(SpGenerationRequest req);
     Task<TableSchemaResponse> GetTableSchema(TableSchemaRequest req);
 }
 
-public class CodeGenService(ISchemaSyncRepository schemaRepo, IProjectRepository projectRepo) : ICodeGenService
+public class SpBuilderService(ISchemaSyncRepository schemaRepo, IProjectRepository projectRepo) : ISpBuilderService
 {
     private readonly ISchemaSyncRepository _schemaRepo = schemaRepo;
     private readonly IProjectRepository _projectRepo = projectRepo;
@@ -26,21 +26,34 @@ public class CodeGenService(ISchemaSyncRepository schemaRepo, IProjectRepository
         };
 
         var pkCols = req.Columns.Where(c => c.IsPrimaryKey).ToList();
-        if (!pkCols.Any())
+        if (pkCols.Count == 0)
         {
             response.Warnings.Add("⚠️ No PK found. CUD operations may not work correctly.");
         }
 
-        if (req.Type == SpType.Cud)
+        // Generate stored procedure based on type
+        response.StoredProcedure = req.Type switch
         {
-            response.StoredProcedure = GenerateCudSp(req);
-        }
-        else if (req.Type == SpType.Select)
-        {
-            response.StoredProcedure = GenerateSelectSp(req);
-        }
+            SpType.Cud => GenerateCudSp(req),
+            SpType.Select => GenerateSelectSp(req),
+            _ => GenerateUnsupportedSp(req, response)
+        };
 
         return Task.FromResult(response);
+    }
+
+    private GeneratedSpItem GenerateUnsupportedSp(SpGenerationRequest req, GeneratedSpResponse response)
+    {
+        response.Warnings.Add($"⚠️ Unsupported SpType '{req.Type}' provided. No stored procedure generated.");
+        
+        return new GeneratedSpItem
+        {
+            SpName = $"Unsupported_{req.TableName}",
+            SpType = "Unsupported",
+            Code = $"-- ERROR: Unsupported SpType '{req.Type}' was requested for table '{req.TableName}'.\n-- Supported types: Cud, Select",
+            FileName = $"Unsupported_{req.TableName}.sql",
+            Description = $"Unsupported SpType '{req.Type}' was requested. Please use 'Cud' or 'Select'."
+        };
     }
 
     private GeneratedSpItem GenerateCudSp(SpGenerationRequest req)
@@ -67,7 +80,7 @@ public class CodeGenService(ISchemaSyncRepository schemaRepo, IProjectRepository
             ? "Select with filters and pagination"
             : "Select with optional filters";
 
-        if (opts.Filters.Any())
+        if (opts.Filters.Count != 0)
             desc += $". Filters: {string.Join(", ", opts.Filters.Select(f => f.ColumnName))}";
 
         return new GeneratedSpItem

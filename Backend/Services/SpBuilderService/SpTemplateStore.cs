@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Services.CodeGen;
+namespace ActoEngine.WebApi.Services.SpBuilder;
 
 public static class SpTemplateStore
 {

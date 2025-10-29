@@ -69,7 +69,6 @@ export default function CodeTab({ code }: { code: GeneratedCode }) {
                         <Copy className="h-4 w-4" />
                         Copy
                     </Button>
-                    );
                 </div>
             </div>
 

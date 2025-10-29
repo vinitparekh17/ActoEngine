@@ -4,7 +4,7 @@ namespace ActoEngine.WebApi.Models
     // ============================================
     // Request/Response Models
     // ============================================
-    
+
     public class SaveFormConfigRequest
     {
         public int ProjectId { get; set; }
@@ -54,7 +54,7 @@ namespace ActoEngine.WebApi.Models
     // ============================================
     // Core Form Models
     // ============================================
-    
+
     public class FormConfig
     {
         public string? Id { get; set; }
@@ -93,7 +93,7 @@ namespace ActoEngine.WebApi.Models
         public string? HelpText { get; set; }
         public int ColSize { get; set; } = 12;
         public int Order { get; set; }
-        
+
         // Validation
         public bool Required { get; set; }
         public int? MinLength { get; set; }
@@ -102,17 +102,18 @@ namespace ActoEngine.WebApi.Models
         public decimal? Max { get; set; }
         public string? Pattern { get; set; }
         public string? ErrorMessage { get; set; }
-        
+
         // Database flags
         public bool IncludeInInsert { get; set; } = true;
         public bool IncludeInUpdate { get; set; } = true;
         public bool IsPrimaryKey { get; set; }
         public bool IsIdentity { get; set; }
         public bool IsForeignKey { get; set; }
-        
+
         // Options for select/radio
+        public ForeignKeyInfo? ForeignKeyInfo { get; set; }
         public List<SelectOption>? Options { get; set; }
-        
+
         // UI state
         public bool Disabled { get; set; }
         public bool Readonly { get; set; }
@@ -143,7 +144,7 @@ namespace ActoEngine.WebApi.Models
     // ============================================
     // List/Summary Models
     // ============================================
-    
+
     public class FormConfigListItem
     {
         public int Id { get; set; }
@@ -158,7 +159,7 @@ namespace ActoEngine.WebApi.Models
     // ============================================
     // Template Models
     // ============================================
-    
+
     public class CodeTemplate
     {
         public int Id { get; set; }

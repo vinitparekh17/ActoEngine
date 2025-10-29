@@ -11,7 +11,7 @@ public interface ISchemaService
     Task<List<DatabaseTableInfo>> GetDatabaseStructureAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
     Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100);
-
+    Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<string> tableNames);
     // Methods for stored metadata
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
@@ -45,7 +45,7 @@ public class SchemaService(
     public async Task<TableSchemaResponse> GetTableSchemaAsync(string connectionString, string tableName)
     {
         try
-        {   
+        {
             if (string.IsNullOrWhiteSpace(tableName))
             {
                 throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
@@ -65,9 +65,9 @@ public class SchemaService(
         try
         {
             var tables = await _schemaRepository.GetAllTablesAsync(connectionString);
-            
+
             var databaseStructure = new List<DatabaseTableInfo>();
-            
+
             foreach (var table in tables)
             {
                 var parts = table.Split('.');
@@ -88,8 +88,8 @@ public class SchemaService(
                     });
                 }
             }
-            
-            return databaseStructure.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName).ToList();
+
+            return [.. databaseStructure.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName)];
         }
         catch (Exception ex)
         {
@@ -127,9 +127,24 @@ public class SchemaService(
                 throw new ArgumentException($"Invalid table name format: '{tableName}'", nameof(tableName));
             }
 
+            // Extract just the table name (without schema) for comparison
+            var parts = tableName.Split('.');
+            string tableNameOnly = parts.Length == 2 ? parts[1] : tableName;
+
             // Verify table exists in the database
             var availableTables = await GetAllTablesAsync(connectionString);
-            if (!availableTables.Contains(tableName))
+            
+            // Normalize comparison: extract unqualified names from availableTables and compare case-insensitively
+            // This handles both schema-qualified (e.g., "dbo.Users") and unqualified (e.g., "Users") table names
+            var unqualifiedTableNames = availableTables
+                .Select(t => t.Split('.').Last())
+                .ToList();
+            
+            // Check if either the original tableName or its unqualified form exists
+            bool tableExists = availableTables.Contains(tableName, StringComparer.OrdinalIgnoreCase) ||
+                               unqualifiedTableNames.Contains(tableNameOnly, StringComparer.OrdinalIgnoreCase);
+            
+            if (!tableExists)
             {
                 throw new ArgumentException($"Table '{tableName}' not found in database", nameof(tableName));
             }
@@ -185,7 +200,7 @@ public class SchemaService(
     public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)
     {
         try
-        {            
+        {
             if (string.IsNullOrWhiteSpace(tableName))
             {
                 throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
@@ -212,7 +227,7 @@ public class SchemaService(
             {
                 // Get columns for this table
                 var columns = await GetStoredColumnsAsync(table.TableId);
-                
+
                 var columnNodes = columns
                     .OrderBy(c => c.ColumnOrder)
                     .Select(col => new TreeNode
@@ -299,6 +314,21 @@ public class SchemaService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error building database tree for project {ProjectId}", projectId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(
+        string connectionString, 
+        IEnumerable<string> tableNames)
+    {
+        try
+        {
+            return await _schemaRepository.GetForeignKeysAsync(connectionString, tableNames);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving foreign keys from database");
             throw;
         }
     }

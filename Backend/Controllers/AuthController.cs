@@ -22,7 +22,7 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
             var result = await _authService.LoginAsync(request.Username, request.Password);
 
@@ -64,7 +64,7 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
             var result = await _authService.RefreshSessionAsync(request.RefreshToken);
 
@@ -93,7 +93,7 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
             await _authService.LogoutAsync(request.RefreshToken);
             var responseData = new MessageResponse { Message = "Logged out successfully" };

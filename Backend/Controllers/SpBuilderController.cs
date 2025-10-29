@@ -1,5 +1,5 @@
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.CodeGen;
+using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,20 +7,20 @@ namespace ActoEngine.WebApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CodeGenController : ControllerBase
+public class SpBuilderController : ControllerBase
 {
-    private readonly ICodeGenService _codeGen;
+    private readonly ISpBuilderService _spBuilder;
     private readonly ISchemaSyncRepository _schemaRepo;
     private readonly IProjectRepository _projectRepo;
-    private readonly ILogger<CodeGenController> _log;
+    private readonly ILogger<SpBuilderController> _log;
 
-    public CodeGenController(
-        ICodeGenService codeGen,
+    public SpBuilderController(
+        ISpBuilderService spBuilder,
         ISchemaSyncRepository schemaRepo,
         IProjectRepository projectRepo,
-        ILogger<CodeGenController> log)
+        ILogger<SpBuilderController> log)
     {
-        _codeGen = codeGen;
+        _spBuilder = spBuilder;
         _schemaRepo = schemaRepo;
         _projectRepo = projectRepo;
         _log = log;
@@ -39,7 +39,7 @@ public class CodeGenController : ControllerBase
     {
         try
         {
-            var result = await _codeGen.GenerateStoredProcedure(req);
+            var result = await _spBuilder.GenerateStoredProcedure(req);
 
             if (result == null)
             {
@@ -56,7 +56,7 @@ public class CodeGenController : ControllerBase
         {
             _log.LogError(ex, "Failed generating SP: {Table}", req.TableName);
             return StatusCode(500, ApiResponse<GeneratedSpResponse>.Failure(
-                "SP generation failed", [ex.Message]));
+                "SP generation failed", ["An error occurred while generating the stored procedure. Please check the logs for details."]));
         }
     }
 
@@ -73,7 +73,7 @@ public class CodeGenController : ControllerBase
     {
         try
         {
-            var result = await _codeGen.GetTableSchema(req);
+            var result = await _spBuilder.GetTableSchema(req);
             return Ok(ApiResponse<TableSchemaResponse>.Success(
                 result,
                 $"Found {result.Columns.Count} columns"));
@@ -82,7 +82,7 @@ public class CodeGenController : ControllerBase
         {
             _log.LogError(ex, "Failed reading schema: {Table}", req.TableName);
             return StatusCode(500, ApiResponse<TableSchemaResponse>.Failure(
-                "Schema read failed", [ex.Message]));
+                "Schema read failed", ["An error occurred while reading the table schema. Please check the logs for details."]));
         }
     }
 
@@ -104,11 +104,17 @@ public class CodeGenController : ControllerBase
                 tables,
                 $"Found {tables.Count} tables"));
         }
+        catch (InvalidOperationException ex)
+        {
+            _log.LogWarning(ex, "Project not found: {ProjectId}", projectId);
+            return NotFound(ApiResponse<List<string>>.Failure(
+                "Project not found", ["The specified project does not exist."]));
+        }
         catch (Exception ex)
         {
             _log.LogError(ex, "Failed getting tables: {ProjectId}", projectId);
             return StatusCode(500, ApiResponse<List<string>>.Failure(
-                "Tables fetch failed", [ex.Message]));
+                "Tables fetch failed", ["An error occurred while fetching the tables. Please check the logs for details."]));
         }
     }
 
@@ -123,7 +129,7 @@ public class CodeGenController : ControllerBase
         {
             _log.LogInformation("Quick CUD for: {Table}", req.TableName);
 
-            var schema = await _codeGen.GetTableSchema(new TableSchemaRequest
+            var schema = await _spBuilder.GetTableSchema(new TableSchemaRequest
             {
                 ProjectId = req.ProjectId,
                 TableName = req.TableName
@@ -131,7 +137,7 @@ public class CodeGenController : ControllerBase
 
             var cols = MapSchemaToColumns(schema);
 
-            var result = await _codeGen.GenerateStoredProcedure(new SpGenerationRequest
+            var result = await _spBuilder.GenerateStoredProcedure(new SpGenerationRequest
             {
                 ProjectId = req.ProjectId,
                 TableName = req.TableName,
@@ -149,7 +155,7 @@ public class CodeGenController : ControllerBase
         {
             _log.LogError(ex, "Quick CUD failed: {Table}", req.TableName);
             return StatusCode(500, ApiResponse<GeneratedSpResponse>.Failure(
-                "Quick CUD generation failed", [ex.Message]));
+                "Quick CUD generation failed", ["An error occurred while generating the CUD stored procedure. Please check the logs for details."]));
         }
     }
 
@@ -164,7 +170,7 @@ public class CodeGenController : ControllerBase
         {
             _log.LogInformation("Quick SELECT for: {Table}", req.TableName);
 
-            var schema = await _codeGen.GetTableSchema(new TableSchemaRequest
+            var schema = await _spBuilder.GetTableSchema(new TableSchemaRequest
             {
                 ProjectId = req.ProjectId,
                 TableName = req.TableName
@@ -172,7 +178,7 @@ public class CodeGenController : ControllerBase
 
             var cols = MapSchemaToColumns(schema);
 
-            var result = await _codeGen.GenerateStoredProcedure(new SpGenerationRequest
+            var result = await _spBuilder.GenerateStoredProcedure(new SpGenerationRequest
             {
                 ProjectId = req.ProjectId,
                 TableName = req.TableName,
@@ -190,24 +196,26 @@ public class CodeGenController : ControllerBase
         {
             _log.LogError(ex, "Quick SELECT failed: {Table}", req.TableName);
             return StatusCode(500, ApiResponse<GeneratedSpResponse>.Failure(
-                "Quick SELECT generation failed", [ex.Message]));
+                "Quick SELECT generation failed", ["An error occurred while generating the SELECT stored procedure. Please check the logs for details."]));
         }
     }
 
     // Helper
-    private List<SpColumnConfig> MapSchemaToColumns(TableSchemaResponse schema)
+    private static List<SpColumnConfig> MapSchemaToColumns(TableSchemaResponse schema)
     {
-        return schema.Columns.Select(c => new SpColumnConfig
+        return [.. schema.Columns.Select(c => new SpColumnConfig
         {
             ColumnName = c.ColumnName,
             DataType = c.DataType,
             MaxLength = c.MaxLength,
+            Precision = c.Precision,
+            Scale = c.Scale,
             IsNullable = c.IsNullable,
             IsPrimaryKey = c.IsPrimaryKey,
             IsIdentity = c.IsIdentity,
             IncludeInCreate = !c.IsIdentity,
             IncludeInUpdate = !c.IsIdentity && !c.IsPrimaryKey,
             DefaultValue = c.DefaultValue
-        }).ToList();
+        })];
     }
 }

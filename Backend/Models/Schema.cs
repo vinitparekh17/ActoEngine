@@ -13,10 +13,32 @@ public class ColumnMetadata
     public int ColumnOrder { get; set; }
 }
 
+public class ForeignKeyMetadata
+{
+    public int ForeignKeyId { get; set; }
+    public int TableId { get; set; }
+    public int ColumnId { get; set; }
+    public int ReferencedTableId { get; set; }
+    public int ReferencedColumnId { get; set; }
+    public string OnDeleteAction { get; set; } = "NO ACTION";
+    public string OnUpdateAction { get; set; } = "NO ACTION";
+}
+
 public class StoredProcedureMetadata
 {
     public required string ProcedureName { get; set; }
     public string? Definition { get; set; }
+}
+
+// Represents a scanned foreign key from the target DB using names, not IDs
+public class ForeignKeyScanResult
+{
+    public required string TableName { get; set; }
+    public required string ColumnName { get; set; }
+    public required string ReferencedTable { get; set; }
+    public required string ReferencedColumn { get; set; }
+    public string OnDeleteAction { get; set; } = "NO ACTION";
+    public string OnUpdateAction { get; set; } = "NO ACTION";
 }
 
 public class SyncStatus
@@ -54,11 +76,28 @@ public class ColumnSchema
     public required string ColumnName { get; set; }
     public required string DataType { get; set; }
     public int? MaxLength { get; set; }
+    public int? Precision { get; set; }
+    public int? Scale { get; set; }
     public bool IsNullable { get; set; }
     public bool IsPrimaryKey { get; set; }
     public bool IsIdentity { get; set; }
     public bool IsForeignKey { get; set; }
     public string DefaultValue { get; set; } = string.Empty;
+
+    // Foreign Key Information
+    public ForeignKeyInfo? ForeignKeyInfo { get; set; }
+}
+
+/// <summary>
+/// Foreign key relationship information
+/// </summary>
+public class ForeignKeyInfo
+{
+    public required string ReferencedTable { get; set; }
+    public required string ReferencedColumn { get; set; }
+    public string? DisplayColumn { get; set; } // Column to show in dropdown (nullable for user to set)
+    public string OnDeleteAction { get; set; } = "NO ACTION";
+    public string OnUpdateAction { get; set; } = "NO ACTION";
 }
 
 
@@ -86,6 +125,7 @@ public class TableMetadataDto
     public int TableId { get; set; }
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
+    public string? SchemaName { get; set; }
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; }
 }
@@ -125,4 +165,5 @@ public class DatabaseTableInfo
 {
     public required string SchemaName { get; set; }
     public required string TableName { get; set; }
+    public string? Description { get; set; } // Optional description for UI/metadata
 }

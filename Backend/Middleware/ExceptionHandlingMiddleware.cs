@@ -20,6 +20,14 @@ public class ExceptionHandlingMiddleware
         }
         catch (Exception ex)
         {
+            if (context.Response.HasStarted)
+            {
+                _logger.LogWarning("Cannot handle exception for {Path}; response has already started.", context.Request.Path);
+                _logger.LogError(ex, "Unhandled exception occurred");
+                // Rethrowing might terminate the connection abruptly
+                return;
+            }
+
             await HandleExceptionAsync(context, ex);
         }
     }

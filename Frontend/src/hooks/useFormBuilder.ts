@@ -23,6 +23,15 @@ export interface SelectOption {
   value: string;
 }
 
+export interface ForeignKeyInfo {
+  referencedTable: string;
+  referencedColumn: string; 
+  displayColumn?: string;
+  onDeleteAction: string;
+  onUpdateAction: string;
+  sampleColumns?: string[];
+}
+
 export interface FormField {
   id: string;
   columnName: string;
@@ -47,6 +56,7 @@ export interface FormField {
   isIdentity: boolean;
   isForeignKey: boolean;
   referencedTable?: string;
+  foreignKeyInfo?: ForeignKeyInfo;
   options?: SelectOption[];
   disabled: boolean;
   readonly: boolean;
@@ -111,6 +121,7 @@ export interface TableColumn {
   isIdentity: boolean;
   isForeignKey: boolean;
   defaultValue: string;
+  foreignKeyInfo?: ForeignKeyInfo;
 }
 
 export interface TableSchema {
@@ -126,6 +137,7 @@ export interface TableSchema {
       isIdentity: boolean;
       isForeignKey: boolean;
       defaultValue: string;
+      foreignKeyInfo?: ForeignKeyInfo;
     }>;
     primaryKeys: string[];
 }
@@ -349,6 +361,8 @@ export function useFormBuilder() {
         isPrimaryKey: col.isPrimaryKey,
         isIdentity: col.isIdentity,
         isForeignKey: col.isForeignKey,
+        referencedTable: col.foreignKeyInfo?.referencedTable,
+        foreignKeyInfo: col.foreignKeyInfo,
         disabled: col.isPrimaryKey || col.isIdentity,
         readonly: col.isPrimaryKey || col.isIdentity,
         maxLength: col.maxLength || undefined,

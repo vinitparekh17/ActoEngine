@@ -53,7 +53,7 @@ namespace ActoEngine.WebApi.Repositories
                   ORDER BY fc.UpdatedAt DESC",
                 new { ProjectId = projectId, UserId = userId });
 
-            return configs.ToList();
+            return [.. configs];
         }
 
         public async Task<FormConfig> SaveAsync(FormConfig config, string configJson, int userId)

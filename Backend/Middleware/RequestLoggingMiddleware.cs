@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 
 namespace ActoEngine.WebApi.Middleware;
+
 public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger, IConfiguration config)
 {
     private readonly RequestDelegate _next = next;
@@ -49,14 +50,19 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
 
                     await _next(context);
 
-                    // Reset position and read
-                    context.Response.Body.Seek(0, SeekOrigin.Begin);
-                    var responseText = await new StreamReader(context.Response.Body).ReadToEndAsync();
-                    context.Response.Body.Seek(0, SeekOrigin.Begin);
+                    // Read the response
+                    responseBodyStream.Seek(0, SeekOrigin.Begin);
+                    string responseText;
+                    using (var reader = new StreamReader(responseBodyStream, Encoding.UTF8, true, 1024, leaveOpen: true))
+                    {
+                        responseText = await reader.ReadToEndAsync();
+                    }
 
                     _logger.LogDebug("[Response Body] {Body}", SafeResponseBody(responseText));
 
-                    // Copy back to original stream
+                    // Reset and copy back to original stream
+                    responseBodyStream.Seek(0, SeekOrigin.Begin);
+                    context.Response.Body = originalBodyStream;
                     await responseBodyStream.CopyToAsync(originalBodyStream);
                 }
                 else

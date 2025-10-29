@@ -3,7 +3,6 @@ using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Middleware;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Auth;
-using ActoEngine.WebApi.Services.CodeGen;
 using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.Services.ProjectService;
 using ActoEngine.WebApi.Services.FormBuilderService;
@@ -11,6 +10,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.RateLimiting;
 using ActoEngine.WebApi.Services.Schema;
 using ActoEngine.WebApi.Services.ClientService;
+using ActoEngine.WebApi.Services.SpBuilder;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,7 +49,7 @@ builder.Services.AddScoped<ISchemaSyncRepository, SchemaSyncRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
-builder.Services.AddScoped<ICodeGenService, CodeGenService>();
+builder.Services.AddScoped<ISpBuilderService, SpBuilderService>();
 builder.Services.AddScoped<IFormBuilderService, FormBuilderService>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IClientService, ClientService>();

@@ -136,16 +136,21 @@ export function useApi<T>(
   options?: UseApiOptions<T>
 ) {
   const { showErrorToast = true, queryKey, ...queryOptions } = options || {};
-
+  
   // Generate query key from endpoint if not provided
-  const finalQueryKey = queryKey || generateQueryKey(endpoint);
+  const finalQueryKey = queryKey || (endpoint ? generateQueryKey(endpoint) : ['api', 'invalid']);
 
   return useQuery<T, Error>({
     queryKey: finalQueryKey,
-    queryFn: () => api.get<T>(endpoint),
+    queryFn: () => {
+      if (!endpoint || endpoint === '') {
+        return Promise.reject(new Error('Invalid endpoint'));
+      }
+      return api.get<T>(endpoint);
+    },
+    enabled: !!endpoint && endpoint !== '',
     staleTime: 60 * 1000, // 1 minute default
     ...queryOptions,
-    // Type assertion needed for TanStack Query v5
   } as any);
 }
 

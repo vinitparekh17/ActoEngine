@@ -33,7 +33,7 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> LinkProject([FromBody] LinkProjectRequest request)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
             var userId = HttpContext.Items["UserId"] as int?;
             if (userId == null)
@@ -46,7 +46,7 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> CreateProject([FromBody] CreateProjectRequest request)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
             var userId = HttpContext.Items["UserId"] as int?;
             if (userId == null)
@@ -114,7 +114,7 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> UpdateProject(int projectId, [FromBody] Project project)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
             var userId = HttpContext.Items["UserId"] as int?;
             if (userId == null)
