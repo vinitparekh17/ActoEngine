@@ -21,11 +21,11 @@ namespace ActoEngine.WebApi.Services.ProjectService
         Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId);
     }
 
-    public class ProjectService(IProjectRepository projectRepository, ISchemaSyncRepository schemaSyncRepository,
+    public class ProjectService(IProjectRepository projectRepository, ISchemaRepository schemaRepository,
     IDbConnectionFactory connectionFactory, ISchemaService schemaService, IClientRepository clientRepository, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
-        private readonly ISchemaSyncRepository _schemaSyncRepository = schemaSyncRepository;
+        private readonly ISchemaRepository _schemaRepository = schemaRepository;
         private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
         private readonly ISchemaService _schemaService = schemaService;
         private readonly IClientRepository _clientRepository = clientRepository;
@@ -134,7 +134,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             // Step 1: Sync Tables
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing tables...", 10);
             var tables = await _schemaService.GetAllTablesAsync(targetConnectionString);
-            var tableCount = await _schemaSyncRepository.SyncTablesAsync(projectId, tables, actoxConn, transaction);
+            var tableCount = await _schemaRepository.SyncTablesAsync(projectId, tables, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {tableCount} tables", 33);
 
             // Step 2: Sync Columns
@@ -145,7 +145,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             // Step 3: Sync Foreign Keys
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing foreign keys...", 67);
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
-            var fkCount = await _schemaSyncRepository.SyncForeignKeysAsync(projectId, foreignKeys, actoxConn, transaction);
+            var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
 
             // Step 4: Sync SPs
@@ -153,7 +153,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
             var defaultClient = await _clientRepository.GetByNameAsync("Default Client", projectId) ?? throw new InvalidOperationException($"Default client not found for project {projectId}");
-            var spCount = await _schemaSyncRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, actoxConn, transaction);
+            var spCount = await _schemaRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
 
@@ -164,12 +164,12 @@ namespace ActoEngine.WebApi.Services.ProjectService
             IDbTransaction transaction)
         {
             var totalColumns = 0;
-            var tables = await _schemaSyncRepository.GetProjectTablesAsync(projectId, actoxConn, transaction);
+            var tables = await _schemaRepository.GetProjectTablesAsync(projectId, actoxConn, transaction);
 
             foreach (var (tableId, tableName) in tables)
             {
                 var columns = await ReadColumnsFromTargetAsync(targetConn, tableName);
-                var count = await _schemaSyncRepository.SyncColumnsAsync(tableId, columns, actoxConn, transaction);
+                var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, actoxConn, transaction);
                 totalColumns += count;
             }
 

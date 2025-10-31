@@ -242,6 +242,24 @@ public static class SchemaSyncQueries
         WHERE ProjectId = @ProjectId
         ORDER BY ProcedureName";
 
+    public const string GetTableById = @"
+        SELECT TableId, ProjectId, TableName, SchemaName, Description, CreatedAt 
+        FROM TablesMetadata 
+        WHERE TableId = @TableId";
+
+    public const string GetColumnById = @"
+        SELECT ColumnId, TableId, ColumnName, DataType, MaxLength, 
+               Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey, 
+               DefaultValue, Description, ColumnOrder
+        FROM ColumnsMetadata 
+        WHERE ColumnId = @ColumnId";
+
+    public const string GetSpById = @"
+        SELECT SpId, ProjectId, ClientId, ProcedureName, Definition, 
+               Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
+        FROM SpMetadata 
+        WHERE SpId = @SpId";
+
     public const string GetStoredTableByName = @"
         SELECT TableId, TableName 
         FROM TablesMetadata 

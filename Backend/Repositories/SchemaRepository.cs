@@ -6,7 +6,7 @@ using Dapper;
 
 namespace ActoEngine.WebApi.Repositories;
 
-public interface ISchemaSyncRepository
+public interface ISchemaRepository
 {
     Task<int> SyncTablesAsync(int projectId, IEnumerable<string> tableNames, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncColumnsAsync(int tableId, IEnumerable<ColumnMetadata> columns, IDbConnection connection, IDbTransaction transaction);
@@ -23,6 +23,11 @@ public interface ISchemaSyncRepository
     Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
     Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit);
 
+    // Methods to retrieve individual entities by ID
+    Task<TableMetadataDto?> GetTableByIdAsync(int tableId);
+    Task<ColumnMetadataDto?> GetColumnByIdAsync(int columnId);
+    Task<StoredProcedureMetadataDto?> GetSpByIdAsync(int spId);
+
     Task<int> SyncForeignKeysAsync(
         int projectId,
         IEnumerable<ForeignKeyScanResult> foreignKeys,
@@ -32,10 +37,10 @@ public interface ISchemaSyncRepository
     Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<string> tableNames);
 }
 
-public class SchemaSyncRepository(
+public class SchemaRepository(
     IDbConnectionFactory connectionFactory,
-    ILogger<SchemaSyncRepository> logger)
-    : BaseRepository(connectionFactory, logger), ISchemaSyncRepository
+    ILogger<SchemaRepository> logger)
+    : BaseRepository(connectionFactory, logger), ISchemaRepository
 {
     public async Task<int> SyncTablesAsync(
         int projectId,
@@ -244,6 +249,27 @@ public class SchemaSyncRepository(
             new { ProjectId = projectId });
 
         return [.. procedures];
+    }
+
+    public async Task<TableMetadataDto?> GetTableByIdAsync(int tableId)
+    {
+        return await QueryFirstOrDefaultAsync<TableMetadataDto>(
+            SchemaSyncQueries.GetTableById,
+            new { TableId = tableId });
+    }
+
+    public async Task<ColumnMetadataDto?> GetColumnByIdAsync(int columnId)
+    {
+        return await QueryFirstOrDefaultAsync<ColumnMetadataDto>(
+            SchemaSyncQueries.GetColumnById,
+            new { ColumnId = columnId });
+    }
+
+    public async Task<StoredProcedureMetadataDto?> GetSpByIdAsync(int spId)
+    {
+        return await QueryFirstOrDefaultAsync<StoredProcedureMetadataDto>(
+            SchemaSyncQueries.GetSpById,
+            new { SpId = spId });
     }
 
     public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)

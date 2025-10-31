@@ -44,7 +44,7 @@ builder.Services.AddScoped<IDataSeeder, DatabaseSeeder>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
-builder.Services.AddScoped<ISchemaSyncRepository, SchemaSyncRepository>();
+builder.Services.AddScoped<ISchemaRepository, SchemaRepository>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();

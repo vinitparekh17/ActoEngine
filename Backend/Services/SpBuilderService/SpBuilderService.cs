@@ -9,9 +9,9 @@ public interface ISpBuilderService
     Task<TableSchemaResponse> GetTableSchema(TableSchemaRequest req);
 }
 
-public class SpBuilderService(ISchemaSyncRepository schemaRepo, IProjectRepository projectRepo) : ISpBuilderService
+public class SpBuilderService(ISchemaRepository schemaRepo, IProjectRepository projectRepo) : ISpBuilderService
 {
-    private readonly ISchemaSyncRepository _schemaRepo = schemaRepo;
+    private readonly ISchemaRepository _schemaRepo = schemaRepo;
     private readonly IProjectRepository _projectRepo = projectRepo;
     private readonly SpTemplateRenderer _renderer = new();
 

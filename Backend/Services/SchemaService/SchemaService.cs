@@ -23,10 +23,10 @@ public interface ISchemaService
 }
 
 public class SchemaService(
-    ISchemaSyncRepository schemaRepository,
+    ISchemaRepository schemaRepository,
     ILogger<SchemaService> logger) : ISchemaService
 {
-    private readonly ISchemaSyncRepository _schemaRepository = schemaRepository;
+    private readonly ISchemaRepository _schemaRepository = schemaRepository;
     private readonly ILogger<SchemaService> _logger = logger;
 
     public async Task<List<string>> GetAllTablesAsync(string connectionString)

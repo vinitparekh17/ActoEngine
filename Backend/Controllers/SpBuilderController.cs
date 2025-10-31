@@ -10,13 +10,13 @@ namespace ActoEngine.WebApi.Controllers;
 public class SpBuilderController : ControllerBase
 {
     private readonly ISpBuilderService _spBuilder;
-    private readonly ISchemaSyncRepository _schemaRepo;
+    private readonly ISchemaRepository _schemaRepo;
     private readonly IProjectRepository _projectRepo;
     private readonly ILogger<SpBuilderController> _log;
 
     public SpBuilderController(
         ISpBuilderService spBuilder,
-        ISchemaSyncRepository schemaRepo,
+        ISchemaRepository schemaRepo,
         IProjectRepository projectRepo,
         ILogger<SpBuilderController> log)
     {

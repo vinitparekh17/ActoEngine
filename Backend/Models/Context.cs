@@ -1,0 +1,208 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace ActoEngine.WebApi.Models;
+
+/// <summary>
+/// Represents context information for database entities (Tables, Columns, SPs)
+/// </summary>
+public class EntityContext
+{
+    public int ContextId { get; set; }
+    public int ProjectId { get; set; }
+    public required string EntityType { get; set; } // 'TABLE', 'COLUMN', 'SP', 'FUNCTION', 'VIEW'
+    public int EntityId { get; set; }
+    public required string EntityName { get; set; }
+    
+    // Core Context Fields
+    public string? Purpose { get; set; }
+    public string? BusinessImpact { get; set; }
+    public string? DataOwner { get; set; }
+    public int CriticalityLevel { get; set; } = 3;
+    public string? BusinessDomain { get; set; }
+    public string? Sensitivity { get; set; }
+    public string? DataSource { get; set; }
+    public string? ValidationRules { get; set; }
+    public string? RetentionPolicy { get; set; }
+    
+    // SP-specific
+    public string? DataFlow { get; set; }
+    public string? Frequency { get; set; }
+    public bool IsDeprecated { get; set; }
+    public string? DeprecationReason { get; set; }
+    public string? ReplacedBy { get; set; }
+    
+    // Metadata
+    public bool IsContextStale { get; set; }
+    public DateTime? LastReviewedAt { get; set; }
+    public int? ReviewedBy { get; set; }
+    public DateTime? LastContextUpdate { get; set; }
+    public int? ContextUpdatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Entity experts - who knows what
+/// </summary>
+public class EntityExpert
+{
+    public int ExpertId { get; set; }
+    public int ProjectId { get; set; }
+    public required string EntityType { get; set; }
+    public int EntityId { get; set; }
+    public int UserId { get; set; }
+    public required string ExpertiseLevel { get; set; } // 'OWNER', 'EXPERT', 'FAMILIAR', 'CONTRIBUTOR'
+    public string? Notes { get; set; }
+    public DateTime AddedAt { get; set; } = DateTime.UtcNow;
+    public int? AddedBy { get; set; }
+    
+    // Navigation
+    public User? User { get; set; }
+}
+
+/// <summary>
+/// Track context changes for audit
+/// </summary>
+public class ContextHistory
+{
+    public int HistoryId { get; set; }
+    public required string EntityType { get; set; }
+    public int EntityId { get; set; }
+    public required string FieldName { get; set; }
+    public string? OldValue { get; set; }
+    public string? NewValue { get; set; }
+    public int ChangedBy { get; set; }
+    public DateTime ChangedAt { get; set; } = DateTime.UtcNow;
+    public string? ChangeReason { get; set; }
+}
+
+/// <summary>
+/// Requests to review stale context
+/// </summary>
+public class ContextReviewRequest
+{
+    public int RequestId { get; set; }
+    public required string EntityType { get; set; }
+    public int EntityId { get; set; }
+    public int RequestedBy { get; set; }
+    public int? AssignedTo { get; set; }
+    public required string Status { get; set; } = "PENDING"; // 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
+    public string? Reason { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? CompletedAt { get; set; }
+}
+
+// ==================== DTOs ====================
+
+/// <summary>
+/// Request to save/update context
+/// </summary>
+public class SaveContextRequest
+{
+    public string? Purpose { get; set; }
+    public string? BusinessImpact { get; set; }
+    public string? DataOwner { get; set; }
+    
+    [Range(1, 5)]
+    public int? CriticalityLevel { get; set; }
+    
+    public string? BusinessDomain { get; set; }
+    public string? Sensitivity { get; set; }
+    public string? DataSource { get; set; }
+    public string? ValidationRules { get; set; }
+    public string? RetentionPolicy { get; set; }
+    
+    // SP-specific
+    public string? DataFlow { get; set; }
+    public string? Frequency { get; set; }
+    public bool? IsDeprecated { get; set; }
+    public string? DeprecationReason { get; set; }
+    public string? ReplacedBy { get; set; }
+    
+    // Experts
+    public List<int>? ExpertUserIds { get; set; }
+}
+
+/// <summary>
+/// Context response with all related data
+/// </summary>
+public class ContextResponse
+{
+    public required EntityContext Context { get; set; }
+    public List<EntityExpert> Experts { get; set; } = new();
+    public ContextSuggestions? Suggestions { get; set; }
+    public int CompletenessScore { get; set; }
+    public bool IsStale { get; set; }
+    public int DependencyCount { get; set; }
+}
+
+/// <summary>
+/// Smart suggestions for context
+/// </summary>
+public class ContextSuggestions
+{
+    public string? Purpose { get; set; }
+    public string? BusinessDomain { get; set; }
+    public string? Sensitivity { get; set; }
+    public string? ValidationRules { get; set; }
+    public List<UserSuggestion> PotentialOwners { get; set; } = new();
+    public List<UserSuggestion> PotentialExperts { get; set; } = new();
+}
+
+public class UserSuggestion
+{
+    public int UserId { get; set; }
+    public required string Name { get; set; }
+    public required string Email { get; set; }
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Request to add expert
+/// </summary>
+public class AddExpertRequest
+{
+    [Required]
+    public int UserId { get; set; }
+    
+    [Required]
+    public required string ExpertiseLevel { get; set; } // 'OWNER', 'EXPERT', 'FAMILIAR'
+    
+    public string? Notes { get; set; }
+}
+
+/// <summary>
+/// Bulk context entry for seeding
+/// </summary>
+public class BulkContextEntry
+{
+    [Required]
+    public required string EntityType { get; set; }
+    
+    [Required]
+    public int EntityId { get; set; }
+    
+    [Required]
+    public required string EntityName { get; set; }
+    
+    [Required]
+    public required SaveContextRequest Context { get; set; }
+}
+
+public class BulkImportResult
+{
+    public required string EntityName { get; set; }
+    public bool Success { get; set; }
+    public string? Error { get; set; }
+}
+
+/// <summary>
+/// Context coverage statistics
+/// </summary>
+public class ContextCoverageStats
+{
+    public required string EntityType { get; set; }
+    public int Total { get; set; }
+    public int Documented { get; set; }
+    public decimal CoveragePercentage { get; set; }
+    public decimal? AvgCompleteness { get; set; }
+}
