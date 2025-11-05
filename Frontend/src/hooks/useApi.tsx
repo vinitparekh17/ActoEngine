@@ -1,127 +1,9 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseMutationOptions } from '@tanstack/react-query';
-import { getAuthHeaders, useAuthStore } from './useAuth';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 
-// ============================================
-// Types matching backend ApiResponse<T>
-// ============================================
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-}
-
-interface ApiErrorResponse {
-  success: false;
-  message: string;
-  errors?: Record<string, string[]>;
-}
-
-// ============================================
-// API Client (Fetch wrapper)
-// ============================================
-class ApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl = '/api') {
-    this.baseUrl = baseUrl;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-
-    // Merge headers with defaults
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders(),
-      ...options.headers,
-    };
-
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      credentials: 'include', // Include cookies for cross-origin requests
-    });
-
-    // Handle 401 - Token expired
-    if (response.status === 401) {
-      const { clearAuth } = useAuthStore.getState();
-      clearAuth();
-
-      // Throw error to be caught by error boundary
-      const error = new Error('Session expired. Please login again.');
-      (error as any).status = 401;
-      throw error;
-    }
-
-    // Handle 403 - Forbidden
-    if (response.status === 403) {
-      const error = new Error('You do not have permission to perform this action');
-      (error as any).status = 403;
-      throw error;
-    }
-
-    // Parse response
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType?.includes('application/json');
-
-    if (!response.ok) {
-      if (isJson) {
-        const error: ApiErrorResponse = await response.json();
-        const err = new Error(error.message || 'Request failed');
-        (err as any).status = response.status;
-        (err as any).errors = error.errors; // Validation errors
-        throw err;
-      }
-
-      const err = new Error(`Request failed: ${response.statusText}`);
-      (err as any).status = response.status;
-      throw err;
-    }
-
-    if (isJson) {
-      const data: ApiResponse<T> = await response.json();
-      return data.data;
-    }
-
-    // Non-JSON response (file downloads, etc.)
-    return response as any;
-  }
-
-  async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' });
-  }
-
-  async post<T>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
-
-  async put<T>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
-
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
-  }
-
-  async patch<T>(endpoint: string, body?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'PATCH',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
-}
-
-export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || '/api');
+// NOTE: Types are sourced from '@/types/api' to stay in sync with backend Models/Common.cs
+// NOTE: API client is sourced from '@/lib/api' for centralized HTTP communication
 
 // ============================================
 // useApi - Query Hook
@@ -311,6 +193,6 @@ export const queryKeys = {
 };
 
 // ============================================
-// Export API client for direct use
+// Re-export API client for convenience
 // ============================================
-export { api as apiClient }
+export { api, apiClient } from '@/lib/api';
