@@ -21,7 +21,7 @@ import type {
   CreateProjectRequest,
   LinkProjectRequest,
   ProjectResponse,
-} from "../types/api"
+} from "../types/project"
 import { ScrollArea } from "../components/ui/scroll-area"
 
 interface FormData {

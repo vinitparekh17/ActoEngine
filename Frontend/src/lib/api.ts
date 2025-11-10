@@ -15,7 +15,7 @@
  */
 
 import { getAuthHeaders, useAuthStore } from '@/hooks/useAuth';
-import type { ApiResponse, ErrorResponse } from '@/types/api';
+import { ApiError, type ApiResponse, type ErrorResponse } from '@/types/api';
 
 // ============================================
 // Type Guards for Backend Response Shapes
@@ -32,9 +32,6 @@ export function isApiResponse<T = unknown>(value: any): value is ApiResponse<T> 
     && 'timestamp' in value;
 }
 
-/**
- * Type guard to check if response matches ErrorResponse shape from Common.cs
- */
 export function isErrorResponse(value: any): value is ErrorResponse {
   return value && typeof value === 'object'
     && 'error' in value
@@ -56,29 +53,29 @@ export function isErrorResponse(value: any): value is ErrorResponse {
  * - Error handling (401, 403, validation errors)
  * - Session management
  */
+type OnUnauthorized = () => void;
+
 class ApiClient {
   private baseUrl: string;
+  private onUnauthorized?: OnUnauthorized;
 
   constructor(baseUrl = '/api') {
     this.baseUrl = baseUrl;
   }
 
   /**
-   * Core request method - handles all HTTP operations
-   *
-   * Response handling priority:
-   * 1. Check HTTP status (401, 403)
-   * 2. Parse JSON if content-type is application/json
-   * 3. Unwrap ApiResponse<T> if present
-   * 4. Return raw response for non-JSON (file downloads, etc.)
+   * Set callback for 401 responses (dependency injection)
    */
+  setUnauthorizedHandler(handler: OnUnauthorized) {
+    this.onUnauthorized = handler;
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    // Merge headers with defaults
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
@@ -88,80 +85,76 @@ class ApiClient {
     const response = await fetch(url, {
       ...options,
       headers,
-      credentials: 'include', // Include cookies for cross-origin requests
+      credentials: 'include',
     });
 
     // Handle 401 - Token expired
     if (response.status === 401) {
-      const { clearAuth } = useAuthStore.getState();
-      clearAuth();
-
-      // Throw error to be caught by error boundary
-      const error = new Error('Session expired. Please login again.');
-      (error as any).status = 401;
-      throw error;
+      this.onUnauthorized?.();
+      throw new ApiError('Session expired. Please login again.', 401);
     }
 
     // Handle 403 - Forbidden
     if (response.status === 403) {
-      const error = new Error('You do not have permission to perform this action');
-      (error as any).status = 403;
-      throw error;
+      throw new ApiError('You do not have permission to perform this action', 403);
     }
 
-    // Parse response
+    // Parse response body once
     const contentType = response.headers.get('content-type') ?? '';
     const isJson = contentType.includes('application/json');
 
-    // Try to parse JSON body once when present
-    const body = isJson ? await response.json().catch(() => null) : null;
-
-    if (!response.ok) {
-      // Prefer ApiResponse shape from backend when available
-      if (body && isApiResponse<any>(body)) {
-        const err = new Error(body.message || 'Request failed');
-        (err as any).status = response.status;
-        (err as any).errors = body.errors;
-        throw err;
+    let body: any = null;
+    if (isJson) {
+      try {
+        body = await response.json();
+      } catch {
+        // Invalid JSON - will be handled below
       }
-
-      // Handle ErrorResponse shape (from middleware)
-      if (body && isErrorResponse(body)) {
-        const err = new Error(body.message || body.error || 'Request failed');
-        (err as any).status = response.status;
-        throw err;
-      }
-
-      const err = new Error(`Request failed: ${response.status} ${response.statusText}`);
-      (err as any).status = response.status;
-      throw err;
     }
 
-    // Unwrap ApiResponse<T> to return just the data
+    // Handle error responses
+    if (!response.ok) {
+      if (body && isApiResponse<any>(body)) {
+        throw new ApiError(
+          body.message || 'Request failed',
+          response.status,
+          body.errors
+        );
+      }
+
+      if (body && isErrorResponse(body)) {
+        throw new ApiError(
+          body.message || body.error || 'Request failed',
+          response.status
+        );
+      }
+
+      throw new ApiError(
+        `Request failed: ${response.status} ${response.statusText}`,
+        response.status
+      );
+    }
+
+    // Unwrap ApiResponse<T>
     if (body && isApiResponse<T>(body)) {
       if (!body.status) {
-        const err = new Error(body.message || 'Operation failed');
-        (err as any).status = response.status;
-        (err as any).errors = body.errors;
-        throw err;
+        throw new ApiError(
+          body.message || 'Operation failed',
+          response.status,
+          body.errors
+        );
       }
       return body.data as T;
     }
 
-    // Non-JSON response (file downloads, etc.)
-    return response as any;
+    // Return parsed JSON or raw response
+    return (body ?? response) as T;
   }
 
-  /**
-   * GET request
-   */
   async get<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  /**
-   * POST request
-   */
   async post<T>(endpoint: string, body?: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
@@ -169,9 +162,6 @@ class ApiClient {
     });
   }
 
-  /**
-   * PUT request
-   */
   async put<T>(endpoint: string, body?: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
@@ -179,16 +169,10 @@ class ApiClient {
     });
   }
 
-  /**
-   * DELETE request
-   */
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
-  /**
-   * PATCH request
-   */
   async patch<T>(endpoint: string, body?: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
@@ -197,6 +181,10 @@ class ApiClient {
   }
 }
 
+// Initialize unauthorized handler (call this in your app setup)
+export function initializeApiClient(onUnauthorized: OnUnauthorized) {
+  api.setUnauthorizedHandler(onUnauthorized);
+}
 // ============================================
 // Export Singleton Instance
 // ============================================
@@ -208,8 +196,3 @@ class ApiClient {
  * Defaults to '/api' for same-origin requests.
  */
 export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || '/api');
-
-/**
- * Alternative export name for clarity
- */
-export const apiClient = api;

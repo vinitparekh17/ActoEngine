@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            import { useState, useEffect } from 'react';
 import { useFormBuilder, type TableSchema } from '../hooks/useFormBuilder';
 import { useProject } from '../hooks/useProject';
 import { useApi } from '../hooks/useApi';
@@ -14,7 +14,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue,                                                                                        
 } from '../components/ui/select';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
@@ -41,14 +41,14 @@ export default function FormBuilder() {
   const [activeTab, setActiveTab] = useState<
     'builder' | 'preview' | 'code'
   >('builder');
-  const [selectedTable, setSelectedTable] = useState('');
+  const [selectedTable, setSelectedTable] = useState<string | number>('');
   const [customFormName, setCustomFormName] = useState('');
 
   // Fetch tables for the project
   const tablesUrl = selectedProject
     ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables`
     : '';
-  const { data: tablesData } = useApi<string[]>(tablesUrl);
+  const { data: tablesData } = useApi<Array<{ tableId: number; tableName: string; schemaName?: string }>>(tablesUrl);
 
   // Fetch schema when table is selected
   const schemaUrl = selectedProject && selectedTable && selectedTable !== 'custom'
@@ -61,8 +61,9 @@ export default function FormBuilder() {
   // Initialize form when table schema is loaded or custom form is created
   useEffect(() => {
     if (schemaUrl && schemaData && selectedTable && selectedProject && !config && selectedTable !== 'custom') {
-      initializeFromTable(selectedTable, selectedProject.projectId, schemaData);
-      toast.success(`Loaded ${schemaData.columns.length} fields from ${selectedTable}`);
+      const tableId = typeof selectedTable === 'string' ? Number(selectedTable) : selectedTable;
+      initializeFromTable(tableId, selectedProject.projectId, schemaData);
+      toast.success(`Loaded ${schemaData.columns.length} fields from ${schemaData.tableName || selectedTable}`);
     }
   }, [schemaData, selectedTable, selectedProject, config, schemaUrl, initializeFromTable]);
 
@@ -113,9 +114,9 @@ export default function FormBuilder() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Select
-                value={selectedTable}
+                value={String(selectedTable)}
                 onValueChange={(value) => {
-                  if (value !== selectedTable) {
+                  if (value !== String(selectedTable)) {
                     reset();
                   }
                   setSelectedTable(value);
@@ -128,8 +129,8 @@ export default function FormBuilder() {
                 <SelectContent className="dark:bg-neutral-900 dark:border-neutral-700">
                   <SelectItem value="custom">Create Custom Form</SelectItem>
                   {availableTables.map((table) => (
-                    <SelectItem key={table} value={table}>
-                      {table}
+                    <SelectItem key={table.tableId} value={String(table.tableId)}>
+                      {table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName}
                     </SelectItem>
                   ))}
                 </SelectContent>

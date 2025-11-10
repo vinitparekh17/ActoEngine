@@ -18,7 +18,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime } from '../lib/utils';
 
 
 export default function ProjectsDashboard() {
@@ -167,9 +167,7 @@ export default function ProjectsDashboard() {
                       <Clock className="h-4 w-4" /> Created
                     </span>
                     <span className="text-neutral-900 dark:text-neutral-200">
-                      {project.createdAt
-                        ? formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })
-                        : 'N/A'}
+                      {formatRelativeTime(project.createdAt, 'N/A')}
                     </span>
                   </div>
 
@@ -179,7 +177,7 @@ export default function ProjectsDashboard() {
                         <Database className="h-4 w-4" /> Last Sync
                       </span>
                       <span className="text-neutral-900 dark:text-neutral-200">
-                        {formatDistanceToNow(new Date(project.lastSyncAttempt), { addSuffix: true })}
+                        {formatRelativeTime(project.lastSyncAttempt, 'Never')}
                       </span>
                     </div>
                   )}

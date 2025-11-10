@@ -25,18 +25,12 @@ import type {
     UpdateProjectRequest,
     UpdateProjectResponse,
     DeleteProjectResponse,
-    SyncProjectResponse
-} from '../types/api';
+    SyncProjectResponse,
+    ProjectFormData,
+} from '../types/project';
 import { useConfirm } from '../hooks/useConfirm';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../components/ui/breadcrumb';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from '../components/ui/field';
-
-interface ProjectFormData {
-    projectName: string;
-    description: string;
-    databaseName: string;
-    isActive: boolean;
-}
 
 interface ConnectionFormData {
     server: string;

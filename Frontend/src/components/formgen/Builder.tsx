@@ -170,9 +170,10 @@ export function FieldProperties({
     const tablesUrl = selectedProject
         ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables`
         : '';
-    const { data: availableTables, isLoading: loadingTables } = useApi<string[]>(tablesUrl);
+    const { data: tablesMetadata, isLoading: loadingTables } = useApi<Array<{ tableId: number; tableName: string; schemaName?: string }>>(tablesUrl);
+    const availableTables = tablesMetadata?.map(t => t.tableName) || [];
 
-    // Function to load table data using React Query's fetchQuery
+    // Function to fetch column metadata from the /columns endpoint using React Query's fetchQuery
     const loadTableData = async (tableName: string, displayColumn?: string) => {
         if (!selectedProject?.projectId) return;
 
@@ -183,7 +184,7 @@ export function FieldProperties({
                 queryKey: ['DatabaseBrowser', 'projects', selectedProject.projectId, 'tables', tableName, 'data'],
                 queryFn: () =>
                     api.get<string[]>(
-                        `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${tableName}/data`
+                        `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${tableName}/columns`
                     ),
                 staleTime: 5 * 60 * 1000,
             });

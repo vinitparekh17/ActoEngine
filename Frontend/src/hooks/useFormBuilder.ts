@@ -315,10 +315,11 @@ export function useFormBuilder() {
 
   // Initialize from table schema
   const initializeFromTable = (
-    tableName: string,
+    tableId: string | number,
     projectId: number,
     schema: TableSchema
   ) => {
+    const tableName = schema.tableName;
     const config: FormConfig = {
       id: `form-${nanoid(6)}`,
       projectId,

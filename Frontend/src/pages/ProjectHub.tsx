@@ -20,9 +20,9 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime } from '../lib/utils';
 import { ScrollArea } from '../components/ui/scroll-area';
-import type { ProjectStatsResponse, ActivityItem } from '../types/api';
+import type { ProjectStatsResponse, ActivityItem } from '../types/project';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../components/ui/breadcrumb';
 
 export default function ProjectHub() {
@@ -197,7 +197,7 @@ export default function ProjectHub() {
               ) : (
                 <div className="text-2xl font-bold">
                   {stats?.lastSync
-                    ? formatDistanceToNow(new Date(stats.lastSync), { addSuffix: true })
+                    ? formatRelativeTime(stats.lastSync, 'Never')
                     : 'Never'}
                 </div>
               )}
@@ -244,7 +244,7 @@ export default function ProjectHub() {
                               {item.description}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                              {formatRelativeTime(item.timestamp, 'recently')}
                               {item.user && ` by ${item.user}`}
                             </p>
                           </div>

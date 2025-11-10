@@ -1,5 +1,3 @@
-"use client"
-
 import { Tree, type NodeApi } from "react-arborist"
 import { Input } from "../ui/input"
 import { Badge } from "../ui/badge"
