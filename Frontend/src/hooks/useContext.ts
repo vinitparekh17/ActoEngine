@@ -370,6 +370,7 @@ export function useAddExpert(
 export function useRemoveExpert(
   entityType: string,
   entityId: number,
+  userId: number,
   onSuccess?: () => void
 ) {
   const { selectedProjectId } = useProject();
@@ -381,8 +382,8 @@ export function useRemoveExpert(
     onSuccess?.();
   }, [onSuccess]);
 
-  return useApiDelete<any, { userId: number }>(
-    `/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts/${'{userId}'}`,
+  return useApiDelete<void>(
+    `/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts/${userId}`,
     {
       showSuccessToast: false, // We handle it manually
       showErrorToast: true,

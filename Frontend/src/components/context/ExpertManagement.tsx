@@ -127,10 +127,11 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   const [removedExpertId, setRemovedExpertId] = useState<number | null>(null);
 
   // Fetch context with experts
-  const { 
-    data: contextResponse, 
+  const {
+    data: contextResponse,
     isLoading: isLoadingContext,
-    error: contextError 
+    error: contextError,
+    refetch: refetchContext
   } = useApi<ContextResponse>(
     `/projects/${selectedProjectId}/context/${entityType}/${entityId}`,
     {
@@ -184,22 +185,40 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     invalidateKeys: [['projects', String(selectedProjectId), 'context', entityType, String(entityId)]],
   });
 
-  // Remove expert mutation
-  const { 
-    mutate: removeExpert, 
-    isPending: isRemovingExpert 
-  } = useApiDelete<any, { userId: number }>(
-    `/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts/:userId`, {
-    onSuccess: () => {
+  // Remove expert handler - manually handles the DELETE request with proper URL
+  const [isRemovingExpert, setIsRemovingExpert] = useState(false);
+
+  const removeExpert = async (userId: number) => {
+    setIsRemovingExpert(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || ''}/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts/${userId}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Failed to remove expert' }));
+        throw new Error(error.message || 'Failed to remove expert');
+      }
+
       toast.success('Expert removed successfully');
       setRemovedExpertId(null);
-    },
-    onError: (error) => {
+
+      // Refetch the context data to update the experts list
+      await refetchContext();
+    } catch (error: any) {
       toast.error(`Failed to remove expert: ${error.message}`);
       setRemovedExpertId(null);
-    },
-    invalidateKeys: [['projects', String(selectedProjectId), 'context', entityType, String(entityId)]],
-  });
+    } finally {
+      setIsRemovingExpert(false);
+    }
+  };
 
   const experts = contextResponse?.experts || [];
   const suggestedExperts = suggestions?.potentialExperts || [];
@@ -224,14 +243,14 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     });
   };
 
-  const handleRemoveExpert = (userId: number) => {
+  const handleRemoveExpert = async (userId: number) => {
     const expert = experts.find(e => e.userId === userId);
     const userName = expert?.user?.fullName || expert?.user?.username || 'this expert';
-    
+
     if (confirm(`Are you sure you want to remove ${userName}?`)) {
       // mark which expert is being removed so only that button shows loading
       setRemovedExpertId(userId);
-      removeExpert({ userId });
+      await removeExpert(userId);
     }
   };
 

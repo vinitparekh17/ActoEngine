@@ -161,7 +161,10 @@ export const ContextDashboard: React.FC = () => {
     );
   }
 
-  // At this point, TypeScript knows selectedProjectId is defined
+  // At this point, we know selectedProjectId is defined due to the guard above
+  // Create a type-safe variable to avoid unsafe non-null assertions
+  const projectId = selectedProjectId;
+
   const coverage = dashboard?.coverage || [];
   const staleEntities = dashboard?.staleEntities || [];
   const topDocumented = dashboard?.topDocumented || [];
@@ -198,7 +201,7 @@ export const ContextDashboard: React.FC = () => {
             </Link>
           </Button>
           <Button asChild>
-            <Link to={`/projects/${selectedProjectId}/context/settings`}>
+            <Link to={`/projects/${projectId}/context/settings`}>
               Settings
             </Link>
           </Button>
@@ -455,7 +458,7 @@ export const ContextDashboard: React.FC = () => {
                             variant="outline"
                             asChild
                           >
-                            <Link to={getEntityRoute(item.entityType, item.entityId, selectedProjectId)}>
+                            <Link to={getEntityRoute(item.entityType, item.entityId, projectId)}>
                               Document
                             </Link>
                           </Button>
@@ -535,7 +538,7 @@ export const ContextDashboard: React.FC = () => {
                             variant="outline"
                             asChild
                           >
-                            <Link to={getEntityRoute(item.entityType, item.entityId, selectedProjectId)}>
+                            <Link to={getEntityRoute(item.entityType, item.entityId, projectId)}>
                               Review
                             </Link>
                           </Button>
@@ -587,7 +590,7 @@ export const ContextDashboard: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Link
-                            to={getEntityRoute(item.entityType, item.entityId, selectedProjectId!)}
+                            to={getEntityRoute(item.entityType, item.entityId, projectId)}
                             className="font-medium hover:underline text-primary"
                           >
                             {item.entityName}
@@ -634,25 +637,25 @@ export const ContextDashboard: React.FC = () => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link to={`/projects/${selectedProjectId}/tables`}>
+            <Link to={`/projects/${projectId}/tables`}>
               <Database className="w-4 h-4 mr-2" />
               Browse Tables
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to={`/projects/${selectedProjectId}/stored-procedures`}>
+            <Link to={`/projects/${projectId}/stored-procedures`}>
               <FileCode className="w-4 h-4 mr-2" />
               Browse SPs
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to={`/projects/${selectedProjectId}/context/experts`}>
+            <Link to={`/projects/${projectId}/context/experts`}>
               <Users className="w-4 h-4 mr-2" />
               View Experts
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to={`/projects/${selectedProjectId}/context/bulk-import`}>
+            <Link to={`/projects/${projectId}/context/bulk-import`}>
               <FileText className="w-4 h-4 mr-2" />
               Bulk Import
             </Link>
