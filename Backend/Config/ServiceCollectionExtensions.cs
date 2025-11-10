@@ -29,8 +29,21 @@ namespace ActoEngine.WebApi.Config
             {
                 options.AddPolicy("ReactPolicy", builder =>
                 {
-                    var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                        ?? ["http://localhost:5173"];
+                    // Get CORS origins from environment variable or configuration
+                    var corsOriginsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+                    string[] allowedOrigins;
+
+                    if (!string.IsNullOrWhiteSpace(corsOriginsEnv))
+                    {
+                        // Parse comma-separated list from environment variable
+                        allowedOrigins = corsOriginsEnv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    }
+                    else
+                    {
+                        // Fallback to configuration or default
+                        allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                            ?? ["http://localhost:5173"];
+                    }
 
                     builder
                         .WithOrigins(allowedOrigins)

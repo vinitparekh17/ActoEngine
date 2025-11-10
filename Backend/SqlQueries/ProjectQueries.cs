@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Sql.Queries;
+namespace ActoEngine.WebApi.SqlQueries;
 
 public static class ProjectSqlQueries
 {

@@ -3,7 +3,42 @@ using Scriban;
 
 namespace ActoEngine.WebApi.Services.FormBuilderService
 {
-    public class TemplateRenderService
+    public interface ITemplateRenderService
+    {
+        /// <summary>
+        /// Renders a template asynchronously using the specified template type, framework, and context data.
+        /// </summary>
+        /// <param name="templateType">The type of template to render</param>
+        /// <param name="framework">The framework for which to render the template</param>
+        /// <param name="context">The context data to be used in template rendering</param>
+        /// <param name="version">Optional specific version of the template to use</param>
+        /// <returns>The rendered template content as a string</returns>
+        Task<string> RenderTemplateAsync(string templateType, string framework, object context, string? version = null);
+
+        /// <summary>
+        /// Renders a template by its unique name.
+        /// </summary>
+        /// <param name="templateName"></param>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        Task<string> RenderTemplateByNameAsync(string templateName, object context);
+
+        /// <summary>
+        /// Gets a list of available templates, optionally filtered by type and framework.
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="framework"></param>
+        /// <returns></returns>
+        Task<List<CodeTemplate>> GetAvailableTemplatesAsync(string? type = null, string? framework = null);
+        
+        /// <summary>
+        /// Saves or updates a code template.
+        /// </summary>
+        /// <param name="template"></param>
+        /// <returns></returns>
+        Task<CodeTemplate> SaveTemplateAsync(CodeTemplate template);
+    }
+    public class TemplateRenderService : ITemplateRenderService
     {
         private readonly CodeTemplateRepository _templateRepository;
         private readonly ILogger<TemplateRenderService> _logger;

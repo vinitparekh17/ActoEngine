@@ -5,7 +5,14 @@ using System.Text.Json;
 
 namespace ActoEngine.WebApi.Services.FormBuilderService
 {
-    public class FormConfigService
+    public interface IFormConfigService
+    {
+        Task<FormConfig> SaveAsync(FormConfig config, int userId);
+        Task<FormConfig?> LoadAsync(string id, int userId);
+        Task<List<FormConfigListItem>> GetByProjectIdAsync(int projectId, int userId);
+        Task<bool> DeleteAsync(string id, int userId);
+    }
+    public class FormConfigService : IFormConfigService
     {
         private readonly FormConfigRepository _repository;
         private readonly IProjectRepository _projectRepository;

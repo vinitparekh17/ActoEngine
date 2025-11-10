@@ -4,7 +4,17 @@ using System.Data;
 
 namespace ActoEngine.WebApi.Repositories
 {
-    public class CodeTemplateRepository
+    public interface ICodeTemplateRepository
+    {
+        Task<CodeTemplate?> GetTemplateAsync(string type, string framework, string? version = null);
+        Task<List<CodeTemplate>> GetTemplatesAsync(string? type = null, string? framework = null);
+        Task<CodeTemplate?> GetByNameAsync(string templateName);
+        Task<CodeTemplate> SaveAsync(CodeTemplate template);
+        Task<bool> DeleteAsync(string templateName);
+        Task<bool> DeactivateAsync(string templateName);
+    }
+
+    public class CodeTemplateRepository : ICodeTemplateRepository
     {
         private readonly string _connectionString;
 

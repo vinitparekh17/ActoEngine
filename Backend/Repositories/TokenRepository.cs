@@ -1,6 +1,6 @@
 using ActoEngine.WebApi.Services.Database;
 using ActoEngine.Domain.Entities;
-using ActoEngine.WebApi.Sql.Queries;
+using ActoEngine.WebApi.SqlQueries;
 
 namespace ActoEngine.WebApi.Repositories;
 
@@ -9,7 +9,6 @@ public interface ITokenRepository
     Task StoreTokensAsync(int userId, string sessionToken, string refreshToken, DateTime sessionExpiry, DateTime refreshExpiry);
     Task<TokenSession?> GetByRefreshTokenHashAsync(string refreshToken);
     Task<TokenSession?> GetBySessionTokenHashAsync(string sessionToken);
-    Task<TokenSession?> GetByUserIdAsync(int userId);
     Task RotateTokensAsync(int userId, string newSessionToken, string newRefreshToken, DateTime newSessionExpiry, DateTime newRefreshExpiry);
     Task UpdateAccessTokenAsync(int userId, string newSessionToken, DateTime newSessionExpiry);
     Task DeleteByRefreshTokenHashAsync(string refreshToken);
@@ -55,15 +54,6 @@ public class TokenRepository(
         var dto = await QueryFirstOrDefaultAsync<TokenSessionDto>(
             TokenSqlQueries.GetBySessionToken,
             new { SessionToken = sessionToken });
-
-        return dto?.ToDomain();
-    }
-
-    public async Task<TokenSession?> GetByUserIdAsync(int userId)
-    {
-        var dto = await QueryFirstOrDefaultAsync<TokenSessionDto>(
-            TokenSqlQueries.GetByUserId,
-            new { UserID = userId });
 
         return dto?.ToDomain();
     }

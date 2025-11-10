@@ -1,8 +1,6 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using System.Text.Json;
-using Dapper;
-using ActoEngine.WebApi.Services.Database;
 
 namespace ActoEngine.WebApi.Services.FormBuilderService
 {
@@ -12,18 +10,46 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         Task<FormConfig> LoadFormConfigAsync(LoadFormConfigRequest request);
         Task<List<FormConfigListItem>> GetFormConfigsAsync(int projectId);
         Task<GenerateFormResponse> GenerateFormAsync(GenerateFormRequest request);
+        Task<bool> DeleteFormConfigAsync(string formId, int userId);
+        Task<IEnumerable<object>> GetTemplatesAsync();
     }
     public class FormBuilderService(
-        FormConfigRepository formConfigRepo,
-        TemplateRenderService templateService,
-        IDbConnectionFactory dbFactory,
+        IFormConfigRepository formConfigRepo,
+        ICodeTemplateRepository codeTemplateRepo,
+        IGenerationHistoryRepository generationHistoryRepo,
+        ITemplateRenderService templateService,
         ILogger<FormBuilderService> logger) : IFormBuilderService
     {
-        private readonly FormConfigRepository _formConfigRepo = formConfigRepo;
-        private readonly TemplateRenderService _templateService = templateService;
-        private readonly IDbConnectionFactory _dbFactory = dbFactory;
-        private readonly ILogger<FormBuilderService> _logger = logger;
+        private readonly IFormConfigRepository _formConfigRepo = formConfigRepo;
+        private readonly ICodeTemplateRepository _codeTemplateRepo = codeTemplateRepo;
+        private readonly IGenerationHistoryRepository _generationHistoryRepo = generationHistoryRepo;
+        private readonly ITemplateRenderService _templateService = templateService;
+        private readonly ILogger<FormBuilderService> _logger = logger;        // ============================================
+        // Delete Form Configuration
+        // ============================================
+        public async Task<bool> DeleteFormConfigAsync(string formId, int userId)
+        {
+            return await _formConfigRepo.DeleteAsync(formId, userId);
+        }
 
+        // ============================================
+        // Get Templates
+        // ============================================
+        public async Task<IEnumerable<object>> GetTemplatesAsync()
+        {
+            var templates = await _codeTemplateRepo.GetTemplatesAsync();
+            // If you want to return as dynamic/object, you can map or cast as needed
+            return templates.Select(t => new
+            {
+                t.Id,
+                t.TemplateName,
+                t.TemplateType,
+                t.Framework,
+                t.Version,
+                t.Description,
+                t.IsActive
+            });
+        }
         // ============================================
         // Save Form Configuration
         // ============================================
@@ -31,65 +57,14 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         {
             try
             {
-                using var connection = _dbFactory.CreateConnection();
-
-                var existingSql = @"
-                    SELECT Id FROM FormConfigs 
-                    WHERE ProjectId = @ProjectId AND FormName = @FormName";
-
-                var existingId = await connection.QuerySingleOrDefaultAsync<int?>(existingSql, new
-                {
-                    request.ProjectId,
-                    request.Config.FormName
-                });
-
                 var configJson = JsonSerializer.Serialize(request.Config);
-                int formId;
-
-                if (existingId.HasValue)
-                {
-                    var updateSql = @"
-                        UPDATE FormConfigs 
-                        SET ConfigJson = @ConfigJson,
-                            TableName = @TableName,
-                            Title = @Title,
-                            UpdatedAt = GETUTCDATE()
-                        WHERE Id = @Id";
-
-                    await connection.ExecuteAsync(updateSql, new
-                    {
-                        Id = existingId.Value,
-                        ConfigJson = configJson,
-                        request.Config.TableName,
-                        request.Config.Title
-                    });
-
-                    formId = existingId.Value;
-                }
-                else
-                {
-                    var insertSql = @"
-                        INSERT INTO FormConfigs (ProjectId, TableName, FormName, Title, ConfigJson)
-                        VALUES (@ProjectId, @TableName, @FormName, @Title, @ConfigJson);
-                        SELECT SCOPE_IDENTITY();";
-
-                    formId = await connection.QuerySingleAsync<int>(insertSql, new
-                    {
-                        request.ProjectId,
-                        request.Config.TableName,
-                        request.Config.FormName,
-                        request.Config.Title,
-                        ConfigJson = configJson
-                    });
-                }
-
-                request.Config.Id = formId.ToString();
+                var (config, formId) = await _formConfigRepo.SaveWithIdAsync(request.Config, configJson, request.ProjectId);
 
                 return new SaveFormConfigResponse
                 {
                     Success = true,
                     FormId = formId,
-                    Config = request.Config
+                    Config = config
                 };
             }
             catch (Exception ex)
@@ -106,25 +81,13 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         {
             try
             {
-                using var connection = _dbFactory.CreateConnection();
+                var config = await _formConfigRepo.GetByIdOrNameAsync(request.FormId);
 
-                var sql = @"
-                    SELECT ConfigJson 
-                    FROM FormConfigs 
-                    WHERE Id = @FormId OR FormName = @FormId";
-
-                var configJson = await connection.QuerySingleOrDefaultAsync<string>(sql, new
-                {
-                    FormId = request.FormId
-                });
-
-                if (string.IsNullOrEmpty(configJson))
+                if (config == null)
                 {
                     throw new Exception($"Form configuration not found: {request.FormId}");
                 }
 
-                var config = JsonSerializer.Deserialize<FormConfig>(configJson)
-                    ?? throw new Exception($"Failed to deserialize form configuration: {request.FormId}");
                 return config;
             }
             catch (Exception ex)
@@ -141,23 +104,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         {
             try
             {
-                using var connection = _dbFactory.CreateConnection();
-
-                var sql = @"
-                    SELECT 
-                        Id,
-                        ProjectId,
-                        TableName,
-                        FormName,
-                        Title,
-                        CreatedAt,
-                        UpdatedAt
-                    FROM FormConfigs
-                    WHERE ProjectId = @ProjectId
-                    ORDER BY UpdatedAt DESC";
-
-                var configs = await connection.QueryAsync<FormConfigListItem>(sql, new { ProjectId = projectId });
-                return [.. configs];
+                return await _formConfigRepo.GetByProjectIdWithoutUserFilterAsync(projectId);
             }
             catch (Exception ex)
             {
@@ -225,9 +172,6 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
                         }).ToList()
                     }
                 };
-                _logger.LogDebug("----------------------Template Context----------------------");
-                _logger.LogDebug(JsonSerializer.Serialize(templateContext, new JsonSerializerOptions { WriteIndented = true }));
-                _logger.LogDebug("----------------------Template Context----------------------");
                 string html, javascript;
 
                 try
@@ -419,7 +363,7 @@ $(document).ready(function() {
         // ============================================
         // Stored Procedure Generation (simplified)
         // ============================================
-        private string GenerateCrudStoredProcedure(FormConfig config)
+        private static string GenerateCrudStoredProcedure(FormConfig config)
         {
             var fields = config.Groups?.SelectMany(g => g.Fields) ?? new List<FormField>();
             var tableName = config.TableName;
@@ -532,22 +476,24 @@ $(document).ready(function() {
         {
             try
             {
-                using var connection = _dbFactory.CreateConnection();
+                if (string.IsNullOrEmpty(config.Id))
+                {
+                    _logger.LogWarning("Cannot log generation history: FormConfig.Id is null or empty");
+                    return;
+                }
 
-                var sql = @"
-                    INSERT INTO GenerationHistory 
-                    (FormConfigId, GenerationType, HtmlGenerated, JavaScriptGenerated, 
-                     SpGenerated, FieldCount, GroupCount)
-                    VALUES 
-                    (@FormConfigId, @GenerationType, 1, 1, 1, @FieldCount, @GroupCount)";
-
-                await connection.ExecuteAsync(sql, new
+                var history = new GenerationHistory
                 {
                     FormConfigId = config.Id,
                     GenerationType = generationType,
+                    HtmlGenerated = true,
+                    JavaScriptGenerated = true,
+                    SpGenerated = true,
                     FieldCount = config.Groups?.Sum(g => g.Fields.Count) ?? 0,
                     GroupCount = config.Groups?.Count ?? 0
-                });
+                };
+
+                await _generationHistoryRepo.SaveAsync(history);
             }
             catch (Exception ex)
             {

@@ -1,6 +1,6 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.Database;
-using ActoEngine.WebApi.Sql.Queries;
+using ActoEngine.WebApi.SqlQueries;
 
 namespace ActoEngine.WebApi.Repositories;
 

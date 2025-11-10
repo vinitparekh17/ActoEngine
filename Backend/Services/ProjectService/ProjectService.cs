@@ -2,7 +2,7 @@ using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.Services.Schema;
-using ActoEngine.WebApi.Sql.Queries;
+using ActoEngine.WebApi.SqlQueries;
 using Microsoft.Data.SqlClient;
 using System.Data;
 
@@ -133,8 +133,8 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
             // Step 1: Sync Tables
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing tables...", 10);
-            var tables = await _schemaService.GetAllTablesAsync(targetConnectionString);
-            var tableCount = await _schemaRepository.SyncTablesAsync(projectId, tables, actoxConn, transaction);
+            var tablesWithSchema = await _schemaService.GetAllTablesWithSchemaAsync(targetConnectionString);
+            var tableCount = await _schemaRepository.SyncTablesAsync(projectId, tablesWithSchema, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {tableCount} tables", 33);
 
             // Step 2: Sync Columns
@@ -144,6 +144,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
             // Step 3: Sync Foreign Keys
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing foreign keys...", 67);
+            var tables = tablesWithSchema.Select(t => t.TableName);
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
             var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);

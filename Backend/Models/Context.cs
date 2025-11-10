@@ -196,6 +196,30 @@ public class BulkImportResult
 }
 
 /// <summary>
+/// Request model for creating a review request for an entity's context
+/// </summary>
+public class CreateReviewRequestModel
+{
+    [Required]
+    public required string EntityType { get; set; }
+
+    [Required]
+    [Range(1, int.MaxValue)]
+    public int EntityId { get; set; }
+
+    /// <summary>
+    /// Optional: Assign the review to a specific user
+    /// </summary>
+    public int? AssignedTo { get; set; }
+
+    /// <summary>
+    /// Optional: Reason or context for the review
+    /// </summary>
+    [StringLength(500)]
+    public string? Reason { get; set; }
+}
+
+/// <summary>
 /// Context coverage statistics
 /// </summary>
 public class ContextCoverageStats
@@ -205,4 +229,42 @@ public class ContextCoverageStats
     public int Documented { get; set; }
     public decimal CoveragePercentage { get; set; }
     public decimal? AvgCompleteness { get; set; }
+}
+
+/// <summary>
+/// Minimal request for quick context entry
+/// </summary>
+public class QuickSaveRequest
+{
+    [Required]
+    public required string EntityType { get; set; }
+
+    [Required]
+    [Range(1, int.MaxValue)]
+    public int EntityId { get; set; }
+
+    [Required]
+    [StringLength(1000, MinimumLength = 10)]
+    public required string Purpose { get; set; }
+    
+    [Range(1, 5)]
+    public int? CriticalityLevel { get; set; }
+}
+
+public class QuickSaveResponse
+{
+    public required EntityContext Context { get; set; }
+    public int CompletenessScore { get; set; }
+    public required string Message { get; set; }
+}
+
+public class ContextGap
+{
+    public required string EntityType { get; set; }
+    public int EntityId { get; set; }
+    public required string EntityName { get; set; }
+    [Range(1,5)]
+    public int Priority { get; set; } // 1-5 (based on references, criticality)
+    public string? Reason { get; set; }
+    public int? DependencyCount { get; set; }
 }

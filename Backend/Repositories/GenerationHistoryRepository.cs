@@ -4,7 +4,15 @@ using System.Data;
 
 namespace ActoEngine.WebApi.Repositories
 {
-    public class GenerationHistoryRepository
+    public interface IGenerationHistoryRepository
+    {
+        Task SaveAsync(GenerationHistory history);
+        Task<List<GenerationHistory>> GetByFormConfigIdAsync(string formConfigId, int userId);
+        Task<GenerationHistory?> GetLatestAsync(string formConfigId, int userId);
+        Task<List<GenerationHistory>> GetRecentAsync(int userId, int limit = 10);
+    }
+
+    public class GenerationHistoryRepository : IGenerationHistoryRepository
     {
         private readonly string _connectionString;
 

@@ -1,7 +1,6 @@
-using System.Linq;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.Database;
-using ActoEngine.WebApi.Sql.Queries;
+using ActoEngine.WebApi.SqlQueries;
 using Dapper;
 
 namespace ActoEngine.WebApi.Repositories;
@@ -29,6 +28,7 @@ public interface IContextRepository
     Task<List<ContextHistory>> GetContextHistoryAsync(string entityType, int entityId, CancellationToken cancellationToken = default);
 
     // Statistics
+    Task<List<ContextGap>> GetContextGapsAsync(int projectId, int limit, CancellationToken cancellationToken = default);
     Task<List<ContextCoverageStats>> GetContextCoverageAsync(int projectId, CancellationToken cancellationToken = default);
     Task<List<dynamic>> GetStaleContextEntitiesAsync(int projectId, CancellationToken cancellationToken = default);
     Task<List<dynamic>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10, CancellationToken cancellationToken = default);
@@ -325,6 +325,23 @@ public class ContextRepository(
     #endregion
 
     #region Statistics
+    
+    public async Task<List<ContextGap>> GetContextGapsAsync(int projectId, int limit, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gaps = await QueryAsync<ContextGap>(
+                ContextQueries.GetContextGaps,
+                new { ProjectId = projectId, Limit = limit },
+                cancellationToken);
+            return gaps.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving context gaps for project {ProjectId}", projectId);
+            throw;
+        }
+    }
 
     public async Task<List<ContextCoverageStats>> GetContextCoverageAsync(int projectId, CancellationToken cancellationToken = default)
     {

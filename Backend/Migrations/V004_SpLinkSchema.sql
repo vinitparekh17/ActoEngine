@@ -109,11 +109,12 @@ BEGIN
     -- 5. Sync Stored Procedures
     SET @Sql = '
     INSERT INTO ActoEngine.dbo.SpMetadata
-        (ProjectId, ClientId, ProcedureName, Definition, CreatedBy)
+        (ProjectId, ClientId, ProcedureName, SchemaName, Definition, CreatedBy)
     SELECT
         @ProjectId,
         NULL,
         p.name,
+        SCHEMA_NAME(p.schema_id),
         OBJECT_DEFINITION(p.object_id),
         @UserId
     FROM ' + QUOTENAME(@DbName) + '.sys.procedures p

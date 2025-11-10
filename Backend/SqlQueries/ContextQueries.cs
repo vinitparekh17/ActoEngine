@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Sql.Queries;
+namespace ActoEngine.WebApi.SqlQueries;
 
 /// <summary>
 /// SQL queries for Context operations
@@ -131,8 +131,7 @@ public static class ContextQueries
             ee.AddedAt,
             ee.AddedBy,
             u.Username,
-            u.FullName,
-            u.Email
+            u.FullName
         FROM EntityExperts ee
         JOIN Users u ON ee.UserId = u.UserID
         WHERE ee.ProjectId = @ProjectId 
@@ -241,6 +240,22 @@ public static class ContextQueries
     #endregion
 
     #region Context Statistics
+    public const string GetContextGaps = @"
+            SELECT TOP (@Limit)
+            'TABLE' as EntityType,
+            t.TableId as EntityId,
+            t.TableName as EntityName,
+            t.CriticalityLevel as Priority,
+            'Critical table without documentation' as Reason,
+            COUNT(DISTINCT fk.ForeignKeyId) as DependencyCount
+        FROM TablesMetadata t
+        LEFT JOIN EntityContext ec ON ec.EntityId = t.TableId AND ec.EntityType = 'TABLE'
+        LEFT JOIN ForeignKeyMetadata fk ON fk.ReferencedTableId = t.TableId
+        WHERE t.ProjectId = @ProjectId
+          AND ec.ContextId IS NULL
+          AND t.CriticalityLevel >= 3
+        GROUP BY t.TableId, t.TableName, t.CriticalityLevel
+        ORDER BY t.CriticalityLevel DESC, COUNT(DISTINCT fk.ForeignKeyId) DESC";
 
     public const string GetContextCoverage = @"
         WITH TableStats AS (
@@ -355,7 +370,7 @@ public static class ContextQueries
             (
                 SELECT COUNT(*) 
                 FROM ForeignKeyMetadata fk 
-                WHERE fk.ReferencedTable = tm.TableName
+                WHERE fk.ReferencedTableId = tm.TableId
             ) as ReferenceCount
         FROM TablesMetadata tm
         LEFT JOIN EntityContext ec ON 
@@ -367,7 +382,7 @@ public static class ContextQueries
           AND (
               SELECT COUNT(*) 
               FROM ForeignKeyMetadata fk 
-              WHERE fk.ReferencedTable = tm.TableName
+              WHERE fk.ReferencedTableId = tm.TableId
           ) >= 3
         
         UNION ALL
@@ -445,13 +460,13 @@ public static class ContextQueries
         -- Users who recently modified this entity
         WITH RecentModifiers AS (
             SELECT DISTINCT 
-                vh.UpdatedBy as UserId,
+                vh.CreatedBy as UserId,
                 COUNT(*) as ModificationCount,
                 MAX(vh.CreatedAt) as LastModified
             FROM SpVersionHistory vh
             WHERE vh.SpId = @EntityId
               AND @EntityType = 'SP'
-            GROUP BY vh.UpdatedBy
+            GROUP BY vh.CreatedBy
             
             UNION
             
@@ -468,7 +483,6 @@ public static class ContextQueries
             u.UserID,
             u.Username,
             u.FullName,
-            u.Email,
             rm.ModificationCount,
             rm.LastModified,
             'Modified ' + CAST(rm.ModificationCount AS NVARCHAR) + ' times' as Reason

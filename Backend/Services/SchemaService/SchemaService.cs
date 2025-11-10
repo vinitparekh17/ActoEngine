@@ -7,12 +7,19 @@ namespace ActoEngine.WebApi.Services.Schema;
 public interface ISchemaService
 {
     Task<List<string>> GetAllTablesAsync(string connectionString);
+
+    Task<List<(string TableName, string SchemaName)>> GetAllTablesWithSchemaAsync(string connectionString);
     Task<TableSchemaResponse> GetTableSchemaAsync(string connectionString, string tableName);
     Task<List<DatabaseTableInfo>> GetDatabaseStructureAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
-    Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100);
     Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<string> tableNames);
+
     // Methods for stored metadata
+    // Lightweight list methods (minimal bandwidth)
+    Task<List<TableListDto>> GetTablesListAsync(int projectId);
+    Task<List<StoredProcedureListDto>> GetStoredProceduresListAsync(int projectId);
+
+    // Full metadata methods
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredProceduresMetadataAsync(int projectId);
@@ -20,9 +27,14 @@ public interface ISchemaService
 
     // Tree structure
     Task<TreeNode> GetDatabaseTreeAsync(int projectId, string databaseName);
+
+    // Methods to retrieve individual entities by ID
+    Task<TableMetadataDto?> GetTableByIdAsync(int tableId);
+    Task<ColumnMetadataDto?> GetColumnByIdAsync(int columnId);
+    Task<StoredProcedureMetadataDto?> GetSpByIdAsync(int spId);
 }
 
-public class SchemaService(
+public partial class SchemaService(
     ISchemaRepository schemaRepository,
     ILogger<SchemaService> logger) : ISchemaService
 {
@@ -38,6 +50,21 @@ public class SchemaService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving all tables from database");
+            throw;
+        }
+    }
+
+    public async Task<List<(string TableName, string SchemaName)>> GetAllTablesWithSchemaAsync(string connectionString)
+    {
+        try
+        {
+            var tablesWithSchema = await _schemaRepository.GetAllTablesWithSchemaAsync(connectionString);
+
+            return tablesWithSchema;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving all tables with schema from database");
             throw;
         }
     }
@@ -111,53 +138,34 @@ public class SchemaService(
         }
     }
 
-    public async Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit = 100)
+    // Lightweight list methods
+    public async Task<List<TableListDto>> GetTablesListAsync(int projectId)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(tableName))
-            {
-                throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
-            }
-
-            // Validate table name format: allows [schema.]table (alphanumeric and underscores only)
-            var tableNameRegex = new Regex(@"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)?$", RegexOptions.Compiled);
-            if (!tableNameRegex.IsMatch(tableName))
-            {
-                throw new ArgumentException($"Invalid table name format: '{tableName}'", nameof(tableName));
-            }
-
-            // Extract just the table name (without schema) for comparison
-            var parts = tableName.Split('.');
-            string tableNameOnly = parts.Length == 2 ? parts[1] : tableName;
-
-            // Verify table exists in the database
-            var availableTables = await GetAllTablesAsync(connectionString);
-            
-            // Normalize comparison: extract unqualified names from availableTables and compare case-insensitively
-            // This handles both schema-qualified (e.g., "dbo.Users") and unqualified (e.g., "Users") table names
-            var unqualifiedTableNames = availableTables
-                .Select(t => t.Split('.').Last())
-                .ToList();
-            
-            // Check if either the original tableName or its unqualified form exists
-            bool tableExists = availableTables.Contains(tableName, StringComparer.OrdinalIgnoreCase) ||
-                               unqualifiedTableNames.Contains(tableNameOnly, StringComparer.OrdinalIgnoreCase);
-            
-            if (!tableExists)
-            {
-                throw new ArgumentException($"Table '{tableName}' not found in database", nameof(tableName));
-            }
-
-            return await _schemaRepository.GetTableDataAsync(connectionString, tableName, limit);
+            return await _schemaRepository.GetTablesListAsync(projectId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving data from table: {TableName}", tableName);
+            _logger.LogError(ex, "Error retrieving tables list for project {ProjectId}", projectId);
             throw;
         }
     }
 
+    public async Task<List<StoredProcedureListDto>> GetStoredProceduresListAsync(int projectId)
+    {
+        try
+        {
+            return await _schemaRepository.GetStoredProceduresListAsync(projectId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored procedures list for project {ProjectId}", projectId);
+            throw;
+        }
+    }
+
+    // Full metadata methods
     public async Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId)
     {
         try
@@ -319,7 +327,7 @@ public class SchemaService(
     }
 
     public async Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(
-        string connectionString, 
+        string connectionString,
         IEnumerable<string> tableNames)
     {
         try
@@ -332,4 +340,46 @@ public class SchemaService(
             throw;
         }
     }
+
+    public async Task<TableMetadataDto?> GetTableByIdAsync(int tableId)
+    {
+        try
+        {
+            return await _schemaRepository.GetTableByIdAsync(tableId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving table by ID {TableId}", tableId);
+            throw;
+        }
+    }
+
+    public async Task<ColumnMetadataDto?> GetColumnByIdAsync(int columnId)
+    {
+        try
+        {
+            return await _schemaRepository.GetColumnByIdAsync(columnId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving column by ID {ColumnId}", columnId);
+            throw;
+        }
+    }
+
+    public async Task<StoredProcedureMetadataDto?> GetSpByIdAsync(int spId)
+    {
+        try
+        {
+            return await _schemaRepository.GetSpByIdAsync(spId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored procedure by ID {SpId}", spId);
+            throw;
+        }
+    }
+
+    [GeneratedRegex(@"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)?$", RegexOptions.Compiled)]
+    private static partial Regex MyRegex();
 }

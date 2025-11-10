@@ -1,47 +1,41 @@
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Services.FormBuilderService;
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.Database;
-using Dapper;
+using ActoEngine.WebApi.Extensions;
 
 namespace ActoEngine.WebApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class FormBuilderController : ControllerBase
+    public class FormBuilderController(
+        IFormBuilderService formBuilderService,
+        ILogger<FormBuilderController> logger) : ControllerBase
     {
-        private readonly IFormBuilderService _formBuilderService;
-        private readonly ILogger<FormBuilderController> _logger;
-
-        public FormBuilderController(
-            IFormBuilderService formBuilderService,
-            ILogger<FormBuilderController> logger)
-        {
-            _formBuilderService = formBuilderService;
-            _logger = logger;
-        }
+        private readonly IFormBuilderService _formBuilderService = formBuilderService;
+        private readonly ILogger<FormBuilderController> _logger = logger;
 
         /// <summary>
         /// Save form configuration
         /// </summary>
         [HttpPost("save")]
+        [ProducesResponseType(typeof(ApiResponse<SaveFormConfigResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveFormConfig([FromBody] SaveFormConfigRequest request)
         {
             try
             {
                 if (request?.Config == null)
                 {
-                    return BadRequest(new { success = false, message = "Invalid form configuration" });
+                    return BadRequest(ApiResponse<object>.Failure("Invalid form configuration"));
                 }
-
-                var userId = int.Parse(User.FindFirst("user_id")?.Value ?? "1");
                 var result = await _formBuilderService.SaveFormConfigAsync(request);
                 return Ok(ApiResponse<SaveFormConfigResponse>.Success(result));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error saving form configuration");
-                return StatusCode(500, ApiResponse<GenerateFormResponse>.Failure(ex.Message));
+                return StatusCode(500, ApiResponse<SaveFormConfigResponse>.Failure("Failed to save form configuration", [ex.Message]));
             }
         }
 
@@ -49,13 +43,14 @@ namespace ActoEngine.WebApi.Controllers
         /// Load form configuration by ID or name
         /// </summary>
         [HttpGet("load/{formId}")]
+        [ProducesResponseType(typeof(ApiResponse<FormConfig>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> LoadFormConfig(string formId)
         {
             try
             {
-                var userId = int.Parse(User.FindFirst("user_id")?.Value ?? "1");
                 var config = await _formBuilderService.LoadFormConfigAsync(new LoadFormConfigRequest { FormId = formId });
-                
+
                 return Ok(ApiResponse<FormConfig>.Success(config));
             }
             catch (Exception ex)
@@ -69,18 +64,19 @@ namespace ActoEngine.WebApi.Controllers
         /// Get all form configurations for a project
         /// </summary>
         [HttpGet("configs/{projectId}")]
+        [ProducesResponseType(typeof(ApiResponse<IEnumerable<FormConfigListItem>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<IEnumerable<FormConfigListItem>>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetFormConfigs(int projectId)
         {
             try
             {
-                var userId = int.Parse(User.FindFirst("user_id")?.Value ?? "1");
                 var configs = await _formBuilderService.GetFormConfigsAsync(projectId);
-                return Ok(configs);
+                return Ok(ApiResponse<IEnumerable<FormConfigListItem>>.Success(configs, "Form configurations retrieved successfully"));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting form configurations");
-                return StatusCode(500, ApiResponse<GenerateFormResponse>.Failure(ex.Message));
+                return StatusCode(500, ApiResponse<IEnumerable<FormConfigListItem>>.Failure("Failed to get form configurations", [ex.Message]));
             }
         }
 
@@ -88,16 +84,17 @@ namespace ActoEngine.WebApi.Controllers
         /// Generate HTML, JavaScript, and optionally stored procedures
         /// </summary>
         [HttpPost("generate")]
+        [ProducesResponseType(typeof(ApiResponse<GenerateFormResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GenerateForm([FromBody] GenerateFormRequest request)
         {
             try
             {
                 if (request?.Config == null)
                 {
-                    return BadRequest(new { success = false, message = "Invalid form configuration" });
+                    return BadRequest(ApiResponse<object>.Failure("Invalid form configuration"));
                 }
-
-                var userId = int.Parse(User.FindFirst("user_id")?.Value ?? "1");
                 var result = await _formBuilderService.GenerateFormAsync(request);
                 return Ok(ApiResponse<GenerateFormResponse>.Success(result));
             }
@@ -112,15 +109,19 @@ namespace ActoEngine.WebApi.Controllers
         /// Delete a form configuration
         /// </summary>
         [HttpDelete("delete/{formId}")]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> DeleteFormConfig(int formId)
         {
             try
             {
-                using var connection = HttpContext.RequestServices.GetRequiredService<IDbConnectionFactory>().CreateConnection();
-                
-                var sql = "DELETE FROM FormConfigs WHERE Id = @Id";
-                await connection.ExecuteAsync(sql, new { Id = formId });
-                
+                var userId = HttpContext.GetUserId();
+                if (userId == null)
+                    return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+
+                var success = await _formBuilderService.DeleteFormConfigAsync(formId.ToString(), userId.Value);
+                if (!success)
+                    return NotFound(ApiResponse<string>.Failure("Form configuration not found or could not be deleted"));
                 return Ok(ApiResponse<string>.Success("Form configuration deleted successfully"));
             }
             catch (Exception ex)
@@ -134,20 +135,14 @@ namespace ActoEngine.WebApi.Controllers
         /// Get available templates
         /// </summary>
         [HttpGet("templates")]
+        [ProducesResponseType(typeof(ApiResponse<IEnumerable<object>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetTemplates()
         {
             try
             {
-                using var connection = HttpContext.RequestServices.GetRequiredService<IDbConnectionFactory>().CreateConnection();
-                
-                var sql = @"
-                    SELECT Id, TemplateName, TemplateType, Framework, Version, Description, IsActive
-                    FROM CodeTemplates
-                    WHERE IsActive = 1
-                    ORDER BY TemplateType, TemplateName";
-                
-                var templates = await connection.QueryAsync<dynamic>(sql);
-                return Ok(ApiResponse<IEnumerable<dynamic>>.Success(templates));
+                var templates = await _formBuilderService.GetTemplatesAsync();
+                return Ok(ApiResponse<IEnumerable<object>>.Success(templates));
             }
             catch (Exception ex)
             {

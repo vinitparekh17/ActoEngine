@@ -24,10 +24,10 @@ namespace ActoEngine.WebApi.Controllers
             return Ok(ApiResponse<ClientResponse>.Success(response, "Client created successfully"));
         }
 
-        [HttpGet("{clientId}")]
-        public async Task<IActionResult> GetClient(int clientId)
+        [HttpGet("{clientId}/project/{projectId}")]
+        public async Task<IActionResult> GetClient(int clientId, int projectId)
         {
-            var client = await _clientService.GetClientByIdAsync(clientId);
+            var client = await _clientService.GetClientByIdAsync(clientId, projectId);
             if (client == null)
                 return NotFound(ApiResponse<object>.Failure("Client not found"));
 

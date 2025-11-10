@@ -1,27 +1,32 @@
 using System.Data;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.Database;
-using ActoEngine.WebApi.Sql.Queries;
+using ActoEngine.WebApi.SqlQueries;
 using Dapper;
 
 namespace ActoEngine.WebApi.Repositories;
 
 public interface ISchemaRepository
 {
-    Task<int> SyncTablesAsync(int projectId, IEnumerable<string> tableNames, IDbConnection connection, IDbTransaction transaction);
+    Task<int> SyncTablesAsync(int projectId, IEnumerable<(string TableName, string SchemaName)> tableNames, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncColumnsAsync(int tableId, IEnumerable<ColumnMetadata> columns, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncStoredProceduresAsync(int projectId, int clientId, IEnumerable<StoredProcedureMetadata> procedures, int userId, IDbConnection connection, IDbTransaction transaction);
     Task<IEnumerable<(int TableId, string TableName)>> GetProjectTablesAsync(int projectId, IDbConnection connection, IDbTransaction transaction);
     Task<TableSchemaResponse> ReadTableSchemaAsync(string connectionString, string tableName);
     Task<List<string>> GetAllTablesAsync(string connectionString);
+    Task<List<(string TableName, string SchemaName)>> GetAllTablesWithSchemaAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
 
     // Methods to retrieve stored metadata
+    // Lightweight list methods (minimal bandwidth)
+    Task<List<TableListDto>> GetTablesListAsync(int projectId);
+    Task<List<StoredProcedureListDto>> GetStoredProceduresListAsync(int projectId);
+
+    // Full metadata methods (for detail views)
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId);
     Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
-    Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit);
 
     // Methods to retrieve individual entities by ID
     Task<TableMetadataDto?> GetTableByIdAsync(int tableId);
@@ -44,18 +49,18 @@ public class SchemaRepository(
 {
     public async Task<int> SyncTablesAsync(
         int projectId,
-        IEnumerable<string> tableNames,
+        IEnumerable<(string TableName, string SchemaName)> tableSchemas,
         IDbConnection connection,
         IDbTransaction transaction)
     {
         try
         {
             var count = 0;
-            foreach (var tableName in tableNames)
+            foreach (var (tableName, schemaName) in tableSchemas)
             {
                 await connection.ExecuteAsync(
                     SchemaSyncQueries.InsertTableMetadata,
-                    new { ProjectId = projectId, TableName = tableName },
+                    new { ProjectId = projectId, TableName = tableName, SchemaName = schemaName },
                     transaction);
                 count++;
             }
@@ -205,6 +210,23 @@ public class SchemaRepository(
         }
     }
 
+    public async Task<List<(string TableName, string SchemaName)>> GetAllTablesWithSchemaAsync(string connectionString)
+    {
+        // Note: Uses external connection string, cannot use BaseRepository methods
+        try
+        {
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+
+            var tablesWithSchema = await connection.QueryAsync<(string TableName, string SchemaName)>(SchemaSyncQueries.GetTargetTablesWithSchema);
+            return [.. tablesWithSchema];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all tables with schema from connection string");
+            throw;
+        }
+    }
+
     public async Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString)
     {
         // Note: Uses external connection string, cannot use BaseRepository methods
@@ -224,6 +246,26 @@ public class SchemaRepository(
         }
     }
 
+    // Lightweight list methods
+    public async Task<List<TableListDto>> GetTablesListAsync(int projectId)
+    {
+        var tables = await QueryAsync<TableListDto>(
+            SchemaSyncQueries.GetTablesListMinimal,
+            new { ProjectId = projectId });
+
+        return [.. tables];
+    }
+
+    public async Task<List<StoredProcedureListDto>> GetStoredProceduresListAsync(int projectId)
+    {
+        var procedures = await QueryAsync<StoredProcedureListDto>(
+            SchemaSyncQueries.GetStoredProceduresListMinimal,
+            new { ProjectId = projectId });
+
+        return [.. procedures];
+    }
+
+    // Full metadata methods
     public async Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId)
     {
         var tables = await QueryAsync<TableMetadataDto>(
@@ -323,152 +365,44 @@ public class SchemaRepository(
         };
     }
 
-    public async Task<List<Dictionary<string, object?>>> GetTableDataAsync(string connectionString, string tableName, int limit)
+    public async Task<int> SyncForeignKeysAsync(
+     int projectId,
+     IEnumerable<ForeignKeyScanResult> foreignKeys,
+     IDbConnection connection,
+     IDbTransaction transaction)
     {
-        // Note: Uses external connection string, cannot use BaseRepository methods
         try
         {
-            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
-
-            // Parse schema and table name
-            var parts = tableName.Split('.');
-            string schemaName;
-            string tableNameOnly;
-
-            if (parts.Length == 2)
+            var count = 0;
+            foreach (var fk in foreignKeys)
             {
-                schemaName = parts[0];
-                tableNameOnly = parts[1];
-            }
-            else
-            {
-                tableNameOnly = tableName;
-                // Auto-detect schema if not provided
-                schemaName = await connection.QueryFirstOrDefaultAsync<string>(
-                    SchemaSyncQueries.FindTableSchema,
-                    new { TableName = tableNameOnly }) ?? "dbo";
-                _logger.LogInformation("Auto-detected schema '{Schema}' for table '{TableName}'", schemaName, tableNameOnly);
-            }
-
-            // Verify table exists in sys.tables
-            var exists = await connection.QueryFirstOrDefaultAsync<int>(
-                SchemaSyncQueries.VerifyTableExists,
-                new { SchemaName = schemaName, TableName = tableNameOnly });
-
-            if (exists == 0)
-            {
-                // Get available tables for better error message
-                var availableTables = await connection.QueryAsync<string>(
-                    "SELECT s.name + '.' + t.name FROM sys.tables t INNER JOIN sys.schemas s ON t.schema_id = s.schema_id");
-                var tableList = string.Join(", ", availableTables.Take(10));
-                _logger.LogWarning("Table '{TableName}' not found. Schema: '{Schema}', TableOnly: '{TableOnly}'. Available tables: {Tables}",
-                    tableName, schemaName, tableNameOnly, tableList);
-                throw new InvalidOperationException($"Table '{tableName}' not found in database");
-            }
-
-            // Get safely quoted table name
-            var quotedTableName = await connection.QueryFirstOrDefaultAsync<string>(
-                SchemaSyncQueries.GetQuotedTableName,
-                new { SchemaName = schemaName, TableName = tableNameOnly });
-
-            // Execute query with proper parameterization
-            var sql = $"SELECT TOP (@Limit) * FROM {quotedTableName}";
-            using var reader = await connection.ExecuteReaderAsync(sql, new { Limit = limit });
-
-            var results = new List<Dictionary<string, object?>>();
-
-            while (await reader.ReadAsync())
-            {
-                var row = new Dictionary<string, object?>();
-                for (int i = 0; i < reader.FieldCount; i++)
-                {
-                    var fieldName = reader.GetName(i);
-                    object? fieldValue = null;
-
-                    try
+                // Insert by resolving IDs from names within SQL to avoid FK issues
+                await connection.ExecuteAsync(
+                    SchemaSyncQueries.InsertForeignKeyMetadataByNames,
+                    new
                     {
-                        if (!reader.IsDBNull(i))
-                        {
-                            var fieldType = reader.GetFieldType(i);
-
-                            // Handle problematic types that don't convert well
-                            if (fieldType.FullName == "Microsoft.SqlServer.Types.SqlGeography" ||
-                                fieldType.FullName == "Microsoft.SqlServer.Types.SqlGeometry" ||
-                                fieldType.FullName == "Microsoft.SqlServer.Types.SqlHierarchyId")
-                            {
-                                // Convert spatial/hierarchyid types to string representation
-                                fieldValue = reader.GetValue(i)?.ToString();
-                            }
-                            else if (fieldType == typeof(byte[]))
-                            {
-                                // Convert binary data to base64 string for JSON serialization
-                                var bytes = (byte[])reader.GetValue(i);
-                                fieldValue = Convert.ToBase64String(bytes);
-                            }
-                            else
-                            {
-                                fieldValue = reader.GetValue(i);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log the error but continue processing other fields
-                        _logger.LogWarning(ex, "Error reading field '{FieldName}' at index {Index}, using null value", fieldName, i);
-                        fieldValue = $"<Error reading value: {ex.Message}>";
-                    }
-
-                    row[fieldName] = fieldValue;
-                }
-                results.Add(row);
+                        ProjectId = projectId,
+                        fk.TableName,
+                        fk.ColumnName,
+                        fk.ReferencedTable,
+                        fk.ReferencedColumn,
+                        fk.OnDeleteAction,
+                        fk.OnUpdateAction
+                    },
+                    transaction);
+                count++;
             }
-
-            return results;
+            return count;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting table data for table {TableName}", tableName);
+            _logger.LogError(ex, "Error syncing foreign keys for project {ProjectId}", projectId);
             throw;
         }
     }
-public async Task<int> SyncForeignKeysAsync(
-    int projectId,
-    IEnumerable<ForeignKeyScanResult> foreignKeys,
-    IDbConnection connection,
-    IDbTransaction transaction)
-{
-    try
-    {
-        var count = 0;
-        foreach (var fk in foreignKeys)
-        {
-            // Insert by resolving IDs from names within SQL to avoid FK issues
-            await connection.ExecuteAsync(
-                SchemaSyncQueries.InsertForeignKeyMetadataByNames,
-                new
-                {
-                    ProjectId = projectId,
-                    fk.TableName,
-                    fk.ColumnName,
-                    fk.ReferencedTable,
-                    fk.ReferencedColumn,
-                    fk.OnDeleteAction,
-                    fk.OnUpdateAction
-                },
-                transaction);
-            count++;
-        }
-        return count;
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error syncing foreign keys for project {ProjectId}", projectId);
-        throw;
-    }
-}
 
     public async Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(
-        string connectionString, 
+        string connectionString,
         IEnumerable<string> tableNames)
     {
         try

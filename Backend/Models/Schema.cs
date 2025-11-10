@@ -161,9 +161,109 @@ public class StoredProcedureMetadataDto
     public string? UpdatedBy { get; set; }
 }
 
+// Lightweight DTOs for list endpoints (minimal bandwidth usage)
+public class TableListDto
+{
+    public int TableId { get; set; }
+    public required string TableName { get; set; }
+    public string? SchemaName { get; set; }
+}
+
+public class StoredProcedureListDto
+{
+    public int SpId { get; set; }
+    public required string ProcedureName { get; set; }
+    public string? SchemaName { get; set; }
+}
+
 public class DatabaseTableInfo
 {
     public required string SchemaName { get; set; }
     public required string TableName { get; set; }
     public string? Description { get; set; } // Optional description for UI/metadata
+}
+
+// Response DTOs for detail pages that match frontend expectations
+public class TableDetailResponse
+{
+    public int TableId { get; set; }
+    public required string TableName { get; set; }
+    public string? SchemaName { get; set; }
+    public int? RowCount { get; set; }
+    public required List<ColumnDetailInfo> Columns { get; set; }
+    public List<string>? PrimaryKeys { get; set; }
+    public List<ForeignKeyDetailInfo>? ForeignKeys { get; set; }
+    public List<IndexDetailInfo>? Indexes { get; set; }
+}
+
+public class ColumnDetailInfo
+{
+    public int? ColumnId { get; set; }
+    public required string Name { get; set; }
+    public required string DataType { get; set; }
+    public List<string>? Constraints { get; set; }
+    public bool? IsNullable { get; set; }
+    public string? DefaultValue { get; set; }
+}
+
+public class ForeignKeyDetailInfo
+{
+    public required string ColumnName { get; set; }
+    public required string ReferencedTable { get; set; }
+    public required string ReferencedColumn { get; set; }
+}
+
+public class IndexDetailInfo
+{
+    public required string IndexName { get; set; }
+    public required List<string> Columns { get; set; }
+    public bool IsUnique { get; set; }
+}
+
+public class StoredProcedureDetailResponse
+{
+    public int StoredProcedureId { get; set; }
+    public required string ProcedureName { get; set; }
+    public string? SchemaName { get; set; }
+    public string? Definition { get; set; }
+    public List<ParameterDetailInfo>? Parameters { get; set; }
+    public DateTime? CreatedDate { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+    public string? Description { get; set; }
+}
+
+public class ParameterDetailInfo
+{
+    public required string Name { get; set; }
+    public required string DataType { get; set; }
+    public required string Direction { get; set; } // IN, OUT, INOUT
+    public string? DefaultValue { get; set; }
+    public bool? IsOptional { get; set; }
+}
+
+public class ColumnDetailResponse
+{
+    public int ColumnId { get; set; }
+    public required string ColumnName { get; set; }
+    public required string TableName { get; set; }
+    public int TableId { get; set; }
+    public string? SchemaName { get; set; }
+    public required string DataType { get; set; }
+    public int? MaxLength { get; set; }
+    public int? Precision { get; set; }
+    public int? Scale { get; set; }
+    public bool IsNullable { get; set; }
+    public bool IsPrimaryKey { get; set; }
+    public bool IsForeignKey { get; set; }
+    public bool IsIdentity { get; set; }
+    public string? DefaultValue { get; set; }
+    public List<string>? Constraints { get; set; }
+    public string? Description { get; set; }
+    public ForeignKeyReferenceInfo? ForeignKeyReference { get; set; }
+}
+
+public class ForeignKeyReferenceInfo
+{
+    public required string ReferencedTable { get; set; }
+    public required string ReferencedColumn { get; set; }
 }
