@@ -210,16 +210,16 @@ public static class ContextQueries
 
     public const string RecordContextChange = @"
         INSERT INTO ContextHistory (
-            EntityType, EntityId, FieldName, 
+            EntityType, EntityId, ProjectId, FieldName,
             OldValue, NewValue, ChangedBy, ChangeReason, ChangedAt
         )
         VALUES (
-            @EntityType, @EntityId, @FieldName, 
+            @EntityType, @EntityId, @ProjectId, @FieldName,
             @OldValue, @NewValue, @ChangedBy, @ChangeReason, GETUTCDATE()
         );";
 
     public const string GetContextHistory = @"
-        SELECT 
+        SELECT
             ch.HistoryId,
             ch.EntityType,
             ch.EntityId,
@@ -233,8 +233,9 @@ public static class ContextQueries
             u.FullName
         FROM ContextHistory ch
         JOIN Users u ON ch.ChangedBy = u.UserID
-        WHERE ch.EntityType = @EntityType 
+        WHERE ch.EntityType = @EntityType
           AND ch.EntityId = @EntityId
+          AND ch.ProjectId = @ProjectId
         ORDER BY ch.ChangedAt DESC;";
 
     #endregion
@@ -419,27 +420,28 @@ public static class ContextQueries
 
     public const string CreateReviewRequest = @"
         INSERT INTO ContextReviewRequests (
-            EntityType, EntityId, RequestedBy, AssignedTo, 
+            ProjectId, EntityType, EntityId, RequestedBy, AssignedTo,
             Reason, Status, CreatedAt
         )
         VALUES (
-            @EntityType, @EntityId, @RequestedBy, @AssignedTo, 
+            @ProjectId, @EntityType, @EntityId, @RequestedBy, @AssignedTo,
             @Reason, 'PENDING', GETUTCDATE()
         );
-        
+
         SELECT SCOPE_IDENTITY();";
 
     public const string GetPendingReviewRequests = @"
-        SELECT 
+        SELECT
             crr.*,
             ec.EntityName,
             ec.Purpose,
             u1.Username as RequestedByName,
             u2.Username as AssignedToName
         FROM ContextReviewRequests crr
-        LEFT JOIN EntityContext ec ON 
+        LEFT JOIN EntityContext ec ON
             crr.EntityType = ec.EntityType AND
-            crr.EntityId = ec.EntityId
+            crr.EntityId = ec.EntityId AND
+            crr.ProjectId = ec.ProjectId
         JOIN Users u1 ON crr.RequestedBy = u1.UserID
         LEFT JOIN Users u2 ON crr.AssignedTo = u2.UserID
         WHERE crr.Status = 'PENDING'

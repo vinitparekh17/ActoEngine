@@ -49,7 +49,15 @@ namespace ActoEngine.WebApi.Controllers
         {
             try
             {
-                var config = await _formBuilderService.LoadFormConfigAsync(new LoadFormConfigRequest { FormId = formId });
+                var userId = HttpContext.GetUserId();
+                if (userId == null)
+                    return Unauthorized(ApiResponse<FormConfig>.Failure("User not authenticated"));
+
+                var config = await _formBuilderService.LoadFormConfigAsync(new LoadFormConfigRequest
+                {
+                    FormId = formId,
+                    UserId = userId.Value
+                });
 
                 return Ok(ApiResponse<FormConfig>.Success(config));
             }

@@ -28,8 +28,8 @@ var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? builder.Co
     ?? throw new InvalidOperationException("Database password must be set via DB_PASSWORD environment variable");
 
 // Build secure connection string with conditional certificate validation
-var trustCert = builder.Environment.IsDevelopment() ||
-    string.Equals(Environment.GetEnvironmentVariable("DB_TRUST_CERT")?.ToLower(), "true");
+// Only trust server certificate if explicitly enabled via environment variable
+var trustCert = string.Equals(Environment.GetEnvironmentVariable("DB_TRUST_CERT")?.ToLower(), "true");
 
 var connStringBuilder = new SqlConnectionStringBuilder
 {

@@ -81,7 +81,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         {
             try
             {
-                var config = await _formConfigRepo.GetByIdOrNameAsync(request.FormId);
+                var config = await _formConfigRepo.GetByIdOrNameAsync(request.FormId, request.UserId);
 
                 if (config == null)
                 {

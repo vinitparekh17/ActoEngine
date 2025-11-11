@@ -97,10 +97,11 @@ export const ContextDashboard: React.FC = () => {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
 
   // Fetch dashboard data
-  const { 
-    data: dashboard, 
-    isLoading, 
-    error 
+  const {
+    data: dashboard,
+    isLoading,
+    error,
+    refetch
   } = useApi<DashboardData>(
     `/projects/${selectedProjectId}/context/dashboard`,
     {
@@ -134,7 +135,7 @@ export const ContextDashboard: React.FC = () => {
           </AlertDescription>
         </Alert>
         <div className="flex justify-center">
-          <Button onClick={() => window.location.reload()} variant="outline">
+          <Button onClick={() => refetch()} variant="outline">
             Try Again
           </Button>
         </div>
@@ -162,21 +163,20 @@ export const ContextDashboard: React.FC = () => {
   }
 
   // At this point, we know selectedProjectId is defined due to the guard above
-  // Create a type-safe variable to avoid unsafe non-null assertions
-  const projectId = selectedProjectId;
+  // Create a type-safe variable with proper type assertion
+  const projectId: number = selectedProjectId;
 
   const coverage = dashboard?.coverage || [];
   const staleEntities = dashboard?.staleEntities || [];
   const topDocumented = dashboard?.topDocumented || [];
   const criticalUndocumented = dashboard?.criticalUndocumented || [];
 
-  // Calculate overall stats
-  const overallCoverage = coverage.length > 0 
-    ? coverage.reduce((acc, item) => acc + (item.coveragePercentage || 0), 0) / coverage.length
-    : 0;
-  
+  // Calculate overall stats with weighted coverage
   const totalDocumented = coverage.reduce((acc, item) => acc + (item.documented || 0), 0);
   const totalEntities = coverage.reduce((acc, item) => acc + (item.total || 0), 0);
+  const overallCoverage = totalEntities > 0
+    ? (totalDocumented / totalEntities) * 100
+    : 0;
 
   return (
     <div className="space-y-6 p-6">

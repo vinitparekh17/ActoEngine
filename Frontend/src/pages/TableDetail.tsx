@@ -84,6 +84,27 @@ export default function TableDetail() {
     );
   }
 
+  // Validate that IDs are numeric
+  const numericProjectId = parseInt(projectId, 10);
+  const numericTableId = parseInt(tableId, 10);
+
+  if (isNaN(numericProjectId) || isNaN(numericTableId)) {
+    return (
+      <div className="p-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Invalid Route</AlertTitle>
+          <AlertDescription>
+            Project ID and Table ID must be numeric.
+          </AlertDescription>
+        </Alert>
+        <Button className="mt-4" onClick={() => navigate(-1)}>
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
   const {
     data: tableData,
     isLoading,
@@ -312,7 +333,7 @@ export default function TableDetail() {
                 <div className="space-y-2">
                   {tableData.indexes.map((index, i) => (
                     <div
-                      key={index.indexName || `${index.indexName || "index"}-${i}`}
+                      key={index.indexName || `index-${i}`}
                       className="flex items-center gap-2 p-3 border rounded-lg"
                     >
                       <span className="font-medium">{index.indexName}</span>
@@ -334,9 +355,9 @@ export default function TableDetail() {
 
         <TabsContent value="context" className="space-y-4">
           <ContextEditor
-            projectId={parseInt(projectId)}
+            projectId={numericProjectId}
             entityType="TABLE"
-            entityId={parseInt(tableId)}
+            entityId={numericTableId}
             entityName={tableData.tableName}
           />
         </TabsContent>

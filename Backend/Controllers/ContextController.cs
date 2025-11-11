@@ -104,8 +104,15 @@ public class ContextController(
     {
         try
         {
+            // Validate all required fields
             if (string.IsNullOrWhiteSpace(request.Purpose))
                 return BadRequest(ApiResponse<object>.Failure("Purpose is required"));
+
+            if (string.IsNullOrWhiteSpace(request.EntityType))
+                return BadRequest(ApiResponse<object>.Failure("EntityType is required"));
+
+            if (request.EntityId <= 0)
+                return BadRequest(ApiResponse<object>.Failure("Valid EntityId is required"));
 
             var userId = HttpContext.GetUserId();
             if (userId == null)

@@ -152,6 +152,7 @@ public class StoredProcedureMetadataDto
     public int SpId { get; set; }
     public int ProjectId { get; set; }
     public int ClientId { get; set; }
+    public string? SchemaName { get; set; }
     public required string ProcedureName { get; set; }
     public required string Definition { get; set; }
     public string? Description { get; set; }

@@ -122,8 +122,9 @@ public static class SchemaSyncQueries
 
     // Stored Procedure sync - Target database queries
     public const string GetTargetStoredProcedures = @"
-        SELECT 
+        SELECT
             p.name AS ProcedureName,
+            SCHEMA_NAME(p.schema_id) AS SchemaName,
             OBJECT_DEFINITION(p.object_id) AS Definition
         FROM sys.procedures p
         WHERE p.type = 'P'
@@ -131,14 +132,14 @@ public static class SchemaSyncQueries
 
     public const string InsertSpMetadata = @"
         IF NOT EXISTS (
-            SELECT 1 FROM SpMetadata 
+            SELECT 1 FROM SpMetadata
             WHERE ProjectId = @ProjectId AND ProcedureName = @ProcedureName AND ClientId = @ClientId
         )
         INSERT INTO SpMetadata (
-            ProjectId, ClientId, ProcedureName, Definition, CreatedBy, CreatedAt
+            ProjectId, ClientId, SchemaName, ProcedureName, Definition, CreatedBy, CreatedAt
         )
         VALUES (
-            @ProjectId, @ClientId, @ProcedureName, @Definition, @UserId, GETUTCDATE()
+            @ProjectId, @ClientId, @SchemaName, @ProcedureName, @Definition, @UserId, GETUTCDATE()
         )";
 
     // Foreign key relationships - Target database queries

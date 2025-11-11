@@ -9,9 +9,11 @@ public static class FormConfigSqlQueries
         WHERE fc.Id = @Id AND p.CreatedBy = @UserId";
 
     public const string GetByIdOrName = @"
-        SELECT ConfigJson
-        FROM FormConfigs
-        WHERE Id = @IdOrName OR FormName = @IdOrName";
+        SELECT fc.ConfigJson
+        FROM FormConfigs fc
+        INNER JOIN Projects p ON fc.ProjectId = p.Id
+        WHERE (fc.Id = @IdOrName OR fc.FormName = @IdOrName)
+          AND p.CreatedBy = @UserId";
 
     public const string GetIdByProjectAndFormName = @"
         SELECT fc.Id

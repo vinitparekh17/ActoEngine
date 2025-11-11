@@ -392,6 +392,14 @@ public class DatabaseBrowserController(
                 return NotFound(ApiResponse<TableDetailResponse>.Failure($"Table with ID {tableId} not found"));
             }
 
+            // Verify table belongs to the requested project
+            if (table.ProjectId != projectId)
+            {
+                _logger.LogWarning("Table {TableId} belongs to project {ActualProjectId} but was requested for project {RequestedProjectId}",
+                    tableId, table.ProjectId, projectId);
+                return NotFound(ApiResponse<TableDetailResponse>.Failure($"Table with ID {tableId} not found"));
+            }
+
             // Get columns for this table
             var columns = await _schemaService.GetStoredColumnsAsync(tableId);
 
@@ -447,12 +455,20 @@ public class DatabaseBrowserController(
                 return NotFound(ApiResponse<StoredProcedureDetailResponse>.Failure($"Stored procedure with ID {procedureId} not found"));
             }
 
+            // Verify procedure belongs to the requested project
+            if (procedure.ProjectId != projectId)
+            {
+                _logger.LogWarning("Stored procedure {ProcedureId} belongs to project {ActualProjectId} but was requested for project {RequestedProjectId}",
+                    procedureId, procedure.ProjectId, projectId);
+                return NotFound(ApiResponse<StoredProcedureDetailResponse>.Failure($"Stored procedure with ID {procedureId} not found"));
+            }
+
             // Build the detailed response
             var response = new StoredProcedureDetailResponse
             {
                 StoredProcedureId = procedure.SpId,
                 ProcedureName = procedure.ProcedureName,
-                SchemaName = "dbo", // Default schema, can be enhanced
+                SchemaName = procedure.SchemaName ?? "dbo",
                 Definition = procedure.Definition,
                 Parameters = null, // Can be populated from parameter metadata if available
                 CreatedDate = procedure.CreatedAt,

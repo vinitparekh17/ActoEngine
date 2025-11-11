@@ -8,7 +8,7 @@ namespace ActoEngine.WebApi.Repositories
     public interface IFormConfigRepository
     {
         Task<FormConfig?> GetByIdAsync(string id, int userId);
-        Task<FormConfig?> GetByIdOrNameAsync(string idOrName);
+        Task<FormConfig?> GetByIdOrNameAsync(string idOrName, int userId);
         Task<int?> GetIdByProjectAndFormNameAsync(int projectId, string formName, int userId);
         Task<List<FormConfigListItem>> GetByProjectIdAsync(int projectId, int userId);
         Task<FormConfig> SaveAsync(FormConfig config, string configJson, int userId);
@@ -46,11 +46,11 @@ namespace ActoEngine.WebApi.Repositories
             return System.Text.Json.JsonSerializer.Deserialize<FormConfig>(configJson);
         }
 
-        public async Task<FormConfig?> GetByIdOrNameAsync(string idOrName)
+        public async Task<FormConfig?> GetByIdOrNameAsync(string idOrName, int userId)
         {
             var configJson = await QueryFirstOrDefaultAsync<string?>(
                 FormConfigSqlQueries.GetByIdOrName,
-                new { IdOrName = idOrName });
+                new { IdOrName = idOrName, UserId = userId });
 
             if (string.IsNullOrEmpty(configJson))
                 return null;

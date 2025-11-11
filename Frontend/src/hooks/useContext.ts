@@ -25,7 +25,7 @@ export interface ContextData {
 }
 
 export interface Expert {
-  userId: string;
+  userId: number;
   name: string;
   email: string;
   expertiseLevel: string;
@@ -419,7 +419,7 @@ export function useMarkContextReviewed(
     onSuccess?.();
   }, [onSuccess]);
 
-  return useApiPost<any, void>(
+  return useApiPost<void, void>(
     `/projects/${selectedProjectId}/context/${entityType}/${entityId}/mark-reviewed`,
     {
       showSuccessToast: false, // We handle it manually

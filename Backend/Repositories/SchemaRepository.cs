@@ -130,6 +130,7 @@ public class SchemaRepository(
                     {
                         ProjectId = projectId,
                         ClientId = clientId,
+                        SchemaName = procedure.SchemaName,
                         ProcedureName = procedure.ProcedureName,
                         Definition = procedure.Definition,
                         UserId = userId

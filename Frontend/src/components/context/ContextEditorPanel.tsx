@@ -1,4 +1,4 @@
-// components/ContextEditor.tsx
+// Frontend/src/components/context/ContextEditorPanel.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { formatRelativeTime } from '@/lib/utils';
 import { debounce } from 'lodash';

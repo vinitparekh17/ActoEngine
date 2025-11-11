@@ -1,19 +1,25 @@
 // components/context/ContextCoverageWidget.tsx
-import React from 'react';
-import { useProject } from '@/hooks/useProject';
-import { useApi } from '@/hooks/useApi';
-import { formatRelativeTime } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Link } from 'react-router-dom';
-import { TrendingUp, TrendingDown, Minus, ExternalLink, AlertCircle } from 'lucide-react';
+import React from "react";
+import { useProject } from "@/hooks/useProject";
+import { useApi } from "@/hooks/useApi";
+import { formatRelativeTime } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Link } from "react-router-dom";
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  ExternalLink,
+  AlertCircle,
+} from "lucide-react";
 
 // Types
 interface CoverageItem {
-  entityType: 'TABLE' | 'COLUMN' | 'SP';
+  entityType: "TABLE" | "COLUMN" | "SP";
   total: number;
   documented: number;
   coveragePercentage: number;
@@ -36,10 +42,10 @@ interface CoverageData {
 export const ContextCoverageWidget: React.FC = () => {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
 
-  const { 
-    data: coverageData, 
-    isLoading, 
-    error 
+  const {
+    data: coverageData,
+    isLoading,
+    error,
   } = useApi<CoverageData>(
     `/projects/${selectedProjectId}/context/statistics/coverage`,
     {
@@ -102,64 +108,69 @@ export const ContextCoverageWidget: React.FC = () => {
 
   // Calculate overall metrics
   const totalEntities = coverage.reduce((sum, item) => sum + item.total, 0);
-  const totalDocumented = coverage.reduce((sum, item) => sum + item.documented, 0);
-  const overallPercentage = totalEntities > 0 
-    ? Math.round((totalDocumented / totalEntities) * 100) 
-    : 0;
+  const totalDocumented = coverage.reduce(
+    (sum, item) => sum + item.documented,
+    0
+  );
+  const overallPercentage =
+    totalEntities > 0 ? Math.round((totalDocumented / totalEntities) * 100) : 0;
 
   // Determine trend - use real trend data if available, fallback to percentage-based
   const getTrendIcon = (percentage: number) => {
     const trendChange = coverageData.trends?.change;
-    
+
     if (trendChange !== undefined) {
-      if (trendChange > 0) return <TrendingUp className="w-3 h-3 text-green-500" />;
-      if (trendChange < 0) return <TrendingDown className="w-3 h-3 text-red-500" />;
+      if (trendChange > 0)
+        return <TrendingUp className="w-3 h-3 text-green-500" />;
+      if (trendChange < 0)
+        return <TrendingDown className="w-3 h-3 text-red-500" />;
       return <Minus className="w-3 h-3 text-muted-foreground" />;
     }
-    
+
     // Fallback to percentage-based trend
-    if (percentage >= 70) return <TrendingUp className="w-3 h-3 text-green-500" />;
+    if (percentage >= 70)
+      return <TrendingUp className="w-3 h-3 text-green-500" />;
     if (percentage >= 40) return <Minus className="w-3 h-3 text-yellow-500" />;
     return <TrendingDown className="w-3 h-3 text-red-500" />;
   };
 
   const getTrendColor = (percentage: number) => {
     const trendChange = coverageData.trends?.change;
-    
+
     if (trendChange !== undefined) {
-      if (trendChange > 0) return 'text-green-500';
-      if (trendChange < 0) return 'text-red-500';
-      return 'text-muted-foreground';
+      if (trendChange > 0) return "text-green-500";
+      if (trendChange < 0) return "text-red-500";
+      return "text-muted-foreground";
     }
-    
+
     // Fallback to percentage-based color
-    if (percentage >= 70) return 'text-green-500';
-    if (percentage >= 40) return 'text-yellow-500';
-    return 'text-red-500';
+    if (percentage >= 70) return "text-green-500";
+    if (percentage >= 40) return "text-yellow-500";
+    return "text-red-500";
   };
 
   const getTrendLabel = (percentage: number) => {
     const trendChange = coverageData.trends?.change;
-    
+
     if (trendChange !== undefined) {
-      const sign = trendChange > 0 ? '+' : '';
+      const sign = trendChange > 0 ? "+" : "";
       return `${sign}${trendChange}%`;
     }
-    
+
     // Fallback to status label
-    if (percentage >= 70) return 'Good';
-    if (percentage >= 40) return 'Fair';
-    return 'Low';
+    if (percentage >= 70) return "Good";
+    if (percentage >= 40) return "Fair";
+    return "Low";
   };
 
   const getEntityTypeLabel = (entityType: string) => {
     switch (entityType) {
-      case 'TABLE':
-        return 'Tables';
-      case 'COLUMN':
-        return 'Columns';
-      case 'SP':
-        return 'Procedures';
+      case "TABLE":
+        return "Tables";
+      case "COLUMN":
+        return "Columns";
+      case "SP":
+        return "Procedures";
       default:
         return entityType;
     }
@@ -173,7 +184,7 @@ export const ContextCoverageWidget: React.FC = () => {
             Documentation Coverage
           </CardTitle>
           <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-            <Link to="/context/dashboard">
+            <Link to="/context/dashboard" aria-label="Open Context Dashboard">
               <ExternalLink className="w-3 h-3" />
             </Link>
           </Button>
@@ -187,7 +198,9 @@ export const ContextCoverageWidget: React.FC = () => {
             <span className="text-2xl font-bold">{overallPercentage}%</span>
             <div className="flex items-center gap-1">
               {getTrendIcon(overallPercentage)}
-              <span className={`text-xs font-medium ${getTrendColor(overallPercentage)}`}>
+              <span
+                className={`text-xs font-medium ${getTrendColor(overallPercentage)}`}
+              >
                 {getTrendLabel(overallPercentage)}
               </span>
             </div>
@@ -202,7 +215,10 @@ export const ContextCoverageWidget: React.FC = () => {
         {coverage.length > 0 && (
           <div className="space-y-2 pt-2 border-t">
             {coverage.map((item) => (
-              <div key={item.entityType} className="flex items-center justify-between text-xs">
+              <div
+                key={item.entityType}
+                className="flex items-center justify-between text-xs"
+              >
                 <span className="text-muted-foreground">
                   {getEntityTypeLabel(item.entityType)}
                 </span>
@@ -210,10 +226,13 @@ export const ContextCoverageWidget: React.FC = () => {
                   <span className="text-muted-foreground">
                     {item.documented}/{item.total}
                   </span>
-                  <Badge 
+                  <Badge
                     variant={
-                      item.coveragePercentage >= 70 ? 'default' :
-                      item.coveragePercentage >= 40 ? 'secondary' : 'outline'
+                      item.coveragePercentage >= 70
+                        ? "default"
+                        : item.coveragePercentage >= 40
+                          ? "secondary"
+                          : "outline"
                     }
                     className="min-w-[3rem] justify-center"
                   >
@@ -240,8 +259,8 @@ export const ContextCoverageWidget: React.FC = () => {
             {selectedProject?.projectName && (
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Project:</span>
-                <span 
-                  className="font-medium truncate ml-2 max-w-[60%]" 
+                <span
+                  className="font-medium truncate ml-2 max-w-[60%]"
                   title={selectedProject.projectName}
                 >
                   {selectedProject.projectName}
@@ -250,7 +269,8 @@ export const ContextCoverageWidget: React.FC = () => {
             )}
             {coverageData.lastUpdated && (
               <p className="text-xs text-muted-foreground">
-                Updated {formatRelativeTime(coverageData.lastUpdated, 'recently')}
+                Updated{" "}
+                {formatRelativeTime(coverageData.lastUpdated, "recently")}
               </p>
             )}
           </div>
@@ -258,9 +278,7 @@ export const ContextCoverageWidget: React.FC = () => {
 
         {/* Quick Action */}
         <Button variant="outline" size="sm" className="w-full" asChild>
-          <Link to="/context">
-            View Full Dashboard
-          </Link>
+          <Link to="/context">View Full Dashboard</Link>
         </Button>
       </CardContent>
     </Card>
