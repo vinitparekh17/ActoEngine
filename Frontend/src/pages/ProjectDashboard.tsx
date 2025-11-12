@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '../hooks/useProject';
 import { useApiMutation } from '../hooks/useApi';
+import { useSyncStatus } from '../hooks/useSyncStatus';
 import {
   Database,
   Plus,
@@ -19,7 +20,59 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { formatRelativeTime } from '../lib/utils';
+import type { Project } from '../types/project';
 
+// Helper component for real-time sync status badge
+function SyncStatusBadge({ project }: { project: Project }) {
+  // Check if project is actively syncing
+  const isSyncing = project.syncStatus?.toLowerCase().includes('sync') ||
+                    project.syncStatus?.toLowerCase() === 'started';
+
+  // Use real-time updates if syncing
+  const { status: realtimeStatus, progress: realtimeProgress } = useSyncStatus(
+    project.projectId,
+    {
+      enabled: isSyncing,
+      onComplete: () => {
+        // Could trigger a refetch here if needed
+        console.log('Sync completed for project', project.projectId);
+      }
+    }
+  );
+
+  // Use real-time data if available, otherwise use project data
+  const displayStatus = realtimeStatus || project.syncStatus;
+  const displayProgress = realtimeProgress || project.syncProgress || 0;
+
+  const map: Record<
+    string,
+    { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any; label: string }
+  > = {
+    completed: { variant: 'default', icon: CheckCircle, label: 'Synced' },
+    started: { variant: 'secondary', icon: Loader2, label: 'Syncing' },
+    'syncing tables': { variant: 'secondary', icon: Loader2, label: 'Syncing' },
+    'syncing columns': { variant: 'secondary', icon: Loader2, label: 'Syncing' },
+    'syncing foreign keys': { variant: 'secondary', icon: Loader2, label: 'Syncing' },
+    'syncing stored procedures': { variant: 'secondary', icon: Loader2, label: 'Syncing' },
+    failed: { variant: 'destructive', icon: AlertCircle, label: 'Failed' },
+    pending: { variant: 'outline', icon: Clock, label: 'Pending' },
+  };
+
+  const state = map[displayStatus?.toLowerCase() ?? 'pending'] ?? map.pending;
+  const Icon = state.icon;
+  const isSpinning = displayStatus?.toLowerCase().includes('sync') ||
+                     displayStatus?.toLowerCase() === 'started';
+
+  return (
+    <Badge variant={state.variant} className="flex items-center gap-1">
+      <Icon className={`h-3 w-3 ${isSpinning ? 'animate-spin' : ''}`} />
+      {state.label}
+      {displayProgress > 0 && displayProgress < 100 && (
+        <span>({displayProgress}%)</span>
+      )}
+    </Badge>
+  );
+}
 
 export default function ProjectsDashboard() {
   const navigate = useNavigate()
@@ -44,35 +97,6 @@ export default function ProjectsDashboard() {
       variant: 'destructive',
     })
     if (confirmed) deleteMutation.mutate({ projectId })
-  }
-
-  const getSyncStatusBadge = (project: any) => {
-    const map: Record<
-      string,
-      { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any; label: string }
-    > = {
-      completed: { variant: 'default', icon: CheckCircle, label: 'Synced' },
-      in_progress: { variant: 'secondary', icon: Loader2, label: 'Syncing' },
-      failed: { variant: 'destructive', icon: AlertCircle, label: 'Failed' },
-      pending: { variant: 'outline', icon: Clock, label: 'Pending' },
-    }
-
-    const state = map[project.syncStatus?.toLowerCase()] ?? map.pending
-    const Icon = state.icon
-
-    return (
-      <Badge variant={state.variant} className="flex items-center gap-1">
-        <Icon
-          className={`h-3 w-3 ${
-            project.syncStatus?.toLowerCase() === 'in_progress' ? 'animate-spin' : ''
-          }`}
-        />
-        {state.label}
-        {project.syncProgress > 0 && project.syncProgress < 100 && (
-          <span>({project.syncProgress}%)</span>
-        )}
-      </Badge>
-    )
   }
 
   if (isLoadingProjects) {
@@ -137,7 +161,7 @@ export default function ProjectsDashboard() {
                         </CardDescription>
                       </div>
                     </div>
-                    {getSyncStatusBadge(project)}
+                    <SyncStatusBadge project={project} />
                   </div>
                   {project.description && (
                     <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2">

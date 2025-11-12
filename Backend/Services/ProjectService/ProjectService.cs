@@ -13,6 +13,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
         Task<SyncStatus?> GetSyncStatusAsync(int projectId);
         Task<bool> VerifyConnectionAsync(VerifyConnectionRequest request);
         Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId);
+        Task<ProjectResponse> ReSyncProjectAsync(ReSyncProjectRequest request, int userId);
         Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId);
         Task<PublicProjectDto?> GetProjectByIdAsync(int projectId);
         Task<IEnumerable<PublicProjectDto>> GetAllProjectsAsync();
@@ -50,27 +51,61 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
         public async Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId)
         {
+            // Extract database name from connection string
+            var builder = new SqlConnectionStringBuilder(request.ConnectionString);
+            var databaseName = builder.InitialCatalog;
+
             var project = new Project
             {
                 ProjectId = request.ProjectId,
-                ProjectName = request.ProjectName,
-                Description = request.Description,
-                DatabaseName = request.DatabaseName,
-                ConnectionString = request.ConnectionString,
-                IsActive = true
+                ProjectName = databaseName, // Use database name as project name
+                Description = string.Empty,
+                DatabaseName = databaseName,
+                IsActive = true,
+                IsLinked = false // Will be set to true after successful sync
             };
 
             var projectId = await _projectRepository.AddOrUpdateProjectAsync(project, userId);
 
-            // Start background sync
+            // Start background sync using connection string temporarily
             _ = Task.Run(async () => await SyncSchemaWithProgressAsync(projectId, request.ConnectionString, userId));
 
             return new ProjectResponse
             {
                 ProjectId = projectId,
-                Message = "Project linking started. Schema sync in progress.",
+                Message = "Project linking started. Schema sync in progress. Connection string will not be stored.",
                 SyncJobId = projectId
             };
+        }
+
+        public async Task<ProjectResponse> ReSyncProjectAsync(ReSyncProjectRequest request, int userId)
+        {
+            try
+            {
+                // Verify project exists
+                var project = await _projectRepository.GetByIdAsync(request.ProjectId);
+                if (project == null)
+                {
+                    throw new InvalidOperationException($"Project with ID {request.ProjectId} not found.");
+                }
+
+                _logger.LogInformation("Starting re-sync for project {ProjectId}. Connection string provided temporarily.", request.ProjectId);
+
+                // Start background sync using connection string temporarily
+                _ = Task.Run(async () => await SyncSchemaWithProgressAsync(request.ProjectId, request.ConnectionString, userId));
+
+                return new ProjectResponse
+                {
+                    ProjectId = request.ProjectId,
+                    Message = "Project re-sync started. Schema update in progress. Connection string will not be stored.",
+                    SyncJobId = request.ProjectId
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting re-sync for project {ProjectId}", request.ProjectId);
+                throw;
+            }
         }
 
         public async Task<SyncStatus?> GetSyncStatusAsync(int projectId)
@@ -105,7 +140,10 @@ namespace ActoEngine.WebApi.Services.ProjectService
                     transaction.Commit();
                     await _projectRepository.UpdateSyncStatusAsync(projectId, "Completed", 100);
 
-                    _logger.LogInformation("Schema sync completed successfully for project {ProjectId}", projectId);
+                    // Set IsLinked to true after successful sync
+                    await _projectRepository.UpdateIsLinkedAsync(projectId, true);
+
+                    _logger.LogInformation("Schema sync completed successfully for project {ProjectId}. Project is now linked.", projectId);
                 }
                 catch (Exception ex)
                 {
@@ -310,15 +348,17 @@ namespace ActoEngine.WebApi.Services.ProjectService
                 var project = new Project(
                     request.ProjectName,
                     request.DatabaseName,
-                    request.ConnectionString,
                     DateTime.UtcNow,
                     userId,
                     request.Description,
-                    request.DatabaseType);
+                    request.DatabaseType)
+                {
+                    IsLinked = false // New projects start unlinked
+                };
 
                 var projectId = await _projectRepository.CreateAsync(project);
-                _logger.LogInformation("Created new project {ProjectName} with ID {ProjectId} for user {UserId}", request.ProjectName, projectId, userId);
-                return new ProjectResponse { ProjectId = projectId, Message = "Project created successfully" };
+                _logger.LogInformation("Created new project {ProjectName} with ID {ProjectId} for user {UserId}. Project not linked to database yet.", request.ProjectName, projectId, userId);
+                return new ProjectResponse { ProjectId = projectId, Message = "Project created successfully. Use Link endpoint to connect to a database." };
             }
             catch (Exception ex)
             {

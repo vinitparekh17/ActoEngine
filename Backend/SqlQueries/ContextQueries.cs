@@ -147,15 +147,24 @@ public static class ContextQueries
             END;";
 
     public const string AddExpert = @"
-        IF NOT EXISTS (
-            SELECT 1 FROM EntityExperts 
-            WHERE ProjectId = @ProjectId 
-              AND EntityType = @EntityType 
-              AND EntityId = @EntityId 
-              AND UserId = @UserId
-        )
-        BEGIN
-            INSERT INTO EntityExperts (
+        MERGE EntityExperts AS target
+        USING (
+            SELECT 
+                @ProjectId AS ProjectId,
+                @EntityType AS EntityType,
+                @EntityId AS EntityId,
+                @UserId AS UserId
+        ) AS source
+        ON target.ProjectId = source.ProjectId 
+           AND target.EntityType = source.EntityType 
+           AND target.EntityId = source.EntityId
+           AND target.UserId = source.UserId
+        WHEN MATCHED THEN
+            UPDATE SET
+                ExpertiseLevel = @ExpertiseLevel,
+                Notes = @Notes
+        WHEN NOT MATCHED THEN
+            INSERT (
                 ProjectId, EntityType, EntityId, UserId, 
                 ExpertiseLevel, Notes, AddedBy, AddedAt
             )
@@ -163,17 +172,7 @@ public static class ContextQueries
                 @ProjectId, @EntityType, @EntityId, @UserId, 
                 @ExpertiseLevel, @Notes, @AddedBy, GETUTCDATE()
             );
-        END
-        ELSE
-        BEGIN
-            UPDATE EntityExperts
-            SET ExpertiseLevel = @ExpertiseLevel,
-                Notes = @Notes
-            WHERE ProjectId = @ProjectId 
-              AND EntityType = @EntityType 
-              AND EntityId = @EntityId 
-              AND UserId = @UserId;
-        END";
+        ";
 
     public const string RemoveExpert = @"
         DELETE FROM EntityExperts
@@ -350,41 +349,57 @@ public static class ContextQueries
                 WHEN ec.Purpose IS NOT NULL THEN 60
                 ELSE 0
             END as CompletenessScore,
-            (
-                SELECT COUNT(*) FROM EntityExperts ee
-                WHERE ee.EntityType = ec.EntityType 
-                  AND ee.EntityId = ec.EntityId
-                  AND ee.ProjectId = @ProjectId
-            ) as ExpertCount
+            ISNULL(COUNT(ee.ExpertId), 0) as ExpertCount
         FROM EntityContext ec
+        LEFT JOIN EntityExperts ee ON 
+            ee.EntityType = ec.EntityType 
+            AND ee.EntityId = ec.EntityId
+            AND ee.ProjectId = @ProjectId
         WHERE ec.ProjectId = @ProjectId 
           AND ec.Purpose IS NOT NULL
+        GROUP BY 
+            ec.EntityType,
+            ec.EntityId,
+            ec.EntityName,
+            ec.Purpose,
+            ec.BusinessDomain,
+            ec.DataOwner,
+            ec.CriticalityLevel
         ORDER BY CompletenessScore DESC, CriticalityLevel DESC;";
 
     public const string GetCriticalUndocumented = @"
+        -- CTE for FK counts
+        WITH FKCounts AS (
+            SELECT 
+                fk.ReferencedTableId,
+                COUNT(*) as ReferenceCount
+            FROM ForeignKeyMetadata fk
+            GROUP BY fk.ReferencedTableId
+        ),
+        -- CTE for SP version counts
+        SpVersionCounts AS (
+            SELECT 
+                vh.SpId,
+                COUNT(*) as VersionCount
+            FROM SpVersionHistory vh
+            GROUP BY vh.SpId
+        )
         -- Critical tables without context
         SELECT 
             'TABLE' as EntityType,
             tm.TableId as EntityId,
             tm.TableName as EntityName,
             'High usage table without documentation' as Reason,
-            (
-                SELECT COUNT(*) 
-                FROM ForeignKeyMetadata fk 
-                WHERE fk.ReferencedTableId = tm.TableId
-            ) as ReferenceCount
+            ISNULL(fk.ReferenceCount, 0) as ReferenceCount
         FROM TablesMetadata tm
         LEFT JOIN EntityContext ec ON 
             ec.ProjectId = tm.ProjectId AND
             ec.EntityType = 'TABLE' AND
             ec.EntityId = tm.TableId
+        LEFT JOIN FKCounts fk ON fk.ReferencedTableId = tm.TableId
         WHERE tm.ProjectId = @ProjectId 
           AND ec.Purpose IS NULL
-          AND (
-              SELECT COUNT(*) 
-              FROM ForeignKeyMetadata fk 
-              WHERE fk.ReferencedTableId = tm.TableId
-          ) >= 3
+          AND ISNULL(fk.ReferenceCount, 0) >= 3
         
         UNION ALL
         
@@ -394,23 +409,16 @@ public static class ContextQueries
             sm.SpId as EntityId,
             sm.ProcedureName as EntityName,
             'Frequently modified SP without documentation' as Reason,
-            (
-                SELECT COUNT(*) 
-                FROM SpVersionHistory vh 
-                WHERE vh.SpId = sm.SpId
-            ) as VersionCount
+            ISNULL(sv.VersionCount, 0) as VersionCount
         FROM SpMetadata sm
         LEFT JOIN EntityContext ec ON 
             ec.ProjectId = sm.ProjectId AND
             ec.EntityType = 'SP' AND
             ec.EntityId = sm.SpId
+        LEFT JOIN SpVersionCounts sv ON sv.SpId = sm.SpId
         WHERE sm.ProjectId = @ProjectId 
           AND ec.Purpose IS NULL
-          AND (
-              SELECT COUNT(*) 
-              FROM SpVersionHistory vh 
-              WHERE vh.SpId = sm.SpId
-          ) >= 3
+          AND ISNULL(sv.VersionCount, 0) >= 3
         
         ORDER BY ReferenceCount DESC;";
 

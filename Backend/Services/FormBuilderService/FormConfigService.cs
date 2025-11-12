@@ -34,7 +34,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         public async Task<FormConfig> SaveAsync(FormConfig config, int userId)
         {
             // Verify user has access to project
-            var project = await _projectRepository.GetByIdInternalAsync(config.ProjectId);
+            var project = await _projectRepository.GetByIdAsync(config.ProjectId);
             if (project == null || project.CreatedBy != userId)
             {
                 throw new UnauthorizedAccessException("Access denied to project");
@@ -86,7 +86,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         public async Task<List<FormConfigListItem>> GetByProjectIdAsync(int projectId, int userId)
         {
             // Verify user has access to project
-            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null || project.CreatedBy != userId)
             {
                 throw new UnauthorizedAccessException("Access denied to project");

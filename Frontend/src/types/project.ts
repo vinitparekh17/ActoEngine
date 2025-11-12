@@ -9,7 +9,7 @@ export interface Project {
   projectName: string;
   description?: string;
   databaseName?: string;
-  connectionString?: string;
+  isLinked?: boolean;
   databaseType?: string;
   serverName?: string;
   isActive?: boolean;
@@ -43,17 +43,17 @@ export interface CreateProjectRequest {
   projectName: string;
   description: string;
   databaseName: string;
-  connectionString: string;
   databaseType: string;
 }
 
 export interface LinkProjectRequest {
   projectId: number;
-  projectName: string;
-  description: string;
-  databaseName: string;
   connectionString: string;
-  databaseType: string;
+}
+
+export interface ReSyncProjectRequest {
+  projectId: number;
+  connectionString: string;
 }
 
 export interface ProjectResponse {
@@ -67,7 +67,6 @@ export interface UpdateProjectRequest {
   description: string;
   isActive: boolean;
   databaseName?: string;
-  connectionString?: string;
 }
 
 export interface UpdateProjectResponse {

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.ProjectService;
 using ActoEngine.WebApi.Repositories;
+using ActoEngine.WebApi.Extensions;
 
 namespace ActoEngine.WebApi.Controllers
 {
@@ -35,11 +36,32 @@ namespace ActoEngine.WebApi.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
-            var userId = HttpContext.Items["UserId"] as int?;
+            var userId = HttpContext.GetUserId();
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
             var response = await _projectService.LinkProjectAsync(request, userId.Value);
             return Ok(ApiResponse<ProjectResponse>.Success(response, "Project linked successfully"));
+        }
+
+        [HttpPost("resync")]
+        public async Task<IActionResult> ReSyncProject([FromBody] ReSyncProjectRequest request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+
+            try
+            {
+                var response = await _projectService.ReSyncProjectAsync(request, userId.Value);
+                return Ok(ApiResponse<ProjectResponse>.Success(response, "Project re-sync started successfully"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ApiResponse<object>.Failure(ex.Message));
+            }
         }
 
         [HttpPost]
@@ -48,7 +70,7 @@ namespace ActoEngine.WebApi.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
-            var userId = HttpContext.Items["UserId"] as int?;
+            var userId = HttpContext.GetUserId();
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
@@ -89,14 +111,7 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> GetAllProjects()
         {
             var projects = await _projectService.GetAllProjectsAsync();
-            // getting sync status for each project;
-            foreach (var project in projects)
-            {
-                var syncStatus = await _projectService.GetSyncStatusAsync(project.ProjectId);
-                project.SyncStatus = syncStatus?.Status;
-                project.SyncProgress = syncStatus?.SyncProgress ?? 0;
-                project.LastSyncAttempt = syncStatus?.LastSyncAttempt;
-            }
+            // Sync status is now included in the query - no N+1 problem
             return Ok(ApiResponse<IEnumerable<PublicProjectDto>>.Success(projects, "Projects retrieved successfully"));
         }
 
@@ -116,7 +131,7 @@ namespace ActoEngine.WebApi.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
-            var userId = HttpContext.Items["UserId"] as int?;
+            var userId = HttpContext.GetUserId();
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
@@ -130,7 +145,7 @@ namespace ActoEngine.WebApi.Controllers
         [HttpDelete("{projectId}")]
         public async Task<IActionResult> DeleteProject(int projectId)
         {
-            var userId = HttpContext.Items["UserId"] as int?;
+            var userId = HttpContext.GetUserId();
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 

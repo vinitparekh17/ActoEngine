@@ -27,22 +27,28 @@ public static class SchemaSyncQueries
 
     public const string GetTargetTablesWithSchema = @"
         SELECT 
-            s.name AS SchemaName,
+            -- Use INFORMATION_SCHEMA.TABLE_CONSTRAINTS joined with KEY_COLUMN_USAGE to reliably detect PK
+            CASE WHEN EXISTS (
+                SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND tc.TABLE_NAME = kcu.TABLE_NAME
+                WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                  AND kcu.TABLE_NAME = c.TABLE_NAME
+                  AND kcu.COLUMN_NAME = c.COLUMN_NAME
+            ) THEN 1 ELSE 0 END AS IsPrimaryKey,
             t.name AS TableName
         FROM sys.tables t
-        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+            -- Similarly detect foreign keys using constraint metadata rather than name patterns
+            CASE WHEN EXISTS (
+                SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND tc.TABLE_NAME = kcu.TABLE_NAME
+                WHERE tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
+                  AND kcu.TABLE_NAME = c.TABLE_NAME
+                  AND kcu.COLUMN_NAME = c.COLUMN_NAME
+            ) THEN 1 ELSE 0 END AS IsForeignKey,
         ORDER BY s.name, t.name";
     public const string InsertTableMetadata = @"
         SET NOCOUNT ON;
-        SET XACT_ABORT ON;
-    
-        SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-        BEGIN TRANSACTION;
-    
-        BEGIN TRY
-            DECLARE @Inserted TABLE (TableId INT);
-    
-            -- Try inserting only if a matching row does not exist
+        -- No direct joins required; constraint membership is computed via EXISTS above
             INSERT INTO TablesMetadata (ProjectId, TableName, SchemaName, CreatedAt)
             OUTPUT inserted.TableId INTO @Inserted
             SELECT @ProjectId, @TableName, @SchemaName, GETUTCDATE()
@@ -73,8 +79,6 @@ public static class SchemaSyncQueries
             THROW;
         END CATCH;
 ";
-
-
     public const string GetTableId = @"
         SELECT TableId 
         FROM TablesMetadata 

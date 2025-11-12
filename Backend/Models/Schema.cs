@@ -27,6 +27,7 @@ public class ForeignKeyMetadata
 public class StoredProcedureMetadata
 {
     public required string ProcedureName { get; set; }
+    public required string SchemaName { get; set; }
     public string? Definition { get; set; }
 }
 

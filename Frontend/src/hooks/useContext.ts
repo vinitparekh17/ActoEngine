@@ -347,18 +347,20 @@ export function useAddExpert(
   }>(
     `/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts`,
     {
-      showSuccessToast: false, // We handle it manually
+      showSuccessToast: false,
       showErrorToast: true,
       onSuccess: handleSuccess,
       invalidateKeys:
         selectedProjectId != null
-          ? [[
-              'projects',
-              String(selectedProjectId),
-              'context',
-              entityType,
-              String(entityId),
-            ]]
+          ? [
+              [
+                'projects',
+                String(selectedProjectId),
+                'context',
+                entityType,
+                String(entityId),
+              ],
+            ]
           : [],
     }
   );

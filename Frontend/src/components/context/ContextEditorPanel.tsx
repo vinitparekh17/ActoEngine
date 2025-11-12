@@ -67,8 +67,8 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
   isReadOnly = false
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [localContext, setLocalContext] = useState<any>({});
-  const [lastSavedContext, setLastSavedContext] = useState<any>(null);
+  const [localContext, setLocalContext] = useState<ContextData['context']>({});
+  const [lastSavedContext, setLastSavedContext] = useState<ContextData['context'] | null>(null);
   const hasUnsavedChanges = useRef(false);
   
   const { 
@@ -381,8 +381,8 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 ) : (
                   <Badge
                     variant={
-                      localContext?.criticalityLevel >= 4 ? 'destructive' : 
-                      localContext?.criticalityLevel >= 3 ? 'secondary' : 'outline'
+                      (localContext?.criticalityLevel ?? 0) >= 4 ? 'destructive' : 
+                      (localContext?.criticalityLevel ?? 0) >= 3 ? 'secondary' : 'outline'
                     }
                   >
                     {localContext?.criticalityLevel || 3}/5

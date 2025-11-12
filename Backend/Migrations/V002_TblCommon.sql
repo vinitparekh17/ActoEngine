@@ -51,7 +51,7 @@ CREATE TABLE Projects (
     ProjectName NVARCHAR(100) NOT NULL,
     Description NVARCHAR(255),
     DatabaseName NVARCHAR(100),
-    ConnectionString NVARCHAR(500),
+    IsLinked BIT DEFAULT 0,
     IsActive BIT DEFAULT 1,
     SyncStatus NVARCHAR(500),
     SyncProgress INT,

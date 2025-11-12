@@ -40,7 +40,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
     }
     public class TemplateRenderService : ITemplateRenderService
     {
-        private readonly CodeTemplateRepository _templateRepository;
+        private readonly ICodeTemplateRepository _templateRepository;
         private readonly ILogger<TemplateRenderService> _logger;
 
         // Cache compiled templates for performance
@@ -48,7 +48,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         private static readonly object _cacheLock = new();
 
         public TemplateRenderService(
-            CodeTemplateRepository templateRepository,
+            ICodeTemplateRepository templateRepository,
             ILogger<TemplateRenderService> logger)
         {
             _templateRepository = templateRepository;

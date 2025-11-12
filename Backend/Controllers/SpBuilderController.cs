@@ -97,8 +97,17 @@ public class SpBuilderController : ControllerBase
     {
         try
         {
-            var project = await _projectRepo.GetByIdInternalAsync(projectId) ?? throw new InvalidOperationException($"Project with ID {projectId} not found.");
-            var tables = await _schemaRepo.GetAllTablesAsync(project.ConnectionString);
+            var project = await _projectRepo.GetByIdAsync(projectId) ?? throw new InvalidOperationException($"Project with ID {projectId} not found.");
+
+            if (!project.IsLinked)
+            {
+                return BadRequest(ApiResponse<List<string>>.Failure(
+                    "Project not linked", ["Project is not linked to a database. Please link the project first."]));
+            }
+
+            // Use cached metadata instead of querying the target database
+            var tablesMetadata = await _schemaRepo.GetTablesListAsync(projectId);
+            var tables = tablesMetadata.Select(t => t.TableName).ToList();
 
             return Ok(ApiResponse<List<string>>.Success(
                 tables,

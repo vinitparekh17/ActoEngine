@@ -113,15 +113,15 @@ public class DatabaseBrowserController(
                 return BadRequest("Table name cannot be empty");
             }
 
-            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
                 return NotFound($"Project with ID {projectId} not found");
             }
 
-            if (string.IsNullOrEmpty(project.ConnectionString))
+            if (!project.IsLinked)
             {
-                return BadRequest("Project connection string is not configured");
+                return BadRequest("Project is not linked to a database. Please link the project first.");
             }
 
             var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName);
@@ -294,10 +294,15 @@ public class DatabaseBrowserController(
                 return BadRequest("Table name cannot be empty");
             }
 
-            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
                 return NotFound(ApiResponse<TableSchemaResponse>.Failure($"Project with ID {projectId} not found"));
+            }
+
+            if (!project.IsLinked)
+            {
+                return BadRequest(ApiResponse<TableSchemaResponse>.Failure("Project is not linked to a database. Please link the project first."));
             }
 
             var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName);

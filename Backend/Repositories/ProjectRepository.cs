@@ -5,7 +5,7 @@ using ActoEngine.WebApi.SqlQueries;
 namespace ActoEngine.WebApi.Repositories;
 
 /// <summary>
-/// Public DTO for Project - excludes sensitive information like ConnectionString
+/// Public DTO for Project
 /// </summary>
 public class PublicProjectDto
 {
@@ -16,11 +16,11 @@ public class PublicProjectDto
     public string DatabaseName { get; set; } = string.Empty;
     public string? DatabaseType { get; set; } = "SqlServer";
     public bool IsActive { get; set; }
+    public bool IsLinked { get; set; }
     public DateTime CreatedAt { get; set; }
     public int CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public int? UpdatedBy { get; set; }
-    public bool HasConnection { get; set; }
     public string? SyncStatus { get; set; }
     public int SyncProgress { get; set; }
     public DateTime? LastSyncAttempt { get; set; }
@@ -28,13 +28,9 @@ public class PublicProjectDto
 
 public interface IProjectRepository
 {
-    // Public methods - return data without connection strings
     Task<PublicProjectDto?> GetByIdAsync(int projectId, CancellationToken cancellationToken = default);
     Task<PublicProjectDto?> GetByNameAsync(string projectName, int userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<PublicProjectDto>> GetAllAsync(CancellationToken cancellationToken = default);
-
-    // Internal methods - include connection strings for system operations
-    Task<Project?> GetByIdInternalAsync(int projectId, CancellationToken cancellationToken = default);
     Task<int> AddOrUpdateProjectAsync(Project project, int userId);
     Task<int> GetCountAsync(int userId, CancellationToken cancellationToken = default);
     Task<int> CreateAsync(Project project, CancellationToken cancellationToken = default);
@@ -43,6 +39,7 @@ public interface IProjectRepository
     Task UpdateSyncStatusAsync(int projectId, string status, int progress, CancellationToken cancellationToken = default);
     Task<SyncStatus?> GetSyncStatusAsync(int projectId, CancellationToken cancellationToken = default);
     Task SyncSchemaMetadataAsync(int projectId, string connectionString, int userId, CancellationToken cancellationToken = default);
+    Task UpdateIsLinkedAsync(int projectId, bool isLinked, CancellationToken cancellationToken = default);
 }
 
 public class ProjectRepository(
@@ -68,24 +65,6 @@ public class ProjectRepository(
         }
     }
 
-    public async Task<Project?> GetByIdInternalAsync(int projectId, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var projectDto = await QueryFirstOrDefaultAsync<ProjectDto>(
-                ProjectSqlQueries.GetByIdInternal,
-                new { ProjectID = projectId },
-                cancellationToken);
-
-            return projectDto?.ToDomain();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving project with ID {ProjectId}", projectId);
-            throw;
-        }
-    }
-
     public async Task<int> AddOrUpdateProjectAsync(Project project, int userId)
     {
         try
@@ -96,7 +75,7 @@ public class ProjectRepository(
                 ProjectName = project.ProjectName,
                 Description = project.Description,
                 DatabaseName = project.DatabaseName,
-                ConnectionString = project.ConnectionString,
+                IsLinked = project.IsLinked,
                 UserId = userId
             };
 
@@ -177,7 +156,7 @@ public class ProjectRepository(
                 project.ProjectName,
                 project.Description,
                 project.DatabaseName,
-                project.ConnectionString,
+                project.IsLinked,
                 IsActive = true,
                 project.CreatedAt,
                 project.CreatedBy
@@ -208,7 +187,7 @@ public class ProjectRepository(
                 project.ProjectName,
                 project.Description,
                 project.DatabaseName,
-                project.ConnectionString,
+                project.IsLinked,
                 project.UpdatedAt,
                 project.UpdatedBy,
                 project.CreatedBy
@@ -339,36 +318,27 @@ public class ProjectRepository(
             throw;
         }
     }
-}
 
-internal class ProjectDto
-{
-    public int ProjectId { get; set; }
-    public string ProjectName { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public string DatabaseName { get; set; } = string.Empty;
-    public string ConnectionString { get; set; } = string.Empty;
-    public bool IsActive { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public int CreatedBy { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-    public int? UpdatedBy { get; set; }
-
-    internal Project ToDomain()
+    public async Task UpdateIsLinkedAsync(int projectId, bool isLinked, CancellationToken cancellationToken = default)
     {
-        return new Project
+        try
         {
-            ProjectId = ProjectId,
-            ProjectName = ProjectName,
-            Description = Description,
-            DatabaseName = DatabaseName,
-            DatabaseType = "SqlServer", // Default since not stored in DB
-            ConnectionString = ConnectionString,
-            IsActive = IsActive,
-            CreatedAt = CreatedAt,
-            CreatedBy = CreatedBy,
-            UpdatedAt = UpdatedAt,
-            UpdatedBy = UpdatedBy
-        };
+            const string query = @"
+                UPDATE Projects
+                SET IsLinked = @IsLinked, UpdatedAt = GETDATE()
+                WHERE ProjectId = @ProjectId AND IsActive = 1";
+
+            await ExecuteAsync(
+                query,
+                new { ProjectId = projectId, IsLinked = isLinked },
+                cancellationToken);
+
+            _logger.LogInformation("Updated IsLinked status for project {ProjectId} to {IsLinked}", projectId, isLinked);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating IsLinked status for project {ProjectId}", projectId);
+            throw;
+        }
     }
 }
