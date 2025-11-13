@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '../hooks/useProject';
 import { useApi } from '../hooks/useApi';
 import { useSyncStatus } from '../hooks/useSyncStatus';
+import { SyncProgressPanel } from '../components/project';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -175,6 +176,15 @@ export default function ProjectHub() {
             </p>
           )}
         </div>
+
+        {/* Sync Progress Panel */}
+        {selectedProject.projectId && (
+          <SyncProgressPanel
+            projectId={selectedProject.projectId}
+            useSSE={isSyncing}
+            showDismiss={true}
+          />
+        )}
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-3">

@@ -1,11 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { api } from '@/lib/api';
+import { useAuthStore } from '@/hooks/useAuth';
+import type { SyncStatusResponse } from '@/types/project';
 
 export interface SyncStatusData {
   projectId: number;
   status: string;
   progress: number;
   lastSyncAttempt?: Date;
-  timestamp: Date;
+  timestamp?: Date;
 }
 
 export interface UseSyncStatusReturn {
@@ -15,17 +18,23 @@ export interface UseSyncStatusReturn {
   isConnected: boolean;
   error: string | null;
   reconnect: () => void;
+  refresh: () => Promise<void>;
 }
 
 interface UseSyncStatusOptions {
   enabled?: boolean;
+  useSSE?: boolean; // Whether to use SSE for real-time updates
   onStatusChange?: (data: SyncStatusData) => void;
   onComplete?: (data: SyncStatusData) => void;
   onError?: (error: string) => void;
 }
 
 /**
- * Hook to connect to SSE endpoint and get real-time sync status updates
+ * Hook to monitor sync status:
+ * - Uses SSE for real-time updates during active sync
+ * - Fetches once via REST when SSE closes or if SSE is unavailable
+ * - No continuous polling (saves resources when no sync is active)
+ *
  * @param projectId - The project ID to monitor
  * @param options - Configuration options
  * @returns Sync status data and connection state
@@ -34,7 +43,13 @@ export function useSyncStatus(
   projectId: number | undefined,
   options: UseSyncStatusOptions = {}
 ): UseSyncStatusReturn {
-  const { enabled = true, onStatusChange, onComplete, onError } = options;
+  const {
+    enabled = true,
+    useSSE = true,
+    onStatusChange,
+    onComplete,
+    onError
+  } = options;
 
   const [status, setStatus] = useState<string | null>(null);
   const [progress, setProgress] = useState<number>(0);
@@ -45,21 +60,74 @@ export function useSyncStatus(
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef<number>(0);
+  const mountedRef = useRef<boolean>(true);
   const maxReconnectAttempts = 5;
 
-  const connect = useCallback(() => {
-    if (!projectId || !enabled) return;
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5093';
+
+  /**
+   * Fetch sync status via REST API (one-time fetch, no polling)
+   * Uses authenticated API client
+   */
+  const fetchSyncStatus = useCallback(async () => {
+    if (!projectId) return;
+
+    try {
+      console.log(`[REST] Fetching sync status for project ${projectId}`);
+
+      // Use authenticated API client
+      const result = await api.get<SyncStatusResponse>(`/Project/${projectId}/sync-status`);
+
+      const data: SyncStatusData = {
+        projectId: result.projectId,
+        status: result.status,
+        progress: result.syncProgress,
+        lastSyncAttempt: result.lastSyncAttempt ? new Date(result.lastSyncAttempt) : undefined,
+      };
+
+      // Check if component is still mounted before updating state
+      if (!mountedRef.current) return;
+
+      setStatus(data.status);
+      setProgress(data.progress);
+      setLastSyncAttempt(data.lastSyncAttempt);
+      setError(null);
+
+      onStatusChange?.(data);
+
+      // Check if sync is complete
+      if (data.status === 'Completed' || data.status?.startsWith('Failed')) {
+        onComplete?.(data);
+      }
+
+      return data;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to fetch sync status';
+      console.error('[REST] Fetch error:', errorMsg);
+      setError(errorMsg);
+      onError?.(errorMsg);
+    }
+  }, [projectId, onStatusChange, onComplete, onError]);
+
+  /**
+   * Connect to SSE stream for real-time updates
+   * Includes authentication token as query parameter (EventSource doesn't support custom headers)
+   */
+  const connectSSE = useCallback(() => {
+    if (!projectId || !enabled || !useSSE) return;
 
     // Close existing connection
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    const sseUrl = `${apiUrl}/api/SyncStatus/stream/${projectId}`;
+    // Get auth token for SSE connection
+    const token = useAuthStore.getState().token;
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+    const sseUrl = `${apiUrl}/api/Project/${projectId}/sync-status/stream${tokenParam}`;
 
     try {
-      const eventSource = new EventSource(sseUrl);
+      const eventSource = new EventSource(sseUrl, { withCredentials: true });
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {
@@ -98,9 +166,12 @@ export function useSyncStatus(
             console.log(`[SSE] Sync finished: ${data.status}`);
             onComplete?.(data);
 
-            // Close connection after completion
+            // Close SSE connection and fetch final status via REST
             eventSource.close();
             setIsConnected(false);
+
+            // Fetch once to ensure we have the latest status
+            fetchSyncStatus();
           }
         } catch (err) {
           console.error('[SSE] Failed to parse message:', err);
@@ -125,32 +196,62 @@ export function useSyncStatus(
           );
 
           reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
+            connectSSE();
           }, delay);
         } else {
-          const errorMsg = 'Failed to connect to sync status stream';
-          setError(errorMsg);
+          const errorMsg = 'SSE connection failed. Fetching status via REST.';
+          console.warn(errorMsg);
+          setError(null); // Don't show error to user
           onError?.(errorMsg);
+
+          // Fetch once via REST to get current status
+          fetchSyncStatus();
         }
       };
     } catch (err) {
       console.error('[SSE] Failed to create EventSource:', err);
-      setError('Failed to establish connection');
+      setError('Failed to establish SSE connection');
       setIsConnected(false);
+      // Fetch once via REST as fallback
+      fetchSyncStatus();
     }
-  }, [projectId, enabled, onStatusChange, onComplete, onError]);
+  }, [projectId, enabled, useSSE, apiUrl, onStatusChange, onComplete, onError, fetchSyncStatus]);
 
+  /**
+   * Manual reconnect (for SSE) or refresh (for REST)
+   */
   const reconnect = useCallback(() => {
     reconnectAttemptsRef.current = 0;
     setError(null);
-    connect();
-  }, [connect]);
+    if (useSSE) {
+      connectSSE();
+    } else {
+      fetchSyncStatus();
+    }
+  }, [useSSE, connectSSE, fetchSyncStatus]);
+
+  /**
+   * Manual refresh - fetch latest status via REST
+   */
+  const refresh = useCallback(async () => {
+    await fetchSyncStatus();
+  }, [fetchSyncStatus]);
 
   useEffect(() => {
-    connect();
+    mountedRef.current = true;
+
+    if (!enabled || !projectId) return;
+
+    // Use SSE for real-time updates if enabled, otherwise fetch once via REST
+    if (useSSE) {
+      connectSSE();
+    } else {
+      fetchSyncStatus();
+    }
 
     return () => {
       // Cleanup on unmount
+      mountedRef.current = false;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -160,7 +261,7 @@ export function useSyncStatus(
         reconnectTimeoutRef.current = null;
       }
     };
-  }, [connect]);
+  }, [enabled, projectId, useSSE, connectSSE, fetchSyncStatus]);
 
   return {
     status,
@@ -169,5 +270,6 @@ export function useSyncStatus(
     isConnected,
     error,
     reconnect,
+    refresh,
   };
 }

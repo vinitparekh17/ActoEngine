@@ -16,17 +16,32 @@ public class CustomTokenAuthenticationHandler(
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // Try to get token from Authorization header first
         var authHeader = Request.Headers.Authorization.FirstOrDefault();
-        if (string.IsNullOrEmpty(authHeader))
+        string? token = null;
+
+        if (!string.IsNullOrEmpty(authHeader))
         {
-            _logger.LogDebug("No Authorization header found for path: {Path}", Request.Path);
-            return Task.FromResult(AuthenticateResult.NoResult());
+            const string bearerPrefix = "Bearer ";
+            token = authHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase)
+                ? authHeader[bearerPrefix.Length..].Trim()
+                : authHeader.Trim();
         }
 
-        const string bearerPrefix = "Bearer ";
-        var token = authHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase)
-            ? authHeader[bearerPrefix.Length..].Trim()
-            : authHeader.Trim();
+        // If no header token, try query parameter (only for SSE endpoints)
+        if (string.IsNullOrEmpty(token) &&
+            Request.Query.ContainsKey("token") &&
+            Request.Path.Value?.EndsWith("/stream", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            token = Request.Query["token"].FirstOrDefault();
+            _logger.LogDebug("Using token from query parameter for SSE endpoint: {Path}", Request.Path);
+        }
+
+        if (string.IsNullOrEmpty(token))
+        {
+            _logger.LogDebug("No Authorization header or token query parameter found for path: {Path}", Request.Path);
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
 
         using var scope = _scopeFactory.CreateScope();
         var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();

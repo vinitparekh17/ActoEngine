@@ -183,7 +183,7 @@ if (app.Environment.IsProduction())
     if (!urls.Contains("https://", StringComparison.OrdinalIgnoreCase))
     {
         var logger = app.Services.GetRequiredService<ILogger<Program>>();
-        logger.LogWarning("⚠️ SECURITY WARNING: HTTPS is not configured in production! Cookies with Secure flag will not work over HTTP.");
+        logger.LogWarning("SECURITY WARNING: HTTPS is not configured in production! Cookies with Secure flag will not work over HTTP.");
     }
 }
 

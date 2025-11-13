@@ -7,8 +7,8 @@ public static class SchemaSyncQueries
 
     // Progress tracking
     public const string UpdateSyncStatus = @"
-        UPDATE Projects 
-        SET SyncStatus = @Status, 
+        UPDATE Projects
+        SET SyncStatus = @Status,
             SyncProgress = @Progress,
             LastSyncAttempt = GETUTCDATE()
         WHERE ProjectId = @ProjectId";
