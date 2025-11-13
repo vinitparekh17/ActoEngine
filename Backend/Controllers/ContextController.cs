@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.ContextService;
 using ActoEngine.WebApi.Config;
+using ActoEngine.WebApi.Extensions;
 
 namespace ActoEngine.WebApi.Controllers;
 
@@ -10,18 +11,12 @@ namespace ActoEngine.WebApi.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/projects/{projectId}/context")]
-public class ContextController : ControllerBase
+public class ContextController(
+    IContextService contextService,
+    ILogger<ContextController> logger) : ControllerBase
 {
-    private readonly ContextService _contextService;
-    private readonly ILogger<ContextController> _logger;
-
-    public ContextController(
-        ContextService contextService,
-        ILogger<ContextController> logger)
-    {
-        _contextService = contextService;
-        _logger = logger;
-    }
+    private readonly IContextService _contextService = contextService;
+    private readonly ILogger<ContextController> _logger = logger;
 
     #region Context CRUD
 
@@ -34,7 +29,7 @@ public class ContextController : ControllerBase
     [HttpGet("{entityType}/{entityId}")]
     [ProducesResponseType(typeof(ContextResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ContextResponse>> GetContext(
+    public async Task<IActionResult> GetContext(
         int projectId,
         string entityType,
         int entityId)
@@ -42,16 +37,16 @@ public class ContextController : ControllerBase
         try
         {
             var context = await _contextService.GetContextAsync(projectId, entityType, entityId);
-            
-            if (context == null)
-                return NotFound(new { message = $"Context not found for {entityType} with ID {entityId}" });
 
-            return Ok(context);
+            if (context == null)
+                return NotFound(ApiResponse<object>.Failure($"Context not found for {entityType} with ID {entityId}"));
+
+            return Ok(ApiResponse<ContextResponse>.Success(context, "Context retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting context for {EntityType} {EntityId}", entityType, entityId);
-            return StatusCode(500, new { message = "An error occurred while retrieving context" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred while retrieving context"));
         }
     }
 
@@ -62,10 +57,10 @@ public class ContextController : ControllerBase
     /// <param name="entityType">Entity type</param>
     /// <param name="entityId">Entity ID</param>
     /// <param name="request">Context data</param>
-    [HttpPost("{entityType}/{entityId}")]
+    [HttpPut("{entityType}/{entityId}")]
     [ProducesResponseType(typeof(EntityContext), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<EntityContext>> SaveContext(
+    public async Task<IActionResult> SaveContext(
         int projectId,
         string entityType,
         int entityId,
@@ -73,47 +68,130 @@ public class ContextController : ControllerBase
     {
         try
         {
-            // Get user ID from auth context (adjust based on your auth implementation)
-            var userId = GetCurrentUserId();
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
             var context = await _contextService.SaveContextAsync(
-                projectId, entityType, entityId, request, userId);
+                projectId, entityType, entityId, request, userId.Value);
 
-            return Ok(context);
+            return Ok(ApiResponse<EntityContext>.Success(context, "Context saved successfully"));
         }
         catch (DomainException ex)
         {
             _logger.LogWarning(ex, "Domain error saving context");
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(ApiResponse<object>.Failure(ex.Message));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error saving context for {EntityType} {EntityId}", entityType, entityId);
-            return StatusCode(500, new { message = "An error occurred while saving context" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred while saving context"));
         }
     }
 
+    /// <summary>
+    /// Quick-save context (minimal fields for fast entry)
+    /// </summary>
+    [HttpPost("quick-save")]
+    [ProducesResponseType(typeof(QuickSaveResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> QuickSaveContext(
+        int projectId,
+        [FromBody] QuickSaveRequest request)
+    {
+        try
+        {
+            // Validate all required fields
+            if (string.IsNullOrWhiteSpace(request.Purpose))
+                return BadRequest(ApiResponse<object>.Failure("Purpose is required"));
+
+            if (string.IsNullOrWhiteSpace(request.EntityType))
+                return BadRequest(ApiResponse<object>.Failure("EntityType is required"));
+
+            if (request.EntityId <= 0)
+                return BadRequest(ApiResponse<object>.Failure("Valid EntityId is required"));
+
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+
+            // Convert to full SaveContextRequest
+            var fullRequest = new SaveContextRequest
+            {
+                Purpose = request.Purpose,
+                CriticalityLevel = request.CriticalityLevel ?? 3
+            };
+
+            var context = await _contextService.SaveContextAsync(
+                projectId,
+                request.EntityType,
+                request.EntityId,
+                fullRequest,
+                userId.Value);
+
+            // Calculate completeness
+            var completeness = CalculateCompleteness(context);
+
+            return Ok(ApiResponse<QuickSaveResponse>.Success(
+                new QuickSaveResponse
+                {
+                    Context = context,
+                    CompletenessScore = completeness,
+                    Message = $"Context saved ({completeness}% complete)"
+                },
+                "Context saved successfully"));
+        }
+        catch (DomainException ex)
+        {
+            _logger.LogWarning(ex, "Domain error in quick-save");
+            return BadRequest(ApiResponse<object>.Failure(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in quick-save");
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
+        }
+    }
+
+    private static int CalculateCompleteness(EntityContext context)
+    {
+        var fields = new[]
+        {
+        context.Purpose,
+        context.BusinessImpact,
+        context.DataOwner,
+        context.BusinessDomain
+    };
+        var filled = fields.Count(f => !string.IsNullOrWhiteSpace(f));
+        return (int)Math.Round((filled / (double)fields.Length) * 100);
+    }
     /// <summary>
     /// Mark context as reviewed (fresh)
     /// </summary>
     [HttpPost("{entityType}/{entityId}/mark-reviewed")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult> MarkContextReviewed(
+    public async Task<IActionResult> MarkContextReviewed(
         int projectId,
         string entityType,
         int entityId)
     {
         try
         {
-            var userId = GetCurrentUserId();
-            await _contextService.MarkContextFreshAsync(projectId, entityType, entityId, userId);
-            
-            return Ok(new { message = "Context marked as reviewed" });
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+
+            await _contextService.MarkContextFreshAsync(projectId, entityType, entityId, userId.Value);
+
+            return Ok(ApiResponse<object>.Success(new { }, "Context marked as reviewed"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error marking context as reviewed");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -127,7 +205,7 @@ public class ContextController : ControllerBase
     [HttpPost("{entityType}/{entityId}/experts")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult> AddExpert(
+    public async Task<IActionResult> AddExpert(
         int projectId,
         string entityType,
         int entityId,
@@ -135,7 +213,12 @@ public class ContextController : ControllerBase
     {
         try
         {
-            var currentUserId = GetCurrentUserId();
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+
+            var currentUserId = HttpContext.GetUserId();
+            if (currentUserId == null)
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
             await _contextService.AddExpertAsync(
                 projectId,
@@ -144,18 +227,18 @@ public class ContextController : ControllerBase
                 request.UserId,
                 request.ExpertiseLevel,
                 request.Notes,
-                currentUserId);
+                currentUserId.Value);
 
-            return Ok(new { message = "Expert added successfully" });
+            return Ok(ApiResponse<object>.Success(new { }, "Expert added successfully"));
         }
         catch (DomainException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(ApiResponse<object>.Failure(ex.Message));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adding expert");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -164,7 +247,7 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpDelete("{entityType}/{entityId}/experts/{userId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult> RemoveExpert(
+    public async Task<IActionResult> RemoveExpert(
         int projectId,
         string entityType,
         int entityId,
@@ -173,12 +256,12 @@ public class ContextController : ControllerBase
         try
         {
             await _contextService.RemoveExpertAsync(projectId, entityType, entityId, userId);
-            return Ok(new { message = "Expert removed successfully" });
+            return Ok(ApiResponse<object>.Success(new { }, "Expert removed successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error removing expert");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -187,19 +270,19 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpGet("users/{userId}/expertise")]
     [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
-    public async Task<ActionResult> GetUserExpertise(
+    public async Task<IActionResult> GetUserExpertise(
         int projectId,
         int userId)
     {
         try
         {
             var expertise = await _contextService.GetUserExpertiseAsync(userId, projectId);
-            return Ok(expertise);
+            return Ok(ApiResponse<object>.Success(expertise, "User expertise retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting user expertise");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -212,7 +295,7 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpGet("{entityType}/{entityId}/suggestions")]
     [ProducesResponseType(typeof(ContextSuggestions), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ContextSuggestions>> GetSuggestions(
+    public async Task<IActionResult> GetSuggestions(
         int projectId,
         string entityType,
         int entityId)
@@ -222,12 +305,12 @@ public class ContextController : ControllerBase
             var suggestions = await _contextService.GetContextSuggestionsAsync(
                 projectId, entityType, entityId);
 
-            return Ok(suggestions);
+            return Ok(ApiResponse<ContextSuggestions>.Success(suggestions, "Suggestions retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting suggestions");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -240,18 +323,18 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpGet("statistics/coverage")]
     [ProducesResponseType(typeof(List<ContextCoverageStats>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<ContextCoverageStats>>> GetContextCoverage(
+    public async Task<IActionResult> GetContextCoverage(
         int projectId)
     {
         try
         {
             var stats = await _contextService.GetContextCoverageAsync(projectId);
-            return Ok(stats);
+            return Ok(ApiResponse<IEnumerable<ContextCoverageStats>>.Success(stats, "Context coverage retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting context coverage");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -260,17 +343,17 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpGet("statistics/stale")]
     [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
-    public async Task<ActionResult> GetStaleEntities(int projectId)
+    public async Task<IActionResult> GetStaleEntities(int projectId)
     {
         try
         {
             var entities = await _contextService.GetStaleContextEntitiesAsync(projectId);
-            return Ok(entities);
+            return Ok(ApiResponse<object>.Success(entities, "Stale entities retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting stale entities");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -279,19 +362,19 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpGet("statistics/top-documented")]
     [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
-    public async Task<ActionResult> GetTopDocumented(
+    public async Task<IActionResult> GetTopDocumented(
         int projectId,
         [FromQuery] int limit = 10)
     {
         try
         {
             var entities = await _contextService.GetTopDocumentedEntitiesAsync(projectId, limit);
-            return Ok(entities);
+            return Ok(ApiResponse<object>.Success(entities, "Top documented entities retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting top documented entities");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -300,17 +383,39 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpGet("statistics/critical-undocumented")]
     [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
-    public async Task<ActionResult> GetCriticalUndocumented(int projectId)
+    public async Task<IActionResult> GetCriticalUndocumented(int projectId)
     {
         try
         {
             var entities = await _contextService.GetCriticalUndocumentedAsync(projectId);
-            return Ok(entities);
+            return Ok(ApiResponse<object>.Success(entities, "Critical undocumented entities retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting critical undocumented entities");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
+        }
+    }
+
+    /// <summary>
+    /// Get entities missing context (prioritized by usage)
+    /// </summary>
+    [HttpGet("gaps")]
+    [ProducesResponseType(typeof(List<ContextGap>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetContextGaps(
+        int projectId,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gaps = await _contextService.GetContextGapsAsync(projectId, limit, cancellationToken);
+            return Ok(ApiResponse<IEnumerable<ContextGap>>.Success(gaps, "Context gaps retrieved"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting context gaps");
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -319,7 +424,7 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpGet("dashboard")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    public async Task<ActionResult> GetDashboard(int projectId)
+    public async Task<IActionResult> GetDashboard(int projectId)
     {
         try
         {
@@ -328,7 +433,7 @@ public class ContextController : ControllerBase
             var topDocumented = await _contextService.GetTopDocumentedEntitiesAsync(projectId, 5);
             var criticalUndocumented = await _contextService.GetCriticalUndocumentedAsync(projectId);
 
-            return Ok(new
+            return Ok(ApiResponse<object>.Success(new
             {
                 coverage,
                 staleCount = stale.Count,
@@ -336,12 +441,12 @@ public class ContextController : ControllerBase
                 topDocumented,
                 criticalUndocumented = criticalUndocumented.Take(5),
                 lastUpdated = DateTime.UtcNow
-            });
+            }, "Dashboard data retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting dashboard data");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -354,21 +459,27 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpPost("bulk-import")]
     [ProducesResponseType(typeof(List<BulkImportResult>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<BulkImportResult>>> BulkImportContext(
+    public async Task<IActionResult> BulkImportContext(
         int projectId,
         [FromBody] List<BulkContextEntry> entries)
     {
         try
         {
-            var userId = GetCurrentUserId();
-            var results = await _contextService.BulkImportContextAsync(projectId, entries, userId);
-            
-            return Ok(results);
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+
+            var results = await _contextService.BulkImportContextAsync(projectId, entries, userId.Value);
+
+            return Ok(ApiResponse<IEnumerable<BulkImportResult>>.Success(results, "Bulk import completed successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error bulk importing context");
-            return StatusCode(500, new { message = "An error occurred during bulk import" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred during bulk import"));
         }
     }
 
@@ -381,26 +492,32 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpPost("review-requests")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
-    public async Task<ActionResult<int>> CreateReviewRequest(
-        [FromBody] dynamic request)
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateReviewRequest(
+        [FromBody] CreateReviewRequestModel request)
     {
         try
         {
-            var userId = GetCurrentUserId();
-            
-            var requestId = await _contextService.CreateReviewRequestAsync(
-                request.entityType,
-                request.entityId,
-                userId,
-                request.assignedTo,
-                request.reason);
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
 
-            return Ok(new { requestId });
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+
+            var requestId = await _contextService.CreateReviewRequestAsync(
+                request.EntityType,
+                request.EntityId,
+                userId.Value,
+                request.AssignedTo,
+                request.Reason);
+
+            return Ok(ApiResponse<object>.Success(new { requestId }, "Review request created successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating review request");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 
@@ -409,18 +526,18 @@ public class ContextController : ControllerBase
     /// </summary>
     [HttpGet("review-requests/pending")]
     [ProducesResponseType(typeof(List<ContextReviewRequest>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<ContextReviewRequest>>> GetPendingReviewRequests(
+    public async Task<IActionResult> GetPendingReviewRequests(
         [FromQuery] int? assignedTo = null)
     {
         try
         {
             var requests = await _contextService.GetPendingReviewRequestsAsync(assignedTo);
-            return Ok(requests);
+            return Ok(ApiResponse<IEnumerable<ContextReviewRequest>>.Success(requests, "Pending review requests retrieved successfully"));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting review requests");
-            return StatusCode(500, new { message = "An error occurred" });
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 

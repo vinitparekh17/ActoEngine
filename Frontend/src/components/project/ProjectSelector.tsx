@@ -1,8 +1,7 @@
 "use client"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-
-export type ProjectOption = { id: string; name: string }
+import type { ProjectOption } from '../../types/project'
 
 export default function ProjectSelector({
   projects,

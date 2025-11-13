@@ -5,7 +5,7 @@ namespace ActoEngine.WebApi.Services.ClientService
 {
     public interface IClientService
     {
-        Task<Client?> GetClientByIdAsync(int clientId);
+        Task<Client?> GetClientByIdAsync(int clientId, int projectId);
         Task<Client?> GetClientByNameAsync(string clientName, int projectId);
         Task<IEnumerable<Client>> GetAllClientsAsync();
         Task<IEnumerable<Client>> GetClientsByProjectAsync(int projectId);
@@ -19,15 +19,15 @@ namespace ActoEngine.WebApi.Services.ClientService
         private readonly IClientRepository _clientRepository = clientRepository;
         private readonly ILogger<ClientService> _logger = logger;
 
-        public async Task<Client?> GetClientByIdAsync(int clientId)
+        public async Task<Client?> GetClientByIdAsync(int clientId, int projectId)
         {
             try
             {
-                return await _clientRepository.GetByIdAsync(clientId);
+                return await _clientRepository.GetByIdAsync(clientId, projectId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving client with ID {ClientId}", clientId);
+                _logger.LogError(ex, "Error retrieving client with ID {ClientId} for project {ProjectId}", clientId, projectId);
                 throw;
             }
         }

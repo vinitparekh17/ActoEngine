@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Sql.Queries;
+namespace ActoEngine.WebApi.SqlQueries;
 
 public static class TokenSqlQueries
 {
@@ -13,13 +13,8 @@ public static class TokenSqlQueries
 
     public const string GetBySessionToken = @"
             SELECT UserID, SessionToken, SessionExpiresAt, RefreshToken, RefreshExpiresAt
-            FROM TokenSessions 
+            FROM TokenSessions
             WHERE SessionToken = @SessionToken AND SessionExpiresAt > GETUTCDATE()";
-
-    public const string GetByUserId = @"
-            SELECT UserID, SessionToken, SessionExpiresAt, RefreshToken, RefreshExpiresAt
-            FROM TokenSessions 
-            WHERE UserID = @UserID";
 
     public const string Update = @"
             UPDATE TokenSessions 

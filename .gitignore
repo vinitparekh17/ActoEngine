@@ -7,6 +7,7 @@ out/
 *.pdb
 *.app
 *.log
+tsconfig.tsbuildinfo
 
 # --- User-specific files ---
 *.user
@@ -57,8 +58,7 @@ ehthumbs.db
 desktop.ini
 
 # --- Entity Framework / Migrations ---
-#migrations snapshot files
-[Mm]igrations/
+
 *_efmigrationhistory.sql
 
 # --- Coverage / Testing ---
@@ -79,12 +79,14 @@ bower_components/
 wwwroot/lib/
 
 # --- Config secrets ---
-# Ignore local development settings
-appsettings.Development.json
+# Ignore local development settings (but keep .env.example files)
 appsettings.Local.json
 secrets.json
 .env
-.env.*
+.env.local
+.env.development
+.env.production
+!.env.example
 v-notes.*
 
 .fake

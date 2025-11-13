@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '../hooks/useProject';
 import { useApi } from '../hooks/useApi';
+import { useSyncStatus } from '../hooks/useSyncStatus';
+import { SyncProgressPanel } from '../components/project';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -20,9 +22,9 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime } from '../lib/utils';
 import { ScrollArea } from '../components/ui/scroll-area';
-import type { ProjectStatsResponse, ActivityItem } from '../types/api';
+import type { ProjectStatsResponse, ActivityItem } from '../types/project';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../components/ui/breadcrumb';
 
 export default function ProjectHub() {
@@ -54,12 +56,28 @@ export default function ProjectHub() {
     }
   }, [projectId, selectedProject?.projectId]);
 
+  // Real-time sync status hook
+  const isSyncing = selectedProject?.syncStatus?.toLowerCase().includes('sync') ||
+                    selectedProject?.syncStatus?.toLowerCase() === 'started';
+
+  const { status: realtimeStatus, progress: realtimeProgress } = useSyncStatus(
+    selectedProject?.projectId,
+    {
+      enabled: isSyncing,
+      onComplete: () => {
+        console.log('Sync completed for project', selectedProject?.projectId);
+      }
+    }
+  );
+
   const getSyncStatusBadge = () => {
     if (!selectedProject) return null;
 
-    const { syncStatus, syncProgress } = selectedProject;
+    // Use real-time data if available, otherwise use project data
+    const displayStatus = realtimeStatus || selectedProject.syncStatus;
+    const displayProgress = realtimeProgress || selectedProject.syncProgress || 0;
 
-    if (!syncStatus || syncStatus === 'never') {
+    if (!displayStatus || displayStatus === 'never') {
       return <Badge variant="secondary">Never Synced</Badge>;
     }
 
@@ -69,10 +87,30 @@ export default function ProjectHub() {
         icon: CheckCircle,
         label: 'Completed'
       },
-      in_progress: {
+      started: {
         variant: 'warning' as any,
         icon: Loader2,
-        label: syncProgress ? `In Progress (${syncProgress}%)` : 'In Progress'
+        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+      },
+      'syncing tables': {
+        variant: 'warning' as any,
+        icon: Loader2,
+        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+      },
+      'syncing columns': {
+        variant: 'warning' as any,
+        icon: Loader2,
+        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+      },
+      'syncing foreign keys': {
+        variant: 'warning' as any,
+        icon: Loader2,
+        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+      },
+      'syncing stored procedures': {
+        variant: 'warning' as any,
+        icon: Loader2,
+        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
       },
       failed: {
         variant: 'destructive',
@@ -81,12 +119,14 @@ export default function ProjectHub() {
       }
     };
 
-    const config = statusMap[syncStatus.toLowerCase()] || statusMap.failed;
+    const config = statusMap[displayStatus.toLowerCase()] || statusMap.failed;
     const Icon = config.icon;
+    const isSpinning = displayStatus.toLowerCase().includes('sync') ||
+                       displayStatus.toLowerCase() === 'started';
 
     return (
       <Badge variant={config.variant} className="gap-1">
-        <Icon className={`w-3 h-3 ${syncStatus === 'in_progress' ? 'animate-spin' : ''}`} />
+        <Icon className={`w-3 h-3 ${isSpinning ? 'animate-spin' : ''}`} />
         {config.label}
       </Badge>
     );
@@ -136,6 +176,15 @@ export default function ProjectHub() {
             </p>
           )}
         </div>
+
+        {/* Sync Progress Panel */}
+        {selectedProject.projectId && (
+          <SyncProgressPanel
+            projectId={selectedProject.projectId}
+            useSSE={isSyncing}
+            showDismiss={true}
+          />
+        )}
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -197,7 +246,7 @@ export default function ProjectHub() {
               ) : (
                 <div className="text-2xl font-bold">
                   {stats?.lastSync
-                    ? formatDistanceToNow(new Date(stats.lastSync), { addSuffix: true })
+                    ? formatRelativeTime(stats.lastSync, 'Never')
                     : 'Never'}
                 </div>
               )}
@@ -244,7 +293,7 @@ export default function ProjectHub() {
                               {item.description}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                              {formatRelativeTime(item.timestamp, 'recently')}
                               {item.user && ` by ${item.user}`}
                             </p>
                           </div>

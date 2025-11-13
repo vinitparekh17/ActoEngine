@@ -1,7 +1,7 @@
 using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Auth;
-using ActoEngine.WebApi.Sql.Queries;
+using ActoEngine.WebApi.SqlQueries;
 using Dapper;
 using Microsoft.Extensions.Options;
 

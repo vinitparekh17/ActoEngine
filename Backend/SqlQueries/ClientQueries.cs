@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Sql.Queries;
+namespace ActoEngine.WebApi.SqlQueries;
 
 public static class ClientSqlQueries
 {
@@ -11,7 +11,7 @@ public static class ClientSqlQueries
     public const string GetById = @"
         SELECT ClientId, ProjectId, ClientName, IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
         FROM Clients
-        WHERE ClientId = @ClientId AND IsActive = 1";
+        WHERE ClientId = @ClientId AND ProjectId = @ProjectId AND IsActive = 1";
 
     public const string GetByName = @"
         SELECT ClientId, ProjectId, ClientName, IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
@@ -36,12 +36,55 @@ public static class ClientSqlQueries
         WHERE ProjectId = @ProjectId AND IsActive = 1";
 
     public const string Insert = @"
-        IF NOT EXISTS (SELECT 1 FROM Clients WHERE ClientName = @ClientName AND ProjectId = @ProjectId)
-        BEGIN
-            INSERT INTO Clients (ClientName, ProjectId, IsActive, CreatedAt, CreatedBy)
-            VALUES (@ClientName, @ProjectId, @IsActive, @CreatedAt, @CreatedBy);
-            SELECT SCOPE_IDENTITY();
-        END";
+        SET NOCOUNT ON;
+        SET XACT_ABORT ON;
+    
+        SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+        BEGIN TRANSACTION;
+    
+        BEGIN TRY
+            DECLARE @ExistingId INT;
+    
+            -- Lock matching rows to prevent concurrent inserts
+            SELECT @ExistingId = ClientId
+            FROM Clients WITH (UPDLOCK, HOLDLOCK)
+            WHERE ClientName = @ClientName AND ProjectId = @ProjectId;
+    
+            IF @ExistingId IS NOT NULL
+            BEGIN
+                -- Reactivate if soft-deleted
+                IF EXISTS (
+                    SELECT 1 FROM Clients
+                    WHERE ClientId = @ExistingId AND IsActive = 0
+                )
+                BEGIN
+                    UPDATE Clients
+                    SET IsActive = 1,
+                        UpdatedAt = @CreatedAt,
+                        UpdatedBy = @CreatedBy
+                    WHERE ClientId = @ExistingId;
+                END
+    
+                SELECT @ExistingId AS ClientId;
+            END
+            ELSE
+            BEGIN
+                -- Insert new client
+                INSERT INTO Clients (ClientName, ProjectId, IsActive, CreatedAt, CreatedBy)
+                VALUES (@ClientName, @ProjectId, @IsActive, @CreatedAt, @CreatedBy);
+    
+                SELECT CAST(SCOPE_IDENTITY() AS INT) AS ClientId;
+            END
+    
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            IF @@TRANCOUNT > 0
+                ROLLBACK TRANSACTION;
+    
+            THROW;
+        END CATCH;
+";
 
     public const string Update = @"
         UPDATE Clients

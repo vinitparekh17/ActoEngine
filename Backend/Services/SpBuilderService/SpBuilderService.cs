@@ -95,7 +95,7 @@ public class SpBuilderService(ISchemaRepository schemaRepo, IProjectRepository p
 
     public async Task<TableSchemaResponse> GetTableSchema(TableSchemaRequest req)
     {
-        var project = await _projectRepo.GetByIdInternalAsync(req.ProjectId) ?? throw new InvalidOperationException($"Project with ID {req.ProjectId} not found.");
-        return await _schemaRepo.ReadTableSchemaAsync(project.ConnectionString, req.TableName);
+        // Use cached schema metadata instead of querying the target database
+        return await _schemaRepo.GetStoredTableSchemaAsync(req.ProjectId, req.TableName);
     }
 }

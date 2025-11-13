@@ -7,7 +7,7 @@ import { ChevronRight, ChevronLeft, Maximize2, Minimize2 } from "lucide-react"
 import CodeExportButton from "../components/spgen/CodeExportButton"
 import SPConfigPanel, { type SPConfigValues } from "../components/spgen/SPConfigPanel"
 import SPPreviewPane from "../components/spgen/SPPreviewPanel"
-// import SPTypeCard from "../components/codegen/SPTypeCard"
+// import SPTypeCard from "../components/SpBuilder/SPTypeCard"
 import { type TableSchema } from "../components/database/TableSchemaViewer"
 import TreeView from "../components/database/TreeView"
 import { Card } from "../components/ui/card"
@@ -23,7 +23,7 @@ type TreeNode = {
     type?: "database" | "table" | "column" | "index" | "stored-procedure" | "scalar-function" | "table-function" | "tables-folder" | "programmability-folder" | "stored-procedures-folder" | "functions-folder"
 }
 
-export default function AppShell() {
+export default function SpBuilder() {
     const { showToast: toast } = useToast()
     const [selectedTable, setSelectedTable] = useState<string | null>(null)
     const [spType, setSpType] = useState<SPType>("CUD")
@@ -40,7 +40,7 @@ export default function AppShell() {
 
     // API mutation for code generation
     const generateMutation = useApiMutation(
-        '/CodeGen/generate',
+        '/SpBuilder/generate',
         'POST',
         {
             onSuccess: (result: any) => {

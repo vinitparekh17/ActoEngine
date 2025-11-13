@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { useApi } from './useApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { Project } from '../types/api';
+import type { Project } from '../types/project';
 
 // ============================================
 // Types
@@ -139,6 +139,7 @@ export function useProject() {
       projectId: selectedProject.projectId,
       projectName: selectedProject.projectName,
       description: selectedProject.description,
+      databaseType: selectedProject.databaseType,
       databaseName: selectedProject.databaseName,
       serverName: selectedProject.serverName,
       createdAt: selectedProject.createdAt,
@@ -160,7 +161,7 @@ export function useProject() {
       queryKey: ['DatabaseBrowser', 'projects', projectId]
     });
     queryClient.invalidateQueries({
-      queryKey: ['CodeGen', 'history']
+      queryKey: ['SpBuilder', 'history']
     });
   }, [store, queryClient]);
 
@@ -168,12 +169,12 @@ export function useProject() {
   const clearProject = useCallback(() => {
     store.clearSelectedProject();
 
-    // Invalidate all DatabaseBrowser and CodeGen queries
+    // Invalidate all DatabaseBrowser and SpBuilder queries
     queryClient.invalidateQueries({
       queryKey: ['DatabaseBrowser']
     });
     queryClient.invalidateQueries({
-      queryKey: ['CodeGen']
+      queryKey: ['SpBuilder']
     });
   }, [store, queryClient]);
 
@@ -183,6 +184,7 @@ export function useProject() {
       projectId: p.projectId,
       projectName: p.projectName,
       description: p.description,
+      databaseType: p.databaseType,
       databaseName: p.databaseName,
       serverName: p.serverName,
       isActive: p.isActive,
@@ -211,6 +213,7 @@ export function useProject() {
     // Computed
     hasProject: !!store.selectedProjectId && !!selectedProject,
     databaseName: selectedProject?.databaseName,
+    databaseType: selectedProject?.databaseType,
   } as const;
 }
 
@@ -249,9 +252,9 @@ export function useProjectTables() {
     isLoading,
     error,
   } = useApi<string[]>(
-    `/CodeGen/schema/tables/${selectedProjectId}`,
+    `/SpBuilder/schema/tables/${selectedProjectId}`,
     {
-      queryKey: [...projectQueryKeys.tables(selectedProjectId!)], // ✅ Fixed: Spread to make mutable
+      queryKey: [...projectQueryKeys.tables(selectedProjectId!)],
       enabled: hasProject && !!selectedProjectId,
       staleTime: 2 * 60 * 1000,
       retry: 2,

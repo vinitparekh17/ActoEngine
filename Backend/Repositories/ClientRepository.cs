@@ -1,12 +1,12 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.Database;
-using ActoEngine.WebApi.Sql.Queries;
+using ActoEngine.WebApi.SqlQueries;
 
 namespace ActoEngine.WebApi.Repositories;
 
 public interface IClientRepository
 {
-    Task<Client?> GetByIdAsync(int clientId, CancellationToken cancellationToken = default);
+    Task<Client?> GetByIdAsync(int clientId, int projectId, CancellationToken cancellationToken = default);
     Task<Client?> GetByNameAsync(string clientName, int projectId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Client>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<Client>> GetAllByProjectAsync(int projectId, CancellationToken cancellationToken = default);
@@ -21,20 +21,19 @@ public class ClientRepository(
     ILogger<ClientRepository> logger)
     : BaseRepository(connectionFactory, logger), IClientRepository
 {
-    public async Task<Client?> GetByIdAsync(int clientId, CancellationToken cancellationToken = default)
+    public async Task<Client?> GetByIdAsync(int clientId, int projectId, CancellationToken cancellationToken = default)
     {
         try
         {
             var client = await QueryFirstOrDefaultAsync<Client>(
                 ClientSqlQueries.GetById,
-                new { ClientId = clientId },
+                new { ClientId = clientId, ProjectId = projectId },
                 cancellationToken);
-
             return client;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving client with ID {ClientId}", clientId);
+            _logger.LogError(ex, "Error retrieving client with ID {ClientId} for project {ProjectId}", clientId, projectId);
             throw;
         }
     }

@@ -23,6 +23,7 @@ namespace ActoEngine.WebApi.Models
     public class LoadFormConfigRequest
     {
         public required string FormId { get; set; } // Can be numeric ID or form name
+        public int UserId { get; set; }
     }
 
     public class GenerateFormRequest

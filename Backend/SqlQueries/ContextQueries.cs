@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Sql.Queries;
+namespace ActoEngine.WebApi.SqlQueries;
 
 /// <summary>
 /// SQL queries for Context operations
@@ -131,8 +131,7 @@ public static class ContextQueries
             ee.AddedAt,
             ee.AddedBy,
             u.Username,
-            u.FullName,
-            u.Email
+            u.FullName
         FROM EntityExperts ee
         JOIN Users u ON ee.UserId = u.UserID
         WHERE ee.ProjectId = @ProjectId 
@@ -148,15 +147,24 @@ public static class ContextQueries
             END;";
 
     public const string AddExpert = @"
-        IF NOT EXISTS (
-            SELECT 1 FROM EntityExperts 
-            WHERE ProjectId = @ProjectId 
-              AND EntityType = @EntityType 
-              AND EntityId = @EntityId 
-              AND UserId = @UserId
-        )
-        BEGIN
-            INSERT INTO EntityExperts (
+        MERGE EntityExperts AS target
+        USING (
+            SELECT 
+                @ProjectId AS ProjectId,
+                @EntityType AS EntityType,
+                @EntityId AS EntityId,
+                @UserId AS UserId
+        ) AS source
+        ON target.ProjectId = source.ProjectId 
+           AND target.EntityType = source.EntityType 
+           AND target.EntityId = source.EntityId
+           AND target.UserId = source.UserId
+        WHEN MATCHED THEN
+            UPDATE SET
+                ExpertiseLevel = @ExpertiseLevel,
+                Notes = @Notes
+        WHEN NOT MATCHED THEN
+            INSERT (
                 ProjectId, EntityType, EntityId, UserId, 
                 ExpertiseLevel, Notes, AddedBy, AddedAt
             )
@@ -164,17 +172,7 @@ public static class ContextQueries
                 @ProjectId, @EntityType, @EntityId, @UserId, 
                 @ExpertiseLevel, @Notes, @AddedBy, GETUTCDATE()
             );
-        END
-        ELSE
-        BEGIN
-            UPDATE EntityExperts
-            SET ExpertiseLevel = @ExpertiseLevel,
-                Notes = @Notes
-            WHERE ProjectId = @ProjectId 
-              AND EntityType = @EntityType 
-              AND EntityId = @EntityId 
-              AND UserId = @UserId;
-        END";
+        ";
 
     public const string RemoveExpert = @"
         DELETE FROM EntityExperts
@@ -211,16 +209,16 @@ public static class ContextQueries
 
     public const string RecordContextChange = @"
         INSERT INTO ContextHistory (
-            EntityType, EntityId, FieldName, 
+            EntityType, EntityId, ProjectId, FieldName,
             OldValue, NewValue, ChangedBy, ChangeReason, ChangedAt
         )
         VALUES (
-            @EntityType, @EntityId, @FieldName, 
+            @EntityType, @EntityId, @ProjectId, @FieldName,
             @OldValue, @NewValue, @ChangedBy, @ChangeReason, GETUTCDATE()
         );";
 
     public const string GetContextHistory = @"
-        SELECT 
+        SELECT
             ch.HistoryId,
             ch.EntityType,
             ch.EntityId,
@@ -234,13 +232,30 @@ public static class ContextQueries
             u.FullName
         FROM ContextHistory ch
         JOIN Users u ON ch.ChangedBy = u.UserID
-        WHERE ch.EntityType = @EntityType 
+        WHERE ch.EntityType = @EntityType
           AND ch.EntityId = @EntityId
+          AND ch.ProjectId = @ProjectId
         ORDER BY ch.ChangedAt DESC;";
 
     #endregion
 
     #region Context Statistics
+    public const string GetContextGaps = @"
+            SELECT TOP (@Limit)
+            'TABLE' as EntityType,
+            t.TableId as EntityId,
+            t.TableName as EntityName,
+            t.CriticalityLevel as Priority,
+            'Critical table without documentation' as Reason,
+            COUNT(DISTINCT fk.ForeignKeyId) as DependencyCount
+        FROM TablesMetadata t
+        LEFT JOIN EntityContext ec ON ec.EntityId = t.TableId AND ec.EntityType = 'TABLE'
+        LEFT JOIN ForeignKeyMetadata fk ON fk.ReferencedTableId = t.TableId
+        WHERE t.ProjectId = @ProjectId
+          AND ec.ContextId IS NULL
+          AND t.CriticalityLevel >= 3
+        GROUP BY t.TableId, t.TableName, t.CriticalityLevel
+        ORDER BY t.CriticalityLevel DESC, COUNT(DISTINCT fk.ForeignKeyId) DESC";
 
     public const string GetContextCoverage = @"
         WITH TableStats AS (
@@ -334,41 +349,57 @@ public static class ContextQueries
                 WHEN ec.Purpose IS NOT NULL THEN 60
                 ELSE 0
             END as CompletenessScore,
-            (
-                SELECT COUNT(*) FROM EntityExperts ee
-                WHERE ee.EntityType = ec.EntityType 
-                  AND ee.EntityId = ec.EntityId
-                  AND ee.ProjectId = @ProjectId
-            ) as ExpertCount
+            ISNULL(COUNT(ee.ExpertId), 0) as ExpertCount
         FROM EntityContext ec
+        LEFT JOIN EntityExperts ee ON 
+            ee.EntityType = ec.EntityType 
+            AND ee.EntityId = ec.EntityId
+            AND ee.ProjectId = @ProjectId
         WHERE ec.ProjectId = @ProjectId 
           AND ec.Purpose IS NOT NULL
+        GROUP BY 
+            ec.EntityType,
+            ec.EntityId,
+            ec.EntityName,
+            ec.Purpose,
+            ec.BusinessDomain,
+            ec.DataOwner,
+            ec.CriticalityLevel
         ORDER BY CompletenessScore DESC, CriticalityLevel DESC;";
 
     public const string GetCriticalUndocumented = @"
+        -- CTE for FK counts
+        WITH FKCounts AS (
+            SELECT 
+                fk.ReferencedTableId,
+                COUNT(*) as ReferenceCount
+            FROM ForeignKeyMetadata fk
+            GROUP BY fk.ReferencedTableId
+        ),
+        -- CTE for SP version counts
+        SpVersionCounts AS (
+            SELECT 
+                vh.SpId,
+                COUNT(*) as VersionCount
+            FROM SpVersionHistory vh
+            GROUP BY vh.SpId
+        )
         -- Critical tables without context
         SELECT 
             'TABLE' as EntityType,
             tm.TableId as EntityId,
             tm.TableName as EntityName,
             'High usage table without documentation' as Reason,
-            (
-                SELECT COUNT(*) 
-                FROM ForeignKeyMetadata fk 
-                WHERE fk.ReferencedTable = tm.TableName
-            ) as ReferenceCount
+            ISNULL(fk.ReferenceCount, 0) as ReferenceCount
         FROM TablesMetadata tm
         LEFT JOIN EntityContext ec ON 
             ec.ProjectId = tm.ProjectId AND
             ec.EntityType = 'TABLE' AND
             ec.EntityId = tm.TableId
+        LEFT JOIN FKCounts fk ON fk.ReferencedTableId = tm.TableId
         WHERE tm.ProjectId = @ProjectId 
           AND ec.Purpose IS NULL
-          AND (
-              SELECT COUNT(*) 
-              FROM ForeignKeyMetadata fk 
-              WHERE fk.ReferencedTable = tm.TableName
-          ) >= 3
+          AND ISNULL(fk.ReferenceCount, 0) >= 3
         
         UNION ALL
         
@@ -378,23 +409,16 @@ public static class ContextQueries
             sm.SpId as EntityId,
             sm.ProcedureName as EntityName,
             'Frequently modified SP without documentation' as Reason,
-            (
-                SELECT COUNT(*) 
-                FROM SpVersionHistory vh 
-                WHERE vh.SpId = sm.SpId
-            ) as VersionCount
+            ISNULL(sv.VersionCount, 0) as VersionCount
         FROM SpMetadata sm
         LEFT JOIN EntityContext ec ON 
             ec.ProjectId = sm.ProjectId AND
             ec.EntityType = 'SP' AND
             ec.EntityId = sm.SpId
+        LEFT JOIN SpVersionCounts sv ON sv.SpId = sm.SpId
         WHERE sm.ProjectId = @ProjectId 
           AND ec.Purpose IS NULL
-          AND (
-              SELECT COUNT(*) 
-              FROM SpVersionHistory vh 
-              WHERE vh.SpId = sm.SpId
-          ) >= 3
+          AND ISNULL(sv.VersionCount, 0) >= 3
         
         ORDER BY ReferenceCount DESC;";
 
@@ -404,27 +428,28 @@ public static class ContextQueries
 
     public const string CreateReviewRequest = @"
         INSERT INTO ContextReviewRequests (
-            EntityType, EntityId, RequestedBy, AssignedTo, 
+            ProjectId, EntityType, EntityId, RequestedBy, AssignedTo,
             Reason, Status, CreatedAt
         )
         VALUES (
-            @EntityType, @EntityId, @RequestedBy, @AssignedTo, 
+            @ProjectId, @EntityType, @EntityId, @RequestedBy, @AssignedTo,
             @Reason, 'PENDING', GETUTCDATE()
         );
-        
+
         SELECT SCOPE_IDENTITY();";
 
     public const string GetPendingReviewRequests = @"
-        SELECT 
+        SELECT
             crr.*,
             ec.EntityName,
             ec.Purpose,
             u1.Username as RequestedByName,
             u2.Username as AssignedToName
         FROM ContextReviewRequests crr
-        LEFT JOIN EntityContext ec ON 
+        LEFT JOIN EntityContext ec ON
             crr.EntityType = ec.EntityType AND
-            crr.EntityId = ec.EntityId
+            crr.EntityId = ec.EntityId AND
+            crr.ProjectId = ec.ProjectId
         JOIN Users u1 ON crr.RequestedBy = u1.UserID
         LEFT JOIN Users u2 ON crr.AssignedTo = u2.UserID
         WHERE crr.Status = 'PENDING'
@@ -445,13 +470,13 @@ public static class ContextQueries
         -- Users who recently modified this entity
         WITH RecentModifiers AS (
             SELECT DISTINCT 
-                vh.UpdatedBy as UserId,
+                vh.CreatedBy as UserId,
                 COUNT(*) as ModificationCount,
                 MAX(vh.CreatedAt) as LastModified
             FROM SpVersionHistory vh
             WHERE vh.SpId = @EntityId
               AND @EntityType = 'SP'
-            GROUP BY vh.UpdatedBy
+            GROUP BY vh.CreatedBy
             
             UNION
             
@@ -468,7 +493,6 @@ public static class ContextQueries
             u.UserID,
             u.Username,
             u.FullName,
-            u.Email,
             rm.ModificationCount,
             rm.LastModified,
             'Modified ' + CAST(rm.ModificationCount AS NVARCHAR) + ' times' as Reason

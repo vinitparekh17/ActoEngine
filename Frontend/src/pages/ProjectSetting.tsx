@@ -25,18 +25,14 @@ import type {
     UpdateProjectRequest,
     UpdateProjectResponse,
     DeleteProjectResponse,
-    SyncProjectResponse
-} from '../types/api';
+    ProjectFormData,
+    LinkProjectRequest,
+    ReSyncProjectRequest,
+    ProjectResponse,
+} from '../types/project';
 import { useConfirm } from '../hooks/useConfirm';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../components/ui/breadcrumb';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from '../components/ui/field';
-
-interface ProjectFormData {
-    projectName: string;
-    description: string;
-    databaseName: string;
-    isActive: boolean;
-}
 
 interface ConnectionFormData {
     server: string;
@@ -126,15 +122,24 @@ export default function ProjectSettings() {
         '/Project/verify',
         {
             showSuccessToast: false,
-            showErrorToast: false
+            showErrorToast: true
         }
     );
 
-    // Sync mutation
-    const syncMutation = useApiPost<SyncProjectResponse, Record<string, never>>(
-        `/Project/${projectId}/sync`,
+    // Link mutation
+    const linkMutation = useApiPost<ProjectResponse, LinkProjectRequest>(
+        '/Project/link',
         {
-            successMessage: 'Sync started successfully',
+            successMessage: 'Database linked successfully! Sync in progress...',
+            invalidateKeys: [['projects', projectId!]]
+        }
+    );
+
+    // Re-sync mutation
+    const resyncMutation = useApiPost<ProjectResponse, ReSyncProjectRequest>(
+        '/Project/resync',
+        {
+            successMessage: 'Re-sync started successfully!',
             invalidateKeys: [['projects', projectId!]]
         }
     );
@@ -185,16 +190,47 @@ export default function ProjectSettings() {
         );
     };
 
-    const handleTriggerSync = async () => {
+    const buildConnectionString = (data: ConnectionFormData) => {
+        return `Server=${data.server},${data.port};Database=${selectedProject?.databaseName};User Id=${data.username};Password=${data.password};TrustServerCertificate=True;`;
+    };
+
+    const handleLinkDatabase = async (data: ConnectionFormData) => {
+        if (!selectedProject) return;
+
         const isConfirmed = await confirm({
-            title: 'Confirm Database Sync',
-            description: 'This will sync the database schema. Continue?',
-            confirmText: 'Sync',
+            title: 'Link Database',
+            description: 'This will link your project to the database and start schema sync. Connection string will be used temporarily and not stored.',
+            confirmText: 'Link',
             cancelText: 'Cancel',
             variant: 'default'
         });
+
         if (isConfirmed) {
-            syncMutation.mutate({});
+            const connectionString = buildConnectionString(data);
+            linkMutation.mutate({
+                projectId: Number(projectId),
+                connectionString
+            });
+        }
+    };
+
+    const handleResyncDatabase = async (data: ConnectionFormData) => {
+        if (!selectedProject) return;
+
+        const isConfirmed = await confirm({
+            title: 'Re-sync Database',
+            description: 'This will re-sync your database schema. Connection string will be used temporarily and not stored.',
+            confirmText: 'Re-sync',
+            cancelText: 'Cancel',
+            variant: 'default'
+        });
+
+        if (isConfirmed) {
+            const connectionString = buildConnectionString(data);
+            resyncMutation.mutate({
+                projectId: Number(projectId),
+                connectionString
+            });
         }
     };
 
@@ -322,174 +358,266 @@ export default function ProjectSettings() {
                 </CardContent>
             </Card>
 
-            {/* Database Connection */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Database Connection</CardTitle>
-                    <CardDescription>Test or update your database connection</CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                    <form
-                        onSubmit={handleSubmitConnection(handleTestConnection)}
-                    >
-                        <FieldGroup>
-                            <FieldSet>
-                                {/* Server + Port side by side */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Field>
-                                        <FieldLabel htmlFor="server">Server Address</FieldLabel>
-                                        <Input
-                                            id="server"
-                                            {...registerConnection("server", {
-                                                required: "Server address is required",
-                                            })}
-                                            placeholder="localhost"
-                                        />
-                                        {connectionErrors.server && (
-                                            <FieldDescription className="text-destructive">
-                                                {connectionErrors.server.message}
-                                            </FieldDescription>
-                                        )}
-                                    </Field>
-
-                                    <Field>
-                                        <FieldLabel htmlFor="port">Port</FieldLabel>
-                                        <Input
-                                            id="port"
-                                            type="number"
-                                            {...registerConnection("port", {
-                                                required: "Port is required",
-                                                min: { value: 1, message: "Port must be greater than 0" },
-                                                max: { value: 65535, message: "Port must be less than 65536" },
-                                                valueAsNumber: true,
-                                            })}
-                                        />
-                                        {connectionErrors.port && (
-                                            <FieldDescription className="text-destructive">
-                                                {connectionErrors.port.message}
-                                            </FieldDescription>
-                                        )}
-                                    </Field>
+            {/* Link Database */}
+            {!selectedProject.isLinked && (
+                <Card className="border-primary/50">
+                    <CardHeader>
+                        <CardTitle>Link Database</CardTitle>
+                        <CardDescription>
+                            Connect your project to a database and sync schema metadata
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleSubmitConnection(handleLinkDatabase)}>
+                            <FieldGroup>
+                                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-md">
+                                    <p className="text-sm text-blue-900 dark:text-blue-100">
+                                        <strong>Note:</strong> Connection details are used temporarily to sync schema metadata and are not stored permanently.
+                                    </p>
                                 </div>
 
-                                {/* Username + Password side by side */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Field>
-                                        <FieldLabel htmlFor="username">Username</FieldLabel>
-                                        <Input
-                                            id="username"
-                                            {...registerConnection("username", {
-                                                required: "Username is required",
-                                            })}
-                                            placeholder="sa"
-                                        />
-                                        {connectionErrors.username && (
-                                            <FieldDescription className="text-destructive">
-                                                {connectionErrors.username.message}
-                                            </FieldDescription>
-                                        )}
-                                    </Field>
-
-                                    <Field>
-                                        <FieldLabel htmlFor="password">Password</FieldLabel>
-                                        <div className="relative">
+                                <FieldSet>
+                                    {/* Server + Port */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Field>
+                                            <FieldLabel htmlFor="link-server">Server Address</FieldLabel>
                                             <Input
-                                                id="password"
-                                                type={showPassword ? "text" : "password"}
-                                                {...registerConnection("password", {
-                                                    required: "Password is required",
+                                                id="link-server"
+                                                {...registerConnection("server", {
+                                                    required: "Server address is required",
                                                 })}
-                                                placeholder="••••••••"
-                                                className="pr-10"
+                                                placeholder="localhost"
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setConnectionValue("showPassword", !showPassword)
-                                                }
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                            >
-                                                {showPassword ? (
-                                                    <EyeOff className="w-4 h-4" />
-                                                ) : (
-                                                    <Eye className="w-4 h-4" />
-                                                )}
-                                            </button>
-                                        </div>
-                                        {connectionErrors.password && (
-                                            <FieldDescription className="text-destructive">
-                                                {connectionErrors.password.message}
-                                            </FieldDescription>
+                                        </Field>
+                                        <Field>
+                                            <FieldLabel htmlFor="link-port">Port</FieldLabel>
+                                            <Input
+                                                id="link-port"
+                                                type="number"
+                                                {...registerConnection("port", {
+                                                    required: "Port is required",
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </Field>
+                                    </div>
+
+                                    {/* Username + Password */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Field>
+                                            <FieldLabel htmlFor="link-username">Username</FieldLabel>
+                                            <Input
+                                                id="link-username"
+                                                {...registerConnection("username", {
+                                                    required: "Username is required",
+                                                })}
+                                                placeholder="sa"
+                                            />
+                                        </Field>
+                                        <Field>
+                                            <FieldLabel htmlFor="link-password">Password</FieldLabel>
+                                            <div className="relative">
+                                                <Input
+                                                    id="link-password"
+                                                    type={showPassword ? "text" : "password"}
+                                                    {...registerConnection("password", {
+                                                        required: "Password is required",
+                                                    })}
+                                                    placeholder="••••••••"
+                                                    className="pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setConnectionValue("showPassword", !showPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                                                >
+                                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                        </Field>
+                                    </div>
+                                </FieldSet>
+
+                                <div className="flex gap-3 mt-6">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleSubmitConnection(handleTestConnection)}
+                                        disabled={verifyMutation.isPending}
+                                    >
+                                        {verifyMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Testing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Database className="w-4 h-4 mr-2" />
+                                                Test Connection
+                                            </>
                                         )}
-                                    </Field>
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={linkMutation.isPending}
+                                    >
+                                        {linkMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Linking...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Database className="w-4 h-4 mr-2" />
+                                                Link Database
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
-                            </FieldSet>
+                            </FieldGroup>
+                        </form>
+                    </CardContent>
+                </Card>
+            )}
 
-                            {/* Test Connection Button */}
-                            <div className="mt-6">
-                                <Button
-                                    type="submit"
-                                    variant="outline"
-                                    disabled={verifyMutation.isPending}
-                                >
-                                    {verifyMutation.isPending ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Testing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Database className="w-4 h-4 mr-2" />
-                                            Test Connection
-                                        </>
-                                    )}
-                                </Button>
+            {/* Re-sync Database */}
+            {selectedProject.isLinked && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Re-sync Database</CardTitle>
+                        <CardDescription>
+                            Update schema metadata from your database
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="mb-4 flex items-start gap-3 p-4 border rounded-lg bg-muted/50">
+                            <Database className="w-5 h-5 text-muted-foreground mt-0.5" />
+                            <div className="flex-1 space-y-1">
+                                <p className="text-sm font-medium">Last Sync</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {selectedProject.lastSyncAttempt
+                                        ? new Date(selectedProject.lastSyncAttempt).toLocaleString()
+                                        : 'Never synced'}
+                                </p>
+                                {selectedProject.syncStatus && (
+                                    <Badge variant={selectedProject.syncStatus === 'Completed' ? 'default' : 'secondary'}>
+                                        {selectedProject.syncStatus}
+                                    </Badge>
+                                )}
                             </div>
-                        </FieldGroup>
-                    </form>
-                </CardContent>
-
-            </Card>
-
-            {/* Database Sync */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Database Synchronization</CardTitle>
-                    <CardDescription>Manually trigger schema sync</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex items-start gap-3 p-4 border rounded-lg bg-muted/50">
-                        <Database className="w-5 h-5 text-muted-foreground mt-0.5" />
-                        <div className="flex-1 space-y-1">
-                            <p className="text-sm font-medium">Last Sync</p>
-                            <p className="text-sm text-muted-foreground">
-                                {selectedProject.lastSyncAttempt
-                                    ? new Date(selectedProject.lastSyncAttempt).toLocaleString()
-                                    : 'Never synced'}
-                            </p>
                         </div>
-                    </div>
 
-                    <Button
-                        variant="outline"
-                        onClick={handleTriggerSync}
-                        disabled={syncMutation.isPending}
-                    >
-                        {syncMutation.isPending ? (
-                            <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Syncing...
-                            </>
-                        ) : (
-                            <>
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                Trigger Sync Now
-                            </>
-                        )}
-                    </Button>
-                </CardContent>
-            </Card>
+                        <form onSubmit={handleSubmitConnection(handleResyncDatabase)}>
+                            <FieldGroup>
+                                <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-md">
+                                    <p className="text-sm text-amber-900 dark:text-amber-100">
+                                        <strong>Note:</strong> Connection details are used temporarily and are not stored.
+                                    </p>
+                                </div>
+
+                                <FieldSet>
+                                    {/* Server + Port */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Field>
+                                            <FieldLabel htmlFor="resync-server">Server Address</FieldLabel>
+                                            <Input
+                                                id="resync-server"
+                                                {...registerConnection("server", {
+                                                    required: "Server address is required",
+                                                })}
+                                                placeholder="localhost"
+                                            />
+                                        </Field>
+                                        <Field>
+                                            <FieldLabel htmlFor="resync-port">Port</FieldLabel>
+                                            <Input
+                                                id="resync-port"
+                                                type="number"
+                                                {...registerConnection("port", {
+                                                    required: "Port is required",
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </Field>
+                                    </div>
+
+                                    {/* Username + Password */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Field>
+                                            <FieldLabel htmlFor="resync-username">Username</FieldLabel>
+                                            <Input
+                                                id="resync-username"
+                                                {...registerConnection("username", {
+                                                    required: "Username is required",
+                                                })}
+                                                placeholder="sa"
+                                            />
+                                        </Field>
+                                        <Field>
+                                            <FieldLabel htmlFor="resync-password">Password</FieldLabel>
+                                            <div className="relative">
+                                                <Input
+                                                    id="resync-password"
+                                                    type={showPassword ? "text" : "password"}
+                                                    {...registerConnection("password", {
+                                                        required: "Password is required",
+                                                    })}
+                                                    placeholder="••••••••"
+                                                    className="pr-10"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setConnectionValue("showPassword", !showPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                                                >
+                                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                        </Field>
+                                    </div>
+                                </FieldSet>
+
+                                <div className="flex gap-3 mt-6">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleSubmitConnection(handleTestConnection)}
+                                        disabled={verifyMutation.isPending}
+                                    >
+                                        {verifyMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Testing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Database className="w-4 h-4 mr-2" />
+                                                Test Connection
+                                            </>
+                                        )}
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={resyncMutation.isPending}
+                                    >
+                                        {resyncMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Re-syncing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <RefreshCw className="w-4 h-4 mr-2" />
+                                                Re-sync Database
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </FieldGroup>
+                        </form>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Danger Zone */}
             <Card className="border-destructive">

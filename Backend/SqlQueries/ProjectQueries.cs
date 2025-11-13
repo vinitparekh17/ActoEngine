@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Sql.Queries;
+namespace ActoEngine.WebApi.SqlQueries;
 
 public static class ProjectSqlQueries
 {
@@ -12,46 +12,38 @@ public static class ProjectSqlQueries
             IF EXISTS (SELECT 1 FROM Projects WHERE ProjectId = @ProjectId)
             BEGIN
                 UPDATE Projects
-                SET ProjectName = @ProjectName, Description = @Description, 
-                    DatabaseName = @DatabaseName, ConnectionString = @ConnectionString,
+                SET ProjectName = @ProjectName, Description = @Description,
+                    DatabaseName = @DatabaseName, IsLinked = @IsLinked,
                     UpdatedAt = GETDATE(), UpdatedBy = @UserId
                 WHERE ProjectId = @ProjectId;
                 SELECT @ProjectId;
             END
             ELSE
             BEGIN
-                INSERT INTO Projects (ProjectName, Description, DatabaseName, ConnectionString, CreatedBy)
-                VALUES (@ProjectName, @Description, @DatabaseName, @ConnectionString, @UserId);
+                INSERT INTO Projects (ProjectName, Description, DatabaseName, IsLinked, CreatedBy)
+                VALUES (@ProjectName, @Description, @DatabaseName, @IsLinked, @UserId);
                 SELECT SCOPE_IDENTITY();
             END";
 
-    // Internal queries - include ConnectionString for system operations
-    public const string GetByIdInternal = @"
-        SELECT ProjectId, ProjectName, Description, DatabaseName, ConnectionString, 
-               IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
-        FROM Projects 
-        WHERE ProjectId = @ProjectID AND IsActive = 1";
-
-    // Public queries - exclude ConnectionString for API responses
     public const string GetById = @"
-        SELECT ProjectId, ProjectName, Description, DatabaseName, 
-               IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy,
-               CASE WHEN ConnectionString IS NOT NULL AND ConnectionString != '' THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS HasConnection
-        FROM Projects 
+        SELECT ProjectId, ProjectName, Description, DatabaseName, IsLinked,
+               IsActive, SyncStatus, SyncProgress, LastSyncAttempt,
+               CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
+        FROM Projects
         WHERE ProjectId = @ProjectID AND IsActive = 1";
 
     public const string GetByName = @"
-        SELECT ProjectId, ProjectName, Description, DatabaseName, 
-               IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy,
-               CASE WHEN ConnectionString IS NOT NULL AND ConnectionString != '' THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS HasConnection
-        FROM Projects 
+        SELECT ProjectId, ProjectName, Description, DatabaseName, IsLinked,
+               IsActive, SyncStatus, SyncProgress, LastSyncAttempt,
+               CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
+        FROM Projects
         WHERE ProjectName = @ProjectName AND CreatedBy = @CreatedBy AND IsActive = 1";
 
     public const string GetAll = @"
-        SELECT ProjectId, ProjectName, Description, DatabaseName, 
-               IsActive, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy,
-               CASE WHEN ConnectionString IS NOT NULL AND ConnectionString != '' THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS HasConnection
-        FROM Projects 
+        SELECT ProjectId, ProjectName, Description, DatabaseName, IsLinked,
+               IsActive, SyncStatus, SyncProgress, LastSyncAttempt,
+               CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
+        FROM Projects
         WHERE IsActive = 1
         ORDER BY CreatedAt DESC";
 
@@ -63,19 +55,19 @@ public static class ProjectSqlQueries
     public const string Insert = @"
         IF NOT EXISTS (SELECT 1 FROM Projects WHERE ProjectName = @ProjectName AND CreatedBy = @CreatedBy)
         BEGIN
-            INSERT INTO Projects (ProjectName, Description, DatabaseName, ConnectionString, 
+            INSERT INTO Projects (ProjectName, Description, DatabaseName, IsLinked,
                                  IsActive, CreatedAt, CreatedBy)
-            VALUES (@ProjectName, @Description, @DatabaseName, @ConnectionString, 
+            VALUES (@ProjectName, @Description, @DatabaseName, @IsLinked,
                     @IsActive, @CreatedAt, @CreatedBy);
             SELECT SCOPE_IDENTITY();
         END";
 
     public const string Update = @"
-        UPDATE Projects 
+        UPDATE Projects
         SET ProjectName = @ProjectName,
             Description = @Description,
             DatabaseName = @DatabaseName,
-            ConnectionString = @ConnectionString,
+            IsLinked = @IsLinked,
             UpdatedAt = @UpdatedAt,
             UpdatedBy = @UpdatedBy
         WHERE ProjectId = @ProjectID AND CreatedBy = @CreatedBy AND IsActive = 1";

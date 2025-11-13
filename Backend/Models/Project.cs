@@ -8,11 +8,10 @@ namespace ActoEngine.WebApi.Models
         {
         }
 
-        public Project(string projectName, string databaseName, string connectionString, DateTime createdAt, int createdBy, string description = "", string databaseType = "SqlServer")
+        public Project(string projectName, string databaseName, DateTime createdAt, int createdBy, string description = "", string databaseType = "SqlServer")
         {
             ProjectName = projectName;
             DatabaseName = databaseName;
-            ConnectionString = connectionString;
             Description = description;
             DatabaseType = databaseType;
             CreatedAt = createdAt;
@@ -24,9 +23,9 @@ namespace ActoEngine.WebApi.Models
         public string ProjectName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string DatabaseName { get; set; } = string.Empty;
-        public string ConnectionString { get; set; } = string.Empty;
         public string? DatabaseType { get; set; } = "SqlServer";
         public bool IsActive { get; set; } = true;
+        public bool IsLinked { get; set; } = false;
         public DateTime CreatedAt { get; set; }
         public int CreatedBy { get; set; }
         public DateTime? UpdatedAt { get; set; }
@@ -59,25 +58,22 @@ namespace ActoEngine.WebApi.Models
 
     public class LinkProjectRequest
     {
+        [Required(ErrorMessage = "Project ID is required")]
         public int ProjectId { get; set; }
-
-        [Required(ErrorMessage = "Project name is required")]
-        [StringLength(100, MinimumLength = 3, ErrorMessage = "Project name must be between 3 and 100 characters")]
-        public string ProjectName { get; set; } = default!;
-
-        [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
-        public string Description { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "Database name is required")]
-        [StringLength(128, ErrorMessage = "Database name cannot exceed 128 characters")]
-        public string DatabaseName { get; set; } = default!;
 
         [Required(ErrorMessage = "Connection string is required")]
         [StringLength(1000, ErrorMessage = "Connection string cannot exceed 1000 characters")]
         public string ConnectionString { get; set; } = default!;
+    }
 
-        [StringLength(50, ErrorMessage = "Database type cannot exceed 50 characters")]
-        public string DatabaseType { get; set; } = "SqlServer";
+    public class ReSyncProjectRequest
+    {
+        [Required(ErrorMessage = "Project ID is required")]
+        public int ProjectId { get; set; }
+
+        [Required(ErrorMessage = "Connection string is required")]
+        [StringLength(1000, ErrorMessage = "Connection string cannot exceed 1000 characters")]
+        public string ConnectionString { get; set; } = default!;
     }
 
     public class ProjectResponse
@@ -109,10 +105,6 @@ namespace ActoEngine.WebApi.Models
         [StringLength(128, ErrorMessage = "Database name cannot exceed 128 characters")]
         public string DatabaseName { get; set; } = default!;
 
-        [Required(ErrorMessage = "Connection string is required")]
-        [StringLength(1000, ErrorMessage = "Connection string cannot exceed 1000 characters")]
-        public string ConnectionString { get; set; } = default!;
-
         [StringLength(50, ErrorMessage = "Database type cannot exceed 50 characters")]
         public string DatabaseType { get; set; } = "SqlServer";
     }
@@ -130,16 +122,5 @@ namespace ActoEngine.WebApi.Models
         public required string Description { get; set; }
         public DateTime Timestamp { get; set; }
         public required string User { get; set; }
-    }
-
-    /// <summary>
-    /// Request model for database operations that require a connection string.
-    /// Used for GetTableData endpoint when connection string is not stored.
-    /// </summary>
-    public class DatabaseOperationRequest
-    {
-        [Required(ErrorMessage = "Connection string is required")]
-        [StringLength(1000, ErrorMessage = "Connection string cannot exceed 1000 characters")]
-        public string ConnectionString { get; set; } = default!;
     }
 }

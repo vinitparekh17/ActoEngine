@@ -1,28 +1,54 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Config;
 using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Services.ContextService;
 
+public interface IContextService
+{
+    // Get Context
+    Task<ContextResponse?> GetContextAsync(int projectId, string entityType, int entityId);
+
+    // Save Context
+    Task<EntityContext> SaveContextAsync(int projectId, string entityType, int entityId, SaveContextRequest request, int userId);
+
+    // Suggestions
+    Task<ContextSuggestions> GetContextSuggestionsAsync(int projectId, string entityType, int entityId, EntityContext? existingContext = null);
+
+    // Experts Management
+    Task AddExpertAsync(int projectId, string entityType, int entityId, int userId, string expertiseLevel, string? notes, int addedBy);
+    Task RemoveExpertAsync(int projectId, string entityType, int entityId, int userId);
+    Task<List<dynamic>> GetUserExpertiseAsync(int userId, int projectId);
+
+    // Statistics & Insights
+    Task<List<ContextCoverageStats>> GetContextCoverageAsync(int projectId);
+    Task<List<dynamic>> GetStaleContextEntitiesAsync(int projectId);
+    Task<List<dynamic>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10);
+    Task<List<dynamic>> GetCriticalUndocumentedAsync(int projectId);
+    int CalculateCompletenessScore(EntityContext context);
+    Task<List<ContextGap>> GetContextGapsAsync(int projectId, int limit, CancellationToken cancellationToken = default);
+
+    // Bulk Operations
+    Task<List<BulkImportResult>> BulkImportContextAsync(int projectId, List<BulkContextEntry> entries, int userId);
+
+    // Review Management
+    Task<int> CreateReviewRequestAsync(string entityType, int entityId, int requestedBy, int? assignedTo, string? reason);
+    Task MarkContextFreshAsync(int projectId, string entityType, int entityId, int userId);
+    Task<List<ContextReviewRequest>> GetPendingReviewRequestsAsync(int? userId = null);
+}
+
 /// <summary>
 /// Service for managing entity context and documentation
 /// </summary>
-public class ContextService
+public partial class ContextService(
+    IContextRepository contextRepo,
+    ISchemaRepository schemaRepo,
+    IUserRepository userRepo)
+    : IContextService
 {
-    private readonly ContextRepository _contextRepo;
-    private readonly SchemaRepository _schemaRepo;
-    private readonly UserRepository _userRepo;
-
-    public ContextService(
-        ContextRepository contextRepo,
-        SchemaRepository schemaRepo,
-        UserRepository userRepo)
-    {
-        _contextRepo = contextRepo;
-        _schemaRepo = schemaRepo;
-        _userRepo = userRepo;
-    }
+    private readonly IContextRepository _contextRepo = contextRepo;
+    private readonly ISchemaRepository _schemaRepo = schemaRepo;
+    private readonly IUserRepository _userRepo = userRepo;
 
     #region Get Context
 
@@ -208,7 +234,7 @@ public class ContextService
     /// <summary>
     /// Infer business domain from entity name
     /// </summary>
-    private string InferBusinessDomain(string name)
+    private static string InferBusinessDomain(string name)
     {
         var lowerName = name.ToLower();
 
@@ -236,7 +262,7 @@ public class ContextService
     /// <summary>
     /// Infer sensitivity from column name
     /// </summary>
-    private string InferSensitivity(string columnName)
+    private static string InferSensitivity(string columnName)
     {
         var lowerName = columnName.ToLower();
 
@@ -265,7 +291,7 @@ public class ContextService
     /// <summary>
     /// Generate purpose suggestion
     /// </summary>
-    private string GeneratePurposeSuggestion(string entityType, string name)
+    private static string GeneratePurposeSuggestion(string entityType, string name)
     {
         return entityType switch
         {
@@ -279,13 +305,13 @@ public class ContextService
     /// <summary>
     /// Clean entity name for suggestions
     /// </summary>
-    private string CleanName(string name)
+    private static string CleanName(string name)
     {
         // Convert PascalCase to words
-        var words = Regex.Replace(name, "([A-Z])", " $1").Trim().ToLower();
+        var words = UppercaseLetterRegex().Replace(name, " $1").Trim().ToLower();
         
         // Remove common prefixes
-        words = Regex.Replace(words, @"^(tbl_|sp_|fn_|vw_)", "");
+        words = DbPrefixRegex().Replace(words, "");
         
         return words;
     }
@@ -293,7 +319,7 @@ public class ContextService
     /// <summary>
     /// Helper to check if string contains any of the keywords
     /// </summary>
-    private bool ContainsAny(string text, params string[] keywords)
+    private static bool ContainsAny(string text, params string[] keywords)
     {
         return keywords.Any(k => text.Contains(k));
     }
@@ -439,6 +465,15 @@ public class ContextService
         return maxScore > 0 ? (int)Math.Round((double)score / maxScore * 100) : 0;
     }
 
+    public async Task<List<ContextGap>> GetContextGapsAsync(int projectId, int limit, CancellationToken cancellationToken = default)
+    {
+        if(limit <= 0 || limit > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be between 1 and 100.");
+        }
+        return await _contextRepo.GetContextGapsAsync(projectId, limit, cancellationToken);
+    }
+
     #endregion
 
     #region Bulk Operations
@@ -517,6 +552,11 @@ public class ContextService
     {
         return await _contextRepo.GetPendingReviewRequestsAsync(userId);
     }
+
+    [GeneratedRegex("([A-Z])")]
+    private static partial Regex UppercaseLetterRegex();
+    [GeneratedRegex(@"^(tbl_|sp_|fn_|vw_)")]
+    private static partial Regex DbPrefixRegex();
 
     #endregion
 }

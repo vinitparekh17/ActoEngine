@@ -195,4 +195,4 @@ export const queryKeys = {
 // ============================================
 // Re-export API client for convenience
 // ============================================
-export { api, apiClient } from '@/lib/api';
+export { api } from '@/lib/api';

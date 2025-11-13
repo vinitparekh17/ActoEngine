@@ -21,7 +21,7 @@ import type {
   CreateProjectRequest,
   LinkProjectRequest,
   ProjectResponse,
-} from "../types/api"
+} from "../types/project"
 import { ScrollArea } from "../components/ui/scroll-area"
 
 interface FormData {
@@ -40,11 +40,11 @@ type Step = "connection" | "details"
 export default function ProjectSetup() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>("connection")
-  const [isLinking, setIsLinking] = useState(false)
   const [verificationResult, setVerificationResult] = useState<{
     success: boolean
     message: string
   } | null>(null)
+  const [createdProjectId, setCreatedProjectId] = useState<number | null>(null)
 
   const {
     register,
@@ -100,10 +100,16 @@ export default function ProjectSetup() {
   const createMutation = useApiPost<ProjectResponse, CreateProjectRequest>(
     "/Project",
     {
-      successMessage: "Project created successfully",
+      showSuccessToast: false, // Don't show toast yet, wait for link to complete
       invalidateKeys: [["projects"]],
       onSuccess: (data) => {
-        navigate(`/project/${data.projectId}`)
+        // Store the created project ID and trigger link mutation
+        setCreatedProjectId(data.projectId)
+        const connectionString = buildConnectionString(getValues())
+        linkMutation.mutate({
+          projectId: data.projectId,
+          connectionString: connectionString,
+        })
       },
     }
   )
@@ -111,7 +117,7 @@ export default function ProjectSetup() {
   const linkMutation = useApiPost<ProjectResponse, LinkProjectRequest>(
     "/Project/link",
     {
-      successMessage: "Project linked successfully",
+      successMessage: "Project created and linked successfully!",
       invalidateKeys: [["projects"]],
       onSuccess: (data) => {
         navigate(`/project/${data.projectId}`)
@@ -142,22 +148,14 @@ export default function ProjectSetup() {
   }
 
   const handleCreateProject = (data: FormData) => {
-    const baseData = {
+    // Create project first (without connection string)
+    // On success, it will automatically trigger link mutation with connection string
+    createMutation.mutate({
       projectName: data.projectName,
       description: data.description,
       databaseName: data.databaseName,
-      connectionString: buildConnectionString(data),
       databaseType: data.databaseType,
-    }
-
-    if (isLinking) {
-      linkMutation.mutate({
-        projectId: 0,
-        ...baseData,
-      })
-    } else {
-      createMutation.mutate(baseData)
-    }
+    })
   }
 
   const isCreating = createMutation.isPending || linkMutation.isPending
@@ -171,10 +169,10 @@ export default function ProjectSetup() {
             <Sparkles className="w-6 h-6 text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-1">
-            {isLinking ? "Link Existing Database" : "Create New Project"}
+            Create New Project
           </h1>
           <p className="text-muted-foreground">
-            Connect your project's database and get started in minutes
+            Set up your project and link your database in one seamless flow
           </p>
         </div>
 
@@ -402,25 +400,11 @@ export default function ProjectSetup() {
                 </div>
 
                 <div className="pt-4 border-t border-border">
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2 text-sm text-muted-foreground mb-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-1.5 flex-shrink-0" />
-                      <p>
-                        {isLinking
-                          ? "Link mode: Connect an existing database that already has ActoX metadata tables."
-                          : "Create mode: Set up a new project and initialize ActoX tracking tables in the database."}
-                      </p>
-                    </div>
-                    <Button
-                      variant="link"
-                      type="button"
-                      onClick={() => setIsLinking(!isLinking)}
-                      className="text-sm px-0 h-auto"
-                    >
-                      {isLinking
-                        ? "← Switch to Create New Project"
-                        : "Already have ActoX tables? Switch to Link Mode →"}
-                    </Button>
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-1.5 flex-shrink-0" />
+                    <p>
+                      Your project will be created and automatically linked to your database. Connection string is used temporarily and not stored.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -518,11 +502,11 @@ export default function ProjectSetup() {
                     {isCreating ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        {isLinking ? "Linking..." : "Creating..."}
+                        {createdProjectId ? "Linking..." : "Creating..."}
                       </>
                     ) : (
                       <>
-                        {isLinking ? "Link Database" : "Create Project"}
+                        Create & Link Project
                         <CheckCircle className="w-4 h-4 ml-2" />
                       </>
                     )}
@@ -535,7 +519,7 @@ export default function ProjectSetup() {
 
         {/* Footer Note */}
         <p className="text-center text-sm text-muted-foreground mt-6 flex-shrink-0">
-          Your connection details are encrypted and stored securely
+          Connection details are used temporarily to link your database and are not stored
         </p>
       </div>
     </div>

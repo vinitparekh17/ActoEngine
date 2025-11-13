@@ -5,7 +5,14 @@ using System.Text.Json;
 
 namespace ActoEngine.WebApi.Services.FormBuilderService
 {
-    public class FormConfigService
+    public interface IFormConfigService
+    {
+        Task<FormConfig> SaveAsync(FormConfig config, int userId);
+        Task<FormConfig?> LoadAsync(string id, int userId);
+        Task<List<FormConfigListItem>> GetByProjectIdAsync(int projectId, int userId);
+        Task<bool> DeleteAsync(string id, int userId);
+    }
+    public class FormConfigService : IFormConfigService
     {
         private readonly FormConfigRepository _repository;
         private readonly IProjectRepository _projectRepository;
@@ -27,7 +34,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         public async Task<FormConfig> SaveAsync(FormConfig config, int userId)
         {
             // Verify user has access to project
-            var project = await _projectRepository.GetByIdInternalAsync(config.ProjectId);
+            var project = await _projectRepository.GetByIdAsync(config.ProjectId);
             if (project == null || project.CreatedBy != userId)
             {
                 throw new UnauthorizedAccessException("Access denied to project");
@@ -79,7 +86,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         public async Task<List<FormConfigListItem>> GetByProjectIdAsync(int projectId, int userId)
         {
             // Verify user has access to project
-            var project = await _projectRepository.GetByIdInternalAsync(projectId);
+            var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null || project.CreatedBy != userId)
             {
                 throw new UnauthorizedAccessException("Access denied to project");

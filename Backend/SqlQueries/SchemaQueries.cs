@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Sql.Queries;
+namespace ActoEngine.WebApi.SqlQueries;
 
 public static class SchemaSyncQueries
 {
@@ -7,8 +7,8 @@ public static class SchemaSyncQueries
 
     // Progress tracking
     public const string UpdateSyncStatus = @"
-        UPDATE Projects 
-        SET SyncStatus = @Status, 
+        UPDATE Projects
+        SET SyncStatus = @Status,
             SyncProgress = @Progress,
             LastSyncAttempt = GETUTCDATE()
         WHERE ProjectId = @ProjectId";
@@ -25,17 +25,60 @@ public static class SchemaSyncQueries
         WHERE type = 'U' 
         ORDER BY name";
 
+    public const string GetTargetTablesWithSchema = @"
+        SELECT 
+            -- Use INFORMATION_SCHEMA.TABLE_CONSTRAINTS joined with KEY_COLUMN_USAGE to reliably detect PK
+            CASE WHEN EXISTS (
+                SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND tc.TABLE_NAME = kcu.TABLE_NAME
+                WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                  AND kcu.TABLE_NAME = c.TABLE_NAME
+                  AND kcu.COLUMN_NAME = c.COLUMN_NAME
+            ) THEN 1 ELSE 0 END AS IsPrimaryKey,
+            t.name AS TableName
+        FROM sys.tables t
+            -- Similarly detect foreign keys using constraint metadata rather than name patterns
+            CASE WHEN EXISTS (
+                SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND tc.TABLE_NAME = kcu.TABLE_NAME
+                WHERE tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
+                  AND kcu.TABLE_NAME = c.TABLE_NAME
+                  AND kcu.COLUMN_NAME = c.COLUMN_NAME
+            ) THEN 1 ELSE 0 END AS IsForeignKey,
+        ORDER BY s.name, t.name";
     public const string InsertTableMetadata = @"
-        IF NOT EXISTS (
-            SELECT 1 FROM TablesMetadata 
-            WHERE ProjectId = @ProjectId AND TableName = @TableName
-        )
-        INSERT INTO TablesMetadata (ProjectId, TableName, SchemaName, CreatedAt)
-        VALUES (@ProjectId, @TableName, @SchemaName, GETUTCDATE());
-        
-        SELECT TableId FROM TablesMetadata 
-        WHERE ProjectId = @ProjectId AND TableName = @TableName";
-
+        SET NOCOUNT ON;
+        -- No direct joins required; constraint membership is computed via EXISTS above
+            INSERT INTO TablesMetadata (ProjectId, TableName, SchemaName, CreatedAt)
+            OUTPUT inserted.TableId INTO @Inserted
+            SELECT @ProjectId, @TableName, @SchemaName, GETUTCDATE()
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM TablesMetadata WITH (UPDLOCK, HOLDLOCK)
+                WHERE ProjectId = @ProjectId AND TableName = @TableName
+            );
+    
+            -- If no insert happened, select the existing TableId
+            IF NOT EXISTS (SELECT 1 FROM @Inserted)
+            BEGIN
+                SELECT TableId
+                FROM TablesMetadata
+                WHERE ProjectId = @ProjectId AND TableName = @TableName;
+            END
+            ELSE
+            BEGIN
+                SELECT TableId FROM @Inserted;
+            END
+    
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            IF @@TRANCOUNT > 0
+                ROLLBACK TRANSACTION;
+    
+            THROW;
+        END CATCH;
+";
     public const string GetTableId = @"
         SELECT TableId 
         FROM TablesMetadata 
@@ -83,8 +126,9 @@ public static class SchemaSyncQueries
 
     // Stored Procedure sync - Target database queries
     public const string GetTargetStoredProcedures = @"
-        SELECT 
+        SELECT
             p.name AS ProcedureName,
+            SCHEMA_NAME(p.schema_id) AS SchemaName,
             OBJECT_DEFINITION(p.object_id) AS Definition
         FROM sys.procedures p
         WHERE p.type = 'P'
@@ -92,14 +136,14 @@ public static class SchemaSyncQueries
 
     public const string InsertSpMetadata = @"
         IF NOT EXISTS (
-            SELECT 1 FROM SpMetadata 
+            SELECT 1 FROM SpMetadata
             WHERE ProjectId = @ProjectId AND ProcedureName = @ProcedureName AND ClientId = @ClientId
         )
         INSERT INTO SpMetadata (
-            ProjectId, ClientId, ProcedureName, Definition, CreatedBy, CreatedAt
+            ProjectId, ClientId, SchemaName, ProcedureName, Definition, CreatedBy, CreatedAt
         )
         VALUES (
-            @ProjectId, @ClientId, @ProcedureName, @Definition, @UserId, GETUTCDATE()
+            @ProjectId, @ClientId, @SchemaName, @ProcedureName, @Definition, @UserId, GETUTCDATE()
         )";
 
     // Foreign key relationships - Target database queries
@@ -221,24 +265,38 @@ public static class SchemaSyncQueries
         ORDER BY s.name, t.name";
 
     // Stored metadata queries - ActoEngine database queries
+    // Lightweight queries for list endpoints (minimal bandwidth)
+    public const string GetTablesListMinimal = @"
+        SELECT TableId, TableName, SchemaName
+        FROM TablesMetadata
+        WHERE ProjectId = @ProjectId
+        ORDER BY TableName";
+
+    public const string GetStoredProceduresListMinimal = @"
+        SELECT SpId, ProcedureName, SchemaName
+        FROM SpMetadata
+        WHERE ProjectId = @ProjectId
+        ORDER BY ProcedureName";
+
+    // Full metadata queries (for detail views)
     public const string GetStoredTables = @"
-        SELECT TableId, ProjectId, TableName, SchemaName, Description, CreatedAt 
-        FROM TablesMetadata 
+        SELECT TableId, ProjectId, TableName, SchemaName, Description, CreatedAt
+        FROM TablesMetadata
         WHERE ProjectId = @ProjectId
         ORDER BY TableName";
 
     public const string GetStoredColumns = @"
-        SELECT ColumnId, TableId, ColumnName, DataType, MaxLength, 
-               Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey, 
+        SELECT ColumnId, TableId, ColumnName, DataType, MaxLength,
+               Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey,
                DefaultValue, Description, ColumnOrder
-        FROM ColumnsMetadata 
+        FROM ColumnsMetadata
         WHERE TableId = @TableId
         ORDER BY ColumnOrder";
 
     public const string GetStoredStoredProcedures = @"
-        SELECT SpId, ProjectId, ClientId, ProcedureName, Definition, 
+        SELECT SpId, ProjectId, ClientId, ProcedureName, Definition,
                Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
-        FROM SpMetadata 
+        FROM SpMetadata
         WHERE ProjectId = @ProjectId
         ORDER BY ProcedureName";
 
@@ -261,8 +319,8 @@ public static class SchemaSyncQueries
         WHERE SpId = @SpId";
 
     public const string GetStoredTableByName = @"
-        SELECT TableId, TableName 
-        FROM TablesMetadata 
+        SELECT TableId, TableName, SchemaName
+        FROM TablesMetadata
         WHERE ProjectId = @ProjectId AND TableName = @TableName";
 
     public const string GetStoredTableColumns = @"
@@ -287,20 +345,4 @@ public static class SchemaSyncQueries
         LEFT JOIN ColumnsMetadata rc ON fk.ReferencedColumnId = rc.ColumnId
         WHERE c.TableId = @TableId
         ORDER BY c.ColumnOrder";
-
-    public const string VerifyTableExists = @"
-        SELECT COUNT(*)
-        FROM sys.tables t
-        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
-        WHERE LOWER(s.name) = LOWER(@SchemaName) AND LOWER(t.name) = LOWER(@TableName)";
-
-    public const string FindTableSchema = @"
-        SELECT TOP 1 s.name
-        FROM sys.tables t
-        INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
-        WHERE LOWER(t.name) = LOWER(@TableName)
-        ORDER BY CASE WHEN s.name = 'dbo' THEN 0 ELSE 1 END, s.name";
-
-    public const string GetQuotedTableName = @"
-        SELECT QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName)";
 }
