@@ -130,9 +130,9 @@ public class SchemaRepository(
                     {
                         ProjectId = projectId,
                         ClientId = clientId,
-                        SchemaName = procedure.SchemaName,
-                        ProcedureName = procedure.ProcedureName,
-                        Definition = procedure.Definition,
+                        procedure.SchemaName,
+                        procedure.ProcedureName,
+                        procedure.Definition,
                         UserId = userId
                     },
                     transaction);
@@ -330,7 +330,7 @@ public class SchemaRepository(
         // Then get the columns with foreign key information
         var columns = await QueryAsync<dynamic>(
             SchemaSyncQueries.GetStoredTableColumns,
-            new { TableId = table.TableId });
+            new { table.TableId });
 
         var columnsList = columns.Select(c => new ColumnSchema
         {

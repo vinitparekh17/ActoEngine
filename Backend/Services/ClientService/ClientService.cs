@@ -5,13 +5,12 @@ namespace ActoEngine.WebApi.Services.ClientService
 {
     public interface IClientService
     {
-        Task<Client?> GetClientByIdAsync(int clientId, int projectId);
-        Task<Client?> GetClientByNameAsync(string clientName, int projectId);
+        Task<Client?> GetClientByIdAsync(int clientId);
+        Task<Client?> GetClientByNameAsync(string clientName);
         Task<IEnumerable<Client>> GetAllClientsAsync();
-        Task<IEnumerable<Client>> GetClientsByProjectAsync(int projectId);
         Task<ClientResponse> CreateClientAsync(CreateClientRequest request, int userId);
         Task<bool> UpdateClientAsync(int clientId, Client client, int userId);
-        Task<bool> DeleteClientAsync(int clientId, int projectId, int userId);
+        Task<bool> DeleteClientAsync(int clientId, int userId);
     }
 
     public class ClientService(IClientRepository clientRepository, ILogger<ClientService> logger) : IClientService
@@ -19,28 +18,28 @@ namespace ActoEngine.WebApi.Services.ClientService
         private readonly IClientRepository _clientRepository = clientRepository;
         private readonly ILogger<ClientService> _logger = logger;
 
-        public async Task<Client?> GetClientByIdAsync(int clientId, int projectId)
+        public async Task<Client?> GetClientByIdAsync(int clientId)
         {
             try
             {
-                return await _clientRepository.GetByIdAsync(clientId, projectId);
+                return await _clientRepository.GetByIdAsync(clientId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving client with ID {ClientId} for project {ProjectId}", clientId, projectId);
+                _logger.LogError(ex, "Error retrieving client with ID {ClientId}", clientId);
                 throw;
             }
         }
 
-        public async Task<Client?> GetClientByNameAsync(string clientName, int projectId)
+        public async Task<Client?> GetClientByNameAsync(string clientName)
         {
             try
             {
-                return await _clientRepository.GetByNameAsync(clientName, projectId);
+                return await _clientRepository.GetByNameAsync(clientName);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving client with name {ClientName} for project {ProjectId}", clientName, projectId);
+                _logger.LogError(ex, "Error retrieving client with name {ClientName}", clientName);
                 throw;
             }
         }
@@ -58,19 +57,6 @@ namespace ActoEngine.WebApi.Services.ClientService
             }
         }
 
-        public async Task<IEnumerable<Client>> GetClientsByProjectAsync(int projectId)
-        {
-            try
-            {
-                return await _clientRepository.GetAllByProjectAsync(projectId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving clients for project {ProjectId}", projectId);
-                throw;
-            }
-        }
-
         public async Task<ClientResponse> CreateClientAsync(CreateClientRequest request, int userId)
         {
             try
@@ -78,7 +64,6 @@ namespace ActoEngine.WebApi.Services.ClientService
                 var client = new Client
                 {
                     ClientName = request.ClientName,
-                    ProjectId = request.ProjectId,
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = userId
                 };
@@ -89,7 +74,6 @@ namespace ActoEngine.WebApi.Services.ClientService
                 {
                     ClientId = clientId,
                     ClientName = client.ClientName,
-                    ProjectId = client.ProjectId,
                     IsActive = client.IsActive,
                     CreatedAt = client.CreatedAt,
                     CreatedBy = client.CreatedBy
@@ -97,7 +81,7 @@ namespace ActoEngine.WebApi.Services.ClientService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating client {ClientName} for project {ProjectId}", request.ClientName, request.ProjectId);
+                _logger.LogError(ex, "Error creating client {ClientName}", request.ClientName);
                 throw;
             }
         }
@@ -118,15 +102,15 @@ namespace ActoEngine.WebApi.Services.ClientService
             }
         }
 
-        public async Task<bool> DeleteClientAsync(int clientId, int projectId, int userId)
+        public async Task<bool> DeleteClientAsync(int clientId, int userId)
         {
             try
             {
-                return await _clientRepository.DeleteAsync(clientId, projectId, userId);
+                return await _clientRepository.DeleteAsync(clientId, userId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting client {ClientId} for project {ProjectId}", clientId, projectId);
+                _logger.LogError(ex, "Error deleting client {ClientId}", clientId);
                 throw;
             }
         }

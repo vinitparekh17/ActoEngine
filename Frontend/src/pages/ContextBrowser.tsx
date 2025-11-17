@@ -101,7 +101,7 @@ export default function ContextBrowse() {
     error: proceduresError,
     refetch: refetchProcedures
   } = useApi<StoredProcedureMetadata[]>(
-    `/DatabaseBrowser/projects/${selectedProjectId}/stored-procedures-metadata`,
+    `/DatabaseBrowser/projects/${selectedProjectId}/sp-metadata`,
     {
       enabled: hasProject && !!selectedProjectId && (filterType === 'ALL' || filterType === 'SP'),
       staleTime: 30 * 1000,

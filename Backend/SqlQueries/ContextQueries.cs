@@ -45,58 +45,55 @@ public static class ContextQueries
           AND EntityType = @EntityType 
           AND EntityName = @EntityName;";
 
-    public const string UpsertContext = @"
-        MERGE EntityContext AS target
-        USING (
-            SELECT 
-                @ProjectId AS ProjectId,
-                @EntityType AS EntityType,
-                @EntityId AS EntityId,
-                @EntityName AS EntityName
-        ) AS source
-        ON target.ProjectId = source.ProjectId 
-           AND target.EntityType = source.EntityType 
-           AND target.EntityId = source.EntityId
-        WHEN MATCHED THEN
-            UPDATE SET
-                Purpose = @Purpose,
-                BusinessImpact = @BusinessImpact,
-                DataOwner = @DataOwner,
-                CriticalityLevel = @CriticalityLevel,
-                BusinessDomain = @BusinessDomain,
-                Sensitivity = @Sensitivity,
-                DataSource = @DataSource,
-                ValidationRules = @ValidationRules,
-                RetentionPolicy = @RetentionPolicy,
-                DataFlow = @DataFlow,
-                Frequency = @Frequency,
-                IsDeprecated = @IsDeprecated,
-                DeprecationReason = @DeprecationReason,
-                ReplacedBy = @ReplacedBy,
-                LastContextUpdate = GETUTCDATE(),
-                ContextUpdatedBy = @UserId,
-                IsContextStale = 0
-        WHEN NOT MATCHED THEN
-            INSERT (
-                ProjectId, EntityType, EntityId, EntityName,
-                Purpose, BusinessImpact, DataOwner, CriticalityLevel,
-                BusinessDomain, Sensitivity, DataSource, ValidationRules,
-                RetentionPolicy, DataFlow, Frequency, IsDeprecated,
-                DeprecationReason, ReplacedBy, LastContextUpdate, 
-                ContextUpdatedBy, CreatedAt, IsContextStale
-            )
-            VALUES (
-                @ProjectId, @EntityType, @EntityId, @EntityName,
-                @Purpose, @BusinessImpact, @DataOwner, @CriticalityLevel,
-                @BusinessDomain, @Sensitivity, @DataSource, @ValidationRules,
-                @RetentionPolicy, @DataFlow, @Frequency, @IsDeprecated,
-                @DeprecationReason, @ReplacedBy, GETUTCDATE(), 
-                @UserId, GETUTCDATE(), 0
-            );
-        
-        SELECT * FROM EntityContext 
-        WHERE ProjectId = @ProjectId 
-          AND EntityType = @EntityType 
+    public const string InsertContext = @"
+        INSERT INTO EntityContext (
+            ProjectId, EntityType, EntityId, EntityName,
+            Purpose, BusinessImpact, DataOwner, CriticalityLevel,
+            BusinessDomain, Sensitivity, DataSource, ValidationRules,
+            RetentionPolicy, DataFlow, Frequency, IsDeprecated,
+            DeprecationReason, ReplacedBy, LastContextUpdate,
+            ContextUpdatedBy, CreatedAt, IsContextStale
+        )
+        VALUES (
+            @ProjectId, @EntityType, @EntityId, @EntityName,
+            @Purpose, @BusinessImpact, @DataOwner, @CriticalityLevel,
+            @BusinessDomain, @Sensitivity, @DataSource, @ValidationRules,
+            @RetentionPolicy, @DataFlow, @Frequency, @IsDeprecated,
+            @DeprecationReason, @ReplacedBy, GETUTCDATE(),
+            @UserId, GETUTCDATE(), 0
+        );
+
+        SELECT * FROM EntityContext
+        WHERE ProjectId = @ProjectId
+          AND EntityType = @EntityType
+          AND EntityId = @EntityId;";
+
+    public const string UpdateContext = @"
+        UPDATE EntityContext
+        SET Purpose = @Purpose,
+            BusinessImpact = @BusinessImpact,
+            DataOwner = @DataOwner,
+            CriticalityLevel = @CriticalityLevel,
+            BusinessDomain = @BusinessDomain,
+            Sensitivity = @Sensitivity,
+            DataSource = @DataSource,
+            ValidationRules = @ValidationRules,
+            RetentionPolicy = @RetentionPolicy,
+            DataFlow = @DataFlow,
+            Frequency = @Frequency,
+            IsDeprecated = @IsDeprecated,
+            DeprecationReason = @DeprecationReason,
+            ReplacedBy = @ReplacedBy,
+            LastContextUpdate = GETUTCDATE(),
+            ContextUpdatedBy = @UserId,
+            IsContextStale = 0
+        WHERE ProjectId = @ProjectId
+          AND EntityType = @EntityType
+          AND EntityId = @EntityId;
+
+        SELECT * FROM EntityContext
+        WHERE ProjectId = @ProjectId
+          AND EntityType = @EntityType
           AND EntityId = @EntityId;";
 
     public const string MarkContextStale = @"
@@ -118,6 +115,23 @@ public static class ContextQueries
     #endregion
 
     #region Entity Experts
+
+    public const string GetExpert = @"
+        SELECT
+            ee.ExpertId,
+            ee.ProjectId,
+            ee.EntityType,
+            ee.EntityId,
+            ee.UserId,
+            ee.ExpertiseLevel,
+            ee.Notes,
+            ee.AddedAt,
+            ee.AddedBy
+        FROM EntityExperts ee
+        WHERE ee.ProjectId = @ProjectId
+          AND ee.EntityType = @EntityType
+          AND ee.EntityId = @EntityId
+          AND ee.UserId = @UserId;";
 
     public const string GetExperts = @"
         SELECT 
@@ -146,33 +160,24 @@ public static class ContextQueries
                 ELSE 5
             END;";
 
-    public const string AddExpert = @"
-        MERGE EntityExperts AS target
-        USING (
-            SELECT 
-                @ProjectId AS ProjectId,
-                @EntityType AS EntityType,
-                @EntityId AS EntityId,
-                @UserId AS UserId
-        ) AS source
-        ON target.ProjectId = source.ProjectId 
-           AND target.EntityType = source.EntityType 
-           AND target.EntityId = source.EntityId
-           AND target.UserId = source.UserId
-        WHEN MATCHED THEN
-            UPDATE SET
-                ExpertiseLevel = @ExpertiseLevel,
-                Notes = @Notes
-        WHEN NOT MATCHED THEN
-            INSERT (
-                ProjectId, EntityType, EntityId, UserId, 
-                ExpertiseLevel, Notes, AddedBy, AddedAt
-            )
-            VALUES (
-                @ProjectId, @EntityType, @EntityId, @UserId, 
-                @ExpertiseLevel, @Notes, @AddedBy, GETUTCDATE()
-            );
-        ";
+    public const string InsertExpert = @"
+        INSERT INTO EntityExperts (
+            ProjectId, EntityType, EntityId, UserId,
+            ExpertiseLevel, Notes, AddedBy, AddedAt
+        )
+        VALUES (
+            @ProjectId, @EntityType, @EntityId, @UserId,
+            @ExpertiseLevel, @Notes, @AddedBy, GETUTCDATE()
+        );";
+
+    public const string UpdateExpert = @"
+        UPDATE EntityExperts
+        SET ExpertiseLevel = @ExpertiseLevel,
+            Notes = @Notes
+        WHERE ProjectId = @ProjectId
+          AND EntityType = @EntityType
+          AND EntityId = @EntityId
+          AND UserId = @UserId;";
 
     public const string RemoveExpert = @"
         DELETE FROM EntityExperts

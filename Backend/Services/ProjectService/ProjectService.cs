@@ -23,13 +23,15 @@ namespace ActoEngine.WebApi.Services.ProjectService
     }
 
     public class ProjectService(IProjectRepository projectRepository, ISchemaRepository schemaRepository,
-    IDbConnectionFactory connectionFactory, ISchemaService schemaService, IClientRepository clientRepository, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
+    IDbConnectionFactory connectionFactory, ISchemaService schemaService, IClientRepository clientRepository,
+    IProjectClientRepository projectClientRepository, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly ISchemaRepository _schemaRepository = schemaRepository;
         private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
         private readonly ISchemaService _schemaService = schemaService;
         private readonly IClientRepository _clientRepository = clientRepository;
+        private readonly IProjectClientRepository _projectClientRepository = projectClientRepository;
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
 
@@ -177,7 +179,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
             // Step 2: Sync Columns
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing columns...", 40);
-            var columnCount = await SyncColumnsForAllTablesAsync(projectId, targetConn, actoxConn, transaction);
+            var columnCount = await SyncColumnsForAllTablesAsync(projectId, tablesWithSchema, targetConn, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {columnCount} columns", 66);
 
             // Step 3: Sync Foreign Keys
@@ -191,25 +193,55 @@ namespace ActoEngine.WebApi.Services.ProjectService
             await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 89);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
-            var defaultClient = await _clientRepository.GetByNameAsync("Default Client", projectId) ?? throw new InvalidOperationException($"Default client not found for project {projectId}");
+            // Get or create global "Default Client"
+            var defaultClient = await _clientRepository.GetByNameAsync("Default Client");
+            if (defaultClient == null)
+            {
+                _logger.LogInformation("Global 'Default Client' not found, creating it now");
+                var newClient = new Client
+                {
+                    ClientName = "Default Client",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = userId
+                };
+                var clientId = await _clientRepository.CreateAsync(newClient);
+                defaultClient = await _clientRepository.GetByIdAsync(clientId) ?? throw new InvalidOperationException("Failed to create Default Client");
+            }
+
+            // Ensure "Default Client" is linked to this project
+            var isLinked = await _projectClientRepository.IsLinkedAsync(projectId, transaction, defaultClient.ClientId);
+            if (!isLinked)
+            {
+               _logger.LogInformation("Linking 'Default Client' (ID: {ClientId}) to project {ProjectId}", defaultClient.ClientId, projectId);
+               await _projectClientRepository.LinkAsync(projectId, transaction, defaultClient.ClientId, userId);
+            }
+
             var spCount = await _schemaRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, actoxConn, transaction);
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
 
         private async Task<int> SyncColumnsForAllTablesAsync(
             int projectId,
+            IEnumerable<(string TableName, string SchemaName)> tablesWithSchema,
             SqlConnection targetConn,
             IDbConnection actoxConn,
             IDbTransaction transaction)
         {
             var totalColumns = 0;
-            var tables = await _schemaRepository.GetProjectTablesAsync(projectId, actoxConn, transaction);
 
-            foreach (var (tableId, tableName) in tables)
+            // Fetch all table IDs in a single query
+            var tables = await _schemaRepository.GetProjectTablesAsync(projectId, actoxConn, transaction);
+            var tableIdMap = tables.ToDictionary(t => t.TableName, t => t.TableId);
+
+            // Use the table names we already have
+            foreach (var (tableName, _) in tablesWithSchema)
             {
-                var columns = await ReadColumnsFromTargetAsync(targetConn, tableName);
-                var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, actoxConn, transaction);
-                totalColumns += count;
+                if (tableIdMap.TryGetValue(tableName, out var tableId))
+                {
+                    var columns = await ReadColumnsFromTargetAsync(targetConn, tableName);
+                    var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, actoxConn, transaction);
+                    totalColumns += count;
+                }
             }
 
             return totalColumns;

@@ -24,10 +24,10 @@ namespace ActoEngine.WebApi.Controllers
             return Ok(ApiResponse<ClientResponse>.Success(response, "Client created successfully"));
         }
 
-        [HttpGet("{clientId}/project/{projectId}")]
-        public async Task<IActionResult> GetClient(int clientId, int projectId)
+        [HttpGet("{clientId}")]
+        public async Task<IActionResult> GetClient(int clientId)
         {
-            var client = await _clientService.GetClientByIdAsync(clientId, projectId);
+            var client = await _clientService.GetClientByIdAsync(clientId);
             if (client == null)
                 return NotFound(ApiResponse<object>.Failure("Client not found"));
 
@@ -35,7 +35,6 @@ namespace ActoEngine.WebApi.Controllers
             {
                 ClientId = client.ClientId,
                 ClientName = client.ClientName,
-                ProjectId = client.ProjectId,
                 IsActive = client.IsActive,
                 CreatedAt = client.CreatedAt,
                 CreatedBy = client.CreatedBy,
@@ -54,26 +53,6 @@ namespace ActoEngine.WebApi.Controllers
             {
                 ClientId = client.ClientId,
                 ClientName = client.ClientName,
-                ProjectId = client.ProjectId,
-                IsActive = client.IsActive,
-                CreatedAt = client.CreatedAt,
-                CreatedBy = client.CreatedBy,
-                UpdatedAt = client.UpdatedAt,
-                UpdatedBy = client.UpdatedBy
-            });
-
-            return Ok(ApiResponse<IEnumerable<ClientResponse>>.Success(responses, "Clients retrieved successfully"));
-        }
-
-        [HttpGet("project/{projectId}")]
-        public async Task<IActionResult> GetClientsByProject(int projectId)
-        {
-            var clients = await _clientService.GetClientsByProjectAsync(projectId);
-            var responses = clients.Select(client => new ClientResponse
-            {
-                ClientId = client.ClientId,
-                ClientName = client.ClientName,
-                ProjectId = client.ProjectId,
                 IsActive = client.IsActive,
                 CreatedAt = client.CreatedAt,
                 CreatedBy = client.CreatedBy,
@@ -102,14 +81,14 @@ namespace ActoEngine.WebApi.Controllers
             return Ok(ApiResponse<object>.Success(new { }, "Client updated successfully"));
         }
 
-        [HttpDelete("{clientId}/project/{projectId}")]
-        public async Task<IActionResult> DeleteClient(int clientId, int projectId)
+        [HttpDelete("{clientId}")]
+        public async Task<IActionResult> DeleteClient(int clientId)
         {
             var userId = HttpContext.Items["UserId"] as int?;
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
-            var success = await _clientService.DeleteClientAsync(clientId, projectId, userId.Value);
+            var success = await _clientService.DeleteClientAsync(clientId, userId.Value);
             if (!success)
                 return NotFound(ApiResponse<object>.Failure("Client not found or could not be deleted"));
 

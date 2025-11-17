@@ -187,7 +187,7 @@ export default function StoredProcedureDetail() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to={`/projects/${projectId}/context/experts`}>
+            <Link to={`/project/${projectId}/context/experts`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>

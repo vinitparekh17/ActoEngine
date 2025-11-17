@@ -223,11 +223,11 @@ export default function ContextExperts() {
   const getEntityRoute = (entity: (typeof allEntities)[0]) => {
     switch (entity.entityType) {
       case "TABLE":
-        return `/projects/${selectedProjectId}/tables/${entity.entityId}`;
+        return `/project/${selectedProjectId}/tables/${entity.entityId}`;
       case "SP":
-        return `/projects/${selectedProjectId}/stored-procedures/${entity.entityId}`;
+        return `/project/${selectedProjectId}/stored-procedures/${entity.entityId}`;
       default:
-        return `/projects/${selectedProjectId}`;
+        return `/project/${selectedProjectId}`;
     }
   };
 

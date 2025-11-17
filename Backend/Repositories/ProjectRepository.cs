@@ -11,7 +11,6 @@ public class PublicProjectDto
 {
     public int ProjectId { get; set; }
     public string ProjectName { get; set; } = string.Empty;
-    public int ClientId { get; set; }
     public string Description { get; set; } = string.Empty;
     public string DatabaseName { get; set; } = string.Empty;
     public string? DatabaseType { get; set; } = "SqlServer";
@@ -71,11 +70,11 @@ public class ProjectRepository(
         {
             var parameters = new
             {
-                ProjectId = project.ProjectId,
-                ProjectName = project.ProjectName,
-                Description = project.Description,
-                DatabaseName = project.DatabaseName,
-                IsLinked = project.IsLinked,
+                project.ProjectId,
+                project.ProjectName,
+                project.Description,
+                project.DatabaseName,
+                project.IsLinked,
                 UserId = userId
             };
 
@@ -261,7 +260,7 @@ public class ProjectRepository(
             {
                 ProjectId = projectId,
                 ConnectionString = connectionString,
-                userId = userId
+                userId
             };
 
             await ExecuteAsync(
