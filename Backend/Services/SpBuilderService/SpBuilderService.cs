@@ -96,6 +96,6 @@ public class SpBuilderService(ISchemaRepository schemaRepo, IProjectRepository p
     public async Task<TableSchemaResponse> GetTableSchema(TableSchemaRequest req)
     {
         // Use cached schema metadata instead of querying the target database
-        return await _schemaRepo.GetStoredTableSchemaAsync(req.ProjectId, req.TableName);
+        return await _schemaRepo.GetStoredTableSchemaAsync(req.ProjectId, req.TableName, req.SchemaName);
     }
 }

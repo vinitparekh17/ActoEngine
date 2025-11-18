@@ -104,7 +104,7 @@ public class DatabaseSeeder(
 
     private async Task SeedDefaultDetailsAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Seeding default project and client...");
+        _logger.LogInformation("Seeding Global Default Client...");
 
         using var connection = _connectionFactory.CreateConnection();
 

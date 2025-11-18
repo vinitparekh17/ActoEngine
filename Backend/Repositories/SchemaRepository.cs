@@ -26,7 +26,7 @@ public interface ISchemaRepository
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId);
-    Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
+    Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName, string schemaName);
 
     // Methods to retrieve individual entities by ID
     Task<TableMetadataDto?> GetTableByIdAsync(int tableId);
@@ -315,16 +315,16 @@ public class SchemaRepository(
             new { SpId = spId });
     }
 
-    public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)
+    public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName, string schemaName)
     {
         // First get the table
-        var table = await QueryFirstOrDefaultAsync<(int TableId, string TableName)>(
+        var table = await QueryFirstOrDefaultAsync<(int TableId, string TableName, string SchemaName)>(
             SchemaSyncQueries.GetStoredTableByName,
-            new { ProjectId = projectId, TableName = tableName });
+            new { ProjectId = projectId, TableName = tableName, SchemaName = schemaName });
 
         if (table.TableId == 0)
         {
-            throw new InvalidOperationException($"Table '{tableName}' not found for project {projectId}");
+            throw new InvalidOperationException($"Table '{schemaName}.{tableName}' not found for project {projectId}");
         }
 
         // Then get the columns with foreign key information
@@ -334,7 +334,7 @@ public class SchemaRepository(
 
         var columnsList = columns.Select(c => new ColumnSchema
         {
-            SchemaName = "dbo",
+            SchemaName = schemaName,
             ColumnName = c.ColumnName,
             DataType = c.DataType,
             MaxLength = c.MaxLength,
@@ -360,7 +360,7 @@ public class SchemaRepository(
         return new TableSchemaResponse
         {
             TableName = tableName,
-            SchemaName = "dbo", // Default schema
+            SchemaName = schemaName,
             Columns = columnsList,
             PrimaryKeys = [.. columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName)]
         };

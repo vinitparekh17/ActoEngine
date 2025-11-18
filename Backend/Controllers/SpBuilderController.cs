@@ -1,11 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Repositories;
-using Microsoft.AspNetCore.Mvc;
 
 namespace ActoEngine.WebApi.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class SpBuilderController : ControllerBase
 {

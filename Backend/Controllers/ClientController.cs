@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ActoEngine.WebApi.Extensions;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.ClientService;
 
 namespace ActoEngine.WebApi.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class ClientController(IClientService clientService) : ControllerBase
     {
@@ -16,7 +19,7 @@ namespace ActoEngine.WebApi.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
-            var userId = HttpContext.Items["UserId"] as int?;
+            var userId = HttpContext.GetUserId();
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
@@ -69,7 +72,7 @@ namespace ActoEngine.WebApi.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
 
-            var userId = HttpContext.Items["UserId"] as int?;
+            var userId = HttpContext.GetUserId();
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
@@ -84,7 +87,7 @@ namespace ActoEngine.WebApi.Controllers
         [HttpDelete("{clientId}")]
         public async Task<IActionResult> DeleteClient(int clientId)
         {
-            var userId = HttpContext.Items["UserId"] as int?;
+            var userId = HttpContext.GetUserId();
             if (userId == null)
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
