@@ -111,6 +111,15 @@ public class SchemaRepository(
         }
     }
 
+    /// <summary>
+    /// Syncs stored procedure metadata for a project and client into the metadata store.
+    /// </summary>
+    /// <param name="projectId">Identifier of the project owning the stored procedures.</param>
+    /// <param name="clientId">Identifier of the client associated with the stored procedures.</param>
+    /// <param name="procedures">Collection of stored procedure metadata to be persisted.</param>
+    /// <param name="userId">Identifier of the user performing the synchronization.</param>
+    /// <returns>The number of stored procedures that were processed.</returns>
+    /// <exception cref="Exception">Propagates any exception encountered while executing database commands.</exception>
     public async Task<int> SyncStoredProceduresAsync(
         int projectId,
         int clientId,
@@ -315,6 +324,13 @@ public class SchemaRepository(
             new { SpId = spId });
     }
 
+    /// <summary>
+    /// Retrieves the stored schema for a table in a project, including column metadata and foreign key details when available.
+    /// </summary>
+    /// <param name="projectId">Identifier of the project that owns the stored table.</param>
+    /// <param name="tableName">Name of the stored table to retrieve.</param>
+    /// <returns>A TableSchemaResponse containing the table and schema names, a list of ColumnSchema entries (including foreign key info when present), and the list of primary key column names.</returns>
+    /// <exception cref="System.InvalidOperationException">Thrown when the specified table is not found for the given project.</exception>
     public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)
     {
         // First get the table

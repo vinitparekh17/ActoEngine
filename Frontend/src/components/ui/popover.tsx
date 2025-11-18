@@ -3,18 +3,37 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Wraps the Radix PopoverRoot and forwards all received props.
+ *
+ * @param props - Props to pass through to `PopoverPrimitive.Root`; `data-slot="popover"` is added to the rendered element.
+ * @returns A `PopoverPrimitive.Root` React element with the forwarded props and `data-slot="popover"`.
+ */
 function Popover({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
 }
 
+/**
+ * Wrapper around the Radix PopoverTrigger that attaches a tracking data attribute.
+ *
+ * @returns The Radix PopoverTrigger element with `data-slot="popover-trigger"` and any provided props
+ */
 function PopoverTrigger({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
+/**
+ * Renders the popover's content inside a portal with sensible defaults and styling.
+ *
+ * @param className - Additional CSS class names to merge with the component's default classes
+ * @param align - Alignment of the content relative to the trigger ("start", "center", or "end")
+ * @param sideOffset - Distance in pixels between the trigger and the content
+ * @returns The Popover content element (wrapped in a portal) with `data-slot="popover-content"` and merged classes
+ */
 function PopoverContent({
   className,
   align = "center",
@@ -37,6 +56,12 @@ function PopoverContent({
   )
 }
 
+/**
+ * Renders a Radix Popover.Anchor with forwarded props and a tracking data-slot.
+ *
+ * @param props - Props forwarded to Radix PopoverPrimitive.Anchor
+ * @returns The rendered Popover anchor element
+ */
 function PopoverAnchor({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {

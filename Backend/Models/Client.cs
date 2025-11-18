@@ -4,10 +4,22 @@ namespace ActoEngine.WebApi.Models
 {
     public class Client
     {
+        /// <summary>
+        /// Initializes a new Client instance with default property values.
+        /// </summary>
+        /// <remarks>
+        /// Default values: ClientName is an empty string; IsActive is true. Other properties (ClientId, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy) remain unset or at their type defaults.
+        /// </remarks>
         public Client()
         {
         }
 
+        /// <summary>
+        /// Initializes a new Client with the specified name, creator, and creation time, and marks the client as active.
+        /// </summary>
+        /// <param name="clientName">The client name.</param>
+        /// <param name="createdAt">The date and time when the client was created.</param>
+        /// <param name="createdBy">The identifier of the user who created the client.</param>
         public Client(string clientName, DateTime createdAt, int createdBy)
         {
             ClientName = clientName;

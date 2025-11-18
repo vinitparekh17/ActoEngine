@@ -102,6 +102,9 @@ public class DatabaseSeeder(
         _logger.LogWarning("IMPORTANT: Change the admin password after first login!");
     }
 
+    /// <summary>
+    /// Ensures a global default client exists in the database, inserting one with UserId = 1 if none is found.
+    /// </summary>
     private async Task SeedDefaultDetailsAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Seeding default project and client...");

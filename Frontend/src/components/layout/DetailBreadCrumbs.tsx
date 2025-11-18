@@ -6,6 +6,15 @@ interface BreadcrumbItem {
   href?: string;
 }
 
+/**
+ * Render a horizontal breadcrumb navigation from an ordered list of breadcrumb items.
+ *
+ * Each item's label is displayed; items that include `href` are rendered as links and
+ * items without `href` are rendered as plain text. Chevron icons separate consecutive items.
+ *
+ * @param items - Array of breadcrumb items where each item has a `label` and optional `href`
+ * @returns A `nav` element containing the breadcrumb trail with chevron separators
+ */
 export function DetailBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
   return (
     <nav className="flex items-center space-x-1 text-sm text-muted-foreground mb-4">

@@ -5,13 +5,55 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
 {
     public interface IProjectClientService
     {
-        Task<ProjectClientDetailResponse> LinkClientToProjectAsync(int projectId, int clientId, int userId);
-        Task<bool> UnlinkClientFromProjectAsync(int projectId, int clientId, int userId);
-        Task<IEnumerable<ProjectClientDetailResponse>> LinkMultipleClientsToProjectAsync(LinkMultipleClientsRequest request, int userId);
-        Task<IEnumerable<ProjectClientDetailResponse>> LinkClientToMultipleProjectsAsync(LinkClientToMultipleProjectsRequest request, int userId);
-        Task<IEnumerable<ProjectClientDetailResponse>> GetClientsByProjectAsync(int projectId);
-        Task<IEnumerable<ProjectClientDetailResponse>> GetProjectsByClientAsync(int clientId);
-        Task<bool> IsLinkedAsync(int projectId, int clientId);
+        /// <summary>
+/// Link a client to a project, creating the association if it does not already exist.
+/// </summary>
+/// <param name="projectId">The identifier of the project to link the client to.</param>
+/// <param name="clientId">The identifier of the client to link to the project.</param>
+/// <param name="userId">The identifier of the user performing the linking operation.</param>
+/// <returns>The ProjectClientDetailResponse describing the client-project association.</returns>
+/// <exception cref="InvalidOperationException">Thrown when the specified project or client does not exist.</exception>
+Task<ProjectClientDetailResponse> LinkClientToProjectAsync(int projectId, int clientId, int userId);
+        /// <summary>
+/// Unlinks a client from a project.
+/// </summary>
+/// <param name="projectId">The identifier of the project.</param>
+/// <param name="clientId">The identifier of the client.</param>
+/// <param name="userId">The identifier of the user performing the operation.</param>
+/// <returns>`true` if the client was unlinked from the project; `false` if the client was not linked.</returns>
+Task<bool> UnlinkClientFromProjectAsync(int projectId, int clientId, int userId);
+        /// <summary>
+/// Links the specified clients to a single project and returns details for each successful link.
+/// </summary>
+/// <param name="request">Request containing the target project ID and the collection of client IDs to link.</param>
+/// <param name="userId">Identifier of the user performing the operation.</param>
+/// <returns>A collection of ProjectClientDetailResponse entries for each client successfully linked to the project.</returns>
+Task<IEnumerable<ProjectClientDetailResponse>> LinkMultipleClientsToProjectAsync(LinkMultipleClientsRequest request, int userId);
+        /// <summary>
+/// Links the specified client to each project listed in the request.
+/// </summary>
+/// <param name="request">Request containing the target client ID and the list of project IDs to link.</param>
+/// <param name="userId">ID of the user performing the operation.</param>
+/// <returns>A collection of ProjectClientDetailResponse entries for each successful link.</returns>
+/// <exception cref="InvalidOperationException">Thrown when the specified client does not exist.</exception>
+Task<IEnumerable<ProjectClientDetailResponse>> LinkClientToMultipleProjectsAsync(LinkClientToMultipleProjectsRequest request, int userId);
+        /// <summary>
+/// Retrieves the clients that are linked to the specified project.
+/// </summary>
+/// <param name="projectId">The identifier of the project to query.</param>
+/// <returns>A collection of ProjectClientDetailResponse objects representing clients linked to the project.</returns>
+Task<IEnumerable<ProjectClientDetailResponse>> GetClientsByProjectAsync(int projectId);
+        /// <summary>
+/// Retrieves all projects linked to the specified client.
+/// </summary>
+/// <param name="clientId">The identifier of the client whose linked projects to retrieve.</param>
+/// <returns>A collection of project-client detail responses representing projects linked to the client.</returns>
+Task<IEnumerable<ProjectClientDetailResponse>> GetProjectsByClientAsync(int clientId);
+        /// <summary>
+/// Determines whether the specified client is linked to the specified project.
+/// </summary>
+/// <returns>`true` if the client is linked to the project, `false` otherwise.</returns>
+Task<bool> IsLinkedAsync(int projectId, int clientId);
     }
 
     public class ProjectClientService(
@@ -25,6 +67,14 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
         private readonly IClientRepository _clientRepository = clientRepository;
         private readonly ILogger<ProjectClientService> _logger = logger;
 
+        /// <summary>
+        /// Links a client to a project and returns the resulting association details.
+        /// </summary>
+        /// <param name="projectId">ID of the project to link the client to.</param>
+        /// <param name="clientId">ID of the client to link to the project.</param>
+        /// <param name="userId">ID of the user performing the operation.</param>
+        /// <returns>The ProjectClientDetailResponse representing the linked client and project.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the project or client does not exist, or if the linked record cannot be retrieved after linking.</exception>
         public async Task<ProjectClientDetailResponse> LinkClientToProjectAsync(int projectId, int clientId, int userId)
         {
             try
@@ -81,6 +131,13 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             }
         }
 
+        /// <summary>
+        /// Unlinks the specified client from the specified project if a link exists.
+        /// </summary>
+        /// <param name="projectId">The ID of the project.</param>
+        /// <param name="clientId">The ID of the client to unlink from the project.</param>
+        /// <param name="userId">The ID of the user performing the unlink operation.</param>
+        /// <returns>`true` if the link was removed, `false` otherwise.</returns>
         public async Task<bool> UnlinkClientFromProjectAsync(int projectId, int clientId, int userId)
         {
             try
@@ -110,6 +167,14 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             }
         }
 
+        /// <summary>
+        /// Links multiple clients to a single project.
+        /// Attempts to link each client ID from the request and returns details only for clients that were successfully linked; individual failures are logged and skipped.
+        /// </summary>
+        /// <param name="request">Request containing the target ProjectId and the collection of ClientIds to link.</param>
+        /// <param name="userId">Identifier of the user performing the linking operation.</param>
+        /// <returns>A collection of ProjectClientDetailResponse objects for clients that were successfully linked to the project.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the target project specified by the request does not exist.</exception>
         public async Task<IEnumerable<ProjectClientDetailResponse>> LinkMultipleClientsToProjectAsync(LinkMultipleClientsRequest request, int userId)
         {
             try
@@ -147,6 +212,12 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             }
         }
 
+        /// <summary>
+        — Links a single client to multiple projects specified in the request.
+        </summary>
+        /// <param name="request">Request containing the target ClientId and the list of ProjectIds to link the client to.</param>
+        /// <param name="userId">ID of the user performing the linking operation.</param>
+        /// <returns>An enumerable of ProjectClientDetailResponse objects for each project the client was successfully linked to.</returns>
         public async Task<IEnumerable<ProjectClientDetailResponse>> LinkClientToMultipleProjectsAsync(LinkClientToMultipleProjectsRequest request, int userId)
         {
             try
@@ -184,6 +255,11 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             }
         }
 
+        /// <summary>
+        /// Retrieves the clients linked to the specified project.
+        /// </summary>
+        /// <param name="projectId">The identifier of the project to retrieve linked clients for.</param>
+        /// <returns>A collection of ProjectClientDetailResponse representing clients linked to the specified project.</returns>
         public async Task<IEnumerable<ProjectClientDetailResponse>> GetClientsByProjectAsync(int projectId)
         {
             try
@@ -197,6 +273,11 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             }
         }
 
+        /// <summary>
+        /// Retrieves the projects associated with the specified client.
+        /// </summary>
+        /// <param name="clientId">The identifier of the client whose linked projects to retrieve.</param>
+        /// <returns>A collection of <see cref="ProjectClientDetailResponse"/> entries representing projects linked to the client.</returns>
         public async Task<IEnumerable<ProjectClientDetailResponse>> GetProjectsByClientAsync(int clientId)
         {
             try
@@ -210,6 +291,12 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             }
         }
 
+        /// <summary>
+        /// Determines whether the specified client is linked to the specified project.
+        /// </summary>
+        /// <param name="projectId">The identifier of the project to check.</param>
+        /// <param name="clientId">The identifier of the client to check.</param>
+        /// <returns>`true` if the client is linked to the project, `false` otherwise.</returns>
         public async Task<bool> IsLinkedAsync(int projectId, int clientId)
         {
             try
