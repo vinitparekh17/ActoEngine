@@ -62,6 +62,15 @@ interface TableMetadata {
   }>;
 }
 
+/**
+ * Render a detailed view for a database table identified by the current route's projectId and tableId.
+ *
+ * Validates that route IDs are present and numeric, fetches table metadata, and displays loading, error, and
+ * no-project states. When data is available, presents table schema (columns, foreign keys, indexes), context editor,
+ * and expert management interfaces along with navigation and summary cards.
+ *
+ * @returns A JSX element that displays the table details UI, or an appropriate alert UI for validation, loading, or error states.
+ */
 export default function TableDetail() {
   const { projectId, tableId } = useParams<{
     projectId: string;

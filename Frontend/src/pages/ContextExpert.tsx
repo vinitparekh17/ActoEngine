@@ -87,9 +87,11 @@ interface ExpertSummary {
 type FilterType = "ALL" | "TABLE" | "SP";
 
 /**
- * Context Experts Page
- * Shows entities and their assigned experts
- * Provides management interface for expert assignments
+ * Render the expert management UI for a selected project.
+ *
+ * Displays database entities and assigned experts, supports searching and filtering entities, and provides an interface to navigate to per-entity expert management pages. Handles loading, error, and no-project states and presents an experts summary with expertise distribution when available.
+ *
+ * @returns The rendered React element for the Context Experts page
  */
 export default function ContextExperts() {
   const { selectedProject, selectedProjectId, hasProject } = useProject();

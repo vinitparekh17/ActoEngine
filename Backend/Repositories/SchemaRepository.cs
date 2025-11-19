@@ -111,6 +111,15 @@ public class SchemaRepository(
         }
     }
 
+    /// <summary>
+    /// Syncs stored procedure metadata for a project and client into the metadata store.
+    /// </summary>
+    /// <param name="projectId">Identifier of the project owning the stored procedures.</param>
+    /// <param name="clientId">Identifier of the client associated with the stored procedures.</param>
+    /// <param name="procedures">Collection of stored procedure metadata to be persisted.</param>
+    /// <param name="userId">Identifier of the user performing the synchronization.</param>
+    /// <returns>The number of stored procedures that were processed.</returns>
+    /// <exception cref="Exception">Propagates any exception encountered while executing database commands.</exception>
     public async Task<int> SyncStoredProceduresAsync(
         int projectId,
         int clientId,

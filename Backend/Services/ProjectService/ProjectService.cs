@@ -160,6 +160,15 @@ namespace ActoEngine.WebApi.Services.ProjectService
             }
         }
 
+        /// <summary>
+        /// Synchronizes tables, columns, foreign keys, and stored procedures from a target database into the project's metadata and updates sync progress.
+        /// </summary>
+        /// <param name="projectId">The identifier of the project to synchronize.</param>
+        /// <param name="targetConnectionString">Connection string for the target database to read schema from.</param>
+        /// <param name="userId">Identifier of the user initiating the sync; used when creating or linking the global default client and recording ownership.</param>
+        /// <param name="actoxConn">Active connection to the Actox metadata database where schema changes are persisted.</param>
+        /// <param name="transaction">Database transaction on <paramref name="actoxConn"/> used to group persisted changes.</param>
+        /// <exception cref="InvalidOperationException">Thrown if creation of the global "Default Client" succeeds but the created client cannot be retrieved.</exception>
         private async Task SyncViaCrossServerAsync(
             int projectId,
             string targetConnectionString,
@@ -220,6 +229,15 @@ namespace ActoEngine.WebApi.Services.ProjectService
             await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
 
+        /// <summary>
+        /// Synchronizes column metadata for the provided tables that exist in the project and reports how many columns were synchronized.
+        /// </summary>
+        /// <param name="projectId">The project identifier whose table mappings are used to locate target table IDs.</param>
+        /// <param name="tablesWithSchema">A sequence of tuples containing table names and schema names from the target database; only tables that match the project's tables are processed.</param>
+        /// <param name="targetConn">An open SQL connection to the target database to read column metadata from.</param>
+        /// <param name="actoxConn">A database connection to the application's metadata store used for persisting synced columns.</param>
+        /// <param name="transaction">The transaction context to use when writing metadata to the application's metadata store.</param>
+        /// <returns>The total number of columns that were synchronized for the project.</returns>
         private async Task<int> SyncColumnsForAllTablesAsync(
             int projectId,
             IEnumerable<(string TableName, string SchemaName)> tablesWithSchema,

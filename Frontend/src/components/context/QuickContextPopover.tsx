@@ -18,6 +18,18 @@ interface QuickContextPopoverProps {
   trigger?: React.ReactNode;
 }
 
+/**
+ * Renders a popover UI that lets users add or edit a short "purpose" and a criticality level for an entity.
+ *
+ * @param entityId - The numeric ID of the entity to document
+ * @param entityType - The entity type (e.g., 'TABLE', 'COLUMN', 'SP'); used in the description text
+ * @param entityName - The human-readable name shown in the popover title
+ * @param currentPurpose - Optional initial purpose text to populate the textarea
+ * @param currentCriticalityLevel - Optional initial criticality level (1-4) to preselect in the selector
+ * @param onSuccess - Optional callback invoked after a successful save
+ * @param trigger - Optional custom trigger element; when omitted a default badge trigger is used
+ * @returns The Quick Context popover React element for adding or updating the entity's purpose and criticality
+ */
 export function QuickContextPopover({
   entityId,
   entityType,

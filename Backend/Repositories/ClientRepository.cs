@@ -6,13 +6,48 @@ namespace ActoEngine.WebApi.Repositories;
 
 public interface IClientRepository
 {
-    Task<Client?> GetByIdAsync(int clientId, CancellationToken cancellationToken = default);
-    Task<Client?> GetByNameAsync(string clientName, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Client>> GetAllAsync(CancellationToken cancellationToken = default);
-    Task<int> GetCountAsync(CancellationToken cancellationToken = default);
-    Task<int> CreateAsync(Client client, CancellationToken cancellationToken = default);
-    Task<bool> UpdateAsync(Client client, CancellationToken cancellationToken = default);
-    Task<bool> DeleteAsync(int clientId, int userId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Retrieves the client with the specified identifier.
+/// </summary>
+/// <param name="clientId">The unique identifier of the client to retrieve.</param>
+/// <returns>The client with the specified ID, or null if no matching client exists.</returns>
+Task<Client?> GetByIdAsync(int clientId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Fetches a client matching the specified name.
+/// </summary>
+/// <param name="clientName">The client name to look up.</param>
+/// <returns>The <see cref="Client"/> with the given name, or <c>null</c> if no match is found.</returns>
+Task<Client?> GetByNameAsync(string clientName, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Retrieves all clients.
+/// </summary>
+/// <returns>An IEnumerable&lt;Client&gt; containing all clients; empty if no clients exist.</returns>
+Task<IEnumerable<Client>> GetAllAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+/// Retrieves the total number of clients.
+/// </summary>
+/// <returns>The total number of clients.</returns>
+Task<int> GetCountAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+/// Creates a new client, or if a client with the same name already exists returns that client's ID; if a matching soft-deleted client exists, reactivates it and returns its ID.
+/// </summary>
+/// <param name="client">The client to create. When no existing client is found, this client is persisted as active.</param>
+/// <param name="cancellationToken">Token to cancel the operation.</param>
+/// <returns>The ID of the created, reactivated, or existing client.</returns>
+Task<int> CreateAsync(Client client, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Updates an existing client's record in the repository.
+/// </summary>
+/// <param name="client">The client entity containing the updated values; ClientId specifies which record to update and UpdatedAt/UpdatedBy should reflect the update metadata.</param>
+/// <returns>`true` if a record was updated (one or more rows affected), `false` otherwise.</returns>
+Task<bool> UpdateAsync(Client client, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Soft-deletes the specified client by marking it inactive and recording who performed the action.
+/// </summary>
+/// <param name="clientId">ID of the client to soft-delete.</param>
+/// <param name="userId">ID of the user performing the deletion.</param>
+/// <returns>`true` if the client record was updated (soft-deleted), `false` otherwise.</returns>
+Task<bool> DeleteAsync(int clientId, int userId, CancellationToken cancellationToken = default);
 }
 
 public class ClientRepository(
@@ -20,6 +55,10 @@ public class ClientRepository(
     ILogger<ClientRepository> logger)
     : BaseRepository(connectionFactory, logger), IClientRepository
 {
+    /// <summary>
+    /// Fetches the client with the specified identifier.
+    /// </summary>
+    /// <returns>The client with the specified ID, or null if not found.</returns>
     public async Task<Client?> GetByIdAsync(int clientId, CancellationToken cancellationToken = default)
     {
         try
@@ -37,6 +76,12 @@ public class ClientRepository(
         }
     }
 
+    /// <summary>
+    /// Fetches a client by its name.
+    /// </summary>
+    /// <param name="clientName">The name of the client to retrieve.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>`Client` if a client with the specified name exists, `null` otherwise.</returns>
     public async Task<Client?> GetByNameAsync(string clientName, CancellationToken cancellationToken = default)
     {
         try
@@ -55,6 +100,11 @@ public class ClientRepository(
         }
     }
 
+    /// <summary>
+    /// Retrieves all clients from the data store.
+    /// </summary>
+    /// <param name="cancellationToken">Token to cancel the database query.</param>
+    /// <returns>An enumerable of <see cref="Client"/> objects; empty if no clients exist.</returns>
     public async Task<IEnumerable<Client>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -72,6 +122,10 @@ public class ClientRepository(
         }
     }
 
+    /// <summary>
+    /// Retrieves the total number of clients.
+    /// </summary>
+    /// <returns>The total number of clients.</returns>
     public async Task<int> GetCountAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -89,6 +143,11 @@ public class ClientRepository(
         }
     }
 
+    /// <summary>
+    /// Creates a client if none exists, reactivates a soft-deleted client with the same name, or returns the ID of an existing active client.
+    /// </summary>
+    /// <param name="client">The client entity containing at minimum ClientName, CreatedAt, and CreatedBy used for insertion or reactivation.</param>
+    /// <returns>The ID of the existing, reactivated, or newly created client.</returns>
     public async Task<int> CreateAsync(Client client, CancellationToken cancellationToken = default)
     {
         try
@@ -145,6 +204,11 @@ public class ClientRepository(
         }
     }
 
+    /// <summary>
+    /// Updates an existing client record in the database.
+    /// </summary>
+    /// <param name="client">Client entity containing updated values; <see cref="Client.ClientId"/> identifies the record to update.</param>
+    /// <returns>`true` if the client record was updated (rows affected &gt; 0), `false` otherwise.</returns>
     public async Task<bool> UpdateAsync(Client client, CancellationToken cancellationToken = default)
     {
         try
@@ -181,6 +245,13 @@ public class ClientRepository(
         }
     }
 
+    /// <summary>
+    /// Marks the specified client as deleted (soft delete) and records who performed the deletion.
+    /// </summary>
+    /// <param name="clientId">The identifier of the client to soft-delete.</param>
+    /// <param name="userId">The identifier of the user performing the deletion (stored as UpdatedBy).</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>`true` if a database row was affected and the client was marked deleted, `false` otherwise.</returns>
     public async Task<bool> DeleteAsync(int clientId, int userId, CancellationToken cancellationToken = default)
     {
         try

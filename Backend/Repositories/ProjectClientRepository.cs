@@ -8,16 +8,80 @@ namespace ActoEngine.WebApi.Repositories;
 
 public interface IProjectClientRepository
 {
-    Task<ProjectClient?> GetByIdAsync(int projectClientId, CancellationToken cancellationToken = default);
-    Task<ProjectClient?> GetByProjectAndClientAsync(int projectId, int clientId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<ProjectClientDetailResponse>> GetClientsByProjectAsync(int projectId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<ProjectClientDetailResponse>> GetProjectsByClientAsync(int clientId, CancellationToken cancellationToken = default);
-    Task<IEnumerable<ProjectClient>> GetAllAsync(CancellationToken cancellationToken = default);
-    Task<bool> IsLinkedAsync(int projectId, int clientId, CancellationToken cancellationToken = default);
-    Task<bool> IsLinkedAsync(int projectId, IDbTransaction transaction, int clientId, CancellationToken cancellationToken = default);
-    Task<int> LinkAsync(int projectId, int clientId, int userId, CancellationToken cancellationToken = default);
-    Task<int> LinkAsync(int projectId, IDbTransaction transaction, int clientId, int userId, CancellationToken cancellationToken = default);
-    Task<bool> UnlinkAsync(int projectId, int clientId, int userId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Retrieves the project-client link with the specified identifier.
+/// </summary>
+/// <param name="projectClientId">The identifier of the project-client link to retrieve.</param>
+/// <param name="cancellationToken">A token to cancel the operation.</param>
+/// <returns>The project-client link with the specified ID, or null if no matching link is found.</returns>
+Task<ProjectClient?> GetByIdAsync(int projectClientId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Retrieves the project-client association for the specified project and client.
+/// </summary>
+/// <param name="projectId">The project's identifier.</param>
+/// <param name="clientId">The client's identifier.</param>
+/// <returns>The matching <see cref="ProjectClient"/> if found, otherwise <c>null</c>.</returns>
+Task<ProjectClient?> GetByProjectAndClientAsync(int projectId, int clientId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Retrieves the client details associated with the specified project.
+/// </summary>
+/// <param name="projectId">The identifier of the project whose linked clients should be returned.</param>
+/// <returns>An enumerable of ProjectClientDetailResponse for clients linked to the specified project; empty if no clients are linked.</returns>
+Task<IEnumerable<ProjectClientDetailResponse>> GetClientsByProjectAsync(int projectId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Retrieves the projects linked to the specified client.
+/// </summary>
+/// <param name="clientId">The identifier of the client whose linked projects to retrieve.</param>
+/// <returns>An enumerable of <see cref="ProjectClientDetailResponse"/> representing the projects associated with the client; an empty collection if none are found.</returns>
+Task<IEnumerable<ProjectClientDetailResponse>> GetProjectsByClientAsync(int clientId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Retrieves all project-client links.
+/// </summary>
+/// <returns>An enumerable of ProjectClient representing every project-client link.</returns>
+Task<IEnumerable<ProjectClient>> GetAllAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+/// Determines whether the specified project and client are linked.
+/// </summary>
+/// <param name="projectId">The project's identifier.</param>
+/// <param name="clientId">The client's identifier.</param>
+/// <param name="cancellationToken">Token to cancel the operation.</param>
+/// <returns>`true` if a link exists between the project and client, `false` otherwise.</returns>
+Task<bool> IsLinkedAsync(int projectId, int clientId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Checks whether a link exists between the specified project and client using the supplied database transaction.
+/// </summary>
+/// <param name="projectId">The project identifier.</param>
+/// <param name="transaction">The active database transaction to use for the check; must have an associated connection.</param>
+/// <param name="clientId">The client identifier.</param>
+/// <param name="cancellationToken">A token to cancel the operation.</param>
+/// <returns>`true` if a link exists for the given project and client within the transaction, `false` otherwise.</returns>
+Task<bool> IsLinkedAsync(int projectId, IDbTransaction transaction, int clientId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Creates an association between the specified project and client or reactivates a previously soft-deleted association.
+/// </summary>
+/// <param name="projectId">The ID of the project to link.</param>
+/// <param name="clientId">The ID of the client to link.</param>
+/// <param name="userId">The ID of the user performing the operation (set as creator/updater).</param>
+/// <returns>The ProjectClientId of the existing or newly created link.</returns>
+Task<int> LinkAsync(int projectId, int clientId, int userId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Create a link between a project and a client, or reactivate a previously soft-deleted link, using the provided database transaction.
+/// </summary>
+/// <param name="projectId">Identifier of the project to link.</param>
+/// <param name="transaction">Active database transaction whose connection will be used for the operation.</param>
+/// <param name="clientId">Identifier of the client to link.</param>
+/// <param name="userId">Identifier of the user performing the operation (used for CreatedBy/UpdatedBy).</param>
+/// <param name="cancellationToken">Token to observe while waiting for the operation to complete.</param>
+/// <returns>The ProjectClient record ID of the existing, reactivated, or newly created link.</returns>
+Task<int> LinkAsync(int projectId, IDbTransaction transaction, int clientId, int userId, CancellationToken cancellationToken = default);
+    /// <summary>
+/// Softly unlinks a client from a project by marking the project-client association inactive.
+/// </summary>
+/// <param name="projectId">The ID of the project.</param>
+/// <param name="clientId">The ID of the client.</param>
+/// <param name="userId">The ID of the user performing the unlink operation.</param>
+/// <returns>`true` if the association was marked inactive (rows were affected), `false` otherwise.</returns>
+Task<bool> UnlinkAsync(int projectId, int clientId, int userId, CancellationToken cancellationToken = default);
 }
 
 public class ProjectClientRepository(
@@ -25,6 +89,11 @@ public class ProjectClientRepository(
     ILogger<ProjectClientRepository> logger)
     : BaseRepository(connectionFactory, logger), IProjectClientRepository
 {
+    /// <summary>
+    /// Fetches the project-client link identified by its ID.
+    /// </summary>
+    /// <param name="projectClientId">The identifier of the project-client link.</param>
+    /// <returns>The matching <see cref="ProjectClient"/>, or null if no link exists for the given ID.</returns>
     public async Task<ProjectClient?> GetByIdAsync(int projectClientId, CancellationToken cancellationToken = default)
     {
         try
@@ -42,6 +111,10 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Retrieves the project-client link for the specified project and client.
+    /// </summary>
+    /// <returns>The matching <see cref="ProjectClient"/> if found, `null` otherwise.</returns>
     public async Task<ProjectClient?> GetByProjectAndClientAsync(int projectId, int clientId, CancellationToken cancellationToken = default)
     {
         try
@@ -59,6 +132,11 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Retrieves detailed client associations for the specified project.
+    /// </summary>
+    /// <param name="projectId">The identifier of the project whose linked clients should be returned.</param>
+    /// <returns>A collection of ProjectClientDetailResponse representing clients linked to the given project.</returns>
     public async Task<IEnumerable<ProjectClientDetailResponse>> GetClientsByProjectAsync(int projectId, CancellationToken cancellationToken = default)
     {
         try
@@ -76,6 +154,11 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Retrieves project details associated with the specified client.
+    /// </summary>
+    /// <param name="clientId">The identifier of the client whose projects to retrieve.</param>
+    /// <returns>An enumerable of ProjectClientDetailResponse containing project details linked to the client.</returns>
     public async Task<IEnumerable<ProjectClientDetailResponse>> GetProjectsByClientAsync(int clientId, CancellationToken cancellationToken = default)
     {
         try
@@ -93,6 +176,10 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Retrieve all project-client link records.
+    /// </summary>
+    /// <returns>A collection of all <see cref="ProjectClient"/> records.</returns>
     public async Task<IEnumerable<ProjectClient>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -110,6 +197,10 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Checks whether a link exists between the specified project and client.
+    /// </summary>
+    /// <returns>`true` if a link exists between the project and client, `false` otherwise.</returns>
     public async Task<bool> IsLinkedAsync(int projectId, int clientId, CancellationToken cancellationToken = default)
     {
         try
@@ -127,6 +218,15 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Checks whether the specified project is linked to the specified client using the provided database transaction.
+    /// </summary>
+    /// <param name="projectId">The project identifier to check.</param>
+    /// <param name="transaction">The active database transaction to use; must have a non-null Connection.</param>
+    /// <param name="clientId">The client identifier to check.</param>
+    /// <param name="cancellationToken">Cancellation token (not used by the implementation but accepted for API consistency).</param>
+    /// <returns>`true` if a link exists between the project and client, `false` otherwise.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the provided transaction has no associated connection.</exception>
     public async Task<bool> IsLinkedAsync(int projectId, IDbTransaction transaction, int clientId, CancellationToken cancellationToken = default)
     {
         try
@@ -145,6 +245,10 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Creates a link between the specified project and client or reactivates a previously soft-deleted link, returning the link's identifier.
+    /// </summary>
+    /// <returns>The ProjectClientId of the created or reactivated link.</returns>
     public async Task<int> LinkAsync(int projectId, int clientId, int userId, CancellationToken cancellationToken = default)
     {
         try
@@ -205,6 +309,16 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Create a link between a project and a client within the provided transaction, or reactivate an existing soft-deleted link; if an active link already exists, returns its id.
+    /// </summary>
+    /// <param name="projectId">The project's identifier.</param>
+    /// <param name="transaction">The database transaction to use; must have an open <see cref="IDbTransaction.Connection"/>.</param>
+    /// <param name="clientId">The client's identifier.</param>
+    /// <param name="userId">The user id to record as the creator or updater of the link.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation (optional).</param>
+    /// <returns>The `ProjectClientId` of the existing, reactivated, or newly created link.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if the provided transaction has no associated connection.</exception>
     public async Task<int> LinkAsync(int projectId, IDbTransaction transaction, int clientId, int userId, CancellationToken cancellationToken = default)
     {
         try
@@ -267,6 +381,14 @@ public class ProjectClientRepository(
         }
     }
 
+    /// <summary>
+    /// Performs a soft delete to unlink a client from a project by marking the project-client link inactive and recording the updater and timestamp.
+    /// </summary>
+    /// <param name="projectId">The ID of the project.</param>
+    /// <param name="clientId">The ID of the client to unlink from the project.</param>
+    /// <param name="userId">The ID of the user performing the unlink operation.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>`true` if a row was updated (the link was marked inactive), `false` otherwise.</returns>
     public async Task<bool> UnlinkAsync(int projectId, int clientId, int userId, CancellationToken cancellationToken = default)
     {
         try
