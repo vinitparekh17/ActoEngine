@@ -62,8 +62,20 @@ interface TableMetadata {
   }>;
 }
 
+/**
+ * Render a detailed view for a database table identified by the current route's projectId and tableId.
+ *
+ * Validates that route IDs are present and numeric, fetches table metadata, and displays loading, error, and
+ * no-project states. When data is available, presents table schema (columns, foreign keys, indexes), context editor,
+ * and expert management interfaces along with navigation and summary cards.
+ *
+ * @returns A JSX element that displays the table details UI, or an appropriate alert UI for validation, loading, or error states.
+ */
 export default function TableDetail() {
-  const { projectId, tableId } = useParams<{ projectId: string; tableId: string }>();
+  const { projectId, tableId } = useParams<{
+    projectId: string;
+    tableId: string;
+  }>();
   const { selectedProject, hasProject } = useProject();
   const navigate = useNavigate();
 
@@ -123,10 +135,16 @@ export default function TableDetail() {
     return (
       <div className="inline-flex items-center gap-1">
         {upper.some((s) => s.includes("PK")) && (
-          <Key className="h-3.5 w-3.5 text-yellow-600" aria-label="Primary key" />
+          <Key
+            className="h-3.5 w-3.5 text-yellow-600"
+            aria-label="Primary key"
+          />
         )}
         {upper.some((s) => s.includes("FK")) && (
-          <LinkIcon className="h-3.5 w-3.5 text-blue-600" aria-label="Foreign key" />
+          <LinkIcon
+            className="h-3.5 w-3.5 text-blue-600"
+            aria-label="Foreign key"
+          />
         )}
         {upper.some((s) => s.includes("IDENTITY")) && (
           <Zap className="h-3.5 w-3.5 text-purple-600" aria-label="Identity" />
@@ -199,7 +217,7 @@ export default function TableDetail() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to={`/projects/${projectId}/context/experts`}>
+            <Link to={`/project/${projectId}/context/experts`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -211,7 +229,9 @@ export default function TableDetail() {
             </div>
             <p className="text-muted-foreground mt-1">
               Table in{" "}
-              <span className="font-medium">{selectedProject?.projectName}</span>
+              <span className="font-medium">
+                {selectedProject?.projectName}
+              </span>
             </p>
           </div>
         </div>
@@ -230,10 +250,14 @@ export default function TableDetail() {
         {tableData.primaryKeys && tableData.primaryKeys.length > 0 && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Primary Keys</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Primary Keys
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{tableData.primaryKeys.length}</div>
+              <div className="text-2xl font-bold">
+                {tableData.primaryKeys.length}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -274,7 +298,9 @@ export default function TableDetail() {
                             <span>{col.name}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{col.dataType}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {col.dataType}
+                        </TableCell>
                         <TableCell>
                           {isNullable(col.constraints || []) ? (
                             <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -327,7 +353,9 @@ export default function TableDetail() {
             <Card>
               <CardHeader>
                 <CardTitle>Indexes</CardTitle>
-                <CardDescription>Database indexes for performance</CardDescription>
+                <CardDescription>
+                  Database indexes for performance
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">

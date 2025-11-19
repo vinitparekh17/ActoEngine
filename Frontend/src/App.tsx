@@ -66,7 +66,7 @@ function AppRoutes() {
         />
         <Route path="project/new" element={<ProjectSetup />} />
         {/* General routes */}
-        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="dashboard" element={<ContextDashboard />} />
         <Route path="clients" element={<ClientManagementPage />} />
         {/* Builder routes */}
         <Route path="form-builder" element={<FormBuilderPage />} />

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Services.FormBuilderService;
 using ActoEngine.WebApi.Models;
@@ -6,6 +7,7 @@ using ActoEngine.WebApi.Extensions;
 namespace ActoEngine.WebApi.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class FormBuilderController(
         IFormBuilderService formBuilderService,

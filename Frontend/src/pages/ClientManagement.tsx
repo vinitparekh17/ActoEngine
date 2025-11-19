@@ -41,8 +41,8 @@ export default function ClientManagementPage() {
         }
     );
 
-    const deleteClientMutation = useApiMutation<void, { clientId: number; projectId: number }>(
-        '/Client/:clientId/project/:projectId',
+    const deleteClientMutation = useApiMutation<void, { clientId: number }>(
+        '/Client/:clientId',
         'DELETE',
         {
             successMessage: 'Client deleted successfully',
@@ -83,7 +83,7 @@ export default function ClientManagementPage() {
 
         if (confirmed) {
             deleteClientMutation.mutate(
-                { clientId: client.clientId, projectId: client.projectId }
+                { clientId: client.clientId }
             );
         }
     };

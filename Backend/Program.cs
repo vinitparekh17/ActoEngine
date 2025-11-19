@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Data.SqlClient;
 using ActoEngine.WebApi.Services.Schema;
 using ActoEngine.WebApi.Services.ClientService;
+using ActoEngine.WebApi.Services.ProjectClientService;
 using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Services.ContextService;
 using DotNetEnv;
@@ -143,6 +144,7 @@ builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<ISchemaRepository, SchemaRepository>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
+builder.Services.AddScoped<IProjectClientRepository, ProjectClientRepository>();
 builder.Services.AddScoped<IContextRepository, ContextRepository>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -151,6 +153,7 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ISpBuilderService, SpBuilderService>();
 builder.Services.AddScoped<IFormBuilderService, FormBuilderService>();
 builder.Services.AddScoped<IClientService, ClientService>();
+builder.Services.AddScoped<IProjectClientService, ProjectClientService>();
 builder.Services.AddScoped<IContextService, ContextService>();
 
 // Form Builder Services

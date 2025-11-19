@@ -26,63 +26,29 @@ public static class SchemaSyncQueries
         ORDER BY name";
 
     public const string GetTargetTablesWithSchema = @"
-        SELECT 
-            -- Use INFORMATION_SCHEMA.TABLE_CONSTRAINTS joined with KEY_COLUMN_USAGE to reliably detect PK
-            CASE WHEN EXISTS (
-                SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND tc.TABLE_NAME = kcu.TABLE_NAME
-                WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-                  AND kcu.TABLE_NAME = c.TABLE_NAME
-                  AND kcu.COLUMN_NAME = c.COLUMN_NAME
-            ) THEN 1 ELSE 0 END AS IsPrimaryKey,
-            t.name AS TableName
+        SELECT DISTINCT
+            t.name AS TableName,
+            s.name AS SchemaName
         FROM sys.tables t
-            -- Similarly detect foreign keys using constraint metadata rather than name patterns
-            CASE WHEN EXISTS (
-                SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-                JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND tc.TABLE_NAME = kcu.TABLE_NAME
-                WHERE tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
-                  AND kcu.TABLE_NAME = c.TABLE_NAME
-                  AND kcu.COLUMN_NAME = c.COLUMN_NAME
-            ) THEN 1 ELSE 0 END AS IsForeignKey,
-        ORDER BY s.name, t.name";
+        JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE t.type = 'U'
+        ORDER BY s.name, t.name;";
     public const string InsertTableMetadata = @"
         SET NOCOUNT ON;
-        -- No direct joins required; constraint membership is computed via EXISTS above
-            INSERT INTO TablesMetadata (ProjectId, TableName, SchemaName, CreatedAt)
-            OUTPUT inserted.TableId INTO @Inserted
-            SELECT @ProjectId, @TableName, @SchemaName, GETUTCDATE()
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM TablesMetadata WITH (UPDLOCK, HOLDLOCK)
-                WHERE ProjectId = @ProjectId AND TableName = @TableName
-            );
-    
-            -- If no insert happened, select the existing TableId
-            IF NOT EXISTS (SELECT 1 FROM @Inserted)
-            BEGIN
-                SELECT TableId
-                FROM TablesMetadata
-                WHERE ProjectId = @ProjectId AND TableName = @TableName;
-            END
-            ELSE
-            BEGIN
-                SELECT TableId FROM @Inserted;
-            END
-    
-            COMMIT TRANSACTION;
-        END TRY
-        BEGIN CATCH
-            IF @@TRANCOUNT > 0
-                ROLLBACK TRANSACTION;
-    
-            THROW;
-        END CATCH;
-";
+
+        INSERT INTO TablesMetadata (ProjectId, TableName, SchemaName, CreatedAt)
+        SELECT @ProjectId, @TableName, @SchemaName, GETUTCDATE()
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM TablesMetadata WITH (UPDLOCK, HOLDLOCK)
+            WHERE ProjectId = @ProjectId
+              AND TableName = @TableName
+              AND SchemaName = @SchemaName
+        );";
     public const string GetTableId = @"
-        SELECT TableId 
-        FROM TablesMetadata 
-        WHERE ProjectId = @ProjectId AND TableName = @TableName";
+        SELECT TableId
+        FROM TablesMetadata
+        WHERE ProjectId = @ProjectId AND TableName = @TableName AND SchemaName = @SchemaName";
 
     public const string GetTableMetaByProjectId = @"
         SELECT TableId, TableName 
@@ -273,7 +239,7 @@ public static class SchemaSyncQueries
         ORDER BY TableName";
 
     public const string GetStoredProceduresListMinimal = @"
-        SELECT SpId, ProcedureName, SchemaName
+        SELECT SpId, SchemaName, ProcedureName
         FROM SpMetadata
         WHERE ProjectId = @ProjectId
         ORDER BY ProcedureName";
@@ -321,7 +287,7 @@ public static class SchemaSyncQueries
     public const string GetStoredTableByName = @"
         SELECT TableId, TableName, SchemaName
         FROM TablesMetadata
-        WHERE ProjectId = @ProjectId AND TableName = @TableName";
+        WHERE ProjectId = @ProjectId AND TableName = @TableName AND SchemaName = @SchemaName";
 
     public const string GetStoredTableColumns = @"
         SELECT 

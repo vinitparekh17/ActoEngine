@@ -65,8 +65,12 @@ interface UnifiedEntity {
 }
 
 /**
- * Context Browse Page - Browse all database entities and their documentation
- * Uses real API endpoints from DatabaseBrowserController
+ * Render the Browse Context page for inspecting database entities and their documentation.
+ *
+ * Displays tables, stored procedures, and a hierarchical database tree for the selected project.
+ * Provides list and tree views, client-side search, type filters, sorting (name/schema/modified), and a refresh action.
+ *
+ * @returns The JSX element for the Browse Context page.
  */
 export default function ContextBrowse() {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
@@ -101,7 +105,7 @@ export default function ContextBrowse() {
     error: proceduresError,
     refetch: refetchProcedures
   } = useApi<StoredProcedureMetadata[]>(
-    `/DatabaseBrowser/projects/${selectedProjectId}/stored-procedures-metadata`,
+    `/DatabaseBrowser/projects/${selectedProjectId}/sp-metadata`,
     {
       enabled: hasProject && !!selectedProjectId && (filterType === 'ALL' || filterType === 'SP'),
       staleTime: 30 * 1000,

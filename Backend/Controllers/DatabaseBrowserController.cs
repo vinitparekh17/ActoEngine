@@ -96,17 +96,18 @@ public class DatabaseBrowserController(
     /// </summary>
     /// <param name="projectId">The project ID</param>
     /// <param name="tableName">The table name</param>
+    /// <param name="schemaName">The schema name (default: dbo)</param>
     /// <returns>Table schema with columns and metadata</returns>
     [HttpGet("projects/{projectId}/tables/{tableName}/schema")]
     [ProducesResponseType(typeof(ApiResponse<TableSchemaResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<TableSchemaResponse>> GetTableSchema(int projectId, string tableName)
+    public async Task<ActionResult<TableSchemaResponse>> GetTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
     {
         try
         {
-            _logger.LogInformation("Getting schema for table {TableName} in project {ProjectId}", tableName, projectId);
+            _logger.LogInformation("Getting schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
 
             if (string.IsNullOrWhiteSpace(tableName))
             {
@@ -124,7 +125,7 @@ public class DatabaseBrowserController(
                 return BadRequest("Project is not linked to a database. Please link the project first.");
             }
 
-            var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName);
+            var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName, schemaName);
             return Ok(ApiResponse<TableSchemaResponse>.Success(schema));
         }
         catch (Exception ex)
@@ -277,17 +278,18 @@ public class DatabaseBrowserController(
     /// </summary>
     /// <param name="projectId">The project ID</param>
     /// <param name="tableName">The table name</param>
+    /// <param name="schemaName">The schema name (default: dbo)</param>
     /// <returns>Stored table schema with columns and metadata</returns>
     [HttpGet("projects/{projectId}/stored-tables/{tableName}/schema")]
     [ProducesResponseType(typeof(ApiResponse<TableSchemaResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<TableSchemaResponse>> GetStoredTableSchema(int projectId, string tableName)
+    public async Task<ActionResult<TableSchemaResponse>> GetStoredTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
     {
         try
         {
-            _logger.LogInformation("Getting stored table schema for table {TableName} in project {ProjectId}", tableName, projectId);
+            _logger.LogInformation("Getting stored table schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
 
             if (string.IsNullOrWhiteSpace(tableName))
             {
@@ -305,7 +307,7 @@ public class DatabaseBrowserController(
                 return BadRequest(ApiResponse<TableSchemaResponse>.Failure("Project is not linked to a database. Please link the project first."));
             }
 
-            var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName);
+            var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName, schemaName);
             return Ok(ApiResponse<TableSchemaResponse>.Success(schema));
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
@@ -324,7 +326,7 @@ public class DatabaseBrowserController(
     /// </summary>
     /// <param name="projectId">The project ID</param>
     /// <param name="tableName">The table name</param>
-    /// <param name="limit">Maximum number of rows to return (default: 100)</param>
+    /// <param name="schemaName">The schema name (default: dbo)</param>
     /// <returns>List of rows from the table</returns>
     [HttpGet("projects/{projectId}/tables/{tableName}/columns")]
     [ProducesResponseType(typeof(ApiResponse<List<string>>), StatusCodes.Status200OK)]
@@ -333,7 +335,8 @@ public class DatabaseBrowserController(
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<List<string>>> GetTableColumns(
         int projectId,
-        string tableName)
+        string tableName,
+        [FromQuery] string schemaName = "dbo")
     {
         try
         {
@@ -350,7 +353,7 @@ public class DatabaseBrowserController(
             }
 
             // Get actual data from the database using the connection string
-            var data = await _schemaService.GetStoredTableSchemaAsync(project.ProjectId, tableName);
+            var data = await _schemaService.GetStoredTableSchemaAsync(project.ProjectId, tableName, schemaName);
             var columnList = data.Columns.Select(c => c.ColumnName).ToList();
             return Ok(ApiResponse<List<string>>.Success(columnList));
         }

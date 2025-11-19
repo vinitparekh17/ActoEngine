@@ -126,6 +126,7 @@ CREATE TABLE SpMetadata (
     SpId INT PRIMARY KEY IDENTITY(1,1),
     ProjectId INT NOT NULL,
     ClientId INT NOT NULL DEFAULT 0,
+    SchemaName NVARCHAR(100) NOT NULL DEFAULT 'dbo',
     ProcedureName NVARCHAR(100) NOT NULL,
     Definition NVARCHAR(MAX) NOT NULL,
     Description NVARCHAR(255),

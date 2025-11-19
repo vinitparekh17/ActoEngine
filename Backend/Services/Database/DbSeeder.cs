@@ -102,32 +102,30 @@ public class DatabaseSeeder(
         _logger.LogWarning("IMPORTANT: Change the admin password after first login!");
     }
 
+    /// <summary>
+    /// Ensures a global default client exists in the database, inserting one with UserId = 1 if none is found.
+    /// </summary>
     private async Task SeedDefaultDetailsAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Seeding default client...");
+        _logger.LogInformation("Seeding Global Default Client...");
 
         using var connection = _connectionFactory.CreateConnection();
-        var projectId = await connection.QuerySingleOrDefaultAsync<int>(SeedDataQueries.InsertDefaultProject, new { UserId = 1 });
-        if (projectId > 0)
+
+        // 2. Create or get global default client (not tied to a specific project)
+        var existingClientId = await connection.QuerySingleOrDefaultAsync<int?>(SeedDataQueries.GetDefaultClientId);
+
+        if (existingClientId.HasValue)
         {
-            _logger.LogInformation("Default project ensured with ProjectId: {ProjectId}", projectId);
+            _logger.LogInformation("Global default client already exists with ClientId: {ClientId}", existingClientId.Value);
         }
         else
         {
-            _logger.LogWarning("Failed to ensure default project, possibly already exists.");
-        }
+            var admin = await _userRepository.GetByUserNameAsync(_seedingOptions.AdminUser.Username, cancellationToken);
+            var createdByUserId = admin?.UserID ?? throw new InvalidOperationException("Admin user must exist before seeding default client");
 
-        var clientId = await connection.QuerySingleOrDefaultAsync<int>(SeedDataQueries.InsertDefaultClient, new { UserId = 1, ProjectId = projectId });
-        if (clientId > 0)
-        {
-            _logger.LogInformation("Default client ensured with ClientId: {ClientId}", clientId);
+            var clientId = await connection.QuerySingleAsync<int>(SeedDataQueries.InsertDefaultClient, new { UserId = createdByUserId });
+            _logger.LogInformation("Created global default client with ClientId: {ClientId}", clientId);
         }
-        else
-        {
-            _logger.LogWarning("Failed to ensure default client, possibly already exists.");
-        }
-
-
     }
     // private string? GetEmbeddedScript(string scriptName)
     // {

@@ -26,7 +26,7 @@ public interface ISchemaRepository
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId);
-    Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
+    Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName, string schemaName);
 
     // Methods to retrieve individual entities by ID
     Task<TableMetadataDto?> GetTableByIdAsync(int tableId);
@@ -111,6 +111,15 @@ public class SchemaRepository(
         }
     }
 
+    /// <summary>
+    /// Syncs stored procedure metadata for a project and client into the metadata store.
+    /// </summary>
+    /// <param name="projectId">Identifier of the project owning the stored procedures.</param>
+    /// <param name="clientId">Identifier of the client associated with the stored procedures.</param>
+    /// <param name="procedures">Collection of stored procedure metadata to be persisted.</param>
+    /// <param name="userId">Identifier of the user performing the synchronization.</param>
+    /// <returns>The number of stored procedures that were processed.</returns>
+    /// <exception cref="Exception">Propagates any exception encountered while executing database commands.</exception>
     public async Task<int> SyncStoredProceduresAsync(
         int projectId,
         int clientId,
@@ -130,9 +139,9 @@ public class SchemaRepository(
                     {
                         ProjectId = projectId,
                         ClientId = clientId,
-                        SchemaName = procedure.SchemaName,
-                        ProcedureName = procedure.ProcedureName,
-                        Definition = procedure.Definition,
+                        procedure.SchemaName,
+                        procedure.ProcedureName,
+                        procedure.Definition,
                         UserId = userId
                     },
                     transaction);
@@ -315,26 +324,26 @@ public class SchemaRepository(
             new { SpId = spId });
     }
 
-    public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)
+    public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName, string schemaName)
     {
         // First get the table
-        var table = await QueryFirstOrDefaultAsync<(int TableId, string TableName)>(
+        var table = await QueryFirstOrDefaultAsync<(int TableId, string TableName, string SchemaName)>(
             SchemaSyncQueries.GetStoredTableByName,
-            new { ProjectId = projectId, TableName = tableName });
+            new { ProjectId = projectId, TableName = tableName, SchemaName = schemaName });
 
         if (table.TableId == 0)
         {
-            throw new InvalidOperationException($"Table '{tableName}' not found for project {projectId}");
+            throw new InvalidOperationException($"Table '{schemaName}.{tableName}' not found for project {projectId}");
         }
 
         // Then get the columns with foreign key information
         var columns = await QueryAsync<dynamic>(
             SchemaSyncQueries.GetStoredTableColumns,
-            new { TableId = table.TableId });
+            new { table.TableId });
 
         var columnsList = columns.Select(c => new ColumnSchema
         {
-            SchemaName = "dbo",
+            SchemaName = schemaName,
             ColumnName = c.ColumnName,
             DataType = c.DataType,
             MaxLength = c.MaxLength,
@@ -360,7 +369,7 @@ public class SchemaRepository(
         return new TableSchemaResponse
         {
             TableName = tableName,
-            SchemaName = "dbo", // Default schema
+            SchemaName = schemaName,
             Columns = columnsList,
             PrimaryKeys = [.. columnsList.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName)]
         };

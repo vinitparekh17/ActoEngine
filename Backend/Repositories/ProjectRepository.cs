@@ -11,7 +11,6 @@ public class PublicProjectDto
 {
     public int ProjectId { get; set; }
     public string ProjectName { get; set; } = string.Empty;
-    public int ClientId { get; set; }
     public string Description { get; set; } = string.Empty;
     public string DatabaseName { get; set; } = string.Empty;
     public string? DatabaseType { get; set; } = "SqlServer";
@@ -65,17 +64,23 @@ public class ProjectRepository(
         }
     }
 
+    /// <summary>
+    /// Adds a new project or updates an existing project for the specified user.
+    /// </summary>
+    /// <param name="project">The project entity containing values to insert or update.</param>
+    /// <param name="userId">The identifier of the user performing the operation.</param>
+    /// <returns>The identifier of the created or updated project.</returns>
     public async Task<int> AddOrUpdateProjectAsync(Project project, int userId)
     {
         try
         {
             var parameters = new
             {
-                ProjectId = project.ProjectId,
-                ProjectName = project.ProjectName,
-                Description = project.Description,
-                DatabaseName = project.DatabaseName,
-                IsLinked = project.IsLinked,
+                project.ProjectId,
+                project.ProjectName,
+                project.Description,
+                project.DatabaseName,
+                project.IsLinked,
                 UserId = userId
             };
 
@@ -253,6 +258,13 @@ public class ProjectRepository(
         }
     }
 
+    /// <summary>
+    /// Synchronizes the project's database schema metadata using the provided connection string.
+    /// </summary>
+    /// <param name="projectId">Identifier of the project whose schema metadata will be synchronized.</param>
+    /// <param name="connectionString">Database connection string used to access the project's database.</param>
+    /// <param name="userId">Identifier of the user initiating the synchronization.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
     public async Task SyncSchemaMetadataAsync(int projectId, string connectionString, int userId, CancellationToken cancellationToken = default)
     {
         try
@@ -261,7 +273,7 @@ public class ProjectRepository(
             {
                 ProjectId = projectId,
                 ConnectionString = connectionString,
-                userId = userId
+                userId
             };
 
             await ExecuteAsync(

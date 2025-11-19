@@ -70,7 +70,6 @@ CREATE INDEX IX_Projects_ProjectName ON Projects(ProjectName);
 -- ============================================
 CREATE TABLE Clients (
     ClientId INT PRIMARY KEY IDENTITY(1,1),
-    ProjectId INT NOT NULL REFERENCES Projects(ProjectId),
     ClientName NVARCHAR(100) NOT NULL UNIQUE,
     IsActive BIT DEFAULT 1,
     CreatedAt DATETIME2 DEFAULT GETDATE(),
@@ -79,4 +78,21 @@ CREATE TABLE Clients (
     UpdatedBy INT REFERENCES Users(UserID)
 );
 
-CREATE INDEX IX_Clients_ProjectId ON Clients(ProjectId);
+CREATE INDEX IX_Clients_ClientName ON Clients(ClientName);
+
+CREATE TABLE ProjectClients (
+    ProjectClientId INT PRIMARY KEY IDENTITY(1,1),
+    ProjectId INT NOT NULL,
+    ClientId INT NOT NULL,
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    CreatedBy INT REFERENCES Users(UserID),
+    UpdatedAt DATETIME2,
+    UpdatedBy INT REFERENCES Users(UserID),
+    CONSTRAINT FK_ProjectClients_Projects FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId) ON DELETE CASCADE,
+    CONSTRAINT FK_ProjectClients_Clients FOREIGN KEY (ClientId) REFERENCES Clients(ClientId) ON DELETE CASCADE,
+    CONSTRAINT UQ_ProjectClients_ProjectId_ClientId UNIQUE (ProjectId, ClientId)
+);
+
+CREATE INDEX IX_ProjectClients_ProjectId ON ProjectClients(ProjectId);
+CREATE INDEX IX_ProjectClients_ClientId ON ProjectClients(ClientId);

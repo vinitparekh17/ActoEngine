@@ -87,6 +87,18 @@ public class ContextRepository(
         }
     }
 
+    /// <summary>
+    /// Inserts a new context or updates an existing context for the specified entity in a project.
+    /// </summary>
+    /// <param name="projectId">The project identifier the entity belongs to.</param>
+    /// <param name="entityType">The type name of the entity (e.g., table or domain object).</param>
+    /// <param name="entityId">The unique identifier of the entity.</param>
+    /// <param name="entityName">The human-readable name of the entity.</param>
+    /// <param name="request">Payload containing context fields to save (purpose, criticality, owners, etc.).</param>
+    /// <param name="userId">Identifier of the user performing the operation.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation of the operation.</param>
+    /// <returns>The inserted or updated <see cref="EntityContext"/> for the entity.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the context could not be saved.</exception>
     public async Task<EntityContext> UpsertContextAsync(
         int projectId,
         string entityType,
@@ -98,6 +110,9 @@ public class ContextRepository(
     {
         try
         {
+            // Check if context already exists
+            var existing = await GetContextAsync(projectId, entityType, entityId, cancellationToken);
+
             var parameters = new
             {
                 ProjectId = projectId,
@@ -121,18 +136,33 @@ public class ContextRepository(
                 UserId = userId
             };
 
-            var context = await QueryFirstOrDefaultAsync<EntityContext>(
-                ContextQueries.UpsertContext,
-                parameters,
-                cancellationToken);
+            EntityContext? context;
+
+            if (existing != null)
+            {
+                // Update existing context
+                context = await QueryFirstOrDefaultAsync<EntityContext>(
+                    ContextQueries.UpdateContext,
+                    parameters,
+                    cancellationToken);
+                _logger.LogInformation("Updated context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
+            }
+            else
+            {
+                // Insert new context
+                context = await QueryFirstOrDefaultAsync<EntityContext>(
+                    ContextQueries.InsertContext,
+                    parameters,
+                    cancellationToken);
+                _logger.LogInformation("Inserted context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
+            }
 
             if (context is null)
             {
-                _logger.LogError("Upsert returned no context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-                throw new InvalidOperationException("Failed to upsert context.");
+                _logger.LogError("Failed to save context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
+                throw new InvalidOperationException("Failed to save context.");
             }
 
-            _logger.LogInformation("Upserted context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
             return context;
         }
         catch (Exception ex)
@@ -210,26 +240,49 @@ public class ContextRepository(
         }
     }
 
+    /// <summary>
+    /// Adds a new expert or updates an existing expert for the specified project entity, setting the expertise level and optional notes and recording who added the entry.
+    /// </summary>
+    /// <param name="projectId">Identifier of the project containing the entity.</param>
+    /// <param name="entityType">Type name of the entity (e.g., "Document", "Issue").</param>
+    /// <param name="entityId">Identifier of the entity within the project.</param>
+    /// <param name="userId">Identifier of the user being added or updated as an expert.</param>
+    /// <param name="expertiseLevel">The user's expertise level for the entity.</param>
+    /// <param name="notes">Optional notes about the user's expertise.</param>
+    /// <param name="addedBy">Identifier of the user who performed the add or update operation.</param>
+    /// <param name="cancellationToken">Token to observe while waiting for the task to complete.</param>
     public async Task AddExpertAsync(int projectId, string entityType, int entityId, int userId, string expertiseLevel, string? notes, int addedBy, CancellationToken cancellationToken = default)
     {
         try
         {
-            var rows = await ExecuteAsync(
-                ContextQueries.AddExpert,
-                new
-                {
-                    ProjectId = projectId,
-                    EntityType = entityType,
-                    EntityId = entityId,
-                    UserId = userId,
-                    ExpertiseLevel = expertiseLevel,
-                    Notes = notes,
-                    AddedBy = addedBy
-                },
+            // Check if expert already exists
+            var existing = await QueryFirstOrDefaultAsync<dynamic>(
+                ContextQueries.GetExpert,
+                new { ProjectId = projectId, EntityType = entityType, EntityId = entityId, UserId = userId },
                 cancellationToken);
-            if (rows == 0)
+
+            var parameters = new
             {
-                _logger.LogWarning("No changes when adding expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
+                ProjectId = projectId,
+                EntityType = entityType,
+                EntityId = entityId,
+                UserId = userId,
+                ExpertiseLevel = expertiseLevel,
+                Notes = notes,
+                AddedBy = addedBy
+            };
+
+            if (existing != null)
+            {
+                // Update existing expert
+                await ExecuteAsync(ContextQueries.UpdateExpert, parameters, cancellationToken);
+                _logger.LogInformation("Updated expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
+            }
+            else
+            {
+                // Insert new expert
+                await ExecuteAsync(ContextQueries.InsertExpert, parameters, cancellationToken);
+                _logger.LogInformation("Added expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
             }
         }
         catch (Exception ex)

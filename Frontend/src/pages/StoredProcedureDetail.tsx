@@ -45,6 +45,15 @@ interface StoredProcedureMetadata {
   description?: string;
 }
 
+/**
+ * Renders the stored procedure details page for the route's project and procedure IDs.
+ *
+ * Validates route parameters, fetches stored procedure metadata, and displays appropriate
+ * loading, error, and no-project states. When data is available, shows header, stats,
+ * parameters table, SQL definition (if present), context editor, and expert management tabs.
+ *
+ * @returns The React element for the stored procedure details page.
+ */
 export default function StoredProcedureDetail() {
   const { projectId, procedureId } = useParams<{ projectId: string; procedureId: string }>();
   const { selectedProject, hasProject } = useProject();
@@ -187,7 +196,7 @@ export default function StoredProcedureDetail() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to={`/projects/${projectId}/context/experts`}>
+            <Link to={`/project/${projectId}/context/experts`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
