@@ -120,7 +120,10 @@ public class DatabaseSeeder(
         }
         else
         {
-            var clientId = await connection.QuerySingleAsync<int>(SeedDataQueries.InsertDefaultClient, new { UserId = 1 });
+            var admin = await _userRepository.GetByUserNameAsync(_seedingOptions.AdminUser.Username, cancellationToken);
+            var createdByUserId = admin?.UserID ?? throw new InvalidOperationException("Admin user must exist before seeding default client");
+
+            var clientId = await connection.QuerySingleAsync<int>(SeedDataQueries.InsertDefaultClient, new { UserId = createdByUserId });
             _logger.LogInformation("Created global default client with ClientId: {ClientId}", clientId);
         }
     }
