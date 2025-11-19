@@ -23,7 +23,7 @@ public interface ISchemaService
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredProceduresMetadataAsync(int projectId);
-    Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName);
+    Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName, string schemaName);
 
     // Tree structure
     Task<TreeNode> GetDatabaseTreeAsync(int projectId, string databaseName);
@@ -205,7 +205,7 @@ public partial class SchemaService(
         }
     }
 
-    public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName)
+    public async Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName, string schemaName)
     {
         try
         {
@@ -214,11 +214,16 @@ public partial class SchemaService(
                 throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
             }
 
-            return await _schemaRepository.GetStoredTableSchemaAsync(projectId, tableName);
+            if (string.IsNullOrWhiteSpace(schemaName))
+            {
+                throw new ArgumentException("Schema name cannot be null or empty", nameof(schemaName));
+            }
+
+            return await _schemaRepository.GetStoredTableSchemaAsync(projectId, tableName, schemaName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving stored table schema for table {TableName} in project {ProjectId}", tableName, projectId);
+            _logger.LogError(ex, "Error retrieving stored table schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
             throw;
         }
     }

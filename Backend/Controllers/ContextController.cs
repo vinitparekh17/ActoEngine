@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.ContextService;
@@ -10,6 +11,7 @@ namespace ActoEngine.WebApi.Controllers;
 /// API endpoints for managing entity context and documentation
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("api/projects/{projectId}/context")]
 public class ContextController(
     IContextService contextService,

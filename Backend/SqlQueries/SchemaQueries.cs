@@ -43,11 +43,12 @@ public static class SchemaSyncQueries
             FROM TablesMetadata WITH (UPDLOCK, HOLDLOCK)
             WHERE ProjectId = @ProjectId
               AND TableName = @TableName
+              AND SchemaName = @SchemaName
         );";
     public const string GetTableId = @"
-        SELECT TableId 
-        FROM TablesMetadata 
-        WHERE ProjectId = @ProjectId AND TableName = @TableName";
+        SELECT TableId
+        FROM TablesMetadata
+        WHERE ProjectId = @ProjectId AND TableName = @TableName AND SchemaName = @SchemaName";
 
     public const string GetTableMetaByProjectId = @"
         SELECT TableId, TableName 
@@ -238,7 +239,7 @@ public static class SchemaSyncQueries
         ORDER BY TableName";
 
     public const string GetStoredProceduresListMinimal = @"
-        SELECT SpId, ProcedureName
+        SELECT SpId, SchemaName, ProcedureName
         FROM SpMetadata
         WHERE ProjectId = @ProjectId
         ORDER BY ProcedureName";
@@ -286,7 +287,7 @@ public static class SchemaSyncQueries
     public const string GetStoredTableByName = @"
         SELECT TableId, TableName, SchemaName
         FROM TablesMetadata
-        WHERE ProjectId = @ProjectId AND TableName = @TableName";
+        WHERE ProjectId = @ProjectId AND TableName = @TableName AND SchemaName = @SchemaName";
 
     public const string GetStoredTableColumns = @"
         SELECT 

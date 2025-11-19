@@ -61,6 +61,7 @@ public class TableSchemaRequest
 {
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
+    public string SchemaName { get; set; } = "dbo";
 }
 
 public class TableSchemaResponse
