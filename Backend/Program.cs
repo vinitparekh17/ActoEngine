@@ -15,6 +15,7 @@ using ActoEngine.WebApi.Services.ProjectClientService;
 using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Services.ContextService;
 using DotNetEnv;
+using ActoEngine.WebApi.Services.DependencyService;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -224,8 +224,8 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   const suggestedExperts = suggestions?.potentialExperts || [];
 
   const handleAddExpert = () => {
-    if (!selectedUserId) {
-      toast.error('Please select a user');
+    if (selectedUserId == null) {
+      toast.error("Please select a user");
       return;
     }
     
@@ -341,13 +341,316 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   if (!hasProject) {
     return (
       <Card>
-        <CardContent className="py-6">
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Please select a project to manage experts.
-            </AlertDescription>
-          </Alert>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">
+                Subject Matter Experts
+              </CardTitle>
+              <CardDescription className="text-sm">
+                People who can help with "{entityName}"
+              </CardDescription>
+            </div>
+
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Add Expert</DialogTitle>
+                  <DialogDescription>
+                    Assign someone who has knowledge about this{" "}
+                    {entityType.toLowerCase()}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-4">
+                  {/* Suggested Experts */}
+                  {suggestedExperts.length > 0 && (
+                    <Alert>
+                      <Lightbulb className="h-4 w-4" />
+                      <AlertDescription>
+                        <p className="text-sm font-medium mb-2">
+                          Suggested based on recent activity:
+                        </p>
+                        <div className="space-y-1">
+                          {suggestedExperts.slice(0, 3).map((expert) => (
+                            <Button
+                              key={expert.userId}
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start text-xs h-auto py-2"
+                              onClick={() => handleSuggestedExpertClick(expert)}
+                            >
+                              <Avatar className="w-5 h-5 mr-2">
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(expert.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 text-left">
+                                <div className="font-medium">{expert.name}</div>
+                                <div className="text-muted-foreground">
+                                  {expert.reason}
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="text-xs">
+                                {Math.round(expert.confidence * 100)}%
+                              </Badge>
+                            </Button>
+                          ))}
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* User Selection */}
+                  <div className="space-y-2">
+                    <Label>User</Label>
+                    <Select
+                      value={selectedUserId?.toString() || ""}
+                      onValueChange={(value) =>
+                        setSelectedUserId(parseInt(value))
+                      }
+                      disabled={isLoadingUsers}
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            isLoadingUsers
+                              ? "Loading users..."
+                              : "Select a user"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allUsers?.map((user) => (
+                          <SelectItem
+                            key={user.userId}
+                            value={user.userId.toString()}
+                            disabled={experts.some(
+                              (e) => e.userId === user.userId
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Avatar className="w-5 h-5">
+                                <AvatarFallback className="text-xs">
+                                  {user.fullName
+                                    ?.substring(0, 2)
+                                    .toUpperCase() ||
+                                    user.username
+                                      ?.substring(0, 2)
+                                      .toUpperCase() ||
+                                    "U"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>{user.fullName || user.username}</span>
+                              <span className="text-muted-foreground text-xs">
+                                ({user.email})
+                              </span>
+                              {experts.some(
+                                (e) => e.userId === user.userId
+                              ) && (
+                                <Badge variant="outline" className="text-xs">
+                                  Already assigned
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Expertise Level */}
+                  <div className="space-y-2">
+                    <Label>Expertise Level</Label>
+                    <Select
+                      value={selectedLevel}
+                      onValueChange={setSelectedLevel}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OWNER">
+                          <div className="flex items-center gap-2">
+                            <Crown className="w-4 h-4 text-yellow-500" />
+                            <div>
+                              <div className="font-medium">Owner</div>
+                              <div className="text-xs text-muted-foreground">
+                                Built it, maintains it
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="EXPERT">
+                          <div className="flex items-center gap-2">
+                            <Star className="w-4 h-4 text-blue-500" />
+                            <div>
+                              <div className="font-medium">Expert</div>
+                              <div className="text-xs text-muted-foreground">
+                                Deep knowledge
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="FAMILIAR">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-gray-500" />
+                            <div>
+                              <div className="font-medium">Familiar</div>
+                              <div className="text-xs text-muted-foreground">
+                                Can answer questions
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="CONTRIBUTOR">
+                          <div className="flex items-center gap-2">
+                            <GitCommit className="w-4 h-4 text-green-500" />
+                            <div>
+                              <div className="font-medium">Contributor</div>
+                              <div className="text-xs text-muted-foreground">
+                                Has made changes
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-2">
+                    <Label>Notes (Optional)</Label>
+                    <Input
+                      placeholder="e.g., Maintains the payment integration"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsAddDialogOpen(false);
+                      resetForm();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAddExpert}
+                    disabled={selectedUserId == null || isAddingExpert}
+                  >
+                    {isAddingExpert ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      "Add Expert"
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {experts.length === 0 ? (
+            <Alert>
+              <AlertDescription className="text-sm">
+                No experts assigned yet. Add someone who knows about this{" "}
+                {entityType.toLowerCase()}.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-3">
+              {experts.map((expert) => (
+                <div
+                  key={expert.userId}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Avatar>
+                      <AvatarFallback>
+                        {expert.user?.fullName?.substring(0, 2).toUpperCase() ||
+                          expert.user?.username
+                            ?.substring(0, 2)
+                            .toUpperCase() ||
+                          "U"}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-medium truncate">
+                          {expert.user?.fullName || expert.user?.username}
+                        </p>
+                        <Badge
+                          variant={getExpertBadgeVariant(expert.expertiseLevel)}
+                          className="gap-1 shrink-0"
+                        >
+                          {getExpertIcon(expert.expertiseLevel)}
+                          {getExpertLevelLabel(expert.expertiseLevel)}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {expert.user?.email}
+                      </p>
+                      {expert.notes && (
+                        <p className="text-xs text-muted-foreground mt-1 italic truncate">
+                          {expert.notes}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Added{" "}
+                        {formatRelativeTime(expert.assignedAt, "recently")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={() => handleRemoveExpert(expert.userId)}
+                    disabled={
+                      isRemovingExpert && removedExpertId === expert.userId
+                    }
+                  >
+                    {isRemovingExpert && removedExpertId === expert.userId ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <X className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Expert Count Summary */}
+          {experts.length > 0 && (
+            <div className="mt-4 pt-4 border-t text-xs text-muted-foreground">
+              {experts.filter((e) => e.expertiseLevel === "OWNER").length}{" "}
+              owner(s),{" "}
+              {experts.filter((e) => e.expertiseLevel === "EXPERT").length}{" "}
+              expert(s),{" "}
+              {experts.filter((e) => e.expertiseLevel === "FAMILIAR").length}{" "}
+              familiar,{" "}
+              {experts.filter((e) => e.expertiseLevel === "CONTRIBUTOR").length}{" "}
+              contributor(s)
+            </div>
+          )}
         </CardContent>
       </Card>
     );

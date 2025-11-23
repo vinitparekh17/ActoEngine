@@ -90,6 +90,16 @@ function AppRoutes() {
           path="project/:projectId/stored-procedures/:procedureId"
           element={<StoredProcedureDetail />}
         />
+        {/* Standalone column route for direct navigation from context dialogs */}
+        <Route
+          path="project/:projectId/columns/:columnId"
+          element={
+            <ApiErrorBoundary>
+              <ColumnDetail />
+            </ApiErrorBoundary>
+          }
+        />
+        {/* Nested column route for navigation from table detail pages */}
         <Route
           path="project/:projectId/tables/:tableId/columns/:columnId"
           element={<ColumnDetail />}

@@ -22,7 +22,13 @@ export default function ThemeToggle() {
       size="icon"
       className="rounded-xl"
       aria-label="Toggle theme"
-      onClick={() => setDark((d) => !d)}
+      onClick={() =>
+        setDark((prev) => {
+          const next = !prev;
+          localStorage.setItem('theme', next ? 'dark' : 'light');
+          return next;
+        })
+      }
     >
       {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </Button>
