@@ -15,7 +15,6 @@ using ActoEngine.WebApi.Services.ProjectClientService;
 using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Services.ContextService;
 using DotNetEnv;
-using ActoEngine.WebApi.Services.Intelligence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -147,7 +146,6 @@ builder.Services.AddScoped<ISchemaRepository, SchemaRepository>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IProjectClientRepository, ProjectClientRepository>();
 builder.Services.AddScoped<IContextRepository, ContextRepository>();
-builder.Services.AddScoped<IDependencyRepository, DependencyRepository>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
@@ -157,8 +155,6 @@ builder.Services.AddScoped<IFormBuilderService, FormBuilderService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IProjectClientService, ProjectClientService>();
 builder.Services.AddScoped<IContextService, ContextService>();
-builder.Services.AddScoped<IDependencyAnalysisService, DependencyAnalysisService>();
-builder.Services.AddScoped<IDependencyResolutionService, DependencyResolutionService>();
 
 // Form Builder Services
 builder.Services.AddScoped<IFormConfigRepository, FormConfigRepository>();

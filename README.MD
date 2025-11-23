@@ -7,10 +7,13 @@ ActoEngine captures what documentation can't: the "why" behind your database.
 > What if your database could explain itself?
 
 ActoEngine builds a semantic layer that answers the questions your documentation 
-doesn’t: “What breaks if I change this?” “Why does this exist?” “What is the purpose of this table / column / stored procedure?”
+doesn’t: “What breaks if I change this?” “Why does this exist?” “Which clients 
+depend on this version?”
 
 It maps hidden relationships, detects drift between reality and documentation, 
-and simulates change impact before you deploy.
+and simulates change impact before you deploy. The Form Builder and SP Generator 
+aren’t just code tools — they’re proof that when systems understand their own 
+context, automation becomes intelligent.
 
 ## Features
 
