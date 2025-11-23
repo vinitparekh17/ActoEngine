@@ -133,7 +133,7 @@ public partial class ContextService(
         }
 
         // Update experts if provided
-        if (request.ExpertUserIds != null && request.ExpertUserIds.Any())
+        if (request.ExpertUserIds != null && request.ExpertUserIds.Count != 0)
         {
             foreach (var expertUserId in request.ExpertUserIds)
             {

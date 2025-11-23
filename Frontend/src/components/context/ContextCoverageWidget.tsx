@@ -42,6 +42,19 @@ interface CoverageData {
 export const ContextCoverageWidget: React.FC = () => {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
 
+  // No project selected - show prompt BEFORE API calls
+  if (!hasProject || !selectedProjectId) {
+    return (
+      <Card>
+        <CardContent className="py-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Select a project to view coverage
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const {
     data: coverageData,
     isLoading,
@@ -49,7 +62,7 @@ export const ContextCoverageWidget: React.FC = () => {
   } = useApi<CoverageData>(
     `/projects/${selectedProjectId}/context/statistics/coverage`,
     {
-      enabled: hasProject && !!selectedProjectId,
+      enabled: true, // Always enabled when we reach this code
       staleTime: 30 * 1000, // 30 seconds
       refetchInterval: 60 * 1000, // Refresh every minute
       retry: 2,
@@ -91,20 +104,7 @@ export const ContextCoverageWidget: React.FC = () => {
     );
   }
 
-  // No project selected
-  if (!hasProject) {
-    return (
-      <Card>
-        <CardContent className="py-4">
-          <p className="text-xs text-muted-foreground text-center">
-            Select a project to view coverage
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const coverage = coverageData.breakdown || [];
+  const coverage = coverageData?.breakdown || [];
 
   // Calculate overall metrics
   const totalEntities = coverage.reduce((sum, item) => sum + item.total, 0);
