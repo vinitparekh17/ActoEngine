@@ -1,6 +1,6 @@
-import { Outlet } from "react-router-dom";
-import AppHeader from "./AppHeader";
-import AppSidebar from "./AppSidebar";
+import { Outlet } from 'react-router-dom';
+import AppHeader from "./AppHeader"
+import AppSidebar from "./AppSidebar"
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SidebarProvider, SidebarInset } from "../ui/sidebar";
 
@@ -11,12 +11,12 @@ export default function AppLayout() {
       <div className="min-h-screen flex w-full">
         {/* Global Sidebar - Navigation between features */}
         <AppSidebar />
-
+        
         {/* Main content area */}
         <SidebarInset>
           {/* Global Header */}
           <AppHeader />
-
+          
           {/* Feature content area */}
           <main className="flex-1">
             <ConfirmDialog />
@@ -27,5 +27,5 @@ export default function AppLayout() {
         </SidebarInset>
       </div>
     </SidebarProvider>
-  );
+  )
 }

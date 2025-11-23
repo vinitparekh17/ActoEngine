@@ -21,8 +21,6 @@ import TableDetail from "./pages/TableDetail";
 import StoredProcedureDetail from "./pages/StoredProcedureDetail";
 import ColumnDetail from "./pages/ColumnDetail";
 import { initializeApiClient } from "./lib/api";
-import { ReLoginModalProvider, useReLoginModal } from "@/hooks/useReLoginModal";
-import { useEffect } from "react";
 
 // ============================================
 // Protected Route Wrapper
@@ -42,15 +40,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { showReLoginModal } = useReLoginModal();
-
-  // Initialize API client with re-login modal handler
-  useEffect(() => {
-    initializeApiClient(() => {
-      showReLoginModal();
-    });
-  }, [showReLoginModal]); // Added dependency
-
+  initializeApiClient(() => {
+    useAuthStore.getState().clearAuth();
+  });
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -65,122 +57,42 @@ function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
-        {/* Project routes - Critical routes with individual error boundaries */}
-        <Route
-          path="projects"
-          element={
-            <ApiErrorBoundary>
-              <ProjectDashboard />
-            </ApiErrorBoundary>
-          }
-        />
-        <Route
-          path="project/:projectId"
-          element={
-            <ApiErrorBoundary>
-              <ProjectHub />
-            </ApiErrorBoundary>
-          }
-        />
+        {/* Project routes */}
+        <Route path="projects" element={<ProjectDashboard />} />
+        <Route path="project/:projectId" element={<ProjectHub />} />
         <Route
           path="project/:projectId/settings"
-          element={
-            <ApiErrorBoundary>
-              <ProjectSettings />
-            </ApiErrorBoundary>
-          }
+          element={<ProjectSettings />}
         />
-        <Route
-          path="project/new"
-          element={
-            <ApiErrorBoundary>
-              <ProjectSetup />
-            </ApiErrorBoundary>
-          }
-        />
+        <Route path="project/new" element={<ProjectSetup />} />
         {/* General routes */}
-        <Route
-          path="dashboard"
-          element={
-            <ApiErrorBoundary>
-              <ContextDashboard />
-            </ApiErrorBoundary>
-          }
-        />
-        <Route
-          path="clients"
-          element={
-            <ApiErrorBoundary>
-              <ClientManagementPage />
-            </ApiErrorBoundary>
-          }
-        />
-        {/* Builder routes - Critical complex pages */}
-        <Route
-          path="form-builder"
-          element={
-            <ApiErrorBoundary>
-              <FormBuilderPage />
-            </ApiErrorBoundary>
-          }
-        />
-        <Route
-          path="sp-builder"
-          element={
-            <ApiErrorBoundary>
-              <SPGeneratorPage />
-            </ApiErrorBoundary>
-          }
-        />
+        <Route path="dashboard" element={<ContextDashboard />} />
+        <Route path="clients" element={<ClientManagementPage />} />
+        {/* Builder routes */}
+        <Route path="form-builder" element={<FormBuilderPage />} />
+        <Route path="sp-builder" element={<SPGeneratorPage />} />
         {/* Context routes */}
-        <Route
-          path="context"
-          element={
-            <ApiErrorBoundary>
-              <ContextDashboard />
-            </ApiErrorBoundary>
-          }
-        />
+        <Route path="context" element={<ContextDashboard />} />
         <Route
           path="project/:projectId/context/browse"
-          element={
-            <ApiErrorBoundary>
-              <ContextBrowse />
-            </ApiErrorBoundary>
-          }
+          element={<ContextBrowse />}
         />
         <Route
           path="project/:projectId/context/experts"
-          element={
-            <ApiErrorBoundary>
-              <ContextExperts />
-            </ApiErrorBoundary>
-          }
+          element={<ContextExperts />}
         />
         {/* Entity detail routes */}
         <Route
           path="project/:projectId/tables/:tableId"
-          element={
-            <ApiErrorBoundary>
-              <TableDetail />
-            </ApiErrorBoundary>
-          }
+          element={<TableDetail />}
         />
         <Route
           path="project/:projectId/stored-procedures/:procedureId"
-          element={
-            <ApiErrorBoundary>
-              <StoredProcedureDetail />
-            </ApiErrorBoundary>
-          }
+          element={<StoredProcedureDetail />}
         />
         <Route
           path="project/:projectId/tables/:tableId/columns/:columnId"
-          element={
-            <ApiErrorBoundary>
-              <ColumnDetail />
-            </ApiErrorBoundary>
-          }
+          element={<ColumnDetail />}
         />
       </Route>
     </Routes>
@@ -191,10 +103,8 @@ function App() {
   return (
     <QueryProvider>
       <BrowserRouter>
-        <ReLoginModalProvider>
-          <AppRoutes />
-          <Toaster position="top-right" richColors />
-        </ReLoginModalProvider>
+        <AppRoutes />
+        <Toaster position="top-right" richColors />
       </BrowserRouter>
     </QueryProvider>
   );

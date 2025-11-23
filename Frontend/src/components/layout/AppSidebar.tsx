@@ -1,17 +1,5 @@
-import {
-  Database,
-  History,
-  Palette,
-  Users,
-  ChevronDown,
-  LogOut,
-  ChevronsUpDown,
-  User,
-  Layers,
-  Sparkles,
-  Home,
-} from "lucide-react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Database, History, Palette, Users, Settings, ChevronDown, LogOut, ChevronsUpDown, User, Layers, Sparkles, BrainCircuit, Home } from "lucide-react"
+import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
   Sidebar,
   SidebarContent,
@@ -23,52 +11,59 @@ import {
   SidebarHeader,
   SidebarFooter,
   SidebarRail,
-} from "../ui/sidebar";
+} from "../ui/sidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { useProject } from "../../hooks/useProject";
-import { useAuth } from "../../hooks/useAuth";
-import { toast } from "sonner";
+} from "../ui/dropdown-menu"
+import { useProject } from "../../hooks/useProject"
+import { useAuth } from "../../hooks/useAuth"
+import { toast } from "sonner"
 
 // components/layout/AppSidebar.tsx
 const SIDEBAR_ITEMS = [
-  { icon: Home, label: "Dashboard", href: "/" },
-  { icon: Sparkles, label: "Projects", href: "/projects" },
+  { icon: Home, label: 'Dashboard', href: '/' },
+  { icon: Sparkles, label: 'Projects', href: '/projects' },
   { icon: Database, label: "SP Generator", href: "/sp-builder" },
   { icon: Palette, label: "Form Builder", href: "/form-builder" },
+  { icon: BrainCircuit, label: "Context Dashboard", href: "/context" },
   { icon: Users, label: "Client Management", href: "/clients" },
-];
+  { icon: History, label: "Generation History", href: "/history" },
+  { icon: Settings, label: "Settings", href: "/settings" },
+]
 
 export default function AppSidebar() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { projects, selectedProject, selectProject, isLoadingProjects } =
-    useProject();
-  const { user, logout, isLoggingOut } = useAuth();
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { 
+    projects, 
+    selectedProject, 
+    selectProject, 
+    isLoadingProjects 
+  } = useProject()
+  const { user, logout, isLoggingOut } = useAuth()
 
   const handleProjectSelect = (projectId: number) => {
-    const project = projects?.find((p) => p.projectId === projectId);
+    const project = projects?.find(p => p.projectId === projectId)
     if (project) {
       try {
-        selectProject(project);
-        toast.success(`Switched to ${project.projectName}`);
+        selectProject(project)
+        toast.success(`Switched to ${project.projectName}`)
       } catch (err) {
-        toast.error("Failed to switch project");
-        console.error("Project switch error:", err);
+        toast.error("Failed to switch project")
+        console.error("Project switch error:", err)
       }
     }
-  };
+  }
 
   const handleLogout = () => {
-    logout();
-    toast.success("Logged out successfully");
-    navigate("/login");
-  };
-
+    logout()
+    toast.success("Logged out successfully")
+    navigate("/login")
+  }
+  
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -76,15 +71,11 @@ export default function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  tooltip={selectedProject?.projectName || "Select Project"}
-                >
+                <SidebarMenuButton tooltip={selectedProject?.projectName || "Select Project"}>
                   <Layers className="!size-5" />
                   <div className="flex flex-col gap-0.5 leading-none">
                     <span className="font-semibold">
-                      {selectedProject
-                        ? selectedProject.projectName
-                        : "Select Project"}
+                      {selectedProject ? selectedProject.projectName : "Select Project"}
                     </span>
                     {selectedProject?.databaseName && (
                       <span className="text-xs text-muted-foreground">
@@ -95,21 +86,14 @@ export default function AppSidebar() {
                   <ChevronDown className="ml-auto" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-[--radix-popper-anchor-width]"
-                align="start"
-              >
+              <DropdownMenuContent className="w-[--radix-popper-anchor-width]" align="start">
                 {isLoadingProjects ? (
                   <DropdownMenuItem disabled>
-                    <span className="text-muted-foreground">
-                      Loading projects...
-                    </span>
+                    <span className="text-muted-foreground">Loading projects...</span>
                   </DropdownMenuItem>
                 ) : projects?.length === 0 ? (
                   <DropdownMenuItem disabled>
-                    <span className="text-muted-foreground">
-                      No projects available
-                    </span>
+                    <span className="text-muted-foreground">No projects available</span>
                   </DropdownMenuItem>
                 ) : (
                   projects?.map((project) => (
@@ -132,12 +116,12 @@ export default function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-
+      
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {SIDEBAR_ITEMS.map((item) => (
+              {SIDEBAR_ITEMS.map(item => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
@@ -155,7 +139,7 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
+      
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -196,5 +180,5 @@ export default function AppSidebar() {
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  );
+  )
 }
