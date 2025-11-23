@@ -1,20 +1,40 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Button } from "../ui/button"
-import { Moon, Sun } from "lucide-react"
+import { useEffect, useState } from "react";
+import { Button } from "../ui/button";
+import { Moon, Sun } from "lucide-react";
 
 export default function ThemeToggle() {
-  const [dark, setDark] = useState(false)
+  // Initialize from localStorage or system preference
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
+  // Apply theme and save to localStorage
   useEffect(() => {
-    const root = document.documentElement
+    const root = document.documentElement;
     if (dark) {
-      root.classList.add("dark")
+      root.classList.add("dark");
     } else {
-      root.classList.remove("dark")
+      root.classList.remove("dark");
     }
-  }, [dark])
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
+  // Listen for system preference changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      // Only update if user hasn't set a preference
+      if (!localStorage.getItem('theme')) {
+        setDark(e.matches);
+      }
+    };
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
   return (
     <Button
@@ -26,5 +46,5 @@ export default function ThemeToggle() {
     >
       {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </Button>
-  )
+  );
 }

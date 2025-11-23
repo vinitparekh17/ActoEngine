@@ -1,6 +1,7 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Database;
+using ActoEngine.WebApi.Services.Intelligence;
 using ActoEngine.WebApi.Services.Schema;
 using ActoEngine.WebApi.SqlQueries;
 using Microsoft.Data.SqlClient;
@@ -24,7 +25,8 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
     public class ProjectService(IProjectRepository projectRepository, ISchemaRepository schemaRepository,
     IDbConnectionFactory connectionFactory, ISchemaService schemaService, IClientRepository clientRepository,
-    IProjectClientRepository projectClientRepository, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
+    IProjectClientRepository projectClientRepository, ILogger<ProjectService> logger,
+    IConfiguration configuration, IDependencyAnalysisService dependencyAnalysisService, IDependencyResolutionService dependencyResolutionService) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly ISchemaRepository _schemaRepository = schemaRepository;
@@ -34,6 +36,9 @@ namespace ActoEngine.WebApi.Services.ProjectService
         private readonly IProjectClientRepository _projectClientRepository = projectClientRepository;
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
+        private readonly IDependencyAnalysisService _dependencyAnalysisService = dependencyAnalysisService;
+        private readonly IDependencyResolutionService _dependencyResolutionService = dependencyResolutionService;
+
 
         public async Task<bool> VerifyConnectionAsync(VerifyConnectionRequest request)
         {
@@ -153,6 +158,27 @@ namespace ActoEngine.WebApi.Services.ProjectService
                     _logger.LogError(ex, "Schema sync failed for project {ProjectId}", projectId);
                     throw;
                 }
+                try
+                {
+                    await _projectRepository.UpdateSyncStatusAsync(projectId, "Analyzing dependencies...", 90);
+
+                    // 1. Analyze Stored Procedures
+                    await AnalyzeProjectDependenciesAsync(projectId);
+
+                    // 2. (Future) Run Drift Detection
+                    // await _driftDetector.DetectDriftAsync(projectId, targetConnectionString);
+
+                    await _projectRepository.UpdateSyncStatusAsync(projectId, "Completed", 100);
+                    await _projectRepository.UpdateIsLinkedAsync(projectId, true);
+
+                    _logger.LogInformation("Sync and Analysis completed successfully for project {ProjectId}.", projectId);
+                }
+                catch (Exception ex)
+                {
+                    // We don't rollback the schema sync if analysis fails, but we report it
+                    _logger.LogError(ex, "Analysis failed for project {ProjectId}", projectId);
+                    await _projectRepository.UpdateSyncStatusAsync(projectId, $"Schema Synced but Analysis Failed: {ex.Message}", 100);
+                }
             }
             catch (Exception ex)
             {
@@ -221,8 +247,8 @@ namespace ActoEngine.WebApi.Services.ProjectService
             var isLinked = await _projectClientRepository.IsLinkedAsync(projectId, transaction, defaultClient.ClientId);
             if (!isLinked)
             {
-               _logger.LogInformation("Linking 'Default Client' (ID: {ClientId}) to project {ProjectId}", defaultClient.ClientId, projectId);
-               await _projectClientRepository.LinkAsync(projectId, transaction, defaultClient.ClientId, userId);
+                _logger.LogInformation("Linking 'Default Client' (ID: {ClientId}) to project {ProjectId}", defaultClient.ClientId, projectId);
+                await _projectClientRepository.LinkAsync(projectId, transaction, defaultClient.ClientId, userId);
             }
 
             var spCount = await _schemaRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, actoxConn, transaction);
@@ -289,8 +315,6 @@ namespace ActoEngine.WebApi.Services.ProjectService
             }
             return columns;
         }
-
-
 
         private static async Task SyncViaSameServerAsync(
             int projectId,
@@ -386,10 +410,60 @@ namespace ActoEngine.WebApi.Services.ProjectService
             await cmd.ExecuteNonQueryAsync();
         }
 
-        // private string BuildConnectionString(VerifyConnectionRequest request)
-        // {
-        //     return $"Server={request.Server};Database={request.DatabaseName};User Id={request.Username};Password={request.Password};TrustServerCertificate=True";
-        // }
+        private async Task AnalyzeProjectDependenciesAsync(int projectId)
+        {
+            // Fetch all SPs for this project
+            var storedProcedures = await _schemaRepository.GetStoredStoredProceduresAsync(projectId);
+
+            var allDependencies = new List<Dependency>();
+            var failures = new List<(int SpId, string Name, Exception Error)>();
+
+            foreach (var sp in storedProcedures)
+            {
+                if (string.IsNullOrWhiteSpace(sp.Definition)) continue;
+
+                try
+                {
+                    // A. Parse the SQL (CPU bound, fast)
+                    var deps = _dependencyAnalysisService.ExtractDependencies(sp.Definition, sp.SpId, "SP");
+                    allDependencies.AddRange(deps);
+                }
+                catch (Exception ex)
+                {
+                    failures.Add((sp.SpId, sp.ProcedureName ?? "Unknown", ex));
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to extract dependencies for SP {SpId} ({Name}): {Message}",
+                        sp.SpId,
+                        sp.ProcedureName ?? "Unknown",
+                        ex.Message);
+                }
+            }
+
+            // Summary logging
+            if (failures.Count > 0)
+            {
+                _logger.LogWarning(
+                    "Dependency extraction for project {ProjectId} completed with {FailureCount} failures out of {TotalCount} stored procedures. Failed SPs: {FailedNames}",
+                    projectId,
+                    failures.Count,
+                    storedProcedures.Count(),
+                    string.Join(", ", failures.Take(10).Select(f => $"{f.Name}({f.SpId})")));
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Dependency extraction for project {ProjectId} completed successfully for all {Count} stored procedures",
+                    projectId,
+                    storedProcedures.Count());
+            }
+
+            // B. Resolve Names to IDs and Save (IO bound)
+            if (allDependencies.Count != 0)
+            {
+                await _dependencyResolutionService.ResolveAndSaveDependenciesAsync(projectId, allDependencies);
+            }
+        }
 
         public async Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId)
         {

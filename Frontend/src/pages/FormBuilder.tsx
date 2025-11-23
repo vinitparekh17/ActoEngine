@@ -14,13 +14,14 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,                                                                                        
+  SelectValue,
 } from '../components/ui/select';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import PreviewTab from '../components/formgen/Preview';
 import CodeTab from '../components/formgen/Code';
 import BuilderTab from '../components/formgen/Builder';
+import { RequireProject } from '../components/containers';
 
 
 export default function FormBuilder() {
@@ -67,16 +68,9 @@ export default function FormBuilder() {
     }
   }, [schemaData, selectedTable, selectedProject, config, schemaUrl, initializeFromTable]);
 
-  if (!selectedProject) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-gray-500">Please select a project first</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col">
+    <RequireProject fallback="message">
+      <div className="flex flex-col">
       {/* Header */}
       <Card className='border-b bg-white dark:bg-neutral-900 dark:border-neutral-800 px-6 py-3 transition-colors'>
         <div className="flex items-center justify-between">
@@ -240,5 +234,6 @@ export default function FormBuilder() {
         </div>
       </Card>
     </div>
+    </RequireProject>
   );
 }

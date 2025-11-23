@@ -26,6 +26,7 @@ import { formatRelativeTime } from '../lib/utils';
 import { ScrollArea } from '../components/ui/scroll-area';
 import type { ProjectStatsResponse, ActivityItem } from '../types/project';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../components/ui/breadcrumb';
+import { RequireProject } from '../components/containers';
 
 export default function ProjectHub() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -132,16 +133,9 @@ export default function ProjectHub() {
     );
   };
 
-  if (!selectedProject) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
-    <ScrollArea className="h-[calc(100vh-110px)] overflow-y-auto border-radius-lg">
+    <RequireProject fallback="message">
+      <ScrollArea className="h-[calc(100vh-110px)] overflow-y-auto border-radius-lg">
       <div className="container mx-auto px-4 py-6 space-y-6">
         <Breadcrumb>
           <BreadcrumbList>
@@ -153,7 +147,7 @@ export default function ProjectHub() {
               </BreadcrumbLink>
               <BreadcrumbSeparator />
               <BreadcrumbPage>
-                {selectedProject.projectName}
+                {selectedProject?.projectName}
               </BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
@@ -163,14 +157,14 @@ export default function ProjectHub() {
         <div className="space-y-2">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
-              <h1 className="text-3xl font-bold tracking-tight">{selectedProject.projectName}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{selectedProject?.projectName}</h1>
               <p className="text-muted-foreground">
-                {selectedProject.databaseName || 'No database connected'}
+                {selectedProject?.databaseName || 'No database connected'}
               </p>
             </div>
             {getSyncStatusBadge()}
           </div>
-          {selectedProject.description && (
+          {selectedProject?.description && (
             <p className="text-sm text-muted-foreground max-w-3xl">
               {selectedProject.description}
             </p>
@@ -178,7 +172,7 @@ export default function ProjectHub() {
         </div>
 
         {/* Sync Progress Panel */}
-        {selectedProject.projectId && (
+        {selectedProject?.projectId && (
           <SyncProgressPanel
             projectId={selectedProject.projectId}
             useSSE={isSyncing}
@@ -376,5 +370,6 @@ export default function ProjectHub() {
         </div>
       </div>
     </ScrollArea>
+    </RequireProject>
   );
 }

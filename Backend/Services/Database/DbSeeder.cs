@@ -1,8 +1,7 @@
 using ActoEngine.WebApi.Config;
+using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Auth;
-using ActoEngine.WebApi.SqlQueries;
-using Dapper;
 using Microsoft.Extensions.Options;
 
 namespace ActoEngine.WebApi.Services.Database;
@@ -32,15 +31,15 @@ public interface IDataSeeder
 }
 
 public class DatabaseSeeder(
-    IDbConnectionFactory connectionFactory,
     IPasswordHasher passwordHasher,
     IUserRepository userRepository,
+    IClientRepository clientRepository,
     IOptions<DatabaseSeedingOptions> seedingOptions,
     ILogger<DatabaseSeeder> logger) : IDataSeeder
 {
-    private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
     private readonly IPasswordHasher _passwordHasher = passwordHasher;
     private readonly IUserRepository _userRepository = userRepository;
+    private readonly IClientRepository _clientRepository = clientRepository;
     private readonly DatabaseSeedingOptions _seedingOptions = seedingOptions.Value;
     private readonly ILogger<DatabaseSeeder> _logger = logger;
 
@@ -56,7 +55,6 @@ public class DatabaseSeeder(
 
         try
         {
-            await SeedAdminUserAsync(cancellationToken);
             await SeedDefaultDetailsAsync(cancellationToken);
             _logger.LogInformation("Database seeding completed successfully");
         }
@@ -77,7 +75,7 @@ public class DatabaseSeeder(
         _logger.LogInformation("No additional production data to seed");
     }
 
-    private async Task SeedAdminUserAsync(CancellationToken cancellationToken = default)
+    private async Task SeedDefaultDetailsAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Seeding admin user...");
 
@@ -97,33 +95,27 @@ public class DatabaseSeeder(
             createdBy: "System.Seeder"
         );
 
-        await _userRepository.AddAsync(adminUser, cancellationToken);
+        var admin = await _userRepository.AddAsync(adminUser, cancellationToken);
         _logger.LogInformation("Admin user created: {Username}", _seedingOptions.AdminUser.Username);
         _logger.LogWarning("IMPORTANT: Change the admin password after first login!");
-    }
 
-    /// <summary>
-    /// Ensures a global default client exists in the database, inserting one with UserId = 1 if none is found.
-    /// </summary>
-    private async Task SeedDefaultDetailsAsync(CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Seeding Global Default Client...");
+        var existingClient = await _clientRepository.GetByNameAsync("Default Client", cancellationToken);
 
-        using var connection = _connectionFactory.CreateConnection();
-
-        // 2. Create or get global default client (not tied to a specific project)
-        var existingClientId = await connection.QuerySingleOrDefaultAsync<int?>(SeedDataQueries.GetDefaultClientId);
-
-        if (existingClientId.HasValue)
+        if (existingClient != null)
         {
-            _logger.LogInformation("Global default client already exists with ClientId: {ClientId}", existingClientId.Value);
+            _logger.LogInformation("Global default client already exists with ClientId: {ClientId}", existingClient.ClientId);
         }
         else
         {
-            var admin = await _userRepository.GetByUserNameAsync(_seedingOptions.AdminUser.Username, cancellationToken);
             var createdByUserId = admin?.UserID ?? throw new InvalidOperationException("Admin user must exist before seeding default client");
 
-            var clientId = await connection.QuerySingleAsync<int>(SeedDataQueries.InsertDefaultClient, new { UserId = createdByUserId });
+            var defaultClient = new Client(
+                clientName: "Default Client",
+                createdAt: DateTime.UtcNow,
+                createdBy: createdByUserId
+            );
+
+            var clientId = await _clientRepository.CreateAsync(defaultClient, cancellationToken);
             _logger.LogInformation("Created global default client with ClientId: {ClientId}", clientId);
         }
     }
