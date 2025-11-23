@@ -87,6 +87,6 @@ secrets.json
 .env.development
 .env.production
 !.env.example
-v-notes.*
+v-notes*
 
 .fake

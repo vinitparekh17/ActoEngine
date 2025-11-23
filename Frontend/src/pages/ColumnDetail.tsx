@@ -48,24 +48,28 @@ interface ColumnMetadata {
 export default function ColumnDetail() {
   const { projectId, tableId, columnId } = useParams<{
     projectId: string;
-    tableId: string;
+    tableId?: string;
     columnId: string;
   }>();
   const { selectedProject, hasProject } = useProject();
+
+  // Determine API endpoint based on whether tableId is available
+  // If tableId is in the URL, use the nested endpoint
+  // Otherwise, use the standalone endpoint (column IDs are globally unique)
+  const apiEndpoint = tableId
+    ? `/DatabaseBrowser/projects/${projectId}/tables/${tableId}/columns/${columnId}`
+    : `/DatabaseBrowser/projects/${projectId}/columns/${columnId}`;
 
   // Fetch column metadata
   const {
     data: columnData,
     isLoading,
     error,
-  } = useApi<ColumnMetadata>(
-    `/DatabaseBrowser/projects/${projectId}/tables/${tableId}/columns/${columnId}`,
-    {
-      enabled: hasProject && !!projectId && !!tableId && !!columnId,
-      staleTime: 60 * 1000,
-      retry: 2,
-    }
-  );
+  } = useApi<ColumnMetadata>(apiEndpoint, {
+    enabled: hasProject && !!projectId && !!columnId,
+    staleTime: 60 * 1000,
+    retry: 2,
+  });
 
   // Loading state
   if (isLoading) {
@@ -121,7 +125,7 @@ export default function ColumnDetail() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to={`/projects/${projectId}/tables/${tableId}`}>
+            <Link to={`/project/${projectId}/tables/${tableId || columnData.tableId}`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -136,7 +140,7 @@ export default function ColumnDetail() {
             <div className="flex items-center gap-2 mt-1">
               <Database className="h-4 w-4 text-muted-foreground" />
               <Link
-                to={`/projects/${projectId}/tables/${tableId}`}
+                to={`/project/${projectId}/tables/${tableId || columnData.tableId}`}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 {columnData.schemaName ? `${columnData.schemaName}.` : ''}

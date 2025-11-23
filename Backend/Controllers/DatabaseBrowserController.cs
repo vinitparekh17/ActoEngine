@@ -494,7 +494,76 @@ public class DatabaseBrowserController(
     }
 
     /// <summary>
-    /// Get detailed column information by column ID
+    /// Get detailed column information by column ID (standalone route)
+    /// </summary>
+    /// <param name="projectId">The project ID</param>
+    /// <param name="columnId">The column ID</param>
+    /// <returns>Detailed column information</returns>
+    [HttpGet("projects/{projectId}/columns/{columnId}")]
+    [ProducesResponseType(typeof(ApiResponse<ColumnDetailResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<ColumnDetailResponse>> GetColumnDetailStandalone(int projectId, int columnId)
+    {
+        try
+        {
+            _logger.LogInformation("Getting column details for column {ColumnId} in project {ProjectId}", columnId, projectId);
+
+            // Get column metadata
+            var column = await _schemaService.GetColumnByIdAsync(columnId);
+            if (column == null)
+            {
+                return NotFound(ApiResponse<ColumnDetailResponse>.Failure($"Column with ID {columnId} not found"));
+            }
+
+            // Get table metadata to get table name and verify project
+            var table = await _schemaService.GetTableByIdAsync(column.TableId);
+            if (table == null)
+            {
+                return NotFound(ApiResponse<ColumnDetailResponse>.Failure($"Table with ID {column.TableId} not found"));
+            }
+
+            // Verify table belongs to the requested project
+            if (table.ProjectId != projectId)
+            {
+                _logger.LogWarning("Column {ColumnId} belongs to project {ActualProjectId} but was requested for project {RequestedProjectId}",
+                    columnId, table.ProjectId, projectId);
+                return NotFound(ApiResponse<ColumnDetailResponse>.Failure($"Column with ID {columnId} not found"));
+            }
+
+            // Build the detailed response
+            var response = new ColumnDetailResponse
+            {
+                ColumnId = column.ColumnId,
+                ColumnName = column.ColumnName,
+                TableName = table.TableName,
+                TableId = column.TableId,
+                SchemaName = table.SchemaName,
+                DataType = column.DataType,
+                MaxLength = column.MaxLength,
+                Precision = column.Precision,
+                Scale = column.Scale,
+                IsNullable = column.IsNullable,
+                IsPrimaryKey = column.IsPrimaryKey,
+                IsForeignKey = column.IsForeignKey,
+                IsIdentity = false, // Can be enhanced from metadata
+                DefaultValue = column.DefaultValue,
+                Constraints = BuildConstraints(column),
+                Description = column.Description,
+                ForeignKeyReference = null // Can be populated from FK metadata if needed
+            };
+
+            return Ok(ApiResponse<ColumnDetailResponse>.Success(response));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting column details for column {ColumnId} in project {ProjectId}", columnId, projectId);
+            return StatusCode(500, ApiResponse<ColumnDetailResponse>.Failure("An error occurred while retrieving column details"));
+        }
+    }
+
+    /// <summary>
+    /// Get detailed column information by column ID (nested route)
     /// </summary>
     /// <param name="projectId">The project ID</param>
     /// <param name="tableId">The table ID</param>

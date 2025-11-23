@@ -13,12 +13,10 @@ import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from '@/components/ui/hover-card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  FileText, 
-  AlertTriangle, 
-  CheckCircle2, 
+} from "@/components/ui/hover-card";
+import {
+  FileText,
+  AlertTriangle,
   Users,
   Shield,
   AlertCircle,
@@ -394,14 +392,14 @@ function getEntityTypeLabel(entityType: string): string {
 
 function getEntityRoute(entityType: string, entityId: number, projectId: number): string {
   switch (entityType) {
-    case 'TABLE':
-      return `/projects/${projectId}/tables/${entityId}`;
-    case 'SP':
-      return `/projects/${projectId}/stored-procedures/${entityId}`;
-    case 'COLUMN':
-      return `/projects/${projectId}/columns/${entityId}`;
+    case "TABLE":
+      return `/project/${projectId}/tables/${entityId}`;
+    case "SP":
+      return `/project/${projectId}/stored-procedures/${entityId}`;
+    case "COLUMN":
+      return `/project/${projectId}/columns/${entityId}`;
     default:
-      return `/projects/${projectId}`;
+      return `/project/${projectId}`;
   }
 }
 
