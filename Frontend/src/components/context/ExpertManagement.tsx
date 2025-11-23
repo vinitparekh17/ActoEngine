@@ -87,7 +87,12 @@ interface ExpertManagementProps {
   entityName: string;
 }
 
-// helper (put near your component)
+/**
+ * Produce avatar initials from a display name.
+ *
+ * @param name - Optional display name to derive initials from
+ * @returns `'?'` if `name` is empty or only whitespace, a single uppercase character if `name` has one character, otherwise the first two characters of `name` converted to uppercase
+ */
 function getInitials(name?: string): string {
   const normalized = (name ?? "").normalize("NFC").trim();
 

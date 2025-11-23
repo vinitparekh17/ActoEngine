@@ -13,8 +13,17 @@ export interface ErrorFallbackProps {
 }
 
 /**
- * Shared error fallback UI component for error boundaries
- * Supports different variants for widget, page, and app-level errors
+ * Render an error fallback UI appropriate for widget, page, or app-level contexts.
+ *
+ * Renders a compact inline alert for the "widget" variant, a centered full-page layout for the "page" variant (with back navigation), or a full-screen critical layout for the "app" variant. Each layout displays the error message, optional expandable technical details when `showDetails` is true and `error.stack` is present, and action buttons to retry or navigate as appropriate. The `isRetrying` flag disables actions and shows a loading state.
+ *
+ * @param error - The Error object to display (message and optional stack).
+ * @param resetError - Callback invoked to attempt recovery or retry the failed operation.
+ * @param variant - One of "widget", "page", or "app" to select the UI layout; defaults to "widget".
+ * @param isRetrying - When true, action buttons are disabled and show a loading state; defaults to false.
+ * @param componentName - Optional component name used in the widget title when provided.
+ * @param showDetails - When true, render expandable technical details from `error.stack`; defaults to development mode.
+ * @returns The rendered error UI for the selected variant, or `null` if the variant is unrecognized.
  */
 export function ErrorFallback({
   error,

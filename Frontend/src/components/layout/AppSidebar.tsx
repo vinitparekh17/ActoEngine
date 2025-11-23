@@ -43,6 +43,13 @@ const SIDEBAR_ITEMS = [
   { icon: Users, label: "Client Management", href: "/clients" },
 ];
 
+/**
+ * Render the application sidebar with project selection, primary navigation, and user actions.
+ *
+ * The header includes a dropdown to select or switch projects (shows loading and empty states and displays a toast on successful switch or error). The main content renders navigation items from SIDEBAR_ITEMS with active-route highlighting. The footer provides a user menu with a logout action that triggers a toast and navigates to the login page.
+ *
+ * @returns A JSX element rendering the app's collapsible sidebar, including header project dropdown, navigation menu, footer user menu, and sidebar rail.
+ */
 export default function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();

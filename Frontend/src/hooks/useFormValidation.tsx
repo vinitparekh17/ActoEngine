@@ -284,6 +284,15 @@ interface FormFieldProps {
   className?: string;
 }
 
+/**
+ * Renders a form field wrapper that displays its children and, when provided, an inline error message.
+ *
+ * @param children - Child nodes to render inside the field container.
+ * @param error - Optional error message to show beneath the children; omitted when falsy.
+ * @param onFocus - Optional focus event handler attached to the container (commonly used to clear errors).
+ * @param className - Optional additional CSS classes applied to the container.
+ * @returns The field container element including an accessible error message when `error` is set.
+ */
 export function FormField({ children, error, onFocus, className = '' }: FormFieldProps) {
   return (
     <div className={`space-y-1 ${className}`} onFocus={onFocus}>

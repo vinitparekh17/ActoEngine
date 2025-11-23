@@ -106,7 +106,16 @@ public partial class ContextService(
 
     /// <summary>
     /// Save or update context
+    /// <summary>
+    /// Saves or updates the context for a specified entity, records field-level history of changes, and optionally associates expert users.
     /// </summary>
+    /// <param name="projectId">The project identifier the entity belongs to.</param>
+    /// <param name="entityType">The type of the entity (e.g., "TABLE", "COLUMN", "SP").</param>
+    /// <param name="entityId">The identifier of the entity within the project.</param>
+    /// <param name="request">The context payload to persist; may include context fields and an optional list of expert user IDs to associate.</param>
+    /// <param name="userId">The identifier of the user performing the save operation (recorded as the actor).</param>
+    /// <returns>The persisted <see cref="EntityContext"/> for the specified entity.</returns>
+    /// <exception cref="ArgumentException">Thrown when the specified entity cannot be found.</exception>
     public async Task<EntityContext> SaveContextAsync(
         int projectId,
         string entityType,

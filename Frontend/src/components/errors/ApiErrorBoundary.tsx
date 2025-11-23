@@ -97,6 +97,11 @@ export class ApiErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundar
 // ============================================
 import { useQueryErrorResetBoundary } from '@tanstack/react-query';
 
+/**
+ * Wraps children with an ApiErrorBoundary that resets React Query errors and redirects to /login on 401 responses.
+ *
+ * @returns A React element that renders the provided children inside the configured error boundary which handles query error resets and auth redirects.
+ */
 export function QueryErrorBoundary({ children }: { children: ReactNode }) {
   const { reset } = useQueryErrorResetBoundary();
   const navigate = useNavigate();

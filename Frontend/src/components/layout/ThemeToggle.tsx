@@ -4,6 +4,13 @@ import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Moon, Sun } from "lucide-react";
 
+/**
+ * Renders a button that toggles between dark and light theme and persists the user's choice.
+ *
+ * Initializes theme from localStorage or the system preference, adds/removes the `dark` class on the document root and writes the selected theme to localStorage when changed, and listens for system color-scheme changes to update the theme only when the user has not explicitly chosen one.
+ *
+ * @returns A JSX element rendering the theme toggle button (shows a sun icon for dark mode and a moon icon for light mode).
+ */
 export default function ThemeToggle() {
   // Initialize from localStorage or system preference
   const [dark, setDark] = useState(() => {

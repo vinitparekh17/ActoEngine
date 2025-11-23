@@ -39,10 +39,15 @@ interface LoginResponse {
 }
 
 /**
- * Re-login Modal for 401 error recovery
+ * Render a modal that prompts the current user to re-authenticate when their session expires.
  *
- * Allows users to re-authenticate without losing page state or pending requests.
- * After successful re-authentication, queued requests are automatically retried.
+ * Displays the current username (read-only) and a password input; on successful login it updates
+ * authentication state and invokes `onSuccess`. Shows a destructive alert for authentication errors
+ * and disables inputs while the request is in progress.
+ *
+ * @param isOpen - Whether the modal is visible
+ * @param onSuccess - Callback invoked after successful re-authentication
+ * @param onCancel - Callback invoked when the user cancels the re-authentication flow
  */
 export function ReLoginModal({ isOpen, onSuccess, onCancel }: ReLoginModalProps) {
   const [password, setPassword] = useState('');

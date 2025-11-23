@@ -35,6 +35,12 @@ export function isApiResponse<T = unknown>(value: any): value is ApiResponse<T> 
     && 'timestamp' in value;
 }
 
+/**
+ * Determines whether a value matches the ErrorResponse shape.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is an object containing `error`, `message`, `timestamp`, and `path`; `false` otherwise.
+ */
 export function isErrorResponse(value: any): value is ErrorResponse {
   return value && typeof value === 'object'
     && 'error' in value
@@ -316,7 +322,9 @@ class ApiClient {
 // ============================================
 
 /**
- * Initialize unauthorized handler (call this in your app setup)
+ * Registers a global unauthorized callback on the singleton API client.
+ *
+ * @param onUnauthorized - Callback invoked when the client detects an unauthorized (401) condition that requires re-authentication.
  */
 export function initializeApiClient(onUnauthorized: OnUnauthorized) {
   api.setUnauthorizedHandler(onUnauthorized);

@@ -43,6 +43,12 @@ public class DatabaseSeeder(
     private readonly DatabaseSeedingOptions _seedingOptions = seedingOptions.Value;
     private readonly ILogger<DatabaseSeeder> _logger = logger;
 
+    /// <summary>
+    — Seeds required initial data into the database when seeding is enabled.
+    /// </summary>
+    /// <param name="cancellationToken">Token to cancel the seeding operation.</param>
+    /// <returns>A task that completes when seeding has finished.</returns>
+    /// <exception cref="Exception">If an error occurs during seeding the exception is logged and rethrown.</exception>
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         if (!_seedingOptions.Enabled)
@@ -70,11 +76,20 @@ public class DatabaseSeeder(
         _logger.LogInformation("No development data to seed");
     }
 
+    /// <summary>
+    /// Performs production-only seeding; this implementation does not add any production data.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token; not used by this implementation.</param>
     public void SeedProductionData(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("No additional production data to seed");
     }
 
+    /// <summary>
+    /// Ensures required default data exists by creating the admin user and a global default client when they are missing.
+    /// </summary>
+    /// <param name="cancellationToken">Token to cancel the seeding operation.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the admin user was not created but is required as the creator for the default client.</exception>
     private async Task SeedDefaultDetailsAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Seeding admin user...");

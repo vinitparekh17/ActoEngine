@@ -13,7 +13,12 @@ public interface IDependencyRepository
     /// <summary>
     /// Saves dependencies for specified sources in a transaction.
     /// Deletes existing dependencies for the sources and inserts new ones atomically.
-    /// </summary>
+    /// <summary>
+/// Saves the provided dependencies for the specified project and sources in a single transaction, removing existing dependencies for those sources and inserting the new records atomically.
+/// </summary>
+/// <param name="projectId">The identifier of the project these dependencies belong to.</param>
+/// <param name="dependencies">The collection of dependencies to persist; each item identifies a source and its target dependency.</param>
+/// <param name="cancellationToken">Token to observe for cancellation of the operation.</param>
     Task SaveDependenciesForSourcesAsync(int projectId, IEnumerable<ResolvedDependency> dependencies, CancellationToken cancellationToken = default);
 }
 
@@ -24,6 +29,12 @@ public class DependencyRepository(
     IDbConnectionFactory connectionFactory,
     ILogger<DependencyRepository> logger) : BaseRepository(connectionFactory, logger), IDependencyRepository
 {
+    /// <summary>
+    /// Persists the given dependencies for a project by replacing existing dependencies for the same sources within a single database transaction.
+    /// </summary>
+    /// <param name="projectId">The project identifier to which the dependencies belong.</param>
+    /// <param name="dependencies">The collection of dependencies to save; if empty, no changes are made.</param>
+    /// <param name="cancellationToken">Token to observe for request cancellation.</param>
     public async Task SaveDependenciesForSourcesAsync(
         int projectId,
         IEnumerable<ResolvedDependency> dependencies,

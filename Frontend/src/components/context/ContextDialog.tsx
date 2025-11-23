@@ -36,6 +36,20 @@ interface QuickContextDialogProps {
   trigger?: React.ReactNode;
 }
 
+/**
+ * Render a dialog to add or update brief contextual documentation and data sensitivity for a database entity (table, column, or stored procedure).
+ *
+ * The dialog initializes fields from the provided current values when opened, validates input (entity id, selected project, and purpose length), and saves via the quick-save mutation. On successful save it closes the dialog, invalidates the project's context queries to refresh data, and invokes `onSuccess` if provided. The dialog also provides a link to open the full editor for the entity.
+ *
+ * @param props.entityId - Numeric identifier of the target entity (string form accepted); shown/used to route and saved payloads.
+ * @param props.entityType - One of 'TABLE', 'COLUMN', or 'SP' to determine placeholders, available fields, and routing for the full editor.
+ * @param props.entityName - Display name for the dialog title.
+ * @param props.currentPurpose - Optional initial purpose text to prefill the purpose field when the dialog opens.
+ * @param props.currentCriticalityLevel - Optional initial sensitivity level (1–5) to prefill the sensitivity select; defaults to 1.
+ * @param props.onSuccess - Optional callback invoked after a successful save.
+ * @param props.trigger - Optional custom trigger element; when omitted a default "Quick Context" button is rendered.
+ * @returns The QuickContextDialog React element.
+ */
 export function QuickContextDialog({
   entityId,
   entityType,

@@ -40,6 +40,11 @@ namespace ActoEngine.WebApi.Services.ProjectService
         private readonly IDependencyResolutionService _dependencyResolutionService = dependencyResolutionService;
 
 
+        /// <summary>
+        /// Verifies that the provided database connection details can be used to connect to the target SQL Server instance.
+        /// </summary>
+        /// <param name="request">Connection details including server, port, database name, username, and password.</param>
+        /// <returns>`true` if a connection to the target database can be opened, `false` otherwise.</returns>
         public async Task<bool> VerifyConnectionAsync(VerifyConnectionRequest request)
         {
             var connectionString = $"Server={request.Server},{request.Port};Database={request.DatabaseName};User Id={request.Username};Password={request.Password};TrustServerCertificate=True";
@@ -120,6 +125,12 @@ namespace ActoEngine.WebApi.Services.ProjectService
             return await _projectRepository.GetSyncStatusAsync(projectId);
         }
 
+        /// <summary>
+        /// Performs a full schema synchronization for a project using the provided target database connection, updates sync progress, and runs post-sync dependency analysis.
+        /// </summary>
+        /// <param name="projectId">The ID of the project to synchronize.</param>
+        /// <param name="targetConnectionString">A connection string for the target database from which schema metadata will be read.</param>
+        /// <param name="userId">The ID of the user who initiated the sync operation (used for auditing).</param>
         private async Task SyncSchemaWithProgressAsync(int projectId, string targetConnectionString, int userId)
         {
             try
@@ -194,6 +205,14 @@ namespace ActoEngine.WebApi.Services.ProjectService
         /// <param name="userId">Identifier of the user initiating the sync; used when creating or linking the global default client and recording ownership.</param>
         /// <param name="actoxConn">Active connection to the Actox metadata database where schema changes are persisted.</param>
         /// <param name="transaction">Database transaction on <paramref name="actoxConn"/> used to group persisted changes.</param>
+        /// <summary>
+        /// Synchronizes schema metadata (tables, columns, foreign keys, and stored procedures) from a remote database into the Actox metadata store for the specified project and updates sync progress.
+        /// </summary>
+        /// <param name="projectId">The identifier of the project whose metadata is being synchronized.</param>
+        /// <param name="targetConnectionString">Connection string for the target database to read schema metadata from.</param>
+        /// <param name="userId">Identifier of the user initiating the synchronization (used for created/updated audit fields).</param>
+        /// <param name="actoxConn">Open connection to the Actox metadata database used to persist synchronized metadata.</param>
+        /// <param name="transaction">Database transaction on <paramref name="actoxConn"/> used to make the sync operations atomic.</param>
         /// <exception cref="InvalidOperationException">Thrown if creation of the global "Default Client" succeeds but the created client cannot be retrieved.</exception>
         private async Task SyncViaCrossServerAsync(
             int projectId,
@@ -291,6 +310,12 @@ namespace ActoEngine.WebApi.Services.ProjectService
             return totalColumns;
         }
 
+        /// <summary>
+        /// Reads and returns column metadata for the specified table from the provided target database connection.
+        /// </summary>
+        /// <param name="targetConn">An open SqlConnection to the target database.</param>
+        /// <param name="tableName">The name of the table whose column metadata will be retrieved.</param>
+        /// <returns>An enumerable of <see cref="ColumnMetadata"/> representing the columns of the specified table.</returns>
         private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string tableName)
         {
             using var cmd = new SqlCommand(SchemaSyncQueries.GetTargetColumns, targetConn);
@@ -316,6 +341,15 @@ namespace ActoEngine.WebApi.Services.ProjectService
             return columns;
         }
 
+        /// <summary>
+        /// Invokes the Actox stored procedure `SyncSchemaMetadata` to synchronize schema metadata for the specified project when the target database is hosted on the same SQL Server.
+        /// </summary>
+        /// <param name="projectId">The identifier of the project whose schema metadata will be synchronized.</param>
+        /// <param name="targetConnectionString">A connection string for the target database; the database name from this string is passed to the stored procedure.</param>
+        /// <param name="userId">The identifier of the user initiating the synchronization.</param>
+        /// <param name="actoxConn">An open connection to the Actox metadata database used to execute the stored procedure.</param>
+        /// <param name="transaction">The ambient transaction to enlist the stored-procedure call in; must be a <see cref="SqlTransaction"/> associated with <paramref name="actoxConn"/>.</param>
+        /// <exception cref="InvalidOperationException">Thrown if a <see cref="SqlCommand"/> cannot be created or if <paramref name="transaction"/> is not a <see cref="SqlTransaction"/> or is null.</exception>
         private static async Task SyncViaSameServerAsync(
             int projectId,
             string targetConnectionString,
@@ -377,6 +411,18 @@ namespace ActoEngine.WebApi.Services.ProjectService
             return targetServer.Equals(actoxServer, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Update the project's synchronization status text and progress percentage in the Actox metadata database.
+        /// </summary>
+        /// <param name="connection">An open DB connection to the Actox metadata database.</param>
+        /// <param name="transaction">A <see cref="SqlTransaction"/> associated with <paramref name="connection"/> to use for the update.</param>
+        /// <param name="projectId">The identifier of the project whose sync status will be updated.</param>
+        /// <param name="status">A short status message describing the current synchronization stage.</param>
+        /// <param name="progress">Progress percentage for the sync operation (typically 0–100).</param>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when a <see cref="SqlCommand"/> cannot be created from <paramref name="connection"/>,
+        /// or when <paramref name="transaction"/> is null or not a <see cref="SqlTransaction"/>.
+        /// </exception>
         private static async Task UpdateSyncProgress(
             IDbConnection connection,
             IDbTransaction transaction,
@@ -410,6 +456,14 @@ namespace ActoEngine.WebApi.Services.ProjectService
             await cmd.ExecuteNonQueryAsync();
         }
 
+        /// <summary>
+        /// Extracts, resolves, and persists object dependencies for all stored procedures in the specified project.
+        /// </summary>
+        /// <remarks>
+        /// Loads stored procedure definitions for the project, extracts dependency information from each definition,
+        /// logs any extraction failures, and then resolves names to internal IDs and saves the resulting dependencies.
+        /// </remarks>
+        /// <param name="projectId">The identifier of the project whose stored procedure dependencies will be analyzed.</param>
         private async Task AnalyzeProjectDependenciesAsync(int projectId)
         {
             // Fetch all SPs for this project
@@ -465,6 +519,12 @@ namespace ActoEngine.WebApi.Services.ProjectService
             }
         }
 
+        /// <summary>
+        /// Creates and persists a new project record (initially unlinked to any database).
+        /// </summary>
+        /// <param name="request">Details for the project to create (name, database name, description, database type).</param>
+        /// <param name="userId">Identifier of the user creating the project.</param>
+        /// <returns>A <see cref="ProjectResponse"/> containing the new project's ID and a success message.</returns>
         public async Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId)
         {
             try

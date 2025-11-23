@@ -10,6 +10,15 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 
+/**
+ * Renders a confirmation alert dialog when confirmation options are available.
+ *
+ * The dialog displays a title and description and shows Cancel and Confirm actions.
+ * Clicking Cancel invokes the cancellation handler; clicking Confirm invokes the confirmation handler.
+ * If `options.variant` equals "destructive", the confirm action is styled as destructive.
+ *
+ * @returns The dialog element when confirmation options are present, otherwise `null`.
+ */
 export function ConfirmDialog() {
   const { isOpen, options, handleConfirm, handleCancel } = useConfirmDialog();
 

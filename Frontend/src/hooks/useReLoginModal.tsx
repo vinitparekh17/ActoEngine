@@ -13,9 +13,12 @@ interface ReLoginModalContextValue {
 const ReLoginModalContext = createContext<ReLoginModalContextValue | undefined>(undefined);
 
 /**
- * Provider for Re-login Modal
+ * Provides ReLoginModalContext and renders the re-authentication modal alongside its children.
  *
- * Wraps the app to provide re-authentication functionality on 401 errors
+ * Manages modal visibility and processing state, exposes handlers to show and hide the modal,
+ * and coordinates processing or cancelling queued API requests after a successful or cancelled re-authentication.
+ *
+ * @returns A JSX element that supplies re-login modal controls via context and renders the ReLoginModal and children.
  */
 export function ReLoginModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -77,7 +80,10 @@ export function ReLoginModalProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Hook to access re-login modal context
+ * Accesses the re-login modal context provided by ReLoginModalProvider.
+ *
+ * @returns The context object containing `showReLoginModal`, `hideReLoginModal`, `isOpen`, and `isProcessing`.
+ * @throws Error if called outside of a ReLoginModalProvider
  */
 export function useReLoginModal() {
   const context = useContext(ReLoginModalContext);

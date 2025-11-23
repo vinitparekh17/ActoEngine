@@ -26,7 +26,13 @@ import { useEffect } from "react";
 
 // ============================================
 // Protected Route Wrapper
-// ============================================
+/**
+ * Renders the given children for authenticated users and redirects unauthenticated users to the login page.
+ *
+ * While the authentication state is being determined, renders a full-screen centered loading spinner.
+ *
+ * @returns The `children` React nodes when the user is authenticated; otherwise a redirect to `/login`.
+ */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -41,6 +47,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
+/**
+ * Defines the application's route tree and initializes the API client with a handler that triggers the re-login modal.
+ *
+ * The component mounts the client-side routes (including protected and error-boundary-wrapped routes) and calls
+ * initializeApiClient with a callback that displays the re-login modal when authentication must be refreshed.
+ *
+ * @returns The React Router route elements for the application.
+ */
 function AppRoutes() {
   const { showReLoginModal } = useReLoginModal();
 
@@ -187,6 +201,14 @@ function AppRoutes() {
   );
 }
 
+/**
+ * Root application component that composes global providers, routing, and UI chrome.
+ *
+ * Wraps the application with QueryProvider (data-fetching context), BrowserRouter (routing), and
+ * ReLoginModalProvider (re-authentication modal), then mounts AppRoutes and a top-right Toaster.
+ *
+ * @returns The root React element for the application.
+ */
 function App() {
   return (
     <QueryProvider>

@@ -97,6 +97,15 @@ interface WidgetErrorBoundaryWithCallbacksProps {
   onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
+/**
+ * Wraps the given children with an error boundary that displays a widget-styled fallback and wires retry and error callbacks.
+ *
+ * @param children - The subtree to protect from render errors.
+ * @param componentName - Optional name of the widget to show in the fallback UI for context.
+ * @param onRetry - Optional callback invoked when the user triggers a retry from the fallback; invoked before the boundary reset.
+ * @param onError - Optional callback invoked when an error is caught, receiving the error and React error info.
+ * @returns A React element that renders `children` inside an error boundary which shows a widget fallback and supports retry behavior.
+ */
 export function WidgetErrorBoundaryWithCallbacks({
   children,
   componentName,

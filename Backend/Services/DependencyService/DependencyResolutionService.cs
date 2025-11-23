@@ -10,7 +10,11 @@ public interface IDependencyResolutionService
 {
     /// <summary>
     /// Resolves entity names to IDs and persists them to the Dependencies table.
-    /// </summary>
+    /// <summary>
+/// Resolves raw dependency targets to project entity IDs and persists the resolved dependencies to storage.
+/// </summary>
+/// <param name="projectId">The project identifier whose metadata is used for resolution.</param>
+/// <param name="rawDependencies">A list of dependencies containing source/target names and types to be resolved and saved.</param>
     Task ResolveAndSaveDependenciesAsync(int projectId, List<Dependency> rawDependencies);
 }
 
@@ -23,6 +27,11 @@ public class DependencyResolutionService(
     private readonly IDependencyRepository _dependencyRepository = dependencyRepository;
     private readonly ILogger<DependencyResolutionService> _logger = logger;
 
+    /// <summary>
+    /// Resolves target names in the provided raw dependencies to internal entity IDs for the specified project and persists the successfully resolved dependencies.
+    /// </summary>
+    /// <param name="projectId">The project identifier whose table and stored-procedure metadata are used for resolution.</param>
+    /// <param name="rawDependencies">Parsed dependencies containing source information and target names/types; entries with a resolvable target are saved.</param>
     public async Task ResolveAndSaveDependenciesAsync(int projectId, List<Dependency> rawDependencies)
     {
         if (rawDependencies.Count == 0) return;
@@ -79,6 +88,12 @@ public class DependencyResolutionService(
         }
     }
 
+    /// <summary>
+    /// Resolve an entity name to its mapped ID using exact match, an unqualified-name fallback, and a `dbo`-prefixed fallback.
+    /// </summary>
+    /// <param name="map">A mapping of qualified names (schema.name) to IDs.</param>
+    /// <param name="name">The entity name to resolve; may be qualified (schema.name) or unqualified (name).</param>
+    /// <returns>The matching ID if found; otherwise <c>null</c>.</returns>
     private static int? FindEntityId(Dictionary<string, int> map, string name)
     {
         // 1. Try exact match (Schema.Table)
@@ -98,6 +113,11 @@ public class DependencyResolutionService(
         return null;
     }
 
+    /// <summary>
+    /// Normalize an entity name by removing all square brackets and a leading "dbo." schema qualifier.
+    /// </summary>
+    /// <param name="name">The raw entity name to normalize (may include brackets and a schema prefix).</param>
+    /// <returns>The cleaned name with `[` and `]` removed and a leading `dbo.` removed if present.</returns>
     private static string CleanName(string name)
     {
         // First, strip all bracket characters (not just start/end)
@@ -113,6 +133,14 @@ public class DependencyResolutionService(
         return cleaned;
     }
 
+    /// <summary>
+    /// Builds a lookup of table names to their IDs for the specified project, including both qualified names ("schema.table") and resolved unqualified names.
+    /// </summary>
+    /// <param name="projectId">The project identifier used to load table metadata.</param>
+    /// <returns>
+    /// A dictionary mapping table name keys to TableId. Keys include qualified names ("schema.table") for every table and unqualified names when unambiguous;
+    /// when multiple schemas contain the same table name the unqualified key prefers the "dbo" schema or else maps to a chosen occurrence (with a warning logged).
+    /// </returns>
     private async Task<Dictionary<string, int>> LoadTableMapAsync(IDbConnection conn, int projectId)
     {
         var sql = @"SELECT TableName, SchemaName, TableId FROM TablesMetadata WHERE ProjectId = @ProjectId";
@@ -178,6 +206,14 @@ public class DependencyResolutionService(
         return map;
     }
 
+    /// <summary>
+    /// Builds a name-to-ID map for stored procedures in the specified project, including both qualified (schema.name) and resolved unqualified names.
+    /// </summary>
+    /// <param name="conn">An open database connection used to query SpMetadata.</param>
+    /// <param name="projectId">The project identifier to filter stored procedure metadata.</param>
+    /// <returns>
+    /// A dictionary mapping stored procedure names to their IDs. Keys include qualified names in the form "schema.name" and unqualified names; when multiple procedures share the same unqualified name across schemas, the mapping prefers the "dbo" schema or otherwise selects the first occurrence while emitting warnings.
+    /// </returns>
     private async Task<Dictionary<string, int>> LoadSpMapAsync(IDbConnection conn, int projectId)
     {
         var sql = @"SELECT ProcedureName, SchemaName, SpId FROM SpMetadata WHERE ProjectId = @ProjectId";

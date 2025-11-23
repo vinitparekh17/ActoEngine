@@ -15,12 +15,20 @@ export interface UseErrorRecoveryOptions {
 }
 
 /**
- * Hook for smart hybrid error recovery with automatic retry logic
- * - Retries once automatically and silently
- * - Shows manual retry UI if auto-retry fails
+ * Provides error recovery state and control functions with optional automatic retries.
  *
- * @param options Configuration options for retry behavior
- * @returns Error recovery state and control functions
+ * The hook tracks an error, the number of retry attempts, whether a retry is in progress,
+ * and whether a manual retry UI should be shown. It will automatically retry up to
+ * `maxAutoRetries` times (after `retryDelay` ms) and exposes controls to trigger a manual retry,
+ * reset the state, and complete a retry cycle.
+ *
+ * @param options - Configuration options for retry behavior.
+ *   - `maxAutoRetries` (default 1): Maximum number of automatic retry attempts before showing manual retry UI.
+ *   - `retryDelay` (default 1000): Delay in milliseconds before an automatic retry is triggered.
+ *   - `onRetry`: Callback invoked when a retry is started (automatic or manual).
+ *   - `onError`: Callback invoked when an error is handled.
+ * @returns An object containing the current error recovery state (`error`, `retryCount`, `isRetrying`, `shouldShowRetryUI`)
+ * and control methods: `handleError(error)`, `retry()`, `reset()`, and `completeRetry(success, error?)`.
  */
 export function useErrorRecovery(options: UseErrorRecoveryOptions = {}) {
   const {

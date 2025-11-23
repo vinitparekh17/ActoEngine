@@ -174,6 +174,12 @@ Task<bool> IsLinkedAsync(int projectId, int clientId);
         /// <param name="request">Request containing the target ProjectId and the collection of ClientIds to link.</param>
         /// <param name="userId">Identifier of the user performing the linking operation.</param>
         /// <returns>A collection of ProjectClientDetailResponse objects for clients that were successfully linked to the project.</returns>
+        /// <summary>
+        /// Links each client specified in the request to the target project and returns details for the successfully created links.
+        /// </summary>
+        /// <param name="request">Request containing the target project ID and the collection of client IDs to link.</param>
+        /// <param name="userId">ID of the user performing the operation.</param>
+        /// <returns>An <see cref="IEnumerable{ProjectClientDetailResponse}"/> describing each client-project association that was successfully created.</returns>
         /// <exception cref="InvalidOperationException">Thrown when the target project specified by the request does not exist.</exception>
         public async Task<IEnumerable<ProjectClientDetailResponse>> LinkMultipleClientsToProjectAsync(LinkMultipleClientsRequest request, int userId)
         {

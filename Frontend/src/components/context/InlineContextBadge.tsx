@@ -35,7 +35,12 @@ import { CriticalityLevel } from "@/types/context";
 const HIGH_SENSITIVITY_LEVELS = ['PII', 'FINANCIAL', 'SENSITIVE'] as const;
 const CRITICAL_SENSITIVITY_LEVELS = ['PII', 'FINANCIAL'] as const;
 
-// Type guard for CriticalityLevel validation
+/**
+ * Determines whether a value is a valid CriticalityLevel (1–5).
+ *
+ * @param value - The value to validate as a CriticalityLevel
+ * @returns `true` if the value is a number between 1 and 5 inclusive, `false` otherwise.
+ */
 function isCriticalityLevel(value: any): value is CriticalityLevel {
   return typeof value === 'number' && value >= 1 && value <= 5;
 }
@@ -452,7 +457,12 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
   );
 };
 
-// Helper functions
+/**
+ * Converts an entity type code into a human-readable label.
+ *
+ * @param entityType - The entity type identifier (e.g., `"TABLE"`, `"COLUMN"`, `"SP"`). If the value is unrecognized, it is returned unchanged.
+ * @returns The corresponding human-readable label (`"Table"`, `"Column"`, `"Stored Procedure"`) or the original `entityType` when unknown.
+ */
 function getEntityTypeLabel(entityType: string): string {
   switch (entityType) {
     case "TABLE":
@@ -466,6 +476,14 @@ function getEntityTypeLabel(entityType: string): string {
   }
 }
 
+/**
+ * Build the project-scoped route URL for a given entity.
+ *
+ * @param entityType - The entity kind: "TABLE", "COLUMN", or "SP"
+ * @param entityId - The numeric identifier of the entity
+ * @param projectId - The numeric identifier of the project
+ * @returns The path to the entity within the project (falls back to the project root if the entity type is unrecognized)
+ */
 function getEntityRoute(
   entityType: string,
   entityId: number,
@@ -483,6 +501,12 @@ function getEntityRoute(
   }
 }
 
+/**
+ * Formats an ISO or parseable date string into a concise, human-friendly relative time.
+ *
+ * @param date - A date string parseable by Date (e.g., ISO 8601)
+ * @returns A short relative-time string such as `"just now"`, `"5m ago"`, `"3h ago"`, `"yesterday"`, `"2d ago"`, or a locale-formatted date for older values
+ */
 function formatRelativeTime(date: string): string {
   const now = new Date();
   const past = new Date(date);

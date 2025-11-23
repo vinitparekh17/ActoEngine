@@ -28,6 +28,11 @@ import type { ProjectStatsResponse, ActivityItem } from '../types/project';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../components/ui/breadcrumb';
 import { RequireProject } from '../components/containers';
 
+/**
+ * Render the project hub view that displays project details, synchronization status, statistics, recent activity, and quick navigation actions.
+ *
+ * @returns A JSX element representing the project hub UI.
+ */
 export default function ProjectHub() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();

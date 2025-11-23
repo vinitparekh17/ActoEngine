@@ -1,4 +1,4 @@
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useFormBuilder, type TableSchema } from '../hooks/useFormBuilder';
 import { useProject } from '../hooks/useProject';
 import { useApi } from '../hooks/useApi';
@@ -24,6 +24,15 @@ import BuilderTab from '../components/formgen/Builder';
 import { RequireProject } from '../components/containers';
 
 
+/**
+ * Renders the form builder UI for creating and managing table-based or custom forms within the selected project.
+ *
+ * The component fetches project tables and selected table schemas, initializes form configuration from a table schema
+ * or a custom form name, and exposes controls to switch forms, save configuration, and generate code. The UI includes
+ * builder, preview, and code tabs and is wrapped with a project requirement guard.
+ *
+ * @returns The JSX element containing the full form builder interface.
+ */
 export default function FormBuilder() {
   const { selectedProject } = useProject();
   const {
