@@ -134,7 +134,7 @@ public static class ContextQueries
           AND ee.UserId = @UserId;";
 
     public const string GetExperts = @"
-        SELECT 
+        SELECT
             ee.ExpertId,
             ee.ProjectId,
             ee.EntityType,
@@ -144,14 +144,15 @@ public static class ContextQueries
             ee.Notes,
             ee.AddedAt,
             ee.AddedBy,
+            u.UserID,
             u.Username,
             u.FullName
         FROM EntityExperts ee
         JOIN Users u ON ee.UserId = u.UserID
-        WHERE ee.ProjectId = @ProjectId 
-          AND ee.EntityType = @EntityType 
+        WHERE ee.ProjectId = @ProjectId
+          AND ee.EntityType = @EntityType
           AND ee.EntityId = @EntityId
-        ORDER BY 
+        ORDER BY
             CASE ee.ExpertiseLevel
                 WHEN 'OWNER' THEN 1
                 WHEN 'EXPERT' THEN 2

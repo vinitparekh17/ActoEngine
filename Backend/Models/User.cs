@@ -129,3 +129,14 @@ public class User
         UpdatedBy = updatedBy;
     }
 }
+
+/// <summary>
+/// Lightweight DTO for User information in contexts where only basic user details are needed.
+/// Used to avoid materializing the full User entity with sensitive fields like PasswordHash.
+/// </summary>
+public class UserBasicInfo
+{
+    public int UserId { get; set; }
+    public string Username { get; set; } = default!;
+    public string? FullName { get; set; }
+}

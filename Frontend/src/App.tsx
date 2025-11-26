@@ -8,7 +8,7 @@ import { useAuth, useAuthStore } from "@/hooks/useAuth";
 import { ApiErrorBoundary } from "@/components/errors/ApiErrorBoundary";
 import FormBuilderPage from "@/pages/FormBuilder";
 import LoginPage from "@/pages/Login";
-import DashboardPage from "@/pages/Dashboard";
+// import DashboardPage from "@/pages/Dashboard";
 import ClientManagementPage from "@/pages/ClientManagement";
 import ProjectDashboard from "@/pages/ProjectDashboard";
 import ProjectSetup from "@/pages/ProjectSetup";

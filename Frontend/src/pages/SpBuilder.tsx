@@ -1,5 +1,3 @@
-"use client"
-
 import { useCallback, useMemo, useState } from "react"
 import { useToast } from "../hooks/useToast"
 import type { SPType } from "../components/spgen/SPTypeCard"

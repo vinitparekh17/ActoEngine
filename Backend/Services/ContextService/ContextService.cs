@@ -18,13 +18,13 @@ public interface IContextService
     // Experts Management
     Task AddExpertAsync(int projectId, string entityType, int entityId, int userId, string expertiseLevel, string? notes, int addedBy);
     Task RemoveExpertAsync(int projectId, string entityType, int entityId, int userId);
-    Task<List<dynamic>> GetUserExpertiseAsync(int userId, int projectId);
+    Task<List<UserExpertiseItem>> GetUserExpertiseAsync(int userId, int projectId);
 
     // Statistics & Insights
     Task<List<ContextCoverageStats>> GetContextCoverageAsync(int projectId);
-    Task<List<dynamic>> GetStaleContextEntitiesAsync(int projectId);
-    Task<List<dynamic>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10);
-    Task<List<dynamic>> GetCriticalUndocumentedAsync(int projectId);
+    Task<List<StaleContextEntity>> GetStaleContextEntitiesAsync(int projectId);
+    Task<List<TopDocumentedEntity>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10);
+    Task<List<CriticalUndocumentedEntity>> GetCriticalUndocumentedAsync(int projectId);
     int CalculateCompletenessScore(EntityContext context);
     Task<List<ContextGap>> GetContextGapsAsync(int projectId, int limit, CancellationToken cancellationToken = default);
 
@@ -366,7 +366,7 @@ public partial class ContextService(
     /// <summary>
     /// Get all entities user is an expert on
     /// </summary>
-    public async Task<List<dynamic>> GetUserExpertiseAsync(int userId, int projectId)
+    public async Task<List<UserExpertiseItem>> GetUserExpertiseAsync(int userId, int projectId)
     {
         return await _contextRepo.GetUserExpertiseAsync(userId, projectId);
     }
@@ -397,7 +397,7 @@ public partial class ContextService(
     /// <summary>
     /// Get entities with stale context
     /// </summary>
-    public async Task<List<dynamic>> GetStaleContextEntitiesAsync(int projectId)
+    public async Task<List<StaleContextEntity>> GetStaleContextEntitiesAsync(int projectId)
     {
         return await _contextRepo.GetStaleContextEntitiesAsync(projectId);
     }
@@ -405,7 +405,7 @@ public partial class ContextService(
     /// <summary>
     /// Get top documented entities
     /// </summary>
-    public async Task<List<dynamic>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10)
+    public async Task<List<TopDocumentedEntity>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10)
     {
         return await _contextRepo.GetTopDocumentedEntitiesAsync(projectId, limit);
     }
@@ -413,7 +413,7 @@ public partial class ContextService(
     /// <summary>
     /// Get critical undocumented entities
     /// </summary>
-    public async Task<List<dynamic>> GetCriticalUndocumentedAsync(int projectId)
+    public async Task<List<CriticalUndocumentedEntity>> GetCriticalUndocumentedAsync(int projectId)
     {
         return await _contextRepo.GetCriticalUndocumentedAsync(projectId);
     }

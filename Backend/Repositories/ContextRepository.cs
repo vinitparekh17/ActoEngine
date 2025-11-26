@@ -21,7 +21,7 @@ public interface IContextRepository
     Task<List<EntityExpert>> GetExpertsAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
     Task AddExpertAsync(int projectId, string entityType, int entityId, int userId, string expertiseLevel, string? notes, int addedBy, CancellationToken cancellationToken = default);
     Task RemoveExpertAsync(int projectId, string entityType, int entityId, int userId, CancellationToken cancellationToken = default);
-    Task<List<dynamic>> GetUserExpertiseAsync(int userId, int projectId, CancellationToken cancellationToken = default);
+    Task<List<UserExpertiseItem>> GetUserExpertiseAsync(int userId, int projectId, CancellationToken cancellationToken = default);
 
     // Context History
     Task RecordContextChangeAsync(string entityType, int entityId, string fieldName, string? oldValue, string? newValue, int changedBy, string? changeReason = null, CancellationToken cancellationToken = default);
@@ -30,9 +30,9 @@ public interface IContextRepository
     // Statistics
     Task<List<ContextGap>> GetContextGapsAsync(int projectId, int limit, CancellationToken cancellationToken = default);
     Task<List<ContextCoverageStats>> GetContextCoverageAsync(int projectId, CancellationToken cancellationToken = default);
-    Task<List<dynamic>> GetStaleContextEntitiesAsync(int projectId, CancellationToken cancellationToken = default);
-    Task<List<dynamic>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10, CancellationToken cancellationToken = default);
-    Task<List<dynamic>> GetCriticalUndocumentedAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<List<StaleContextEntity>> GetStaleContextEntitiesAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<List<TopDocumentedEntity>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10, CancellationToken cancellationToken = default);
+    Task<List<CriticalUndocumentedEntity>> GetCriticalUndocumentedAsync(int projectId, CancellationToken cancellationToken = default);
 
     // Review Requests
     Task<int> CreateReviewRequestAsync(string entityType, int entityId, int requestedBy, int? assignedTo, string? reason, CancellationToken cancellationToken = default);
@@ -221,7 +221,7 @@ public class ContextRepository(
         try
         {
             using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-            var experts = await connection.QueryAsync<EntityExpert, User, EntityExpert>(
+            var experts = await connection.QueryAsync<EntityExpert, UserBasicInfo, EntityExpert>(
                 ContextQueries.GetExperts,
                 (expert, user) =>
                 {
@@ -229,7 +229,7 @@ public class ContextRepository(
                     return expert;
                 },
                 new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
-                splitOn: "Username");
+                splitOn: "UserID");
 
             return experts.ToList();
         }
@@ -312,11 +312,11 @@ public class ContextRepository(
         }
     }
 
-    public async Task<List<dynamic>> GetUserExpertiseAsync(int userId, int projectId, CancellationToken cancellationToken = default)
+    public async Task<List<UserExpertiseItem>> GetUserExpertiseAsync(int userId, int projectId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var expertise = await QueryAsync<dynamic>(
+            var expertise = await QueryAsync<UserExpertiseItem>(
                 ContextQueries.GetUserExpertise,
                 new { UserId = userId, ProjectId = projectId },
                 cancellationToken);
@@ -413,11 +413,11 @@ public class ContextRepository(
         }
     }
 
-    public async Task<List<dynamic>> GetStaleContextEntitiesAsync(int projectId, CancellationToken cancellationToken = default)
+    public async Task<List<StaleContextEntity>> GetStaleContextEntitiesAsync(int projectId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var entities = await QueryAsync<dynamic>(
+            var entities = await QueryAsync<StaleContextEntity>(
                 ContextQueries.GetStaleContextEntities,
                 new { ProjectId = projectId },
                 cancellationToken);
@@ -430,11 +430,11 @@ public class ContextRepository(
         }
     }
 
-    public async Task<List<dynamic>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10, CancellationToken cancellationToken = default)
+    public async Task<List<TopDocumentedEntity>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10, CancellationToken cancellationToken = default)
     {
         try
         {
-            var entities = await QueryAsync<dynamic>(
+            var entities = await QueryAsync<TopDocumentedEntity>(
                 ContextQueries.GetTopDocumentedEntities,
                 new { ProjectId = projectId, Limit = limit },
                 cancellationToken);
@@ -447,11 +447,11 @@ public class ContextRepository(
         }
     }
 
-    public async Task<List<dynamic>> GetCriticalUndocumentedAsync(int projectId, CancellationToken cancellationToken = default)
+    public async Task<List<CriticalUndocumentedEntity>> GetCriticalUndocumentedAsync(int projectId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var entities = await QueryAsync<dynamic>(
+            var entities = await QueryAsync<CriticalUndocumentedEntity>(
                 ContextQueries.GetCriticalUndocumented,
                 new { ProjectId = projectId },
                 cancellationToken);

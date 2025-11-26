@@ -1,20 +1,20 @@
 // components/context/ContextDashboard.tsx
-import React from 'react';
-import { useProject } from '@/hooks/useProject';
-import { useApi } from '@/hooks/useApi';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { useProject } from "@/hooks/useProject";
+import { useApi } from "@/hooks/useApi";
+import { Link } from "react-router-dom";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -22,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   FileText,
   AlertTriangle,
@@ -36,12 +36,12 @@ import {
   FileCode,
   Table as TableIcon,
   AlertCircle,
-  Loader2
-} from 'lucide-react';
+  Loader2,
+} from "lucide-react";
 
 // Types
 interface CoverageItem {
-  entityType: 'TABLE' | 'COLUMN' | 'SP';
+  entityType: "TABLE" | "COLUMN" | "SP";
   total: number;
   documented: number;
   coveragePercentage: number;
@@ -49,16 +49,31 @@ interface CoverageItem {
 }
 
 interface CriticalGapItem {
-  entityType: 'TABLE' | 'COLUMN' | 'SP';
+  entityType: "TABLE" | "COLUMN" | "SP";
   entityId: number;
   entityName: string;
   reason: string;
-  priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  lastSchemaChange?: string;
+  referenceCount: number;
+  /**
+   * Optional field kept for compatibility with older payloads.
+   * Prefer computing priority from referenceCount via getGapPriority().
+   */
+  priority?: "HIGH" | "MEDIUM" | "LOW";
+}
+
+/**
+ * Derive a priority from referenceCount when the backend doesn't provide one.
+ * Adjust thresholds as needed.
+ */
+function getGapPriority(item: CriticalGapItem): "HIGH" | "MEDIUM" | "LOW" {
+  if (item.priority) return item.priority;
+  if (item.referenceCount > 50) return "HIGH";
+  if (item.referenceCount > 10) return "MEDIUM";
+  return "LOW";
 }
 
 interface StaleItem {
-  entityType: 'TABLE' | 'COLUMN' | 'SP';
+  entityType: "TABLE" | "COLUMN" | "SP";
   entityId: number;
   entityName: string;
   lastContextUpdate: string;
@@ -67,7 +82,7 @@ interface StaleItem {
 }
 
 interface WellDocumentedItem {
-  entityType: 'TABLE' | 'COLUMN' | 'SP';
+  entityType: "TABLE" | "COLUMN" | "SP";
   entityId: number;
   entityName: string;
   businessDomain?: string;
@@ -101,7 +116,7 @@ export const ContextDashboard: React.FC = () => {
     data: dashboard,
     isLoading,
     error,
-    refetch
+    refetch,
   } = useApi<DashboardData>(
     `/projects/${selectedProjectId}/context/dashboard`,
     {
@@ -170,13 +185,18 @@ export const ContextDashboard: React.FC = () => {
   const staleEntities = dashboard?.staleEntities || [];
   const topDocumented = dashboard?.topDocumented || [];
   const criticalUndocumented = dashboard?.criticalUndocumented || [];
-
+console.log("criticalUndocumented", criticalUndocumented);
   // Calculate overall stats with weighted coverage
-  const totalDocumented = coverage.reduce((acc, item) => acc + (item.documented || 0), 0);
-  const totalEntities = coverage.reduce((acc, item) => acc + (item.total || 0), 0);
-  const overallCoverage = totalEntities > 0
-    ? (totalDocumented / totalEntities) * 100
-    : 0;
+  const totalDocumented = coverage.reduce(
+    (acc, item) => acc + (item.documented || 0),
+    0
+  );
+  const totalEntities = coverage.reduce(
+    (acc, item) => acc + (item.total || 0),
+    0
+  );
+  const overallCoverage =
+    totalEntities > 0 ? (totalDocumented / totalEntities) * 100 : 0;
 
   return (
     <div className="space-y-6 p-6">
@@ -185,7 +205,8 @@ export const ContextDashboard: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold">Context Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Documentation coverage and health for <span className="font-medium">{selectedProject?.projectName}</span>
+            Documentation coverage and health for{" "}
+            <span className="font-medium">{selectedProject?.projectName}</span>
           </p>
           {dashboard?.lastUpdated && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -201,9 +222,7 @@ export const ContextDashboard: React.FC = () => {
             </Link>
           </Button>
           <Button asChild>
-            <Link to={`/projects/${projectId}/context/settings`}>
-              Settings
-            </Link>
+            <Link to={`/projects/${projectId}/context/settings`}>Settings</Link>
           </Button>
         </div>
       </div>
@@ -224,11 +243,15 @@ export const ContextDashboard: React.FC = () => {
                 {Math.round(overallCoverage)}%
               </div>
               {dashboard?.trends?.coverageChange && (
-                <div className={`flex items-center text-xs ${
-                  dashboard.trends.coverageChange > 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
+                <div
+                  className={`flex items-center text-xs ${
+                    dashboard.trends.coverageChange > 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
                   <TrendingUp className="h-3 w-3 mr-1" />
-                  {dashboard.trends.coverageChange > 0 ? '+' : ''}
+                  {dashboard.trends.coverageChange > 0 ? "+" : ""}
                   {dashboard.trends.coverageChange}%
                 </div>
               )}
@@ -243,9 +266,7 @@ export const ContextDashboard: React.FC = () => {
         {/* Stale Contexts */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Needs Review
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Needs Review</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
@@ -271,9 +292,7 @@ export const ContextDashboard: React.FC = () => {
         {/* Critical Gaps */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Critical Gaps
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Critical Gaps</CardTitle>
             <XCircle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
@@ -332,7 +351,10 @@ export const ContextDashboard: React.FC = () => {
           <TabsTrigger value="gaps" className="relative">
             Critical Gaps
             {criticalUndocumented.length > 0 && (
-              <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs">
+              <Badge
+                variant="destructive"
+                className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs"
+              >
                 {criticalUndocumented.length}
               </Badge>
             )}
@@ -340,7 +362,10 @@ export const ContextDashboard: React.FC = () => {
           <TabsTrigger value="stale" className="relative">
             Needs Review
             {(dashboard?.staleCount || 0) > 0 && (
-              <Badge variant="outline" className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs border-orange-500 text-orange-600">
+              <Badge
+                variant="outline"
+                className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs border-orange-500 text-orange-600"
+              >
                 {dashboard?.staleCount}
               </Badge>
             )}
@@ -362,7 +387,8 @@ export const ContextDashboard: React.FC = () => {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    No entities found in this project. Make sure your database connection is working.
+                    No entities found in this project. Make sure your database
+                    connection is working.
                   </AlertDescription>
                 </Alert>
               ) : (
@@ -372,7 +398,9 @@ export const ContextDashboard: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {getEntityIcon(item.entityType)}
-                          <span className="font-medium">{getEntityTypeLabel(item.entityType)}</span>
+                          <span className="font-medium">
+                            {getEntityTypeLabel(item.entityType)}
+                          </span>
                         </div>
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-muted-foreground">
@@ -383,13 +411,14 @@ export const ContextDashboard: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <Progress 
-                        value={item.coveragePercentage || 0} 
+                      <Progress
+                        value={item.coveragePercentage || 0}
                         className="h-2"
                       />
                       {item.avgCompleteness && (
                         <p className="text-xs text-muted-foreground">
-                          Average completeness: {Math.round(item.avgCompleteness)}%
+                          Average completeness:{" "}
+                          {Math.round(item.avgCompleteness)}%
                         </p>
                       )}
                     </div>
@@ -432,9 +461,7 @@ export const ContextDashboard: React.FC = () => {
                     {criticalUndocumented.map((item) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
-                          <Badge variant="outline">
-                            {item.entityType}
-                          </Badge>
+                          <Badge variant="outline">{item.entityType}</Badge>
                         </TableCell>
                         <TableCell className="font-medium">
                           {item.entityName}
@@ -443,22 +470,27 @@ export const ContextDashboard: React.FC = () => {
                           {item.reason}
                         </TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
                             variant={
-                              item.priority === 'HIGH' ? 'destructive' :
-                              item.priority === 'MEDIUM' ? 'secondary' : 'outline'
+                              item.priority === "HIGH"
+                                ? "destructive"
+                                : item.priority === "MEDIUM"
+                                  ? "secondary"
+                                  : "outline"
                             }
                           >
                             {item.priority}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            asChild
-                          >
-                            <Link to={getEntityRoute(item.entityType, item.entityId, projectId)}>
+                          <Button size="sm" variant="outline" asChild>
+                            <Link
+                              to={getEntityRoute(
+                                item.entityType,
+                                item.entityId,
+                                projectId
+                              )}
+                            >
                               Document
                             </Link>
                           </Button>
@@ -505,9 +537,7 @@ export const ContextDashboard: React.FC = () => {
                     {staleEntities.map((item) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
-                          <Badge variant="outline">
-                            {item.entityType}
-                          </Badge>
+                          <Badge variant="outline">{item.entityType}</Badge>
                         </TableCell>
                         <TableCell className="font-medium">
                           {item.entityName}
@@ -516,10 +546,13 @@ export const ContextDashboard: React.FC = () => {
                           {formatDate(item.lastContextUpdate)}
                         </TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
                             variant={
-                              item.daysSinceUpdate > 30 ? 'destructive' :
-                              item.daysSinceUpdate > 14 ? 'secondary' : 'outline'
+                              item.daysSinceUpdate > 30
+                                ? "destructive"
+                                : item.daysSinceUpdate > 14
+                                  ? "secondary"
+                                  : "outline"
                             }
                           >
                             {item.daysSinceUpdate} days
@@ -533,12 +566,14 @@ export const ContextDashboard: React.FC = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            asChild
-                          >
-                            <Link to={getEntityRoute(item.entityType, item.entityId, projectId)}>
+                          <Button size="sm" variant="outline" asChild>
+                            <Link
+                              to={getEntityRoute(
+                                item.entityType,
+                                item.entityId,
+                                projectId
+                              )}
+                            >
                               Review
                             </Link>
                           </Button>
@@ -584,13 +619,15 @@ export const ContextDashboard: React.FC = () => {
                     {topDocumented.map((item) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
-                          <Badge variant="outline">
-                            {item.entityType}
-                          </Badge>
+                          <Badge variant="outline">{item.entityType}</Badge>
                         </TableCell>
                         <TableCell>
                           <Link
-                            to={getEntityRoute(item.entityType, item.entityId, projectId)}
+                            to={getEntityRoute(
+                              item.entityType,
+                              item.entityId,
+                              projectId
+                            )}
                             className="font-medium hover:underline text-primary"
                           >
                             {item.entityName}
@@ -598,17 +635,17 @@ export const ContextDashboard: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">
-                            {item.businessDomain || 'N/A'}
+                            {item.businessDomain || "N/A"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {item.dataOwner || 'Unassigned'}
+                          {item.dataOwner || "Unassigned"}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Progress 
-                              value={item.completenessScore} 
-                              className="h-2 w-20" 
+                            <Progress
+                              value={item.completenessScore}
+                              className="h-2 w-20"
                             />
                             <span className="text-sm font-medium">
                               {item.completenessScore}%
@@ -617,7 +654,8 @@ export const ContextDashboard: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">
-                            {item.expertCount} {item.expertCount === 1 ? 'expert' : 'experts'}
+                            {item.expertCount}{" "}
+                            {item.expertCount === 1 ? "expert" : "experts"}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -637,25 +675,25 @@ export const ContextDashboard: React.FC = () => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link to={`/projects/${projectId}/tables`}>
+            <Link to={`/project/${projectId}/tables`}>
               <Database className="w-4 h-4 mr-2" />
               Browse Tables
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to={`/projects/${projectId}/stored-procedures`}>
+            <Link to={`/project/${projectId}/stored-procedures`}>
               <FileCode className="w-4 h-4 mr-2" />
               Browse SPs
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to={`/projects/${projectId}/context/experts`}>
+            <Link to={`/project/${projectId}/context/experts`}>
               <Users className="w-4 h-4 mr-2" />
               View Experts
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to={`/projects/${projectId}/context/bulk-import`}>
+            <Link to={`/project/${projectId}/context/bulk-import`}>
               <FileText className="w-4 h-4 mr-2" />
               Bulk Import
             </Link>
@@ -669,11 +707,11 @@ export const ContextDashboard: React.FC = () => {
 // Helper functions
 function getEntityIcon(entityType: string) {
   switch (entityType) {
-    case 'TABLE':
+    case "TABLE":
       return <TableIcon className="w-4 h-4 text-blue-500" />;
-    case 'COLUMN':
+    case "COLUMN":
       return <FileText className="w-4 h-4 text-green-500" />;
-    case 'SP':
+    case "SP":
       return <FileCode className="w-4 h-4 text-purple-500" />;
     default:
       return <Database className="w-4 h-4" />;
@@ -682,27 +720,31 @@ function getEntityIcon(entityType: string) {
 
 function getEntityTypeLabel(entityType: string): string {
   switch (entityType) {
-    case 'TABLE':
-      return 'Tables';
-    case 'COLUMN':
-      return 'Columns';
-    case 'SP':
-      return 'Stored Procedures';
+    case "TABLE":
+      return "Tables";
+    case "COLUMN":
+      return "Columns";
+    case "SP":
+      return "Stored Procedures";
     default:
       return entityType;
   }
 }
 
-function getEntityRoute(entityType: string, entityId: number, projectId: number): string {
+function getEntityRoute(
+  entityType: string,
+  entityId: number,
+  projectId: number
+): string {
   switch (entityType) {
-    case 'TABLE':
-      return `/projects/${projectId}/tables/${entityId}`;
-    case 'SP':
-      return `/projects/${projectId}/stored-procedures/${entityId}`;
-    case 'COLUMN':
-      return `/projects/${projectId}/columns/${entityId}`;
+    case "TABLE":
+      return `/project/${projectId}/tables/${entityId}`;
+    case "SP":
+      return `/project/${projectId}/stored-procedures/${entityId}`;
+    case "COLUMN":
+      return `/project/${projectId}/columns/${entityId}`;
     default:
-      return `/projects/${projectId}`;
+      return `/project/${projectId}`;
   }
 }
 
