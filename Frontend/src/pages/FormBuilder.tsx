@@ -1,7 +1,8 @@
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useFormBuilder, type TableSchema } from '../hooks/useFormBuilder';
 import { useProject } from '../hooks/useProject';
 import { useApi } from '../hooks/useApi';
+import { useAuthorization } from '../hooks/useAuth';
 import { Save, Code, Table } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
@@ -14,7 +15,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,                                                                                        
+  SelectValue,
 } from '../components/ui/select';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
@@ -25,6 +26,9 @@ import BuilderTab from '../components/formgen/Builder';
 
 export default function FormBuilder() {
   const { selectedProject } = useProject();
+  const canUpdate = useAuthorization('Forms:Update');
+  const canGenerate = useAuthorization('Forms:Generate');
+
   const {
     config,
     fields,
@@ -171,25 +175,29 @@ export default function FormBuilder() {
                   Change Form
                 </Button>
 
-                <Button
-                  onClick={saveConfig}
-                  disabled={isSaving}
-                  variant="default"
-                  className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
-                >
-                  <Save className="h-4 w-4" />
-                  {isSaving ? 'Saving...' : 'Save'}
-                </Button>
+                {canUpdate && (
+                  <Button
+                    onClick={saveConfig}
+                    disabled={isSaving}
+                    variant="default"
+                    className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </Button>
+                )}
 
-                <Button
-                  onClick={generateCode}
-                  disabled={isGenerating}
-                  variant="outline"
-                  className="dark:border-neutral-700 dark:text-gray-100 dark:hover:bg-neutral-800"
-                >
-                  <Code className="h-4 w-4" />
-                  {isGenerating ? 'Generating...' : 'Generate'}
-                </Button>
+                {canGenerate && (
+                  <Button
+                    onClick={generateCode}
+                    disabled={isGenerating}
+                    variant="outline"
+                    className="dark:border-neutral-700 dark:text-gray-100 dark:hover:bg-neutral-800"
+                  >
+                    <Code className="h-4 w-4" />
+                    {isGenerating ? 'Generating...' : 'Generate'}
+                  </Button>
+                )}
               </>
             )}
           </div>

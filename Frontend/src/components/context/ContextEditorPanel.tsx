@@ -14,17 +14,18 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Info, 
-  Check, 
-  AlertCircle, 
-  Edit, 
-  X, 
+import {
+  Info,
+  Check,
+  AlertCircle,
+  Edit,
+  X,
   AlertTriangle,
   Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import { useApi, useApiPut } from '@/hooks/useApi';
+import { useAuthorization } from '../../hooks/useAuth';
 
 // Types
 interface ContextData {
@@ -66,24 +67,27 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
   entityName,
   isReadOnly = false
 }) => {
+  const canUpdate = useAuthorization('Contexts:Update');
+  const effectiveReadOnly = isReadOnly || !canUpdate;
+
   const [isEditing, setIsEditing] = useState(false);
   const [localContext, setLocalContext] = useState<ContextData['context']>({});
   const [lastSavedContext, setLastSavedContext] = useState<ContextData['context'] | null>(null);
   const hasUnsavedChanges = useRef(false);
-  
-  const { 
-    data: contextData, 
-    isLoading, 
-    error 
+
+  const {
+    data: contextData,
+    isLoading,
+    error
   } = useApi<ContextData>(`/projects/${projectId}/context/${entityType}/${entityId}`, {
     staleTime: 5 * 60 * 1000,
     retry: 2,
   });
 
   // Save mutation using your existing hook
-  const { 
-    mutate: saveContext, 
-    isPending: isSaving 
+  const {
+    mutate: saveContext,
+    isPending: isSaving
   } = useApiPut<ContextData, ContextData['context']>(`/projects/${projectId}/context/${entityType}/${entityId}`, {
     showSuccessToast: false, // We'll handle this manually
     showErrorToast: true,
@@ -189,7 +193,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
             <div className="flex flex-col space-y-1">
               <div className="flex items-center space-x-3">
                 <h3 className="text-lg font-semibold">Context & Documentation</h3>
-                <Badge 
+                <Badge
                   variant={completeness >= 80 ? 'default' : completeness >= 50 ? 'secondary' : 'destructive'}
                 >
                   {completeness}% Complete
@@ -210,8 +214,8 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 Help your team understand "{entityName}"
               </p>
             </div>
-            
-            {!isReadOnly && (
+
+            {!effectiveReadOnly && (
               <Button
                 size="sm"
                 variant={isEditing ? "default" : "outline"}
@@ -232,7 +236,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
             )}
           </div>
         </CardHeader>
-        
+
         <CardContent>
           {isStale && (
             <Alert className="mb-4 border-orange-200 bg-orange-50">
@@ -242,7 +246,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
               </AlertDescription>
             </Alert>
           )}
-          
+
           <div className="space-y-6">
             {/* Purpose - Always shown */}
             <div className="space-y-2">
@@ -277,7 +281,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 </p>
               )}
             </div>
-            
+
             {/* Business Impact - Critical for "what breaks" */}
             {(entityType === 'TABLE' || entityType === 'COLUMN') && (
               <div className="space-y-2">
@@ -308,9 +312,9 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 )}
               </div>
             )}
-            
+
             <Separator />
-            
+
             {/* Metadata Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Business Domain */}
@@ -341,7 +345,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                   )}
                 </div>
               )}
-              
+
               {/* Data Owner */}
               <div className="space-y-2">
                 <Label className="text-sm">Data Owner</Label>
@@ -357,7 +361,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                   </p>
                 )}
               </div>
-              
+
               {/* Criticality */}
               <div className="space-y-2">
                 <Label className="text-sm">Criticality</Label>
@@ -367,11 +371,10 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       <Badge
                         key={level}
                         variant={level === localContext?.criticalityLevel ? "default" : "outline"}
-                        className={`cursor-pointer px-3 py-1 ${
-                          level === localContext?.criticalityLevel && level >= 4 
-                            ? 'bg-destructive hover:bg-destructive/90' 
-                            : ''
-                        }`}
+                        className={`cursor-pointer px-3 py-1 ${level === localContext?.criticalityLevel && level >= 4
+                          ? 'bg-destructive hover:bg-destructive/90'
+                          : ''
+                          }`}
                         onClick={() => handleCriticalityClick(level)}
                       >
                         {level}
@@ -381,15 +384,15 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 ) : (
                   <Badge
                     variant={
-                      (localContext?.criticalityLevel ?? 0) >= 4 ? 'destructive' : 
-                      (localContext?.criticalityLevel ?? 0) >= 3 ? 'secondary' : 'outline'
+                      (localContext?.criticalityLevel ?? 0) >= 4 ? 'destructive' :
+                        (localContext?.criticalityLevel ?? 0) >= 3 ? 'secondary' : 'outline'
                     }
                   >
                     {localContext?.criticalityLevel || 3}/5
                   </Badge>
                 )}
               </div>
-              
+
               {/* Sensitivity - for columns */}
               {entityType === 'COLUMN' && (
                 <div className="space-y-2">
@@ -413,8 +416,8 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                   ) : (
                     <Badge
                       variant={
-                        localContext?.sensitivity === 'PII' || 
-                        localContext?.sensitivity === 'FINANCIAL' ? 'destructive' : 'outline'
+                        localContext?.sensitivity === 'PII' ||
+                          localContext?.sensitivity === 'FINANCIAL' ? 'destructive' : 'outline'
                       }
                     >
                       {localContext?.sensitivity || 'PUBLIC'}
@@ -423,7 +426,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 </div>
               )}
             </div>
-            
+
             {/* Experts Section */}
             <div className="space-y-3">
               <Label className="text-sm">Subject Matter Experts</Label>
@@ -457,7 +460,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 )}
               </div>
             </div>
-            
+
             {/* Last Updated Info */}
             {contextData?.lastReviewed && (
               <div className="pt-4 border-t">

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.ProjectService;
 using ActoEngine.WebApi.Repositories;
+using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Extensions;
 using System.Text;
 using System.Text.Json;
@@ -18,6 +19,8 @@ namespace ActoEngine.WebApi.Controllers
         private readonly ILogger<ProjectController> _logger = logger;
 
         [HttpPost("verify")]
+        [RequirePermission("Projects:Link")]
+        [ProducesResponseType(typeof(ApiResponse<ConnectionResponse>), StatusCodes.Status200OK)]
         public async Task<IActionResult> VerifyConnection([FromBody] VerifyConnectionRequest request)
         {
             if (!ModelState.IsValid)
@@ -36,6 +39,8 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpPost("link")]
+        [RequirePermission("Projects:Link")]
+        [ProducesResponseType(typeof(ApiResponse<ProjectResponse>), StatusCodes.Status200OK)]
         public async Task<IActionResult> LinkProject([FromBody] LinkProjectRequest request)
         {
             if (!ModelState.IsValid)
@@ -49,6 +54,8 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpPost("resync")]
+        [RequirePermission("Schema:Sync")]
+        [ProducesResponseType(typeof(ApiResponse<ProjectResponse>), StatusCodes.Status200OK)]
         public async Task<IActionResult> ReSyncProject([FromBody] ReSyncProjectRequest request)
         {
             if (!ModelState.IsValid)
@@ -70,6 +77,8 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpPost]
+        [RequirePermission("Projects:Create")]
+        [ProducesResponseType(typeof(ApiResponse<ProjectResponse>), StatusCodes.Status200OK)]
         public async Task<IActionResult> CreateProject([FromBody] CreateProjectRequest request)
         {
             if (!ModelState.IsValid)
@@ -230,6 +239,8 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpPut("{projectId}")]
+        [RequirePermission("Projects:Update")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         public async Task<IActionResult> UpdateProject(int projectId, [FromBody] Project project)
         {
             if (!ModelState.IsValid)
@@ -247,6 +258,8 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpDelete("{projectId}")]
+        [RequirePermission("Projects:Delete")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         public async Task<IActionResult> DeleteProject(int projectId)
         {
             var userId = HttpContext.GetUserId();

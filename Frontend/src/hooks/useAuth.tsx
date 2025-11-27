@@ -116,7 +116,7 @@ export function useAuth() {
   const [, setRefreshingState] = useState<boolean>(false); // used to trigger rerenders when dedupe toggles
 
   // keep latest performRefresh for focus listener
-  const performRefreshLatestRef = useRef<() => Promise<void>>(async () => {});
+  const performRefreshLatestRef = useRef<() => Promise<void>>(async () => { });
 
   // ----------------------------
   // Mutations - Called at top level (Rules of Hooks)
@@ -201,10 +201,10 @@ export function useAuth() {
     const expiryTime = new Date(state.tokenExpiresAt).getTime();
     const now = Date.now();
     const timeUntilExpiry = expiryTime - now;
-    
+
     // If already expired, refresh immediately
     if (timeUntilExpiry <= 0) {
-      performRefreshLatestRef.current().catch(() => {});
+      performRefreshLatestRef.current().catch(() => { });
       return;
     }
 
@@ -213,13 +213,13 @@ export function useAuth() {
 
     // If we need to refresh within the buffer period, do it now
     if (delay === 0) {
-      performRefreshLatestRef.current().catch(() => {});
+      performRefreshLatestRef.current().catch(() => { });
       return;
     }
 
     // Schedule the refresh
     refreshTimerRef.current = setTimeout(() => {
-      performRefreshLatestRef.current().catch(() => {});
+      performRefreshLatestRef.current().catch(() => { });
     }, delay);
   }, [clearRefreshTimer]);
 
@@ -227,7 +227,7 @@ export function useAuth() {
   useEffect(() => {
     // Only schedule if we have valid auth state
     if (!token || !refreshToken || !tokenExpiresAt) return;
-    
+
     scheduleRefresh();
     return clearRefreshTimer;
   }, [token, refreshToken, tokenExpiresAt, scheduleRefresh, clearRefreshTimer]);
@@ -239,7 +239,7 @@ export function useAuth() {
     const onFocus = () => {
       const s = useAuthStore.getState();
       if (s.token && s.isTokenExpired()) {
-        performRefreshLatestRef.current().catch(() => {});
+        performRefreshLatestRef.current().catch(() => { });
       }
     };
     window.addEventListener('focus', onFocus);
@@ -273,9 +273,9 @@ export function useAuth() {
   // FIXED: Compute isAuthenticated on-demand from stable tokenExpiresAt
   // ----------------------------
   const isAuthenticated = Boolean(
-    token && 
-    user && 
-    tokenExpiresAt && 
+    token &&
+    user &&
+    tokenExpiresAt &&
     new Date(tokenExpiresAt).getTime() > Date.now()
   );
 
@@ -337,7 +337,7 @@ export function useRequireAuth(redirectTo: string = '/login') {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate(redirectTo, { 
+      navigate(redirectTo, {
         replace: true,
         state: { from: location.pathname }
       });
@@ -363,9 +363,9 @@ export function useHasAnyRole(roles: string[]): boolean {
 // ----------------------------
 // Permission-based access control (if needed)
 // ----------------------------
-export function useCanAccess(resource: string): boolean {
+export function useAuthorization(resource: string): boolean {
   const { user, isAuthenticated } = useAuth();
-  
+
   if (!isAuthenticated || !user) return false;
 
   // Prefer server-provided permissions on the user object; fall back to config mapping

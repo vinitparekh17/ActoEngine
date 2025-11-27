@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useApi, useApiMutation, queryKeys } from '../hooks/useApi';
+import { useApi, useApiPost, useApiPut, useApiDelete, queryKeys } from '../hooks/useApi';
+import { useAuthorization } from '../hooks/useAuth';
 import { useConfirm } from '../hooks/useConfirm';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
@@ -7,7 +8,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { TableSkeleton, PageHeaderSkeleton, LoadingContainer } from '../components/ui/skeletons';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Pencil, Trash2, Plus, Users } from 'lucide-react';
+import { Badge } from '../components/ui/badge';
 import type { Client, CreateClientRequest } from '../types/client';
 
 export default function ClientManagementPage() {
@@ -23,27 +25,24 @@ export default function ClientManagementPage() {
     });
 
     // Mutations
-    const createClientMutation = useApiMutation<Client, CreateClientRequest>(
+    const createClientMutation = useApiPost<Client, CreateClientRequest>(
         '/Client',
-        'POST',
         {
             successMessage: 'Client created successfully',
             invalidateKeys: [Array.from(queryKeys.clients.all())],
         }
     );
 
-    const updateClientMutation = useApiMutation<Client, Client>(
+    const updateClientMutation = useApiPut<Client, Client>(
         `/Client/:clientId`,
-        'PUT',
         {
             successMessage: 'Client updated successfully',
             invalidateKeys: [Array.from(queryKeys.clients.all())],
         }
     );
 
-    const deleteClientMutation = useApiMutation<void, { clientId: number }>(
+    const deleteClientMutation = useApiDelete<void, { clientId: number }>(
         '/Client/:clientId',
-        'DELETE',
         {
             successMessage: 'Client deleted successfully',
             invalidateKeys: [Array.from(queryKeys.clients.all())],
@@ -128,67 +127,91 @@ export default function ClientManagementPage() {
             ) : (
                 <div className="space-y-6">
                     {/* Header */}
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold text-foreground">Client Master</h1>
+                            <h1 className="text-3xl font-bold tracking-tight">Client Management</h1>
+                            <p className="text-muted-foreground mt-1">
+                                Manage clients and their access to this project
+                            </p>
                         </div>
-
-                        {/* Create Client Button */}
-                        <Button onClick={openCreateModal}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Client
-                        </Button>
+                        {useAuthorization('Clients:Create') && (
+                            <Button onClick={openCreateModal}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Client
+                            </Button>
+                        )}
                     </div>
 
                     {/* Clients Table */}
-                    <div className="rounded-2xl border bg-background dark:bg-dark-500 shadow-sm overflow-hidden">
+                    <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Client ID</TableHead>
-                                    <TableHead>Client Name</TableHead>
-                                    <TableHead>Project ID</TableHead>
-                                    <TableHead>Active</TableHead>
-                                    <TableHead>Created At</TableHead>
-                                    <TableHead>Actions</TableHead>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Code</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Created</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {clients?.map((client) => (
-                                    <TableRow key={client.clientId}>
-                                        <TableCell>{client.clientId}</TableCell>
-                                        <TableCell>{client.clientName}</TableCell>
-                                        <TableCell>{client.projectId}</TableCell>
-                                        <TableCell>
-                                            <span className={`px-2 py-1 rounded-full text-xs ${client.isActive
-                                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                                }`}>
-                                                {client.isActive ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>{new Date(client.createdAt).toLocaleDateString()}</TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => openEditModal(client)}
-                                                >
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleDelete(client)}
-                                                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                {!clients || clients.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="h-24 text-center">
+                                            <div className="flex flex-col items-center justify-center py-4 text-center">
+                                                <Users className="w-8 h-8 text-muted-foreground mb-2" />
+                                                <p className="text-lg font-medium">No clients found</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Get started by adding your first client
+                                                </p>
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                ) : (
+                                    clients.map((client) => (
+                                        <TableRow key={client.clientId}>
+                                            <TableCell className="font-medium">
+                                                {client.clientName}
+                                            </TableCell>
+                                            <TableCell>
+                                                <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm">
+                                                    {client.clientName}
+                                                </code>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={client.isActive ? 'default' : 'secondary'}>
+                                                    {client.isActive ? 'Active' : 'Inactive'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                {new Date(client.createdAt).toLocaleDateString()}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    {useAuthorization('Clients:Update') && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => openEditModal(client)}
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </Button>
+                                                    )}
+                                                    {useAuthorization('Clients:Delete') && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="text-destructive hover:text-destructive"
+                                                            onClick={() => handleDelete(client)}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -244,7 +267,6 @@ export default function ClientManagementPage() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
-
                 </div>
             )}
         </LoadingContainer>

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '../hooks/useProject';
 import { useApi } from '../hooks/useApi';
+import { useAuthorization } from '../hooks/useAuth';
 import { useSyncStatus } from '../hooks/useSyncStatus';
 import { SyncProgressPanel } from '../components/project';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -58,7 +59,7 @@ export default function ProjectHub() {
 
   // Real-time sync status hook
   const isSyncing = selectedProject?.syncStatus?.toLowerCase().includes('sync') ||
-                    selectedProject?.syncStatus?.toLowerCase() === 'started';
+    selectedProject?.syncStatus?.toLowerCase() === 'started';
 
   const { status: realtimeStatus, progress: realtimeProgress } = useSyncStatus(
     selectedProject?.projectId,
@@ -122,7 +123,7 @@ export default function ProjectHub() {
     const config = statusMap[displayStatus.toLowerCase()] || statusMap.failed;
     const Icon = config.icon;
     const isSpinning = displayStatus.toLowerCase().includes('sync') ||
-                       displayStatus.toLowerCase() === 'started';
+      displayStatus.toLowerCase() === 'started';
 
     return (
       <Badge variant={config.variant} className="gap-1">
@@ -322,54 +323,64 @@ export default function ProjectHub() {
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
                 {/* Database Schema - Primary */}
-                <Button
-                  variant="default"
-                  className="h-24 flex-col gap-2"
-                  onClick={() => navigate(`/project/${projectId}/schema`)}
-                >
-                  <Database className="w-6 h-6" />
-                  <span className="text-sm font-medium">Schema</span>
-                </Button>
+                {useAuthorization('Schema:Read') && (
+                  <Button
+                    variant="default"
+                    className="h-24 flex-col gap-2"
+                    onClick={() => navigate(`/project/${projectId}/schema`)}
+                  >
+                    <Database className="w-6 h-6" />
+                    <span className="text-sm font-medium">Schema</span>
+                  </Button>
+                )}
 
                 {/* Form Builder */}
-                <Button
-                  variant="outline"
-                  className="h-24 flex-col gap-2"
-                  onClick={() => navigate(`/project/${projectId}/forms`)}
-                >
-                  <FileText className="w-6 h-6" />
-                  <span className="text-sm font-medium">Forms</span>
-                </Button>
+                {useAuthorization('Forms:Read') && (
+                  <Button
+                    variant="outline"
+                    className="h-24 flex-col gap-2"
+                    onClick={() => navigate(`/project/${projectId}/forms`)}
+                  >
+                    <FileText className="w-6 h-6" />
+                    <span className="text-sm font-medium">Forms</span>
+                  </Button>
+                )}
 
                 {/* SP Generator */}
-                <Button
-                  variant="outline"
-                  className="h-24 flex-col gap-2"
-                  onClick={() => navigate(`/project/${projectId}/sp-gen`)}
-                >
-                  <Code className="w-6 h-6" />
-                  <span className="text-sm font-medium">SP Gen</span>
-                </Button>
+                {useAuthorization('StoredProcedures:Read') && (
+                  <Button
+                    variant="outline"
+                    className="h-24 flex-col gap-2"
+                    onClick={() => navigate(`/project/${projectId}/sp-gen`)}
+                  >
+                    <Code className="w-6 h-6" />
+                    <span className="text-sm font-medium">SP Gen</span>
+                  </Button>
+                )}
 
                 {/* Client Management */}
-                <Button
-                  variant="outline"
-                  className="h-24 flex-col gap-2"
-                  onClick={() => navigate(`/project/${projectId}/clients`)}
-                >
-                  <Users className="w-6 h-6" />
-                  <span className="text-sm font-medium">Clients</span>
-                </Button>
+                {useAuthorization('Clients:Read') && (
+                  <Button
+                    variant="outline"
+                    className="h-24 flex-col gap-2"
+                    onClick={() => navigate(`/project/${projectId}/clients`)}
+                  >
+                    <Users className="w-6 h-6" />
+                    <span className="text-sm font-medium">Clients</span>
+                  </Button>
+                )}
 
                 {/* Settings - Spans 2 columns */}
-                <Button
-                  variant="outline"
-                  className="h-16 col-span-2 flex-row gap-2"
-                  onClick={() => navigate(`/project/${projectId}/settings`)}
-                >
-                  <Settings2 className="w-5 h-5" />
-                  <span className="text-sm font-medium">Project Settings</span>
-                </Button>
+                {useAuthorization('Projects:Update') && (
+                  <Button
+                    variant="outline"
+                    className="h-16 col-span-2 flex-row gap-2"
+                    onClick={() => navigate(`/project/${projectId}/settings`)}
+                  >
+                    <Settings2 className="w-5 h-5" />
+                    <span className="text-sm font-medium">Project Settings</span>
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

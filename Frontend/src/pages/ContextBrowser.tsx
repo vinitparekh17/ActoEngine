@@ -547,6 +547,10 @@ export default function ContextBrowse() {
                                 entityId={entity.entityId}
                                 entityName={entity.entityName}
                                 variant="minimal"
+                                allowQuickEdit={true}
+                                onEditSuccess={() => {
+                                  // Optionally refetch data or show a toast
+                                }}
                               />
                             </TableCell>
                             <TableCell className="text-right">

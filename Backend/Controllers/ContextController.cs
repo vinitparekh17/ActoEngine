@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Services.ContextService;
 using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Extensions;
@@ -98,7 +99,8 @@ public class ContextController(
     /// Quick-save context (minimal fields for fast entry)
     /// </summary>
     [HttpPost("quick-save")]
-    [ProducesResponseType(typeof(QuickSaveResponse), StatusCodes.Status200OK)]
+    [RequirePermission("Contexts:Update")]
+    [ProducesResponseType(typeof(ApiResponse<ContextResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> QuickSaveContext(
         int projectId,
@@ -174,7 +176,8 @@ public class ContextController(
     /// Mark context as reviewed (fresh)
     /// </summary>
     [HttpPost("{entityType}/{entityId}/mark-reviewed")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [RequirePermission("Contexts:Update")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> MarkContextReviewed(
         int projectId,
         string entityType,
@@ -205,7 +208,8 @@ public class ContextController(
     /// Add expert to entity
     /// </summary>
     [HttpPost("{entityType}/{entityId}/experts")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [RequirePermission("Contexts:Update")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> AddExpert(
         int projectId,
@@ -248,7 +252,8 @@ public class ContextController(
     /// Remove expert from entity
     /// </summary>
     [HttpDelete("{entityType}/{entityId}/experts/{userId}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [RequirePermission("Contexts:Update")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> RemoveExpert(
         int projectId,
         string entityType,
@@ -460,7 +465,7 @@ public class ContextController(
     /// Bulk import context entries
     /// </summary>
     [HttpPost("bulk-import")]
-    [ProducesResponseType(typeof(List<BulkImportResult>), StatusCodes.Status200OK)]
+    [RequirePermission("Contexts:Create")]
     public async Task<IActionResult> BulkImportContext(
         int projectId,
         [FromBody] List<BulkContextEntry> entries)

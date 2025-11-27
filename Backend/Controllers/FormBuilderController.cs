@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Services.FormBuilderService;
 using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Extensions;
+using ActoEngine.WebApi.Repositories;
 
 namespace ActoEngine.WebApi.Controllers
 {
@@ -20,7 +22,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Save form configuration
         /// </summary>
         [HttpPost("save")]
-        [ProducesResponseType(typeof(ApiResponse<SaveFormConfigResponse>), StatusCodes.Status200OK)]
+        [RequirePermission("Forms:Update")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveFormConfig([FromBody] SaveFormConfigRequest request)
@@ -94,7 +96,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Generate HTML, JavaScript, and optionally stored procedures
         /// </summary>
         [HttpPost("generate")]
-        [ProducesResponseType(typeof(ApiResponse<GenerateFormResponse>), StatusCodes.Status200OK)]
+        [RequirePermission("Forms:Generate")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GenerateForm([FromBody] GenerateFormRequest request)
@@ -118,8 +120,8 @@ namespace ActoEngine.WebApi.Controllers
         /// <summary>
         /// Delete a form configuration
         /// </summary>
-        [HttpDelete("delete/{formId}")]
-        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+        [HttpDelete("{id}")]
+        [RequirePermission("Forms:Delete")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> DeleteFormConfig(int formId)
         {

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '../hooks/useProject';
 import { useApiPut, useApiDelete, useApiPost } from '../hooks/useApi';
+import { useAuthorization } from '../hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -330,21 +331,23 @@ export default function ProjectSettings() {
 
                             {/* Save + Unsaved Changes */}
                             <div className="flex items-center justify-between mt-6">
-                                <Button
-                                    type="submit"
-                                    disabled={!hasChanges || updateMutation.isPending}>
-                                    {updateMutation.isPending ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Saving...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Save className="w-4 h-4 mr-2" />
-                                            Save Changes
-                                        </>
-                                    )}
-                                </Button>
+                                {useAuthorization('Projects:Update') && (
+                                    <Button
+                                        type="submit"
+                                        disabled={!hasChanges || updateMutation.isPending}>
+                                        {updateMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="w-4 h-4 mr-2" />
+                                                Save Changes
+                                            </>
+                                        )}
+                                    </Button>
+                                )}
 
                                 {hasChanges && (
                                     <Badge variant="secondary" className="gap-1">
@@ -359,7 +362,7 @@ export default function ProjectSettings() {
             </Card>
 
             {/* Link Database */}
-            {!selectedProject.isLinked && (
+            {!selectedProject.isLinked && useAuthorization('Projects:Link') && (
                 <Card className="border-primary/50">
                     <CardHeader>
                         <CardTitle>Link Database</CardTitle>
@@ -481,7 +484,7 @@ export default function ProjectSettings() {
             )}
 
             {/* Re-sync Database */}
-            {selectedProject.isLinked && (
+            {selectedProject.isLinked && useAuthorization('Schema:Sync') && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Re-sync Database</CardTitle>
@@ -620,41 +623,43 @@ export default function ProjectSettings() {
             )}
 
             {/* Danger Zone */}
-            <Card className="border-destructive">
-                <CardHeader>
-                    <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                    <CardDescription>Irreversible actions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1">
-                            <p className="font-medium">Delete Project</p>
-                            <p className="text-sm text-muted-foreground">
-                                Permanently delete this project and all associated data including
-                                forms, code generations, and history.
-                            </p>
+            {useAuthorization('Projects:Delete') && (
+                <Card className="border-destructive">
+                    <CardHeader>
+                        <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                        <CardDescription>Irreversible actions</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                                <p className="font-medium">Delete Project</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Permanently delete this project and all associated data including
+                                    forms, code generations, and history.
+                                </p>
+                            </div>
+                            <Button
+                                variant="destructive"
+                                onClick={handleDelete}
+                                disabled={deleteMutation.isPending}
+                                className="flex-shrink-0"
+                            >
+                                {deleteMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete Project
+                                    </>
+                                )}
+                            </Button>
                         </div>
-                        <Button
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={deleteMutation.isPending}
-                            className="flex-shrink-0"
-                        >
-                            {deleteMutation.isPending ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Deleting...
-                                </>
-                            ) : (
-                                <>
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Delete Project
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

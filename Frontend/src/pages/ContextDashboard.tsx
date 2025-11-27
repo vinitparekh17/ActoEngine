@@ -185,7 +185,6 @@ export const ContextDashboard: React.FC = () => {
   const staleEntities = dashboard?.staleEntities || [];
   const topDocumented = dashboard?.topDocumented || [];
   const criticalUndocumented = dashboard?.criticalUndocumented || [];
-console.log("criticalUndocumented", criticalUndocumented);
   // Calculate overall stats with weighted coverage
   const totalDocumented = coverage.reduce(
     (acc, item) => acc + (item.documented || 0),

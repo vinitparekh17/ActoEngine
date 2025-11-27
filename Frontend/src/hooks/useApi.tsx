@@ -190,6 +190,19 @@ export const queryKeys = {
   codeGen: {
     history: () => ['codeGen', 'history'] as const,
   },
+  users: {
+    all: () => ['users'] as const,
+    detail: (id: number) => ['users', id] as const,
+  },
+  roles: {
+    all: () => ['roles'] as const,
+    detail: (id: number) => ['roles', id] as const,
+    permissions: (id: number) => ['roles', id, 'permissions'] as const,
+  },
+  permissions: {
+    all: () => ['permissions'] as const,
+    grouped: () => ['permissions', 'grouped'] as const,
+  },
 };
 
 // ============================================

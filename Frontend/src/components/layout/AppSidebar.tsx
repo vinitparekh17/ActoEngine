@@ -1,4 +1,4 @@
-import { Database, History, Palette, Users, Settings, ChevronDown, LogOut, ChevronsUpDown, User, Layers, Sparkles, BrainCircuit, Home } from "lucide-react"
+import { Database, History, Palette, Users, Settings, ChevronDown, LogOut, ChevronsUpDown, User, Layers, Sparkles, BrainCircuit, Home, Shield, UserCog } from "lucide-react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
   Sidebar,
@@ -32,6 +32,8 @@ const SIDEBAR_ITEMS = [
   { icon: Users, label: "Client Management", href: "/clients" },
   { icon: History, label: "Generation History", href: "/history" },
   { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: UserCog, label: "User Management", href: "/admin/users", requiresRole: "Admin" },
+  { icon: Shield, label: "Role Management", href: "/admin/roles", requiresRole: "Admin" },
 ]
 
 export default function AppSidebar() {
@@ -121,7 +123,7 @@ export default function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {SIDEBAR_ITEMS.map(item => (
+              {SIDEBAR_ITEMS.filter(item => !item.requiresRole || user?.role === item.requiresRole).map(item => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild

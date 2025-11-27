@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Extensions;
 using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Services.ClientService;
 
 namespace ActoEngine.WebApi.Controllers

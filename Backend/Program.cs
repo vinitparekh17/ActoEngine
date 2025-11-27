@@ -16,6 +16,9 @@ using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Services.ContextService;
 using DotNetEnv;
 using ActoEngine.WebApi.Services.DependencyService;
+using ActoEngine.WebApi.Services.RoleService;
+using ActoEngine.WebApi.Services.PermissionService;
+using ActoEngine.WebApi.Services.UserManagementService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -148,6 +151,10 @@ builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IProjectClientRepository, ProjectClientRepository>();
 builder.Services.AddScoped<IContextRepository, ContextRepository>();
 
+// Role & Permission Repositories
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
@@ -156,6 +163,11 @@ builder.Services.AddScoped<IFormBuilderService, FormBuilderService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IProjectClientService, ProjectClientService>();
 builder.Services.AddScoped<IContextService, ContextService>();
+
+// Role & Permission Services
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
 // Form Builder Services
 builder.Services.AddScoped<IFormConfigRepository, FormConfigRepository>();

@@ -1,6 +1,8 @@
 using ActoEngine.WebApi.Services.Auth;
+using ActoEngine.WebApi.Services.PermissionService;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 using System.Text.Encodings.Web;
 
 namespace ActoEngine.WebApi.Config;
@@ -14,7 +16,7 @@ public class CustomTokenAuthenticationHandler(
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
     private readonly ILogger<CustomTokenAuthenticationHandler> _logger = logger.CreateLogger<CustomTokenAuthenticationHandler>();
 
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         // Try to get token from Authorization header first
         var authHeader = Request.Headers.Authorization.FirstOrDefault();
@@ -40,7 +42,7 @@ public class CustomTokenAuthenticationHandler(
         if (string.IsNullOrEmpty(token))
         {
             _logger.LogDebug("No Authorization header or token query parameter found for path: {Path}", Request.Path);
-            return Task.FromResult(AuthenticateResult.NoResult());
+            return AuthenticateResult.NoResult();
         }
 
         using var scope = _scopeFactory.CreateScope();
@@ -50,17 +52,39 @@ public class CustomTokenAuthenticationHandler(
         if (principal == null)
         {
             _logger.LogWarning("Token validation failed for path: {Path}", Request.Path);
-            return Task.FromResult(AuthenticateResult.Fail("Invalid or expired access token"));
+            return AuthenticateResult.Fail("Invalid or expired access token");
         }
 
         var userIdClaim = principal.FindFirst("user_id")?.Value;
         if (userIdClaim != null && int.TryParse(userIdClaim, out var userId))
         {
             Context.Items["UserId"] = userId;
-            _logger.LogInformation("User authenticated: {UserId}", userId);
+
+            // LOAD USER PERMISSIONS AND ADD TO CLAIMS
+            try
+            {
+                var permissionService = scope.ServiceProvider.GetRequiredService<IPermissionService>();
+                var permissions = await permissionService.GetUserPermissionsAsync(userId);
+
+                var claims = principal.Claims.ToList();
+                foreach (var permission in permissions)
+                {
+                    claims.Add(new Claim("permission", permission));
+                }
+
+                var identity = new ClaimsIdentity(claims, "custom_token");
+                principal = new ClaimsPrincipal(identity);
+
+                _logger.LogInformation("User authenticated: {UserId} with {PermissionCount} permissions", userId, permissions.Count());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading permissions for user {UserId}", userId);
+                // Continue without permissions rather than failing authentication
+            }
         }
 
         var ticket = new AuthenticationTicket(principal, Scheme.Name);
-        return Task.FromResult(AuthenticateResult.Success(ticket));
+        return AuthenticateResult.Success(ticket);
     }
 }

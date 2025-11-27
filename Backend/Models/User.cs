@@ -72,6 +72,7 @@ public class User
     public string? CreatedBy { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
     public string? UpdatedBy { get; private set; }
+    public List<string> Permissions { get; set; } = new();
 
     // Constructor for creating new users
     public User(string username, string passwordHash, string? fullName = null, string role = "User", string? createdBy = null)

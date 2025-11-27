@@ -6,6 +6,7 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { useAuth, useAuthStore } from "@/hooks/useAuth";
 // import { useCsrfInit } from "@/hooks/useCsrf";
 import { ApiErrorBoundary } from "@/components/errors/ApiErrorBoundary";
+import { PermissionRoute } from "@/components/routing/PermissionRoute";
 import FormBuilderPage from "@/pages/FormBuilder";
 import LoginPage from "@/pages/Login";
 // import DashboardPage from "@/pages/Dashboard";
@@ -20,6 +21,9 @@ import ContextBrowse from "./pages/ContextBrowser";
 import TableDetail from "./pages/TableDetail";
 import StoredProcedureDetail from "./pages/StoredProcedureDetail";
 import ColumnDetail from "./pages/ColumnDetail";
+import UserManagementPage from "./pages/UserManagement";
+import RoleManagementPage from "./pages/RoleManagement";
+import { AccessDenied } from "./components/feedback/AccessDenied";
 import { initializeApiClient } from "./lib/api";
 
 // ============================================
@@ -62,15 +66,57 @@ function AppRoutes() {
         <Route path="project/:projectId" element={<ProjectHub />} />
         <Route
           path="project/:projectId/settings"
-          element={<ProjectSettings />}
+          element={
+            <PermissionRoute permission="Projects:Read">
+              <ProjectSettings />
+            </PermissionRoute>
+          }
         />
         <Route path="project/new" element={<ProjectSetup />} />
         {/* General routes */}
         <Route path="dashboard" element={<ContextDashboard />} />
-        <Route path="clients" element={<ClientManagementPage />} />
+        <Route
+          path="clients"
+          element={
+            <PermissionRoute permission="Clients:Read">
+              <ClientManagementPage />
+            </PermissionRoute>
+          }
+        />
+        {/* Admin routes */}
+        <Route
+          path="admin/users"
+          element={
+            <PermissionRoute permission="Users:Read">
+              <UserManagementPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="admin/roles"
+          element={
+            <PermissionRoute permission="Roles:Read">
+              <RoleManagementPage />
+            </PermissionRoute>
+          }
+        />
         {/* Builder routes */}
-        <Route path="form-builder" element={<FormBuilderPage />} />
-        <Route path="sp-builder" element={<SPGeneratorPage />} />
+        <Route
+          path="form-builder"
+          element={
+            <PermissionRoute permission="Forms:Read">
+              <FormBuilderPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="sp-builder"
+          element={
+            <PermissionRoute permission="StoredProcedures:Read">
+              <SPGeneratorPage />
+            </PermissionRoute>
+          }
+        />
         {/* Context routes */}
         <Route path="context" element={<ContextDashboard />} />
         <Route
@@ -90,6 +136,7 @@ function AppRoutes() {
           path="project/:projectId/stored-procedures/:procedureId"
           element={<StoredProcedureDetail />}
         />
+        <Route path="access-denied" element={<AccessDenied />} />
         {/* Standalone column route for direct navigation from context dialogs */}
         <Route
           path="project/:projectId/columns/:columnId"

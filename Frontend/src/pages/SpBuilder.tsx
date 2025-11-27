@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react"
 import { useToast } from "../hooks/useToast"
+import { useAuthorization } from "../hooks/useAuth"
 import type { SPType } from "../components/spgen/SPTypeCard"
 import { ChevronRight, ChevronLeft, Maximize2, Minimize2 } from "lucide-react"
 import CodeExportButton from "../components/spgen/CodeExportButton"
@@ -23,6 +24,8 @@ type TreeNode = {
 
 export default function SpBuilder() {
     const { showToast: toast } = useToast()
+    const canCreate = useAuthorization('StoredProcedures:Create')
+
     const [selectedTable, setSelectedTable] = useState<string | null>(null)
     const [spType, setSpType] = useState<SPType>("CUD")
     const [sqlCode, setSqlCode] = useState<string>("-- Generated SQL will appear here")
@@ -170,6 +173,11 @@ export default function SpBuilder() {
 
     const handleConfigSubmit = useCallback(
         (values: SPConfigValues) => {
+            if (!canCreate) {
+                toast({ title: "Error", description: "You don't have permission to generate stored procedures" })
+                return
+            }
+
             if (!selectedProject || !selectedTable || !tableSchema) {
                 toast({ title: "Error", description: "Please select a project and table first" })
                 return
@@ -218,7 +226,7 @@ export default function SpBuilder() {
                 onSettled: () => setIsGenerating(false)
             })
         },
-        [selectedProject, selectedTable, tableSchema, toast, generateMutation],
+        [selectedProject, selectedTable, tableSchema, toast, generateMutation, canCreate],
     )
 
     const handleExport = useCallback(

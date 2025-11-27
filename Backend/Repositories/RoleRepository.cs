@@ -1,0 +1,121 @@
+using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Services.Database;
+using ActoEngine.WebApi.SqlQueries;
+
+namespace ActoEngine.WebApi.Repositories;
+
+public interface IRoleRepository
+{
+    Task<IEnumerable<Role>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<Role?> GetByIdAsync(int roleId, CancellationToken cancellationToken = default);
+    Task<Role?> GetByNameAsync(string roleName, CancellationToken cancellationToken = default);
+    Task<Role> CreateAsync(Role role, CancellationToken cancellationToken = default);
+    Task UpdateAsync(Role role, CancellationToken cancellationToken = default);
+    Task DeleteAsync(int roleId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Permission>> GetRolePermissionsAsync(int roleId, CancellationToken cancellationToken = default);
+    Task AddRolePermissionAsync(int roleId, int permissionId, int grantedBy, CancellationToken cancellationToken = default);
+    Task RemoveRolePermissionAsync(int roleId, int permissionId, CancellationToken cancellationToken = default);
+    Task ClearRolePermissionsAsync(int roleId, CancellationToken cancellationToken = default);
+}
+
+public class RoleRepository : BaseRepository, IRoleRepository
+{
+    public RoleRepository(
+        IDbConnectionFactory connectionFactory,
+        ILogger<RoleRepository> logger)
+        : base(connectionFactory, logger) { }
+
+    public async Task<IEnumerable<Role>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await QueryAsync<Role>(RoleQueries.GetAll, cancellationToken: cancellationToken);
+    }
+
+    public async Task<Role?> GetByIdAsync(int roleId, CancellationToken cancellationToken = default)
+    {
+        return await QueryFirstOrDefaultAsync<Role>(
+            RoleQueries.GetById,
+            new { RoleId = roleId },
+            cancellationToken);
+    }
+
+    public async Task<Role?> GetByNameAsync(string roleName, CancellationToken cancellationToken = default)
+    {
+        return await QueryFirstOrDefaultAsync<Role>(
+            RoleQueries.GetByName,
+            new { RoleName = roleName },
+            cancellationToken);
+    }
+
+    public async Task<Role> CreateAsync(Role role, CancellationToken cancellationToken = default)
+    {
+        var result = await QueryFirstOrDefaultAsync<Role>(
+            RoleQueries.Insert,
+            new { role.RoleName, role.Description, role.CreatedBy },
+            cancellationToken);
+
+        return result ?? throw new InvalidOperationException("Failed to create role");
+    }
+
+    public async Task UpdateAsync(Role role, CancellationToken cancellationToken = default)
+    {
+        var rowsAffected = await ExecuteAsync(
+            RoleQueries.Update,
+            new { role.RoleId, role.RoleName, role.Description, role.IsActive, role.UpdatedBy },
+            cancellationToken);
+
+        if (rowsAffected == 0)
+            throw new InvalidOperationException($"Role {role.RoleId} not found or is a system role");
+    }
+
+    public async Task DeleteAsync(int roleId, CancellationToken cancellationToken = default)
+    {
+        var rowsAffected = await ExecuteAsync(
+            RoleQueries.Delete,
+            new { RoleId = roleId },
+            cancellationToken);
+
+        if (rowsAffected == 0)
+            throw new InvalidOperationException($"Role {roleId} not found or is a system role");
+    }
+
+    public async Task<IEnumerable<Permission>> GetRolePermissionsAsync(
+        int roleId,
+        CancellationToken cancellationToken = default)
+    {
+        return await QueryAsync<Permission>(
+            RoleQueries.GetRolePermissions,
+            new { RoleId = roleId },
+            cancellationToken);
+    }
+
+    public async Task AddRolePermissionAsync(
+        int roleId,
+        int permissionId,
+        int grantedBy,
+        CancellationToken cancellationToken = default)
+    {
+        await ExecuteAsync(
+            RoleQueries.AddRolePermission,
+            new { RoleId = roleId, PermissionId = permissionId, GrantedBy = grantedBy },
+            cancellationToken);
+    }
+
+    public async Task RemoveRolePermissionAsync(
+        int roleId,
+        int permissionId,
+        CancellationToken cancellationToken = default)
+    {
+        await ExecuteAsync(
+            RoleQueries.RemoveRolePermission,
+            new { RoleId = roleId, PermissionId = permissionId },
+            cancellationToken);
+    }
+
+    public async Task ClearRolePermissionsAsync(int roleId, CancellationToken cancellationToken = default)
+    {
+        await ExecuteAsync(
+            RoleQueries.ClearRolePermissions,
+            new { RoleId = roleId },
+            cancellationToken);
+    }
+}

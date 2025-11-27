@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Repositories;
 
@@ -32,7 +33,7 @@ public class SpBuilderController : ControllerBase
     /// Generate CUD or SELECT stored procedure
     /// </summary>
     [HttpPost("generate")]
-    [ProducesResponseType(typeof(ApiResponse<GeneratedSpResponse>), StatusCodes.Status200OK)]
+    [RequirePermission("StoredProcedures:Create")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
@@ -66,6 +67,7 @@ public class SpBuilderController : ControllerBase
     /// Get table schema
     /// </summary>
     [HttpPost("schema/table")]
+    [RequirePermission("Schema:Read")]
     [ProducesResponseType(typeof(ApiResponse<TableSchemaResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
@@ -91,8 +93,8 @@ public class SpBuilderController : ControllerBase
     /// <summary>
     /// Get all tables from project
     /// </summary>
-    [HttpGet("schema/tables/{projectId}")]
-    [ProducesResponseType(typeof(ApiResponse<List<string>>), StatusCodes.Status200OK)]
+    [HttpGet("schema/{projectId}")]
+    [RequirePermission("Schema:Read")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<ApiResponse<List<string>>>> GetTables(int projectId)
