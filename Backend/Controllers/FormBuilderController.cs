@@ -47,6 +47,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Load form configuration by ID or name
         /// </summary>
         [HttpGet("load/{formId}")]
+        [RequirePermission("Forms:Read")]
         [ProducesResponseType(typeof(ApiResponse<FormConfig>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> LoadFormConfig(string formId)
@@ -76,6 +77,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Get all form configurations for a project
         /// </summary>
         [HttpGet("configs/{projectId}")]
+        [RequirePermission("Forms:Read")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<FormConfigListItem>>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<FormConfigListItem>>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetFormConfigs(int projectId)
@@ -147,6 +149,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Get available templates
         /// </summary>
         [HttpGet("templates")]
+        [RequirePermission("Forms:Read")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<object>>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetTemplates()

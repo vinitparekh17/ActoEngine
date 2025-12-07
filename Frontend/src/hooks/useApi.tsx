@@ -1,6 +1,12 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseMutationOptions } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { api } from '@/lib/api';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type UseQueryOptions,
+  type UseMutationOptions,
+} from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
 
 // NOTE: Types are sourced from '@/types/api' to stay in sync with backend Models/Common.cs
 // NOTE: API client is sourced from '@/lib/api' for centralized HTTP communication
@@ -8,29 +14,28 @@ import { api } from '@/lib/api';
 // ============================================
 // useApi - Query Hook
 // ============================================
-interface UseApiOptions<T> extends Omit<UseQueryOptions<T, Error>, 'queryKey' | 'queryFn'> {
+interface UseApiOptions<T>
+  extends Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn"> {
   showErrorToast?: boolean;
   queryKey?: any[]; // Allow custom query keys
 }
 
-export function useApi<T>(
-  endpoint: string,
-  options?: UseApiOptions<T>
-) {
+export function useApi<T>(endpoint: string, options?: UseApiOptions<T>) {
   const { showErrorToast = true, queryKey, ...queryOptions } = options || {};
-  
+
   // Generate query key from endpoint if not provided
-  const finalQueryKey = queryKey || (endpoint ? generateQueryKey(endpoint) : ['api', 'invalid']);
+  const finalQueryKey =
+    queryKey || (endpoint ? generateQueryKey(endpoint) : ["api", "invalid"]);
 
   return useQuery<T, Error>({
     queryKey: finalQueryKey,
     queryFn: () => {
-      if (!endpoint || endpoint === '') {
-        return Promise.reject(new Error('Invalid endpoint'));
+      if (!endpoint || endpoint === "") {
+        return Promise.reject(new Error("Invalid endpoint"));
       }
       return api.get<T>(endpoint);
     },
-    enabled: !!endpoint && endpoint !== '',
+    enabled: !!endpoint && endpoint !== "",
     staleTime: 60 * 1000, // 1 minute default
     ...queryOptions,
   } as any);
@@ -41,10 +46,10 @@ export function useApi<T>(
 // ============================================
 function generateQueryKey(endpoint: string): string[] {
   // Remove leading slash and query params
-  const cleanEndpoint = endpoint.replace(/^\//, '').split('?')[0];
+  const cleanEndpoint = endpoint.replace(/^\//, "").split("?")[0];
 
   // Split by / to create hierarchical key
-  const parts = cleanEndpoint.split('/').filter(Boolean);
+  const parts = cleanEndpoint.split("/").filter(Boolean);
 
   return parts;
 }
@@ -56,9 +61,10 @@ function generateQueryKey(endpoint: string): string[] {
 // ============================================
 // useApiMutation - Mutation Hook
 // ============================================
-type HttpMethod = 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+type HttpMethod = "POST" | "PUT" | "DELETE" | "PATCH";
 
-interface UseApiMutationOptions<TData, TVariables> extends Omit<UseMutationOptions<TData, Error, TVariables>, 'mutationFn'> {
+interface UseApiMutationOptions<TData, TVariables>
+  extends Omit<UseMutationOptions<TData, Error, TVariables>, "mutationFn"> {
   showSuccessToast?: boolean;
   showErrorToast?: boolean;
   successMessage?: string;
@@ -67,8 +73,8 @@ interface UseApiMutationOptions<TData, TVariables> extends Omit<UseMutationOptio
 
 export function useApiMutation<TData = unknown, TVariables = void>(
   endpoint: string,
-  method: HttpMethod = 'POST',
-  options?: UseApiMutationOptions<TData, TVariables>
+  method: HttpMethod = "POST",
+  options?: UseApiMutationOptions<TData, TVariables>,
 ) {
   const queryClient = useQueryClient();
   const {
@@ -92,19 +98,21 @@ export function useApiMutation<TData = unknown, TVariables = void>(
         return encodeURIComponent(String(value));
       });
 
-      const bodyVariables = variables ? { ...(variables as Record<string, unknown>) } : {};
+      const bodyVariables = variables
+        ? { ...(variables as Record<string, unknown>) }
+        : {};
       for (const key of paramKeys) {
         delete bodyVariables[key];
       }
 
       switch (method) {
-        case 'POST':
+        case "POST":
           return api.post<TData>(url, bodyVariables);
-        case 'PUT':
+        case "PUT":
           return api.put<TData>(url, bodyVariables);
-        case 'PATCH':
+        case "PATCH":
           return api.patch<TData>(url, bodyVariables);
-        case 'DELETE':
+        case "DELETE":
           return api.delete<TData>(url);
         default:
           throw new Error(`Unsupported method: ${method}`);
@@ -112,7 +120,7 @@ export function useApiMutation<TData = unknown, TVariables = void>(
     },
     onSuccess: (data, variables, context) => {
       if (showSuccessToast) {
-        toast.success(successMessage || 'Operation successful');
+        toast.success(successMessage || "Operation successful");
       }
 
       // Invalidate specified query keys
@@ -124,7 +132,7 @@ export function useApiMutation<TData = unknown, TVariables = void>(
     },
     onError: (error, variables, context) => {
       if (showErrorToast) {
-        toast.error(error.message || 'Operation failed');
+        toast.error(error.message || "Operation failed");
       }
       mutationOptions.onError?.(error, variables, context, null as any);
     },
@@ -146,9 +154,9 @@ export const useApiQuery = useApi;
  */
 export function useApiPost<TData = unknown, TVariables = void>(
   endpoint: string,
-  options?: UseApiMutationOptions<TData, TVariables>
+  options?: UseApiMutationOptions<TData, TVariables>,
 ) {
-  return useApiMutation<TData, TVariables>(endpoint, 'POST', options);
+  return useApiMutation<TData, TVariables>(endpoint, "POST", options);
 }
 
 /**
@@ -156,9 +164,9 @@ export function useApiPost<TData = unknown, TVariables = void>(
  */
 export function useApiPut<TData = unknown, TVariables = void>(
   endpoint: string,
-  options?: UseApiMutationOptions<TData, TVariables>
+  options?: UseApiMutationOptions<TData, TVariables>,
 ) {
-  return useApiMutation<TData, TVariables>(endpoint, 'PUT', options);
+  return useApiMutation<TData, TVariables>(endpoint, "PUT", options);
 }
 
 /**
@@ -166,9 +174,9 @@ export function useApiPut<TData = unknown, TVariables = void>(
  */
 export function useApiDelete<TData = unknown, TVariables = void>(
   endpoint: string,
-  options?: UseApiMutationOptions<TData, TVariables>
+  options?: UseApiMutationOptions<TData, TVariables>,
 ) {
-  return useApiMutation<TData, TVariables>(endpoint, 'DELETE', options);
+  return useApiMutation<TData, TVariables>(endpoint, "DELETE", options);
 }
 
 // ============================================
@@ -176,36 +184,37 @@ export function useApiDelete<TData = unknown, TVariables = void>(
 // ============================================
 export const queryKeys = {
   projects: {
-    all: () => ['projects'] as const,
-    detail: (id: number) => ['projects', id] as const,
+    all: () => ["projects"] as const,
+    detail: (id: number) => ["projects", id] as const,
   },
   clients: {
-    all: () => ['clients'] as const,
-    detail: (id: number) => ['clients', id] as const,
+    all: () => ["clients"] as const,
+    detail: (id: number) => ["clients", id] as const,
   },
   tables: {
-    all: (projectId: number) => ['tables', projectId] as const,
-    schema: (projectId: number, tableName: string) => ['tables', projectId, tableName, 'schema'] as const,
+    all: (projectId: number) => ["tables", projectId] as const,
+    schema: (projectId: number, tableName: string) =>
+      ["tables", projectId, tableName, "schema"] as const,
   },
   codeGen: {
-    history: () => ['codeGen', 'history'] as const,
+    history: () => ["codeGen", "history"] as const,
   },
   users: {
-    all: () => ['users'] as const,
-    detail: (id: number) => ['users', id] as const,
+    all: () => ["users"] as const,
+    detail: (id: number) => ["users", id] as const,
   },
   roles: {
-    all: () => ['roles'] as const,
-    detail: (id: number) => ['roles', id] as const,
-    permissions: (id: number) => ['roles', id, 'permissions'] as const,
+    all: () => ["roles"] as const,
+    detail: (id: number) => ["roles", id] as const,
+    permissions: (id: number) => ["roles", id, "permissions"] as const,
   },
   permissions: {
-    all: () => ['permissions'] as const,
-    grouped: () => ['permissions', 'grouped'] as const,
+    all: () => ["permissions"] as const,
+    grouped: () => ["permissions", "grouped"] as const,
   },
 };
 
 // ============================================
 // Re-export API client for convenience
 // ============================================
-export { api } from '@/lib/api';
+export { api } from "@/lib/api";

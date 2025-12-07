@@ -109,7 +109,7 @@ export default function ContextExperts() {
       enabled: hasProject && !!selectedProjectId,
       staleTime: 60 * 1000,
       retry: 2,
-    }
+    },
   );
 
   // Fetch all SPs
@@ -123,7 +123,7 @@ export default function ContextExperts() {
       enabled: hasProject && !!selectedProjectId,
       staleTime: 60 * 1000,
       retry: 2,
-    }
+    },
   );
 
   // Fetch expert summary (if available)
@@ -342,7 +342,7 @@ export default function ContextExperts() {
               <div className="text-2xl font-bold">
                 {expertSummary.reduce(
                   (acc, expert) => acc + (expert.expertiseBreakdown.OWNER || 0),
-                  0
+                  0,
                 )}
               </div>
             </CardContent>
@@ -357,7 +357,7 @@ export default function ContextExperts() {
                 {expertSummary.reduce(
                   (acc, expert) =>
                     acc + (expert.expertiseBreakdown.EXPERT || 0),
-                  0
+                  0,
                 )}
               </div>
             </CardContent>
@@ -548,7 +548,7 @@ export default function ContextExperts() {
                                       .split(/\s+/)
                                       .filter(Boolean)
                                       .map((word) =>
-                                        word && word[0] ? word[0] : ""
+                                        word && word[0] ? word[0] : "",
                                       )
                                       .join("")
                                       .toUpperCase();
@@ -586,7 +586,7 @@ export default function ContextExperts() {
                                       {getExpertIcon(level)}
                                       <span className="ml-1">{count}</span>
                                     </Badge>
-                                  )
+                                  ),
                               )}
                             </div>
                           </TableCell>

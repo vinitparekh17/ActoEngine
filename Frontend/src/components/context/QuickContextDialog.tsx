@@ -1,30 +1,31 @@
 // components/context/QuickContextDialog.tsx
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Loader2, Sparkles } from 'lucide-react';
-import { useQuickSaveContext } from '@/hooks/useContext';
-import { useQueryClient } from '@tanstack/react-query';
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { useQuickSaveContext } from "@/hooks/useContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface QuickContextDialogProps {
   entityId: string;
-  entityType: 'TABLE' | 'COLUMN' | 'SP';
+  entityType: "TABLE" | "COLUMN" | "SP";
   entityName: string;
   currentPurpose?: string;
   currentSensitivity?: string;
@@ -39,11 +40,13 @@ export function QuickContextDialog({
   currentPurpose,
   currentSensitivity,
   onSuccess,
-  trigger
+  trigger,
 }: QuickContextDialogProps) {
   const [open, setOpen] = useState(false);
-  const [purpose, setPurpose] = useState(currentPurpose || '');
-  const [sensitivity, setSensitivity] = useState(currentSensitivity || 'PUBLIC');
+  const [purpose, setPurpose] = useState(currentPurpose || "");
+  const [sensitivity, setSensitivity] = useState(
+    currentSensitivity || "PUBLIC",
+  );
   const queryClient = useQueryClient();
 
   const { mutate: quickSave, isPending } = useQuickSaveContext();
@@ -51,40 +54,50 @@ export function QuickContextDialog({
   const handleSave = () => {
     const sensitivityToLevel = (s: string) => {
       switch (s) {
-        case 'INTERNAL':
+        case "INTERNAL":
           return 1;
-        case 'PII':
+        case "PII":
           return 2;
-        case 'FINANCIAL':
+        case "FINANCIAL":
           return 3;
-        case 'SENSITIVE':
+        case "SENSITIVE":
           return 4;
-        case 'PUBLIC':
+        case "PUBLIC":
         default:
           return 0;
       }
     };
 
-    quickSave({
-      entityId: Number(entityId),
-      entityType,
-      purpose,
-      criticalityLevel: sensitivityToLevel(sensitivity)
-    }, {
-      onSuccess: () => {
-        setOpen(false);
-        // Invalidate context queries
-        queryClient.invalidateQueries({ queryKey: ['context'] });
-        onSuccess?.();
-      }
-    });
+    const numericId = parseInt(entityId, 10);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      console.error("Invalid entity ID:", entityId);
+      toast.error("Invalid item selected. Please try again.");
+      return;
+    }
+
+    quickSave(
+      {
+        entityId: numericId,
+        entityType,
+        purpose,
+        criticalityLevel: sensitivityToLevel(sensitivity),
+      },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          // Invalidate context queries
+          queryClient.invalidateQueries({ queryKey: ["context"] });
+          onSuccess?.();
+        },
+      },
+    );
   };
 
   // Reset form when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
-      setPurpose(currentPurpose || '');
-      setSensitivity(currentSensitivity || 'PUBLIC');
+      setPurpose(currentPurpose || "");
+      setSensitivity(currentSensitivity || "PUBLIC");
     }
     setOpen(newOpen);
   };
@@ -103,14 +116,16 @@ export function QuickContextDialog({
         <DialogHeader>
           <DialogTitle>Quick Context: {entityName}</DialogTitle>
           <DialogDescription>
-            Add essential documentation to help your team understand this {entityType.toLowerCase()}.
+            Add essential documentation to help your team understand this{" "}
+            {entityType.toLowerCase()}.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="purpose">
-              Purpose <span className="text-muted-foreground text-xs">(Required)</span>
+              Purpose{" "}
+              <span className="text-muted-foreground text-xs">(Required)</span>
             </Label>
             <Textarea
               id="purpose"
@@ -135,31 +150,41 @@ export function QuickContextDialog({
                 <SelectItem value="PUBLIC">
                   <div className="flex flex-col">
                     <span>Public</span>
-                    <span className="text-xs text-muted-foreground">No restrictions</span>
+                    <span className="text-xs text-muted-foreground">
+                      No restrictions
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="INTERNAL">
                   <div className="flex flex-col">
                     <span>Internal</span>
-                    <span className="text-xs text-muted-foreground">Company use only</span>
+                    <span className="text-xs text-muted-foreground">
+                      Company use only
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="PII">
                   <div className="flex flex-col">
                     <span>PII</span>
-                    <span className="text-xs text-muted-foreground">Personal information</span>
+                    <span className="text-xs text-muted-foreground">
+                      Personal information
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="FINANCIAL">
                   <div className="flex flex-col">
                     <span>Financial</span>
-                    <span className="text-xs text-muted-foreground">Financial data</span>
+                    <span className="text-xs text-muted-foreground">
+                      Financial data
+                    </span>
                   </div>
                 </SelectItem>
                 <SelectItem value="SENSITIVE">
                   <div className="flex flex-col">
                     <span>Sensitive</span>
-                    <span className="text-xs text-muted-foreground">Highly restricted</span>
+                    <span className="text-xs text-muted-foreground">
+                      Highly restricted
+                    </span>
                   </div>
                 </SelectItem>
               </SelectContent>
@@ -168,18 +193,6 @@ export function QuickContextDialog({
         </div>
 
         <div className="flex justify-between">
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => {
-              setOpen(false);
-              // Navigate to full editor - you can add navigation here
-              // navigate(`/project/${projectId}/${entityType.toLowerCase()}s/${entityId}`);
-            }}
-          >
-            Open Full Editor
-          </Button>
-
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -198,7 +211,7 @@ export function QuickContextDialog({
                   Saving...
                 </>
               ) : (
-                'Save Context'
+                "Save Context"
               )}
             </Button>
           </div>

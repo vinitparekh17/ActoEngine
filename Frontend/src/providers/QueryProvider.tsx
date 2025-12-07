@@ -1,7 +1,7 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { useState } from "react";
+import { toast } from "sonner";
 
 // ============================================
 // Query Client Configuration
@@ -43,9 +43,9 @@ function makeQueryClient() {
           if (error?.status === 401 || error?.status >= 500) {
             return;
           }
-          
+
           // Show toast for client errors (400-499)
-          toast.error(error?.message || 'Operation failed');
+          toast.error(error?.message || "Operation failed");
         },
       },
     },
@@ -55,7 +55,7 @@ function makeQueryClient() {
 let browserQueryClient: QueryClient | undefined = undefined;
 
 function getQueryClient() {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     // Server: always make a new query client
     return makeQueryClient();
   } else {
@@ -80,10 +80,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
       {children}
       {/* Only show devtools in development */}
       {import.meta.env.DEV && (
-        <ReactQueryDevtools 
-          initialIsOpen={false}
-          position="bottom"
-        />
+        <ReactQueryDevtools initialIsOpen={false} position="bottom" />
       )}
     </QueryClientProvider>
   );

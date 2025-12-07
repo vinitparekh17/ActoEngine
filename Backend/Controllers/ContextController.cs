@@ -30,6 +30,7 @@ public class ContextController(
     /// <param name="entityType">Entity type (TABLE, COLUMN, SP, FUNCTION, VIEW)</param>
     /// <param name="entityId">Entity ID</param>
     [HttpGet("{entityType}/{entityId}")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(ContextResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetContext(
@@ -61,6 +62,7 @@ public class ContextController(
     /// <param name="entityId">Entity ID</param>
     /// <param name="request">Context data</param>
     [HttpPut("{entityType}/{entityId}")]
+    [RequirePermission("Contexts:Update")]
     [ProducesResponseType(typeof(EntityContext), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SaveContext(
@@ -276,6 +278,7 @@ public class ContextController(
     /// Get user's expertise (entities they're expert on)
     /// </summary>
     [HttpGet("users/{userId}/expertise")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUserExpertise(
         int projectId,
@@ -301,6 +304,7 @@ public class ContextController(
     /// Get context suggestions for an entity
     /// </summary>
     [HttpGet("{entityType}/{entityId}/suggestions")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(ContextSuggestions), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSuggestions(
         int projectId,
@@ -329,6 +333,7 @@ public class ContextController(
     /// Get context coverage statistics
     /// </summary>
     [HttpGet("statistics/coverage")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(List<ContextCoverageStats>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetContextCoverage(
         int projectId)
@@ -349,6 +354,7 @@ public class ContextController(
     /// Get entities with stale context
     /// </summary>
     [HttpGet("statistics/stale")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStaleEntities(int projectId)
     {
@@ -368,6 +374,7 @@ public class ContextController(
     /// Get top documented entities
     /// </summary>
     [HttpGet("statistics/top-documented")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTopDocumented(
         int projectId,
@@ -389,6 +396,7 @@ public class ContextController(
     /// Get critical undocumented entities
     /// </summary>
     [HttpGet("statistics/critical-undocumented")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCriticalUndocumented(int projectId)
     {
@@ -408,6 +416,7 @@ public class ContextController(
     /// Get entities missing context (prioritized by usage)
     /// </summary>
     [HttpGet("gaps")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(List<ContextGap>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetContextGaps(
         int projectId,
@@ -430,6 +439,7 @@ public class ContextController(
     /// Get context dashboard data
     /// </summary>
     [HttpGet("dashboard")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDashboard(int projectId)
     {
@@ -498,6 +508,7 @@ public class ContextController(
     /// Create review request
     /// </summary>
     [HttpPost("review-requests")]
+    [RequirePermission("Contexts:Update")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateReviewRequest(
@@ -532,6 +543,7 @@ public class ContextController(
     /// Get pending review requests
     /// </summary>
     [HttpGet("review-requests/pending")]
+    [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(List<ContextReviewRequest>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPendingReviewRequests(
         [FromQuery] int? assignedTo = null)

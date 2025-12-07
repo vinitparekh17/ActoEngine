@@ -1,14 +1,20 @@
-import { useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useProject } from '../hooks/useProject';
-import { useApi } from '../hooks/useApi';
-import { useAuthorization } from '../hooks/useAuth';
-import { useSyncStatus } from '../hooks/useSyncStatus';
-import { SyncProgressPanel } from '../components/project';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import { Skeleton } from '../components/ui/skeleton';
+import { useEffect } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { useProject } from "../hooks/useProject";
+import { useApi } from "../hooks/useApi";
+import { useAuthorization } from "../hooks/useAuth";
+import { useSyncStatus } from "../hooks/useSyncStatus";
+import { SyncProgressPanel } from "../components/project";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Skeleton } from "../components/ui/skeleton";
 import {
   Database,
   Code,
@@ -21,12 +27,19 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  XCircle
-} from 'lucide-react';
-import { formatRelativeTime } from '../lib/utils';
-import { ScrollArea } from '../components/ui/scroll-area';
-import type { ProjectStatsResponse, ActivityItem } from '../types/project';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../components/ui/breadcrumb';
+  XCircle,
+} from "lucide-react";
+import { formatRelativeTime } from "../lib/utils";
+import { ScrollArea } from "../components/ui/scroll-area";
+import type { ProjectStatsResponse, ActivityItem } from "../types/project";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "../components/ui/breadcrumb";
 
 export default function ProjectHub() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -36,19 +49,18 @@ export default function ProjectHub() {
   const {
     data: stats,
     isLoading: isLoadingStats,
-    error: statsError
+    error: statsError,
   } = useApi<ProjectStatsResponse>(`/Project/${projectId}/stats`, {
     enabled: !!projectId,
-    staleTime: 2 * 60 * 1000
+    staleTime: 2 * 60 * 1000,
   });
 
   // Fetch recent activity
-  const {
-    data: activity,
-    isLoading: isLoadingActivity
-  } = useApi<ActivityItem[]>(`/Project/${projectId}/activity?limit=5`, {
+  const { data: activity, isLoading: isLoadingActivity } = useApi<
+    ActivityItem[]
+  >(`/Project/${projectId}/activity?limit=5`, {
     enabled: !!projectId,
-    staleTime: 1 * 60 * 1000
+    staleTime: 1 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -58,17 +70,18 @@ export default function ProjectHub() {
   }, [projectId, selectedProject?.projectId]);
 
   // Real-time sync status hook
-  const isSyncing = selectedProject?.syncStatus?.toLowerCase().includes('sync') ||
-    selectedProject?.syncStatus?.toLowerCase() === 'started';
+  const isSyncing =
+    selectedProject?.syncStatus?.toLowerCase().includes("sync") ||
+    selectedProject?.syncStatus?.toLowerCase() === "started";
 
   const { status: realtimeStatus, progress: realtimeProgress } = useSyncStatus(
     selectedProject?.projectId,
     {
       enabled: isSyncing,
       onComplete: () => {
-        console.log('Sync completed for project', selectedProject?.projectId);
-      }
-    }
+        console.log("Sync completed for project", selectedProject?.projectId);
+      },
+    },
   );
 
   const getSyncStatusBadge = () => {
@@ -76,58 +89,63 @@ export default function ProjectHub() {
 
     // Use real-time data if available, otherwise use project data
     const displayStatus = realtimeStatus || selectedProject.syncStatus;
-    const displayProgress = realtimeProgress || selectedProject.syncProgress || 0;
+    const displayProgress =
+      realtimeProgress || selectedProject.syncProgress || 0;
 
-    if (!displayStatus || displayStatus === 'never') {
+    if (!displayStatus || displayStatus === "never") {
       return <Badge variant="secondary">Never Synced</Badge>;
     }
 
-    const statusMap: Record<string, { variant: any; icon: any; label: string }> = {
+    const statusMap: Record<
+      string,
+      { variant: any; icon: any; label: string }
+    > = {
       completed: {
-        variant: 'success' as any,
+        variant: "success" as any,
         icon: CheckCircle,
-        label: 'Completed'
+        label: "Completed",
       },
       started: {
-        variant: 'warning' as any,
+        variant: "warning" as any,
         icon: Loader2,
-        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+        label: displayProgress ? `Syncing (${displayProgress}%)` : "Syncing",
       },
-      'syncing tables': {
-        variant: 'warning' as any,
+      "syncing tables": {
+        variant: "warning" as any,
         icon: Loader2,
-        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+        label: displayProgress ? `Syncing (${displayProgress}%)` : "Syncing",
       },
-      'syncing columns': {
-        variant: 'warning' as any,
+      "syncing columns": {
+        variant: "warning" as any,
         icon: Loader2,
-        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+        label: displayProgress ? `Syncing (${displayProgress}%)` : "Syncing",
       },
-      'syncing foreign keys': {
-        variant: 'warning' as any,
+      "syncing foreign keys": {
+        variant: "warning" as any,
         icon: Loader2,
-        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+        label: displayProgress ? `Syncing (${displayProgress}%)` : "Syncing",
       },
-      'syncing stored procedures': {
-        variant: 'warning' as any,
+      "syncing stored procedures": {
+        variant: "warning" as any,
         icon: Loader2,
-        label: displayProgress ? `Syncing (${displayProgress}%)` : 'Syncing'
+        label: displayProgress ? `Syncing (${displayProgress}%)` : "Syncing",
       },
       failed: {
-        variant: 'destructive',
+        variant: "destructive",
         icon: XCircle,
-        label: 'Failed'
-      }
+        label: "Failed",
+      },
     };
 
     const config = statusMap[displayStatus.toLowerCase()] || statusMap.failed;
     const Icon = config.icon;
-    const isSpinning = displayStatus.toLowerCase().includes('sync') ||
-      displayStatus.toLowerCase() === 'started';
+    const isSpinning =
+      displayStatus.toLowerCase().includes("sync") ||
+      displayStatus.toLowerCase() === "started";
 
     return (
       <Badge variant={config.variant} className="gap-1">
-        <Icon className={`w-3 h-3 ${isSpinning ? 'animate-spin' : ''}`} />
+        <Icon className={`w-3 h-3 ${isSpinning ? "animate-spin" : ""}`} />
         {config.label}
       </Badge>
     );
@@ -148,14 +166,15 @@ export default function ProjectHub() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/projects" className="hover:text-foreground transition-colors">
+                <Link
+                  to="/projects"
+                  className="hover:text-foreground transition-colors"
+                >
                   Projects
                 </Link>
               </BreadcrumbLink>
               <BreadcrumbSeparator />
-              <BreadcrumbPage>
-                {selectedProject.projectName}
-              </BreadcrumbPage>
+              <BreadcrumbPage>{selectedProject.projectName}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -164,9 +183,11 @@ export default function ProjectHub() {
         <div className="space-y-2">
           <div className="flex items-start justify-between">
             <div className="space-y-1">
-              <h1 className="text-3xl font-bold tracking-tight">{selectedProject.projectName}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {selectedProject.projectName}
+              </h1>
               <p className="text-muted-foreground">
-                {selectedProject.databaseName || 'No database connected'}
+                {selectedProject.databaseName || "No database connected"}
               </p>
             </div>
             {getSyncStatusBadge()}
@@ -204,7 +225,9 @@ export default function ProjectHub() {
                   Error
                 </div>
               ) : (
-                <div className="text-2xl font-bold">{stats?.tableCount || 0}</div>
+                <div className="text-2xl font-bold">
+                  {stats?.tableCount || 0}
+                </div>
               )}
               <p className="text-xs text-muted-foreground mt-1">
                 Database tables
@@ -215,7 +238,9 @@ export default function ProjectHub() {
           {/* Stored Procedures */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Stored Procedures</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Stored Procedures
+              </CardTitle>
               <Code className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -247,8 +272,8 @@ export default function ProjectHub() {
               ) : (
                 <div className="text-2xl font-bold">
                   {stats?.lastSync
-                    ? formatRelativeTime(stats.lastSync, 'Never')
-                    : 'Never'}
+                    ? formatRelativeTime(stats.lastSync, "Never")
+                    : "Never"}
                 </div>
               )}
               <p className="text-xs text-muted-foreground mt-1">
@@ -278,7 +303,9 @@ export default function ProjectHub() {
               ) : !activity || activity.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Ghost className="w-12 h-12 text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground">No recent activity</p>
+                  <p className="text-sm text-muted-foreground">
+                    No recent activity
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -294,7 +321,7 @@ export default function ProjectHub() {
                               {item.description}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {formatRelativeTime(item.timestamp, 'recently')}
+                              {formatRelativeTime(item.timestamp, "recently")}
                               {item.user && ` by ${item.user}`}
                             </p>
                           </div>
@@ -323,7 +350,7 @@ export default function ProjectHub() {
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
                 {/* Database Schema - Primary */}
-                {useAuthorization('Schema:Read') && (
+                {useAuthorization("Schema:Read") && (
                   <Button
                     variant="default"
                     className="h-24 flex-col gap-2"
@@ -335,7 +362,7 @@ export default function ProjectHub() {
                 )}
 
                 {/* Form Builder */}
-                {useAuthorization('Forms:Read') && (
+                {useAuthorization("Forms:Read") && (
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
@@ -347,7 +374,7 @@ export default function ProjectHub() {
                 )}
 
                 {/* SP Generator */}
-                {useAuthorization('StoredProcedures:Read') && (
+                {useAuthorization("StoredProcedures:Read") && (
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
@@ -359,7 +386,7 @@ export default function ProjectHub() {
                 )}
 
                 {/* Client Management */}
-                {useAuthorization('Clients:Read') && (
+                {useAuthorization("Clients:Read") && (
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
@@ -371,14 +398,16 @@ export default function ProjectHub() {
                 )}
 
                 {/* Settings - Spans 2 columns */}
-                {useAuthorization('Projects:Update') && (
+                {useAuthorization("Projects:Update") && (
                   <Button
                     variant="outline"
                     className="h-16 col-span-2 flex-row gap-2"
                     onClick={() => navigate(`/project/${projectId}/settings`)}
                   >
                     <Settings2 className="w-5 h-5" />
-                    <span className="text-sm font-medium">Project Settings</span>
+                    <span className="text-sm font-medium">
+                      Project Settings
+                    </span>
                   </Button>
                 )}
               </div>

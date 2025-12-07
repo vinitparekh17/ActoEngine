@@ -135,6 +135,7 @@ public class SpBuilderController : ControllerBase
     /// Quick CUD generation - auto-read schema
     /// </summary>
     [HttpPost("quick/cud")]
+    [RequirePermission("StoredProcedures:Create")]
     public async Task<ActionResult<ApiResponse<GeneratedSpResponse>>> QuickCud(
         [FromBody] QuickGenerateRequest req)
     {
@@ -176,6 +177,7 @@ public class SpBuilderController : ControllerBase
     /// Quick SELECT generation - auto-read schema
     /// </summary>
     [HttpPost("quick/select")]
+    [RequirePermission("StoredProcedures:Create")]
     public async Task<ActionResult<ApiResponse<GeneratedSpResponse>>> QuickSelect(
         [FromBody] QuickGenerateRequest req)
     {

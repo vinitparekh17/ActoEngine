@@ -4,15 +4,17 @@ using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Extensions;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.UserManagementService;
+using ActoEngine.WebApi.Services.Auth;
 
 namespace ActoEngine.WebApi.Controllers;
 
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-public class UserManagementController(IUserManagementService userManagementService) : ControllerBase
+public class UserManagementController(IUserManagementService userManagementService, IAuthService authService) : ControllerBase
 {
     private readonly IUserManagementService _userManagementService = userManagementService;
+    private readonly IAuthService _authService = authService;
 
     [HttpGet]
     [RequirePermission("Users:Read")]
@@ -74,7 +76,7 @@ public class UserManagementController(IUserManagementService userManagementServi
         try
         {
             await _userManagementService.UpdateUserAsync(request, updatedBy.Value);
-            return Ok(ApiResponse<object>.Success(null, "User updated successfully"));
+            return Ok(ApiResponse<object>.Success(new {}, "User updated successfully"));
         }
         catch (InvalidOperationException ex)
         {
@@ -93,7 +95,7 @@ public class UserManagementController(IUserManagementService userManagementServi
         try
         {
             await _userManagementService.ToggleUserStatusAsync(userId, request.IsActive, updatedBy.Value);
-            return Ok(ApiResponse<object>.Success(null, $"User {(request.IsActive ? "activated" : "deactivated")} successfully"));
+            return Ok(ApiResponse<object>.Success(new {}, $"User {(request.IsActive ? "activated" : "deactivated")} successfully"));
         }
         catch (InvalidOperationException ex)
         {
@@ -108,7 +110,7 @@ public class UserManagementController(IUserManagementService userManagementServi
         try
         {
             await _userManagementService.DeleteUserAsync(userId);
-            return Ok(ApiResponse<object>.Success(null, "User deleted successfully"));
+            return Ok(ApiResponse<object>.Success(new {}, "User deleted successfully"));
         }
         catch (InvalidOperationException ex)
         {
@@ -132,7 +134,20 @@ public class UserManagementController(IUserManagementService userManagementServi
                 NewPassword = request.NewPassword
             };
             await _userManagementService.ChangePasswordAsync(changePasswordRequest, updatedBy.Value);
-            return Ok(ApiResponse<object>.Success(null, "Password changed successfully"));
+
+            // SECURITY FIX: Invalidate all sessions for this user after password change
+            try
+            {
+                await _authService.LogoutByUserIdAsync(userId);
+                return Ok(ApiResponse<object>.Success(new {}, "Password changed successfully. All sessions have been logged out."));
+            }
+            catch (Exception logoutEx)
+            {
+                // Log the error but don't fail the request - password was changed successfully
+                var logger = HttpContext.RequestServices.GetRequiredService<ILogger<UserManagementController>>();
+                logger.LogError(logoutEx, "Failed to logout user {UserId} after password change", userId);
+                return Ok(ApiResponse<object>.Success(new {}, "Password changed successfully, but some sessions may remain active. Please log in again."));
+            }
         }
         catch (InvalidOperationException ex)
         {

@@ -1,32 +1,32 @@
-import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { LogIn } from 'lucide-react';
+import { useState } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { LogIn } from "lucide-react";
 
 export default function LoginPage() {
   const { login, isLoggingIn, loginError, clearError } = useAuth();
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
 
     if (!username || !password) {
-      toast.error('Please enter username and password');
+      toast.error("Please enter username and password");
       return;
     }
 
     try {
       await login({ username, password });
-      toast.success('Welcome back!');
-      navigate('/dashboard');
+      toast.success("Welcome back!");
+      navigate("/dashboard");
     } catch (error) {
       // Error already in loginError state
-      toast.error(loginError || 'Login failed');
+      toast.error(loginError || "Login failed");
     }
   };
 
@@ -50,7 +50,10 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Username */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Username
               </label>
               <input
@@ -67,7 +70,10 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Password
               </label>
               <input
@@ -101,7 +107,7 @@ export default function LoginPage() {
                   Signing in...
                 </span>
               ) : (
-                'Sign In'
+                "Sign In"
               )}
             </button>
           </form>

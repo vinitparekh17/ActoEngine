@@ -124,7 +124,7 @@ export const ContextDashboard: React.FC = () => {
       staleTime: 30 * 1000, // 30 seconds
       refetchInterval: 30 * 1000, // Refresh every 30 seconds
       retry: 2,
-    }
+    },
   );
 
   // Loading state
@@ -188,11 +188,11 @@ export const ContextDashboard: React.FC = () => {
   // Calculate overall stats with weighted coverage
   const totalDocumented = coverage.reduce(
     (acc, item) => acc + (item.documented || 0),
-    0
+    0,
   );
   const totalEntities = coverage.reduce(
     (acc, item) => acc + (item.total || 0),
-    0
+    0,
   );
   const overallCoverage =
     totalEntities > 0 ? (totalDocumented / totalEntities) * 100 : 0;
@@ -487,7 +487,7 @@ export const ContextDashboard: React.FC = () => {
                               to={getEntityRoute(
                                 item.entityType,
                                 item.entityId,
-                                projectId
+                                projectId,
                               )}
                             >
                               Document
@@ -570,7 +570,7 @@ export const ContextDashboard: React.FC = () => {
                               to={getEntityRoute(
                                 item.entityType,
                                 item.entityId,
-                                projectId
+                                projectId,
                               )}
                             >
                               Review
@@ -625,7 +625,7 @@ export const ContextDashboard: React.FC = () => {
                             to={getEntityRoute(
                               item.entityType,
                               item.entityId,
-                              projectId
+                              projectId,
                             )}
                             className="font-medium hover:underline text-primary"
                           >
@@ -733,7 +733,7 @@ function getEntityTypeLabel(entityType: string): string {
 function getEntityRoute(
   entityType: string,
   entityId: number,
-  projectId: number
+  projectId: number,
 ): string {
   switch (entityType) {
     case "TABLE":

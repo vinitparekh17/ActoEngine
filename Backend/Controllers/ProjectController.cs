@@ -93,6 +93,7 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpGet("{projectId}/sync-status")]
+        [RequirePermission("Projects:Read")]
         public async Task<IActionResult> GetSyncStatus(int projectId)
         {
             var status = await _projectService.GetSyncStatusAsync(projectId);
@@ -117,6 +118,7 @@ namespace ActoEngine.WebApi.Controllers
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>SSE stream of sync status updates</returns>
         [HttpGet("{projectId}/sync-status/stream")]
+        [RequirePermission("Projects:Read")]
         [Produces("text/event-stream")]
         public async Task StreamSyncStatus(int projectId, CancellationToken cancellationToken)
         {
@@ -210,6 +212,7 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpGet("{projectId}")]
+        [RequirePermission("Projects:Read")]
         public async Task<IActionResult> GetProject(int projectId)
         {
 
@@ -221,6 +224,7 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpGet]
+        [RequirePermission("Projects:Read")]
         public async Task<IActionResult> GetAllProjects()
         {
             var projects = await _projectService.GetAllProjectsAsync();
@@ -229,6 +233,7 @@ namespace ActoEngine.WebApi.Controllers
         }
 
         [HttpGet("{projectId}/stats")]
+        [RequirePermission("Projects:Read")]
         public async Task<IActionResult> GetProjectStats(int projectId)
         {
             var stats = await _projectService.GetProjectStatsAsync(projectId);

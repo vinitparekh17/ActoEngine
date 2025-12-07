@@ -26,6 +26,7 @@ interface QueuedRequest {
   resolves: Array<(value: any) => void>;
   rejects: Array<(error: any) => void>;
   timestamp: number;
+  timedOut?: boolean;
 }
 
 class RequestQueue {
@@ -95,11 +96,17 @@ class RequestQueue {
     fetchFn: (endpoint: string, options: QueuedRequestOptions) => Promise<any>,
     endpoint: string,
     options: QueuedRequestOptions,
-    timeoutMs: number = 30000
+    timeoutMs: number = 30000,
+    request?: QueuedRequest,
   ): Promise<any> {
     // Create merged controller that responds to both timeout and user signals
     const mergedController = new AbortController();
-    const timeoutId = setTimeout(() => mergedController.abort(), timeoutMs);
+    const timeoutId = setTimeout(() => {
+      if (request) {
+        request.timedOut = true;
+      }
+      mergedController.abort();
+    }, timeoutMs);
 
     // Listen to user-provided signal if it exists
     const userSignal = options.signal;
@@ -112,21 +119,21 @@ class RequestQueue {
       } else {
         // Listen for user signal abort
         userAbortHandler = () => mergedController.abort();
-        userSignal.addEventListener('abort', userAbortHandler);
+        userSignal.addEventListener("abort", userAbortHandler);
       }
     }
 
     try {
       const result = await fetchFn(endpoint, {
         ...options,
-        signal: mergedController.signal
+        signal: mergedController.signal,
       });
       return result;
     } finally {
       // Always cleanup timeout and event listeners
       clearTimeout(timeoutId);
       if (userAbortHandler && userSignal) {
-        userSignal.removeEventListener('abort', userAbortHandler);
+        userSignal.removeEventListener("abort", userAbortHandler);
       }
     }
   }
@@ -135,7 +142,9 @@ class RequestQueue {
    * Process all queued requests after successful re-authentication
    * @param fetchFn The fetch function to use for retrying requests
    */
-  async processQueue(fetchFn: (endpoint: string, options: QueuedRequestOptions) => Promise<any>) {
+  async processQueue(
+    fetchFn: (endpoint: string, options: QueuedRequestOptions) => Promise<any>,
+  ) {
     if (this.isProcessing || this.queue.length === 0) {
       return;
     }
@@ -143,7 +152,9 @@ class RequestQueue {
     this.isProcessing = true;
     this.isWaitingForAuth = false;
 
-    console.log(`[RequestQueue] Processing ${this.queue.length} queued requests`);
+    console.log(
+      `[RequestQueue] Processing ${this.queue.length} queued requests`,
+    );
 
     // Process all requests sequentially to avoid race conditions
     const requests = [...this.queue];
@@ -156,24 +167,39 @@ class RequestQueue {
           fetchFn,
           request.endpoint,
           request.options,
-          30000 // 30 second timeout
+          30000, // 30 second timeout
+          request, // Pass request to track timeout
         );
-        request.resolves.forEach(resolve => resolve(result));
+        request.resolves.forEach((resolve) => resolve(result));
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.error(`[RequestQueue] Timeout after 30s: ${request.endpoint}`);
-          request.rejects.forEach(reject =>
-            reject(new Error(`Request timeout: ${request.endpoint}`))
-          );
+        if (error instanceof Error && error.name === "AbortError") {
+          if (request.timedOut) {
+            console.error(
+              `[RequestQueue] Timeout after 30s: ${request.endpoint}`,
+            );
+            request.rejects.forEach((reject) =>
+              reject(new Error(`Request timeout: ${request.endpoint}`)),
+            );
+          } else {
+            console.log(
+              `[RequestQueue] Request cancelled: ${request.endpoint}`,
+            );
+            request.rejects.forEach((reject) =>
+              reject(new Error(`Request cancelled by user: ${request.endpoint}`)),
+            );
+          }
         } else {
-          console.error(`[RequestQueue] Retry failed: ${request.endpoint}`, error);
-          request.rejects.forEach(reject => reject(error));
+          console.error(
+            `[RequestQueue] Retry failed: ${request.endpoint}`,
+            error,
+          );
+          request.rejects.forEach((reject) => reject(error));
         }
       }
     }
 
     this.isProcessing = false;
-    console.log('[RequestQueue] Queue processing complete');
+    console.log("[RequestQueue] Queue processing complete");
   }
 
   /**
@@ -182,7 +208,9 @@ class RequestQueue {
   clear() {
     console.log(`[RequestQueue] Clearing ${this.queue.length} queued requests`);
     this.queue.forEach((request) => {
-      request.rejects.forEach(reject => reject(new Error('Request cancelled by user')));
+      request.rejects.forEach((reject) =>
+        reject(new Error("Request cancelled by user")),
+      );
     });
     this.queue = [];
     this.isWaitingForAuth = false;
@@ -227,16 +255,16 @@ class RequestQueue {
    */
   async triggerReLogin(): Promise<void> {
     if (!this.reLoginCallback) {
-      throw new Error('Re-login callback not set');
+      throw new Error("Re-login callback not set");
     }
 
     // Atomic check-and-set to claim the re-login flow
     if (!this.compareAndSetWaitingForAuth()) {
-      console.log('[RequestQueue] Already waiting for authentication');
+      console.log("[RequestQueue] Already waiting for authentication");
       return;
     }
 
-    console.log('[RequestQueue] Triggering re-login flow');
+    console.log("[RequestQueue] Triggering re-login flow");
 
     try {
       await this.reLoginCallback();

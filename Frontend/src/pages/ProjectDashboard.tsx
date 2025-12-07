@@ -1,7 +1,7 @@
-import { useNavigate } from 'react-router-dom';
-import { useProject } from '../hooks/useProject';
-import { useApiMutation } from '../hooks/useApi';
-import { useSyncStatus } from '../hooks/useSyncStatus';
+import { useNavigate } from "react-router-dom";
+import { useProject } from "../hooks/useProject";
+import { useApiMutation } from "../hooks/useApi";
+import { useSyncStatus } from "../hooks/useSyncStatus";
 import {
   Database,
   Plus,
@@ -12,21 +12,29 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  ExternalLink
-} from 'lucide-react';
-import { useConfirm } from '../hooks/useConfirm';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { ScrollArea } from '../components/ui/scroll-area';
-import { formatRelativeTime } from '../lib/utils';
-import type { Project } from '../types/project';
+  ExternalLink,
+} from "lucide-react";
+import { useConfirm } from "../hooks/useConfirm";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { ScrollArea } from "../components/ui/scroll-area";
+import { formatRelativeTime } from "../lib/utils";
+import type { Project } from "../types/project";
 
 // Helper component for real-time sync status badge
 function SyncStatusBadge({ project }: { project: Project }) {
   // Check if project is actively syncing
-  const isSyncing = project.syncStatus?.toLowerCase().includes('sync') ||
-                    project.syncStatus?.toLowerCase() === 'started';
+  const isSyncing =
+    project.syncStatus?.toLowerCase().includes("sync") ||
+    project.syncStatus?.toLowerCase() === "started";
 
   // Use real-time updates if syncing
   const { status: realtimeStatus, progress: realtimeProgress } = useSyncStatus(
@@ -35,9 +43,9 @@ function SyncStatusBadge({ project }: { project: Project }) {
       enabled: isSyncing,
       onComplete: () => {
         // Could trigger a refetch here if needed
-        console.log('Sync completed for project', project.projectId);
-      }
-    }
+        console.log("Sync completed for project", project.projectId);
+      },
+    },
   );
 
   // Use real-time data if available, otherwise use project data
@@ -46,26 +54,43 @@ function SyncStatusBadge({ project }: { project: Project }) {
 
   const map: Record<
     string,
-    { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: any; label: string }
+    {
+      variant: "default" | "secondary" | "destructive" | "outline";
+      icon: any;
+      label: string;
+    }
   > = {
-    completed: { variant: 'default', icon: CheckCircle, label: 'Synced' },
-    started: { variant: 'secondary', icon: Loader2, label: 'Syncing' },
-    'syncing tables': { variant: 'secondary', icon: Loader2, label: 'Syncing' },
-    'syncing columns': { variant: 'secondary', icon: Loader2, label: 'Syncing' },
-    'syncing foreign keys': { variant: 'secondary', icon: Loader2, label: 'Syncing' },
-    'syncing stored procedures': { variant: 'secondary', icon: Loader2, label: 'Syncing' },
-    failed: { variant: 'destructive', icon: AlertCircle, label: 'Failed' },
-    pending: { variant: 'outline', icon: Clock, label: 'Pending' },
+    completed: { variant: "default", icon: CheckCircle, label: "Synced" },
+    started: { variant: "secondary", icon: Loader2, label: "Syncing" },
+    "syncing tables": { variant: "secondary", icon: Loader2, label: "Syncing" },
+    "syncing columns": {
+      variant: "secondary",
+      icon: Loader2,
+      label: "Syncing",
+    },
+    "syncing foreign keys": {
+      variant: "secondary",
+      icon: Loader2,
+      label: "Syncing",
+    },
+    "syncing stored procedures": {
+      variant: "secondary",
+      icon: Loader2,
+      label: "Syncing",
+    },
+    failed: { variant: "destructive", icon: AlertCircle, label: "Failed" },
+    pending: { variant: "outline", icon: Clock, label: "Pending" },
   };
 
-  const state = map[displayStatus?.toLowerCase() ?? 'pending'] ?? map.pending;
+  const state = map[displayStatus?.toLowerCase() ?? "pending"] ?? map.pending;
   const Icon = state.icon;
-  const isSpinning = displayStatus?.toLowerCase().includes('sync') ||
-                     displayStatus?.toLowerCase() === 'started';
+  const isSpinning =
+    displayStatus?.toLowerCase().includes("sync") ||
+    displayStatus?.toLowerCase() === "started";
 
   return (
     <Badge variant={state.variant} className="flex items-center gap-1">
-      <Icon className={`h-3 w-3 ${isSpinning ? 'animate-spin' : ''}`} />
+      <Icon className={`h-3 w-3 ${isSpinning ? "animate-spin" : ""}`} />
       {state.label}
       {displayProgress > 0 && displayProgress < 100 && (
         <span>({displayProgress}%)</span>
@@ -75,36 +100,36 @@ function SyncStatusBadge({ project }: { project: Project }) {
 }
 
 export default function ProjectsDashboard() {
-  const navigate = useNavigate()
-  const { projects, isLoadingProjects, refetchProjects } = useProject()
-  const { confirm } = useConfirm()
+  const navigate = useNavigate();
+  const { projects, isLoadingProjects, refetchProjects } = useProject();
+  const { confirm } = useConfirm();
 
   const deleteMutation = useApiMutation<void, { projectId: number }>(
-    '/Project/:projectId',
-    'DELETE',
+    "/Project/:projectId",
+    "DELETE",
     {
       onSuccess: () => refetchProjects(),
     },
-  )
+  );
 
   const handleDelete = async (projectId: number) => {
     const confirmed = await confirm({
-      title: 'Delete Project',
+      title: "Delete Project",
       description:
-        'Are you sure you want to delete this project? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      variant: 'destructive',
-    })
-    if (confirmed) deleteMutation.mutate({ projectId })
-  }
+        "Are you sure you want to delete this project? This action cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "destructive",
+    });
+    if (confirmed) deleteMutation.mutate({ projectId });
+  };
 
   if (isLoadingProjects) {
     return (
       <div className="h-[calc(100vh-110px)] flex items-center justify-center bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-950">
         <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
       </div>
-    )
+    );
   }
 
   return (
@@ -113,12 +138,14 @@ export default function ProjectsDashboard() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">Projects</h1>
+            <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+              Projects
+            </h1>
             <p className="text-neutral-600 dark:text-neutral-400 mt-1">
               Manage your projects
             </p>
           </div>
-          <Button onClick={() => navigate('/project/new')} className="gap-2">
+          <Button onClick={() => navigate("/project/new")} className="gap-2">
             <Plus className="w-5 h-5" /> New Project
           </Button>
         </div>
@@ -135,7 +162,7 @@ export default function ProjectsDashboard() {
             <CardDescription className="mb-6 text-neutral-600 dark:text-neutral-400">
               Get started by creating your first project
             </CardDescription>
-            <Button onClick={() => navigate('/project/new')} className="gap-2">
+            <Button onClick={() => navigate("/project/new")} className="gap-2">
               <Plus className="w-5 h-5" /> Create Project
             </Button>
           </Card>
@@ -178,11 +205,11 @@ export default function ProjectsDashboard() {
                     <span
                       className={`font-medium ${
                         project.isActive
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-neutral-400'
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-neutral-400"
                       }`}
                     >
-                      {project.isActive ? 'Active' : 'Inactive'}
+                      {project.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
 
@@ -191,7 +218,7 @@ export default function ProjectsDashboard() {
                       <Clock className="h-4 w-4" /> Created
                     </span>
                     <span className="text-neutral-900 dark:text-neutral-200">
-                      {formatRelativeTime(project.createdAt, 'N/A')}
+                      {formatRelativeTime(project.createdAt, "N/A")}
                     </span>
                   </div>
 
@@ -201,7 +228,7 @@ export default function ProjectsDashboard() {
                         <Database className="h-4 w-4" /> Last Sync
                       </span>
                       <span className="text-neutral-900 dark:text-neutral-200">
-                        {formatRelativeTime(project.lastSyncAttempt, 'Never')}
+                        {formatRelativeTime(project.lastSyncAttempt, "Never")}
                       </span>
                     </div>
                   )}
@@ -221,7 +248,9 @@ export default function ProjectsDashboard() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => navigate(`/project/${project.projectId}/settings`)}
+                      onClick={() =>
+                        navigate(`/project/${project.projectId}/settings`)
+                      }
                       title="Settings"
                       className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
                     >
@@ -249,5 +278,5 @@ export default function ProjectsDashboard() {
         )}
       </div>
     </ScrollArea>
-  )
+  );
 }

@@ -1,11 +1,17 @@
-import { useParams, Link } from 'react-router-dom';
-import { useProject } from '@/hooks/useProject';
-import { useApi } from '@/hooks/useApi';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { useProject } from "@/hooks/useProject";
+import { useApi } from "@/hooks/useApi";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -13,23 +19,24 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   ArrowLeft,
   Code2,
   AlertCircle,
   Loader2,
   FileCode,
-  ArrowRight
-} from 'lucide-react';
-import { ExpertManagement } from '@/components/context/ExpertManagement';
-import { ContextEditor } from '@/components/context/ContextEditorPanel';
+  ArrowRight,
+  Network,
+} from "lucide-react";
+import { ExpertManagement } from "@/components/context/ExpertManagement";
+import { ContextEditor } from "@/components/context/ContextEditorPanel";
 
 // Types
 interface ParameterMetadata {
   name: string;
   dataType: string;
-  direction: 'IN' | 'OUT' | 'INOUT';
+  direction: "IN" | "OUT" | "INOUT";
   defaultValue?: string;
   isOptional?: boolean;
 }
@@ -55,8 +62,12 @@ interface StoredProcedureMetadata {
  * @returns The React element for the stored procedure details page.
  */
 export default function StoredProcedureDetail() {
-  const { projectId, procedureId } = useParams<{ projectId: string; procedureId: string }>();
+  const { projectId, procedureId } = useParams<{
+    projectId: string;
+    procedureId: string;
+  }>();
   const { selectedProject, hasProject } = useProject();
+  const navigate = useNavigate();
 
   // Validate and parse route parameters
   if (!projectId || !procedureId) {
@@ -109,17 +120,17 @@ export default function StoredProcedureDetail() {
       enabled: hasProject && !!projectId && !!procedureId,
       staleTime: 60 * 1000,
       retry: 2,
-    }
+    },
   );
 
   // Helper functions
   const getParameterIcon = (direction: string) => {
     switch (direction) {
-      case 'IN':
+      case "IN":
         return <ArrowRight className="h-3.5 w-3.5 text-blue-600" />;
-      case 'OUT':
+      case "OUT":
         return <ArrowLeft className="h-3.5 w-3.5 text-green-600" />;
-      case 'INOUT':
+      case "INOUT":
         return (
           <div className="flex items-center">
             <ArrowRight className="h-3.5 w-3.5 text-purple-600" />
@@ -132,11 +143,11 @@ export default function StoredProcedureDetail() {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
@@ -146,7 +157,9 @@ export default function StoredProcedureDetail() {
       <div className="flex items-center justify-center h-96">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading stored procedure details...</p>
+          <p className="text-muted-foreground">
+            Loading stored procedure details...
+          </p>
         </div>
       </div>
     );
@@ -159,7 +172,8 @@ export default function StoredProcedureDetail() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load stored procedure details: {error?.message || 'Procedure not found'}
+            Failed to load stored procedure details:{" "}
+            {error?.message || "Procedure not found"}
           </AlertDescription>
         </Alert>
         <div className="flex justify-center">
@@ -203,14 +217,30 @@ export default function StoredProcedureDetail() {
           <div>
             <div className="flex items-center gap-3">
               <Code2 className="h-6 w-6 text-indigo-600" />
-              <h1 className="text-3xl font-bold">{procedureData.procedureName}</h1>
-              <Badge variant="outline">{procedureData.schemaName || 'dbo'}</Badge>
+              <h1 className="text-3xl font-bold">
+                {procedureData.procedureName}
+              </h1>
+              <Badge variant="outline">
+                {procedureData.schemaName || "dbo"}
+              </Badge>
             </div>
             <p className="text-muted-foreground mt-1">
-              Stored Procedure in <span className="font-medium">{selectedProject?.projectName}</span>
+              Stored Procedure in{" "}
+              <span className="font-medium">
+                {selectedProject?.projectName}
+              </span>
             </p>
           </div>
         </div>
+        <Button
+          variant="outline"
+          onClick={() =>
+            navigate(`/project/${projectId}/impact/SP/${procedureId}`)
+          }
+        >
+          <Network className="mr-2 h-4 w-4" />
+          View Impact
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -221,7 +251,9 @@ export default function StoredProcedureDetail() {
               <CardTitle className="text-sm font-medium">Parameters</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{procedureData.parameters.length}</div>
+              <div className="text-2xl font-bold">
+                {procedureData.parameters.length}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -231,7 +263,9 @@ export default function StoredProcedureDetail() {
               <CardTitle className="text-sm font-medium">Created</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold">{formatDate(procedureData.createdDate)}</div>
+              <div className="text-lg font-bold">
+                {formatDate(procedureData.createdDate)}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -241,7 +275,9 @@ export default function StoredProcedureDetail() {
               <CardTitle className="text-sm font-medium">Modified</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold">{formatDate(procedureData.modifiedDate)}</div>
+              <div className="text-lg font-bold">
+                {formatDate(procedureData.modifiedDate)}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -250,7 +286,9 @@ export default function StoredProcedureDetail() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          {procedureData.definition && <TabsTrigger value="definition">Definition</TabsTrigger>}
+          {procedureData.definition && (
+            <TabsTrigger value="definition">Definition</TabsTrigger>
+          )}
           <TabsTrigger value="context">Context & Docs</TabsTrigger>
           <TabsTrigger value="experts">Experts</TabsTrigger>
         </TabsList>
@@ -263,7 +301,9 @@ export default function StoredProcedureDetail() {
                 <CardTitle>Description</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">{procedureData.description}</p>
+                <p className="text-muted-foreground">
+                  {procedureData.description}
+                </p>
               </CardContent>
             </Card>
           )}
@@ -302,22 +342,24 @@ export default function StoredProcedureDetail() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-sm">{param.dataType}</TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {param.dataType}
+                          </TableCell>
                           <TableCell>
                             <Badge
                               variant={
-                                param.direction === 'IN'
-                                  ? 'default'
-                                  : param.direction === 'OUT'
-                                  ? 'secondary'
-                                  : 'outline'
+                                param.direction === "IN"
+                                  ? "default"
+                                  : param.direction === "OUT"
+                                    ? "secondary"
+                                    : "outline"
                               }
                             >
                               {param.direction}
                             </Badge>
                           </TableCell>
                           <TableCell className="font-mono text-sm text-muted-foreground">
-                            {param.defaultValue || 'None'}
+                            {param.defaultValue || "None"}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -345,7 +387,9 @@ export default function StoredProcedureDetail() {
               <CardContent>
                 <div className="relative">
                   <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
-                    <code className="text-sm font-mono">{procedureData.definition}</code>
+                    <code className="text-sm font-mono">
+                      {procedureData.definition}
+                    </code>
                   </pre>
                 </div>
               </CardContent>

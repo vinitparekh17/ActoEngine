@@ -7,6 +7,7 @@ using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.Services.ProjectService;
 using ActoEngine.WebApi.Services.FormBuilderService;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Data.SqlClient;
 using ActoEngine.WebApi.Services.Schema;
@@ -15,10 +16,11 @@ using ActoEngine.WebApi.Services.ProjectClientService;
 using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Services.ContextService;
 using DotNetEnv;
-using ActoEngine.WebApi.Services.DependencyService;
+using ActoEngine.WebApi.Services.ImpactService;
 using ActoEngine.WebApi.Services.RoleService;
 using ActoEngine.WebApi.Services.PermissionService;
 using ActoEngine.WebApi.Services.UserManagementService;
+using ActoEngine.WebApi.Services.ValidationService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,9 +86,19 @@ builder.Services.AddHsts(options =>
     options.MaxAge = TimeSpan.FromDays(365);
 });
 
+// Configure forwarded headers for reverse proxy support
+// This ensures Request.IsHttps reflects the original client scheme
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Clear known networks and proxies to accept headers from any proxy
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 builder.Services.AddRateLimiter(options =>
 {
-    // Auth-specific limiter
+    // Auth-specific limiter (strengthened)
     options.AddFixedWindowLimiter("AuthRateLimit", opt =>
     {
         opt.PermitLimit = 5;
@@ -150,6 +162,7 @@ builder.Services.AddScoped<ISchemaRepository, SchemaRepository>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IProjectClientRepository, ProjectClientRepository>();
 builder.Services.AddScoped<IContextRepository, ContextRepository>();
+builder.Services.AddScoped<IDependencyRepository, DependencyRepository>();
 
 // Role & Permission Repositories
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
@@ -163,6 +176,7 @@ builder.Services.AddScoped<IFormBuilderService, FormBuilderService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IProjectClientService, ProjectClientService>();
 builder.Services.AddScoped<IContextService, ContextService>();
+builder.Services.AddScoped<IImpactService, ImpactService>();
 
 // Role & Permission Services
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -178,6 +192,10 @@ builder.Services.AddScoped<ITemplateRenderService, TemplateRenderService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenHasher, TokenHasher>();
 
+// Validation Services
+builder.Services.AddSingleton<IPasswordValidator, PasswordValidator>();
+builder.Services.AddSingleton<IDatabaseIdentifierValidator, DatabaseIdentifierValidator>();
+
 builder.Services.AddTransient<DatabaseMigrator>();
 
 var app = builder.Build();
@@ -189,6 +207,9 @@ var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
 await seeder.SeedAsync();
 
 // Configure middleware/pipeline
+
+// Apply forwarded headers first to ensure Request.IsHttps is correct for downstream middleware
+app.UseForwardedHeaders();
 
 // HSTS (HTTP Strict Transport Security) for production
 if (app.Environment.IsProduction())
@@ -214,5 +235,6 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseTokenAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
 app.MapControllers();
 app.Run();

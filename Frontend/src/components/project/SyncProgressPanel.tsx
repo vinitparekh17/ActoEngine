@@ -1,11 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, XCircle, RefreshCw, X } from 'lucide-react';
-import { format } from 'date-fns';
-import { useSyncStatus } from '@/hooks/useSyncStatus';
-import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, X } from "lucide-react";
+import { format } from "date-fns";
+import { useSyncStatus } from "@/hooks/useSyncStatus";
+import { useState } from "react";
 
 interface SyncProgressPanelProps {
   projectId: number;
@@ -26,13 +26,11 @@ export function SyncProgressPanel({
 }: SyncProgressPanelProps) {
   const [dismissed, setDismissed] = useState(false);
 
-  const { status, progress, lastSyncAttempt, isConnected, error, refresh } = useSyncStatus(
-    projectId,
-    {
+  const { status, progress, lastSyncAttempt, isConnected, error, refresh } =
+    useSyncStatus(projectId, {
       enabled: true,
       useSSE,
-    }
-  );
+    });
 
   if (dismissed) {
     return null;
@@ -47,15 +45,15 @@ export function SyncProgressPanel({
     onDismiss?.();
   };
 
-  const isCompleted = status === 'Completed';
-  const isFailed = status?.startsWith('Failed');
+  const isCompleted = status === "Completed";
+  const isFailed = status?.startsWith("Failed");
   const isSyncing = !isCompleted && !isFailed;
 
   // Get status color
   const getStatusColor = () => {
-    if (isCompleted) return 'text-green-600 dark:text-green-400';
-    if (isFailed) return 'text-red-600 dark:text-red-400';
-    return 'text-blue-600 dark:text-blue-400';
+    if (isCompleted) return "text-green-600 dark:text-green-400";
+    if (isFailed) return "text-red-600 dark:text-red-400";
+    return "text-blue-600 dark:text-blue-400";
   };
 
   // Get status icon
@@ -120,7 +118,7 @@ export function SyncProgressPanel({
             <p className={`font-medium ${getStatusColor()}`}>{status}</p>
             {lastSyncAttempt && (
               <p className="text-sm text-muted-foreground">
-                Last updated: {format(new Date(lastSyncAttempt), 'PPp')}
+                Last updated: {format(new Date(lastSyncAttempt), "PPp")}
               </p>
             )}
           </div>
@@ -158,7 +156,9 @@ export function SyncProgressPanel({
         {/* Sync Stages Info */}
         {isSyncing && (
           <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
-            <p>Sync stages: Tables → Columns → Foreign Keys → Stored Procedures</p>
+            <p>
+              Sync stages: Tables → Columns → Foreign Keys → Stored Procedures
+            </p>
           </div>
         )}
       </CardContent>

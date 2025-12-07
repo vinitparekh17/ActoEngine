@@ -1,18 +1,26 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useForm, useFieldArray } from "react-hook-form"
-import { z } from "zod"
+import { useEffect } from "react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { z } from "zod";
 // import { zodResolver } from "@hookform/resolvers/zod"
-import { Input } from "../ui/input"
-import { Button } from "../ui/button"
-import { Checkbox } from "../ui/checkbox"
-import { Label } from "../ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import type { SPType } from "./SPTypeCard"
-import { Trash2, Plus } from "lucide-react"
-import SPTypeCard from "./SPTypeCard"
-import TableSchemaViewer, { type TableSchema } from "../database/TableSchemaViewer"
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
+import { Label } from "../ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import type { SPType } from "./SPTypeCard";
+import { Trash2, Plus } from "lucide-react";
+import SPTypeCard from "./SPTypeCard";
+import TableSchemaViewer, {
+  type TableSchema,
+} from "../database/TableSchemaViewer";
 
 const CUDSchema = z.object({
   mode: z.literal("CUD"),
@@ -23,24 +31,24 @@ const CUDSchema = z.object({
   includeErrorHandling: z.boolean().default(true),
   includeTransaction: z.boolean().default(true),
   actionParamName: z.string().min(1).default("Action"),
-})
+});
 
 const FilterSchema = z.object({
   column: z.string().min(1, "Column required"),
   operator: z.enum(["=", "LIKE", ">", "<", "BETWEEN"]),
   optional: z.boolean().default(false),
-})
+});
 
 const SELECTSchema = z.object({
   mode: z.literal("SELECT"),
   includePagination: z.boolean().default(true),
   orderBy: z.array(z.string()).default([]),
   filters: z.array(FilterSchema).default([]),
-})
+});
 
-const ConfigSchema = z.discriminatedUnion("mode", [CUDSchema, SELECTSchema])
+const ConfigSchema = z.discriminatedUnion("mode", [CUDSchema, SELECTSchema]);
 
-export type SPConfigValues = z.infer<typeof ConfigSchema>
+export type SPConfigValues = z.infer<typeof ConfigSchema>;
 
 export default function SPConfigPanel({
   spType,
@@ -49,23 +57,23 @@ export default function SPConfigPanel({
   schema,
   onChangeType,
 }: {
-  spType: SPType
-  config: SPConfigValues
-  onSubmit: (values: SPConfigValues) => void
-  schema: TableSchema
-  onChangeType: (type: SPType) => void
+  spType: SPType;
+  config: SPConfigValues;
+  onSubmit: (values: SPConfigValues) => void;
+  schema: TableSchema;
+  onChangeType: (type: SPType) => void;
 }) {
   const form = useForm<SPConfigValues>({
     // resolver: zodResolver(ConfigSchema),
     defaultValues: config,
     mode: "onBlur",
-  })
+  });
 
   // For SELECT: field array for filters
   const { fields, append, remove } = useFieldArray({
     control: form.control as any,
     name: "filters" as any,
-  })
+  });
 
   // Reset form to correct mode defaults whenever spType changes
   useEffect(() => {
@@ -79,46 +87,53 @@ export default function SPConfigPanel({
         includeErrorHandling: true,
         includeTransaction: true,
         actionParamName: "Action",
-      } as any)
+      } as any);
     } else {
       form.reset({
         mode: "SELECT",
         includePagination: true,
         orderBy: [],
         filters: [],
-      } as any)
+      } as any);
     }
-  }, [spType, form])
+  }, [spType, form]);
 
   const submit = form.handleSubmit((values) => {
     // Normalize orderBy if user typed comma-separated string into hidden field
     if (values.mode === "SELECT") {
-      const ob = (form.getValues("orderBy") || []) as string[]
+      const ob = (form.getValues("orderBy") || []) as string[];
       const normalized = ob
         .flatMap((v) => v.split(","))
         .map((s) => s.trim())
-        .filter(Boolean)
-      onSubmit({ ...values, orderBy: normalized })
+        .filter(Boolean);
+      onSubmit({ ...values, orderBy: normalized });
     } else {
-      onSubmit(values)
+      onSubmit(values);
     }
-  })
+  });
 
-  const availableColumns = schema.columns.map(c => c.name)
+  const availableColumns = schema.columns.map((c) => c.name);
   return (
     <>
       <TableSchemaViewer schema={schema} selectedTable={schema.tableName} />
       <div className="mb-6">
         <label className="text-sm font-medium mb-3 block">Procedure Type</label>
         <div className="grid grid-cols-2 gap-3">
-          <SPTypeCard type="CUD" selected={spType === "CUD"} onChange={onChangeType} />
-          <SPTypeCard type="SELECT" selected={spType === "SELECT"} onChange={onChangeType} />
+          <SPTypeCard
+            type="CUD"
+            selected={spType === "CUD"}
+            onChange={onChangeType}
+          />
+          <SPTypeCard
+            type="SELECT"
+            selected={spType === "SELECT"}
+            onChange={onChangeType}
+          />
         </div>
       </div>
       <form onSubmit={submit} className="space-y-6">
         {form.watch("mode") === "CUD" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-sm" htmlFor="spPrefix">
@@ -127,15 +142,24 @@ export default function SPConfigPanel({
                 <Input
                   id="spPrefix"
                   value={(form.watch("spPrefix") as string) ?? ""}
-                  onChange={(e) => form.setValue("spPrefix" as any, e.target.value as any)}
+                  onChange={(e) =>
+                    form.setValue("spPrefix" as any, e.target.value as any)
+                  }
                 />
               </div>
 
               <div className="flex flex-wrap gap-4">
                 <div className="flex items-center gap-2">
                   <Checkbox
-                    checked={(form.watch("includeErrorHandling") as boolean) ?? false}
-                    onCheckedChange={(v) => form.setValue("includeErrorHandling" as any, Boolean(v) as any)}
+                    checked={
+                      (form.watch("includeErrorHandling") as boolean) ?? false
+                    }
+                    onCheckedChange={(v) =>
+                      form.setValue(
+                        "includeErrorHandling" as any,
+                        Boolean(v) as any,
+                      )
+                    }
                     id="includeErrorHandling"
                   />
                   <Label htmlFor="includeErrorHandling" className="text-sm">
@@ -144,8 +168,15 @@ export default function SPConfigPanel({
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
-                    checked={(form.watch("includeTransaction") as boolean) ?? false}
-                    onCheckedChange={(v) => form.setValue("includeTransaction" as any, Boolean(v) as any)}
+                    checked={
+                      (form.watch("includeTransaction") as boolean) ?? false
+                    }
+                    onCheckedChange={(v) =>
+                      form.setValue(
+                        "includeTransaction" as any,
+                        Boolean(v) as any,
+                      )
+                    }
                     id="includeTransaction"
                   />
                   <Label htmlFor="includeTransaction" className="text-sm">
@@ -159,8 +190,15 @@ export default function SPConfigPanel({
                 <div className="flex flex-wrap gap-4">
                   <div className="flex items-center gap-2">
                     <Checkbox
-                      checked={(form.watch("generateCreate") as boolean) ?? true}
-                      onCheckedChange={(v) => form.setValue("generateCreate" as any, Boolean(v) as any)}
+                      checked={
+                        (form.watch("generateCreate") as boolean) ?? true
+                      }
+                      onCheckedChange={(v) =>
+                        form.setValue(
+                          "generateCreate" as any,
+                          Boolean(v) as any,
+                        )
+                      }
                       id="generateCreate"
                     />
                     <Label htmlFor="generateCreate" className="text-sm">
@@ -169,8 +207,15 @@ export default function SPConfigPanel({
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox
-                      checked={(form.watch("generateUpdate") as boolean) ?? true}
-                      onCheckedChange={(v) => form.setValue("generateUpdate" as any, Boolean(v) as any)}
+                      checked={
+                        (form.watch("generateUpdate") as boolean) ?? true
+                      }
+                      onCheckedChange={(v) =>
+                        form.setValue(
+                          "generateUpdate" as any,
+                          Boolean(v) as any,
+                        )
+                      }
                       id="generateUpdate"
                     />
                     <Label htmlFor="generateUpdate" className="text-sm">
@@ -179,8 +224,15 @@ export default function SPConfigPanel({
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox
-                      checked={(form.watch("generateDelete") as boolean) ?? true}
-                      onCheckedChange={(v) => form.setValue("generateDelete" as any, Boolean(v) as any)}
+                      checked={
+                        (form.watch("generateDelete") as boolean) ?? true
+                      }
+                      onCheckedChange={(v) =>
+                        form.setValue(
+                          "generateDelete" as any,
+                          Boolean(v) as any,
+                        )
+                      }
                       id="generateDelete"
                     />
                     <Label htmlFor="generateDelete" className="text-sm">
@@ -197,7 +249,12 @@ export default function SPConfigPanel({
                 <Input
                   id="actionParamName"
                   value={(form.watch("actionParamName") as string) ?? ""}
-                  onChange={(e) => form.setValue("actionParamName" as any, e.target.value as any)}
+                  onChange={(e) =>
+                    form.setValue(
+                      "actionParamName" as any,
+                      e.target.value as any,
+                    )
+                  }
                 />
               </div>
             </div>
@@ -207,8 +264,12 @@ export default function SPConfigPanel({
             <div className="flex flex-wrap items-center gap-6">
               <div className="flex items-center gap-2">
                 <Checkbox
-                  checked={(form.watch("includePagination") as boolean) ?? false}
-                  onCheckedChange={(v) => form.setValue("includePagination" as any, Boolean(v) as any)}
+                  checked={
+                    (form.watch("includePagination") as boolean) ?? false
+                  }
+                  onCheckedChange={(v) =>
+                    form.setValue("includePagination" as any, Boolean(v) as any)
+                  }
                   id="includePagination"
                 />
                 <Label htmlFor="includePagination" className="text-sm">
@@ -241,7 +302,13 @@ export default function SPConfigPanel({
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => append({ column: availableColumns[0] ?? "", operator: "=", optional: false })}
+                  onClick={() =>
+                    append({
+                      column: availableColumns[0] ?? "",
+                      operator: "=",
+                      optional: false,
+                    })
+                  }
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Add Filter
@@ -249,14 +316,28 @@ export default function SPConfigPanel({
               </div>
 
               <div className="space-y-2">
-                {fields.length === 0 && <div className="text-sm text-muted-foreground">No filters added.</div>}
+                {fields.length === 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    No filters added.
+                  </div>
+                )}
                 {fields.map((field, idx) => (
-                  <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_160px_110px_40px] items-end gap-3">
+                  <div
+                    key={field.id}
+                    className="grid grid-cols-1 md:grid-cols-[1fr_160px_110px_40px] items-end gap-3"
+                  >
                     <div className="space-y-1">
                       <Label className="text-xs">Column</Label>
                       <Select
-                        value={(form.watch(`filters.${idx}.column`) as string) ?? ""}
-                        onValueChange={(v) => form.setValue(`filters.${idx}.column` as any, v as any)}
+                        value={
+                          (form.watch(`filters.${idx}.column`) as string) ?? ""
+                        }
+                        onValueChange={(v) =>
+                          form.setValue(
+                            `filters.${idx}.column` as any,
+                            v as any,
+                          )
+                        }
                       >
                         <SelectTrigger className="rounded-xl">
                           <SelectValue placeholder="Select column" />
@@ -274,8 +355,15 @@ export default function SPConfigPanel({
                     <div className="space-y-1">
                       <Label className="text-xs">Operator</Label>
                       <Select
-                        value={(form.watch(`filters.${idx}.operator`) as any) ?? "="}
-                        onValueChange={(v) => form.setValue(`filters.${idx}.operator` as any, v as any)}
+                        value={
+                          (form.watch(`filters.${idx}.operator`) as any) ?? "="
+                        }
+                        onValueChange={(v) =>
+                          form.setValue(
+                            `filters.${idx}.operator` as any,
+                            v as any,
+                          )
+                        }
                       >
                         <SelectTrigger className="rounded-xl">
                           <SelectValue placeholder="Op" />
@@ -292,8 +380,16 @@ export default function SPConfigPanel({
 
                     <div className="flex items-center gap-2">
                       <Checkbox
-                        checked={(form.watch(`filters.${idx}.optional`) as boolean) ?? false}
-                        onCheckedChange={(v) => form.setValue(`filters.${idx}.optional` as any, Boolean(v) as any)}
+                        checked={
+                          (form.watch(`filters.${idx}.optional`) as boolean) ??
+                          false
+                        }
+                        onCheckedChange={(v) =>
+                          form.setValue(
+                            `filters.${idx}.optional` as any,
+                            Boolean(v) as any,
+                          )
+                        }
                         id={`optional-${idx}`}
                       />
                       <Label htmlFor={`optional-${idx}`} className="text-xs">
@@ -326,5 +422,5 @@ export default function SPConfigPanel({
         </div>
       </form>
     </>
-  )
+  );
 }

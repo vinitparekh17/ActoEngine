@@ -1,6 +1,7 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Auth;
+using ActoEngine.WebApi.Services.ValidationService;
 using ActoEngine.WebApi.SqlQueries;
 using Dapper;
 
@@ -25,6 +26,7 @@ public class UserManagementService : IUserManagementService
     private readonly IUserRepository _userRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IPasswordValidator _passwordValidator;
     private readonly Services.Database.IDbConnectionFactory _connectionFactory;
     private readonly ILogger<UserManagementService> _logger;
 
@@ -32,12 +34,14 @@ public class UserManagementService : IUserManagementService
         IUserRepository userRepository,
         IPermissionRepository permissionRepository,
         IPasswordHasher passwordHasher,
+        IPasswordValidator passwordValidator,
         Services.Database.IDbConnectionFactory connectionFactory,
         ILogger<UserManagementService> logger)
     {
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
         _passwordHasher = passwordHasher;
+        _passwordValidator = passwordValidator;
         _connectionFactory = connectionFactory;
         _logger = logger;
     }
@@ -89,6 +93,11 @@ public class UserManagementService : IUserManagementService
         var existing = await _userRepository.GetByUserNameAsync(request.Username, cancellationToken);
         if (existing != null)
             throw new InvalidOperationException($"Username '{request.Username}' already exists");
+
+        // Validate password strength
+        var (isValid, errorMessage) = _passwordValidator.ValidatePassword(request.Password);
+        if (!isValid)
+            throw new InvalidOperationException(errorMessage ?? "Invalid password");
 
         var passwordHash = _passwordHasher.HashPassword(request.Password);
 
@@ -147,6 +156,11 @@ public class UserManagementService : IUserManagementService
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user == null)
             throw new InvalidOperationException($"User {request.UserId} not found");
+
+        // Validate password strength
+        var (isValid, errorMessage) = _passwordValidator.ValidatePassword(request.NewPassword);
+        if (!isValid)
+            throw new InvalidOperationException(errorMessage ?? "Invalid password");
 
         var newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
         user.ChangePassword(newPasswordHash, updatedBy.ToString());

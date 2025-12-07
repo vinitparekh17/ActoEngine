@@ -54,22 +54,32 @@ export interface ColumnMetadataDto {
 
 // Context Service Types
 
-export type EntityType = 'TABLE' | 'COLUMN' | 'SP' | 'FUNCTION' | 'VIEW';
+export type EntityType = "TABLE" | "COLUMN" | "SP" | "FUNCTION" | "VIEW";
 
-export type ExpertiseLevel = 'OWNER' | 'EXPERT' | 'FAMILIAR' | 'CONTRIBUTOR';
+export type ExpertiseLevel = "OWNER" | "EXPERT" | "FAMILIAR" | "CONTRIBUTOR";
 
-export type SensitivityLevel = 'PUBLIC' | 'INTERNAL' | 'PII' | 'FINANCIAL' | 'SENSITIVE';
+export type SensitivityLevel =
+  | "PUBLIC"
+  | "INTERNAL"
+  | "PII"
+  | "FINANCIAL"
+  | "SENSITIVE";
 
-export type FrequencyLevel = 'REALTIME' | 'HOURLY' | 'DAILY' | 'BATCH' | 'ADHOC';
+export type FrequencyLevel =
+  | "REALTIME"
+  | "HOURLY"
+  | "DAILY"
+  | "BATCH"
+  | "ADHOC";
 
-export type BusinessDomain = 
-  | 'ORDERS' 
-  | 'FINANCE' 
-  | 'USERS' 
-  | 'INVENTORY' 
-  | 'REPORTING' 
-  | 'INTEGRATION' 
-  | 'GENERAL';
+export type BusinessDomain =
+  | "ORDERS"
+  | "FINANCE"
+  | "USERS"
+  | "INVENTORY"
+  | "REPORTING"
+  | "INTEGRATION"
+  | "GENERAL";
 
 export type CriticalityLevel = 1 | 2 | 3 | 4 | 5;
 
@@ -79,29 +89,29 @@ export interface EntityContext {
   entityType: EntityType;
   entityId: number;
   entityName: string;
-  
+
   // Core context fields
   purpose?: string;
   businessImpact?: string;
   dataOwner?: string;
   criticalityLevel: CriticalityLevel;
   businessDomain?: BusinessDomain;
-  
+
   // Column-specific
   sensitivity?: SensitivityLevel;
   dataSource?: string;
   validationRules?: string; // JSON format
-  
+
   // Table-specific
   retentionPolicy?: string;
-  
+
   // SP-specific
   dataFlow?: string;
   frequency?: FrequencyLevel;
   isDeprecated: boolean;
   deprecationReason?: string;
   replacedBy?: string;
-  
+
   // Metadata
   isContextStale: boolean;
   lastReviewedAt?: string;
@@ -121,7 +131,7 @@ export interface EntityExpert {
   notes?: string;
   addedAt: string;
   addedBy?: number;
-  
+
   // Navigation
   user?: User;
 }
@@ -151,7 +161,7 @@ export interface ContextReviewRequest {
   entityId: number;
   requestedBy: number;
   assignedTo?: number;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   reason?: string;
   createdAt: string;
   completedAt?: string;
@@ -287,11 +297,10 @@ export interface InlineContextBadgeProps {
   entityType: EntityType;
   entityId: number;
   entityName: string;
-  variant?: 'minimal' | 'detailed';
+  variant?: "minimal" | "detailed";
 }
 
 // Utility types
-
 
 export interface ValidationRule {
   required?: boolean;
@@ -302,63 +311,63 @@ export interface ValidationRule {
 }
 
 export const CRITICALITY_COLORS: Record<CriticalityLevel, string> = {
-  1: 'gray',
-  2: 'blue',
-  3: 'yellow',
-  4: 'orange',
-  5: 'red'
+  1: "gray",
+  2: "blue",
+  3: "yellow",
+  4: "orange",
+  5: "red",
 };
 
 export const EXPERTISE_ICONS: Record<ExpertiseLevel, string> = {
-  OWNER: '👑',
-  EXPERT: '⭐',
-  FAMILIAR: '👤',
-  CONTRIBUTOR: '🔧'
+  OWNER: "👑",
+  EXPERT: "⭐",
+  FAMILIAR: "👤",
+  CONTRIBUTOR: "🔧",
 };
 
 export const SENSITIVITY_COLORS: Record<SensitivityLevel, string> = {
-  PUBLIC: 'green',
-  INTERNAL: 'blue',
-  PII: 'red',
-  FINANCIAL: 'red',
-  SENSITIVE: 'orange'
+  PUBLIC: "green",
+  INTERNAL: "blue",
+  PII: "red",
+  FINANCIAL: "red",
+  SENSITIVE: "orange",
 };
 
 // Helper functions (can be in a separate utils file)
 
 export function getCompletenessColor(score: number): string {
-  if (score >= 80) return 'green';
-  if (score >= 50) return 'yellow';
-  return 'red';
+  if (score >= 80) return "green";
+  if (score >= 50) return "yellow";
+  return "red";
 }
 
 export function getCriticalityLabel(level: CriticalityLevel): string {
   switch (level) {
     case 5:
-      return 'Critical';
+      return "Critical";
     case 4:
-      return 'High';
+      return "High";
     case 3:
-      return 'Medium';
+      return "Medium";
     case 2:
-      return 'Low';
+      return "Low";
     case 1:
-      return 'Minimal';
+      return "Minimal";
     default:
-      return 'Unknown';
+      return "Unknown";
   }
 }
 
 export function getExpertiseLabel(level: ExpertiseLevel): string {
   switch (level) {
-    case 'OWNER':
-      return 'Owner - Built it, maintains it';
-    case 'EXPERT':
-      return 'Expert - Deep knowledge';
-    case 'FAMILIAR':
-      return 'Familiar - Can answer questions';
-    case 'CONTRIBUTOR':
-      return 'Contributor - Has made changes';
+    case "OWNER":
+      return "Owner - Built it, maintains it";
+    case "EXPERT":
+      return "Expert - Deep knowledge";
+    case "FAMILIAR":
+      return "Familiar - Can answer questions";
+    case "CONTRIBUTOR":
+      return "Contributor - Has made changes";
   }
 }
 
@@ -367,28 +376,29 @@ export function formatRelativeTime(dateString: string): string {
   const time = past.getTime();
 
   if (isNaN(time)) {
-    return 'invalid date';
+    return "invalid date";
   }
 
   const now = new Date();
   const diffInMs = now.getTime() - time;
 
   if (diffInMs < 0) {
-    return 'in the future';
+    return "in the future";
   }
 
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
-  if (diffInDays === 0) return 'today';
-  if (diffInDays === 1) return 'yesterday';
+  if (diffInDays === 0) return "today";
+  if (diffInDays === 1) return "yesterday";
   if (diffInDays < 7) return `${diffInDays} days ago`;
   if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
   if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
   return `${Math.floor(diffInDays / 365)} years ago`;
 }
 
-
-export function parseValidationRules(jsonString?: string): ValidationRule | null {
+export function parseValidationRules(
+  jsonString?: string,
+): ValidationRule | null {
   if (!jsonString) return null;
   try {
     return JSON.parse(jsonString);

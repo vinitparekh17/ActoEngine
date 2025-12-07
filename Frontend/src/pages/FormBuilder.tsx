@@ -1,33 +1,35 @@
-import { useState, useEffect } from 'react';
-import { useFormBuilder, type TableSchema } from '../hooks/useFormBuilder';
-import { useProject } from '../hooks/useProject';
-import { useApi } from '../hooks/useApi';
-import { useAuthorization } from '../hooks/useAuth';
-import { Save, Code, Table } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '../components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { useState, useEffect } from "react";
+import { useFormBuilder, type TableSchema } from "../hooks/useFormBuilder";
+import { useProject } from "../hooks/useProject";
+import { useApi } from "../hooks/useApi";
+import { useAuthorization } from "../hooks/useAuth";
+import { Save, Code, Table } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "../components/ui/button";
 import {
-  Card,
-} from '../components/ui/card';
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import { Card } from "../components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../components/ui/select';
-import { Input } from '../components/ui/input';
-import { Badge } from '../components/ui/badge';
-import PreviewTab from '../components/formgen/Preview';
-import CodeTab from '../components/formgen/Code';
-import BuilderTab from '../components/formgen/Builder';
-
+} from "../components/ui/select";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import PreviewTab from "../components/formgen/Preview";
+import CodeTab from "../components/formgen/Code";
+import BuilderTab from "../components/formgen/Builder";
 
 export default function FormBuilder() {
   const { selectedProject } = useProject();
-  const canUpdate = useAuthorization('Forms:Update');
-  const canGenerate = useAuthorization('Forms:Generate');
+  const canUpdate = useAuthorization("Forms:Update");
+  const canGenerate = useAuthorization("Forms:Generate");
 
   const {
     config,
@@ -42,34 +44,58 @@ export default function FormBuilder() {
     reset,
   } = useFormBuilder();
 
-  const [activeTab, setActiveTab] = useState<
-    'builder' | 'preview' | 'code'
-  >('builder');
-  const [selectedTable, setSelectedTable] = useState<string | number>('');
-  const [customFormName, setCustomFormName] = useState('');
+  const [activeTab, setActiveTab] = useState<"builder" | "preview" | "code">(
+    "builder",
+  );
+  const [selectedTable, setSelectedTable] = useState<string | number>("");
+  const [customFormName, setCustomFormName] = useState("");
 
   // Fetch tables for the project
   const tablesUrl = selectedProject
     ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables`
-    : '';
-  const { data: tablesData } = useApi<Array<{ tableId: number; tableName: string; schemaName?: string }>>(tablesUrl);
+    : "";
+  const { data: tablesData } =
+    useApi<Array<{ tableId: number; tableName: string; schemaName?: string }>>(
+      tablesUrl,
+    );
 
   // Fetch schema when table is selected
-  const schemaUrl = selectedProject && selectedTable && selectedTable !== 'custom'
-    ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${selectedTable}/schema`
-    : '';
-  const { data: schemaData, isLoading: loadingSchema } = useApi<TableSchema>(schemaUrl);
+  const schemaUrl =
+    selectedProject && selectedTable && selectedTable !== "custom"
+      ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${selectedTable}/schema`
+      : "";
+  const { data: schemaData, isLoading: loadingSchema } =
+    useApi<TableSchema>(schemaUrl);
 
   const availableTables = tablesData || [];
 
   // Initialize form when table schema is loaded or custom form is created
   useEffect(() => {
-    if (schemaUrl && schemaData && selectedTable && selectedProject && !config && selectedTable !== 'custom') {
-      const tableId = typeof selectedTable === 'string' ? Number(selectedTable) : selectedTable;
+    if (
+      schemaUrl &&
+      schemaData &&
+      selectedTable &&
+      selectedProject &&
+      !config &&
+      selectedTable !== "custom"
+    ) {
+      const tableId =
+        typeof selectedTable === "string"
+          ? Number(selectedTable)
+          : selectedTable;
       initializeFromTable(tableId, selectedProject.projectId, schemaData);
-      toast.success(`Loaded ${schemaData.columns.length} fields from ${schemaData.tableName || selectedTable}`);
+      toast.success(
+        `Loaded ${schemaData.columns.length} fields from ${schemaData.tableName || selectedTable}`,
+      );
     }
-  }, [schemaData, selectedTable, selectedProject, config, schemaUrl, initializeFromTable]);
+  }, [
+    schemaData,
+    selectedTable,
+    selectedProject,
+    config,
+    schemaUrl,
+    initializeFromTable,
+  ]);
 
   if (!selectedProject) {
     return (
@@ -82,11 +108,11 @@ export default function FormBuilder() {
   return (
     <div className="flex flex-col">
       {/* Header */}
-      <Card className='border-b bg-white dark:bg-neutral-900 dark:border-neutral-800 px-6 py-3 transition-colors'>
+      <Card className="border-b bg-white dark:bg-neutral-900 dark:border-neutral-800 px-6 py-3 transition-colors">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              {config ? config.formName : 'Form Builder'}
+              {config ? config.formName : "Form Builder"}
             </h1>
             {config && (
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -133,14 +159,19 @@ export default function FormBuilder() {
                 <SelectContent className="dark:bg-neutral-900 dark:border-neutral-700">
                   <SelectItem value="custom">Create Custom Form</SelectItem>
                   {availableTables.map((table) => (
-                    <SelectItem key={table.tableId} value={String(table.tableId)}>
-                      {table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName}
+                    <SelectItem
+                      key={table.tableId}
+                      value={String(table.tableId)}
+                    >
+                      {table.schemaName
+                        ? `${table.schemaName}.${table.tableName}`
+                        : table.tableName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              {selectedTable === 'custom' && (
+              {selectedTable === "custom" && (
                 <Input
                   className="w-48 dark:bg-neutral-800 dark:border-neutral-700 dark:text-gray-100"
                   placeholder="Enter form name"
@@ -152,8 +183,8 @@ export default function FormBuilder() {
                     if (trimmed && selectedProject && !config) {
                       initializeCustomForm(trimmed, selectedProject.projectId);
                       toast.success(`Created custom form: ${trimmed}`);
-                      setCustomFormName('');
-                      setSelectedTable('');
+                      setCustomFormName("");
+                      setSelectedTable("");
                     }
                   }}
                 />
@@ -165,8 +196,8 @@ export default function FormBuilder() {
                 <Button
                   onClick={() => {
                     reset();
-                    setSelectedTable('');
-                    setCustomFormName('');
+                    setSelectedTable("");
+                    setCustomFormName("");
                   }}
                   variant="outline"
                   className="dark:border-neutral-700 dark:text-gray-100 dark:hover:bg-neutral-800"
@@ -183,7 +214,7 @@ export default function FormBuilder() {
                     className="dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
                   >
                     <Save className="h-4 w-4" />
-                    {isSaving ? 'Saving...' : 'Save'}
+                    {isSaving ? "Saving..." : "Save"}
                   </Button>
                 )}
 
@@ -195,7 +226,7 @@ export default function FormBuilder() {
                     className="dark:border-neutral-700 dark:text-gray-100 dark:hover:bg-neutral-800"
                   >
                     <Code className="h-4 w-4" />
-                    {isGenerating ? 'Generating...' : 'Generate'}
+                    {isGenerating ? "Generating..." : "Generate"}
                   </Button>
                 )}
               </>
@@ -203,14 +234,13 @@ export default function FormBuilder() {
           </div>
         </div>
 
-
         {/* Content */}
         <div className="flex-1 overflow-hidden">
           {config ? (
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
-                setActiveTab(value as 'builder' | 'preview' | 'code')
+                setActiveTab(value as "builder" | "preview" | "code")
               }
               className="h-full"
             >
@@ -236,7 +266,9 @@ export default function FormBuilder() {
               </TabsContent>
               <TabsContent value="code" className="m-0 p-0">
                 <div className="h-[calc(100vh-260px)] flex flex-col">
-                  {generatedCode && <CodeTab code={generatedCode} key={activeTab} />}
+                  {generatedCode && (
+                    <CodeTab code={generatedCode} key={activeTab} />
+                  )}
                 </div>
               </TabsContent>
             </Tabs>

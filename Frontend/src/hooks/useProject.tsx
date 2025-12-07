@@ -1,9 +1,11 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { useApi } from './useApi';
-import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import type { Project } from '../types/project';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { useCallback, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useApi } from "./useApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import type { Project } from "../types/project";
 
 // ============================================
 // Types
@@ -52,11 +54,10 @@ const useProjectStore = create<ProjectStore>()(
       setSelectedProjectId: (projectId: number) =>
         set({ selectedProjectId: projectId }),
 
-      clearSelectedProject: () =>
-        set({ selectedProjectId: null }),
+      clearSelectedProject: () => set({ selectedProjectId: null }),
     }),
     {
-      name: 'actox-project',
+      name: "actox-project",
       version: 1,
       partialize: (state) => ({
         selectedProjectId: state.selectedProjectId,
@@ -69,17 +70,17 @@ const useProjectStore = create<ProjectStore>()(
         }
         return persistedState as ProjectStore;
       },
-    }
-  )
+    },
+  ),
 );
 
 // ============================================
 // Query Keys (Structured)
 // ============================================
 export const projectQueryKeys = {
-  all: () => ['projects'] as const,
-  detail: (id: number) => ['projects', id] as const,
-  tables: (id: number) => ['projects', id, 'tables'] as const,
+  all: () => ["projects"] as const,
+  detail: (id: number) => ["projects", id] as const,
+  tables: (id: number) => ["projects", id, "tables"] as const,
 };
 
 // ============================================
@@ -95,11 +96,11 @@ export function useProject() {
     isLoading: isLoadingProjects,
     error: projectsError,
     refetch: refetchProjects,
-  } = useApi<Project[]>('/Project', {
+  } = useApi<Project[]>("/Project", {
     queryKey: [...projectQueryKeys.all()],
     staleTime: 5 * 60 * 1000,
     retry: 2,
-    refetchOnMount: 'always',
+    refetchOnMount: "always",
   });
 
   // const mockProjects: Project[] = [
@@ -119,19 +120,19 @@ export function useProject() {
     data: projectDetails,
     isLoading: isLoadingDetails,
     error: projectDetailsError,
-  } = useApi<Project>(
-    `/Project/${store.selectedProjectId}`,
-    {
-      queryKey: [...projectQueryKeys.detail(store.selectedProjectId!)],
-      enabled: !!store.selectedProjectId,
-      staleTime: 10 * 60 * 1000,
-      retry: 2,
-    }
-  );
+  } = useApi<Project>(`/Project/${store.selectedProjectId}`, {
+    queryKey: [...projectQueryKeys.detail(store.selectedProjectId!)],
+    enabled: !!store.selectedProjectId,
+    staleTime: 10 * 60 * 1000,
+    retry: 2,
+  });
 
   // Get current selected project from cache
-  const selectedProject = projectDetails ||
-    queryClient.getQueryData<Project>(projectQueryKeys.detail(store.selectedProjectId!));
+  const selectedProject =
+    projectDetails ||
+    queryClient.getQueryData<Project>(
+      projectQueryKeys.detail(store.selectedProjectId!),
+    );
 
   const safeProject: SafeProject | null = useMemo(() => {
     if (!selectedProject) return null;
@@ -147,23 +148,26 @@ export function useProject() {
     };
   }, [selectedProject?.projectId]);
 
-
   // Select project and invalidate dependent queries
-  const selectProject = useCallback((project: Project | number) => {
-    const projectId = typeof project === 'number' ? project : project.projectId;
+  const selectProject = useCallback(
+    (project: Project | number) => {
+      const projectId =
+        typeof project === "number" ? project : project.projectId;
 
-    store.setSelectedProjectId(projectId);
+      store.setSelectedProjectId(projectId);
 
-    queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.tables(projectId)
-    });
-    queryClient.invalidateQueries({
-      queryKey: ['DatabaseBrowser', 'projects', projectId]
-    });
-    queryClient.invalidateQueries({
-      queryKey: ['SpBuilder', 'history']
-    });
-  }, [store, queryClient]);
+      queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.tables(projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["DatabaseBrowser", "projects", projectId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["SpBuilder", "history"],
+      });
+    },
+    [store, queryClient],
+  );
 
   // Clear project and invalidate queries
   const clearProject = useCallback(() => {
@@ -171,29 +175,32 @@ export function useProject() {
 
     // Invalidate all DatabaseBrowser and SpBuilder queries
     queryClient.invalidateQueries({
-      queryKey: ['DatabaseBrowser']
+      queryKey: ["DatabaseBrowser"],
     });
     queryClient.invalidateQueries({
-      queryKey: ['SpBuilder']
+      queryKey: ["SpBuilder"],
     });
   }, [store, queryClient]);
 
   return {
     // State (sanitized - no connectionString)
-    projects: projects?.map(p => ({
-      projectId: p.projectId,
-      projectName: p.projectName,
-      description: p.description,
-      databaseType: p.databaseType,
-      databaseName: p.databaseName,
-      serverName: p.serverName,
-      isActive: p.isActive,
-      lastSyncAttempt: p.lastSyncAttempt,
-      syncStatus: p.syncStatus,
-      syncProgress: p.syncProgress,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-    } as SafeProject)),
+    projects: projects?.map(
+      (p) =>
+        ({
+          projectId: p.projectId,
+          projectName: p.projectName,
+          description: p.description,
+          databaseType: p.databaseType,
+          databaseName: p.databaseName,
+          serverName: p.serverName,
+          isActive: p.isActive,
+          lastSyncAttempt: p.lastSyncAttempt,
+          syncStatus: p.syncStatus,
+          syncProgress: p.syncProgress,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+        }) as SafeProject,
+    ),
     selectedProject: safeProject,
     selectedProjectId: store.selectedProjectId,
 
@@ -220,16 +227,14 @@ export function useProject() {
 // ============================================
 // Hook - useRequireProject (with redirect)
 // ============================================
-import { useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useMemo } from 'react';
 
-export function useRequireProject(redirectTo = '/projects') {
+export function useRequireProject(redirectTo = "/projects") {
   const { selectedProject, isLoading, hasProject } = useProject();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!isLoading && !hasProject) {
-      toast.warning('Please select a project first');
+      toast.warning("Please select a project first");
       navigate(redirectTo, { replace: true });
     }
   }, [hasProject, isLoading, navigate, redirectTo]);
@@ -251,16 +256,13 @@ export function useProjectTables() {
     data: tables,
     isLoading,
     error,
-  } = useApi<string[]>(
-    `/SpBuilder/schema/tables/${selectedProjectId}`,
-    {
-      queryKey: [...projectQueryKeys.tables(selectedProjectId!)],
-      enabled: hasProject && !!selectedProjectId,
-      staleTime: 2 * 60 * 1000,
-      retry: 2,
-      placeholderData: [],
-    }
-  );
+  } = useApi<string[]>(`/SpBuilder/schema/tables/${selectedProjectId}`, {
+    queryKey: [...projectQueryKeys.tables(selectedProjectId!)],
+    enabled: hasProject && !!selectedProjectId,
+    staleTime: 2 * 60 * 1000,
+    retry: 2,
+    placeholderData: [],
+  });
 
   return {
     tables: tables || [],
@@ -282,11 +284,11 @@ export function useTableSchema(tableName: string | undefined) {
   } = useApi<TableSchemaResponse>(
     `/DatabaseBrowser/projects/${selectedProjectId}/tables/${tableName}/schema`,
     {
-      queryKey: ['projects', selectedProjectId, 'tables', tableName, 'schema'],
+      queryKey: ["projects", selectedProjectId, "tables", tableName, "schema"],
       enabled: hasProject && !!tableName && !!selectedProjectId,
       staleTime: 5 * 60 * 1000,
       retry: 2,
-    }
+    },
   );
 
   return {

@@ -42,7 +42,7 @@ public class SpBuilderService(ISchemaRepository schemaRepo, IProjectRepository p
         return Task.FromResult(response);
     }
 
-    private GeneratedSpItem GenerateUnsupportedSp(SpGenerationRequest req, GeneratedSpResponse response)
+    private static GeneratedSpItem GenerateUnsupportedSp(SpGenerationRequest req, GeneratedSpResponse response)
     {
         response.Warnings.Add($"⚠️ Unsupported SpType '{req.Type}' provided. No stored procedure generated.");
         

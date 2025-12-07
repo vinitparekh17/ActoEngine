@@ -14,8 +14,7 @@
  * - Session management (401 handling)
  */
 
-import { getAuthHeaders, useAuthStore } from '@/hooks/useAuth';
-import { ApiError, type ApiResponse, type ErrorResponse } from '@/types/api';
+import { ApiError, type ApiResponse, type ErrorResponse } from "@/types/api";
 
 // ============================================
 // Type Guards for Backend Response Shapes
@@ -24,20 +23,38 @@ import { ApiError, type ApiResponse, type ErrorResponse } from '@/types/api';
 /**
  * Type guard to check if response matches ApiResponse<T> shape from Common.cs
  */
-export function isApiResponse<T = unknown>(value: any): value is ApiResponse<T> {
-  return value && typeof value === 'object'
-    && 'status' in value
-    && 'message' in value
-    && 'data' in value
-    && 'timestamp' in value;
+export function isApiResponse<T = unknown>(
+  value: any,
+): value is ApiResponse<T> {
+  return (
+    value &&
+    typeof value === "object" &&
+    "status" in value &&
+    "message" in value &&
+    "data" in value &&
+    "timestamp" in value
+  );
 }
 
 export function isErrorResponse(value: any): value is ErrorResponse {
-  return value && typeof value === 'object'
-    && 'error' in value
-    && 'message' in value
-    && 'timestamp' in value
-    && 'path' in value;
+  return (
+    value &&
+    typeof value === "object" &&
+    "error" in value &&
+    "message" in value &&
+    "timestamp" in value &&
+    "path" in value
+  );
+}
+
+// ============================================
+// Helpers
+// ============================================
+function getCookie(name: string): string | null {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
+  return null;
 }
 
 // ============================================
@@ -59,7 +76,7 @@ class ApiClient {
   private baseUrl: string;
   private onUnauthorized?: OnUnauthorized;
 
-  constructor(baseUrl = '/api') {
+  constructor(baseUrl = "/api") {
     this.baseUrl = baseUrl;
   }
 
@@ -72,36 +89,41 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
+    const csrfToken = getCookie("XSRF-TOKEN");
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders(),
+      "Content-Type": "application/json",
+      // Attach CSRF token if present
+      ...(csrfToken ? { "X-CSRF-TOKEN": csrfToken } : {}),
       ...options.headers,
     };
 
     const response = await fetch(url, {
       ...options,
       headers,
-      credentials: 'include',
+      credentials: "include",
     });
 
     // Handle 401 - Token expired
     if (response.status === 401) {
       this.onUnauthorized?.();
-      throw new ApiError('Session expired. Please login again.', 401);
+      throw new ApiError("Session expired. Please login again.", 401);
     }
 
     // Handle 403 - Forbidden
     if (response.status === 403) {
-      throw new ApiError('You do not have permission to perform this action', 403);
+      throw new ApiError(
+        "You do not have permission to perform this action",
+        403,
+      );
     }
 
     // Parse response body once
-    const contentType = response.headers.get('content-type') ?? '';
-    const isJson = contentType.includes('application/json');
+    const contentType = response.headers.get("content-type") ?? "";
+    const isJson = contentType.includes("application/json");
 
     let body: any = null;
     if (isJson) {
@@ -116,22 +138,22 @@ class ApiClient {
     if (!response.ok) {
       if (body && isApiResponse<any>(body)) {
         throw new ApiError(
-          body.message || 'Request failed',
+          body.message || "Request failed",
           response.status,
-          body.errors
+          body.errors,
         );
       }
 
       if (body && isErrorResponse(body)) {
         throw new ApiError(
-          body.message || body.error || 'Request failed',
-          response.status
+          body.message || body.error || "Request failed",
+          response.status,
         );
       }
 
       throw new ApiError(
         `Request failed: ${response.status} ${response.statusText}`,
-        response.status
+        response.status,
       );
     }
 
@@ -139,9 +161,9 @@ class ApiClient {
     if (body && isApiResponse<T>(body)) {
       if (!body.status) {
         throw new ApiError(
-          body.message || 'Operation failed',
+          body.message || "Operation failed",
           response.status,
-          body.errors
+          body.errors,
         );
       }
       return body.data as T;
@@ -152,30 +174,30 @@ class ApiClient {
   }
 
   async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' });
+    return this.request<T>(endpoint, { method: "GET" });
   }
 
   async post<T>(endpoint: string, body?: any): Promise<T> {
     return this.request<T>(endpoint, {
-      method: 'POST',
+      method: "POST",
       body: body ? JSON.stringify(body) : undefined,
     });
   }
 
   async put<T>(endpoint: string, body?: any): Promise<T> {
     return this.request<T>(endpoint, {
-      method: 'PUT',
+      method: "PUT",
       body: body ? JSON.stringify(body) : undefined,
     });
   }
 
   async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+    return this.request<T>(endpoint, { method: "DELETE" });
   }
 
   async patch<T>(endpoint: string, body?: any): Promise<T> {
     return this.request<T>(endpoint, {
-      method: 'PATCH',
+      method: "PATCH",
       body: body ? JSON.stringify(body) : undefined,
     });
   }
@@ -195,4 +217,4 @@ export function initializeApiClient(onUnauthorized: OnUnauthorized) {
  * Base URL can be configured via VITE_API_BASE_URL environment variable.
  * Defaults to '/api' for same-origin requests.
  */
-export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || '/api');
+export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || "/api");

@@ -88,7 +88,7 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
       staleTime: 5 * 60 * 1000, // Cache for 5 minutes
       retry: 1, // Only retry once for inline badges
       showErrorToast: false, // Don't show toast errors for inline badges
-    }
+    },
   );
 
   // Loading state
@@ -266,7 +266,7 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
               {entityType === "COLUMN" &&
                 context.sensitivity &&
                 ["PII", "FINANCIAL", "SENSITIVE"].includes(
-                  context.sensitivity
+                  context.sensitivity,
                 ) && (
                   <Badge variant="secondary" className="gap-1">
                     <Shield className="w-3 h-3" />
@@ -474,7 +474,7 @@ function getEntityTypeLabel(entityType: string): string {
 function getEntityRoute(
   entityType: string,
   entityId: number,
-  projectId: number
+  projectId: number,
 ): string {
   switch (entityType) {
     case "TABLE":

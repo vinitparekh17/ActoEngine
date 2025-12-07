@@ -18,19 +18,28 @@ public class CustomTokenAuthenticationHandler(
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        // Try to get token from Authorization header first
-        var authHeader = Request.Headers.Authorization.FirstOrDefault();
         string? token = null;
 
-        if (!string.IsNullOrEmpty(authHeader))
+        // 1. Try to get token from HttpOnly cookie first (Primary method)
+        if (Request.Cookies.TryGetValue("access_token", out var cookieToken))
         {
-            const string bearerPrefix = "Bearer ";
-            token = authHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase)
-                ? authHeader[bearerPrefix.Length..].Trim()
-                : authHeader.Trim();
+            token = cookieToken;
         }
 
-        // If no header token, try query parameter (only for SSE endpoints)
+        // 2. Fallback to Authorization header (for API clients/testing)
+        if (string.IsNullOrEmpty(token))
+        {
+            var authHeader = Request.Headers.Authorization.FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader))
+            {
+                const string bearerPrefix = "Bearer ";
+                token = authHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase)
+                    ? authHeader[bearerPrefix.Length..].Trim()
+                    : authHeader.Trim();
+            }
+        }
+
+        // 3. Fallback to query parameter (only for SSE endpoints where cookies might not be sent or for specific use cases)
         if (string.IsNullOrEmpty(token) &&
             Request.Query.ContainsKey("token") &&
             Request.Path.Value?.EndsWith("/stream", StringComparison.OrdinalIgnoreCase) == true)
@@ -41,7 +50,7 @@ public class CustomTokenAuthenticationHandler(
 
         if (string.IsNullOrEmpty(token))
         {
-            _logger.LogDebug("No Authorization header or token query parameter found for path: {Path}", Request.Path);
+            _logger.LogDebug("No access token found in cookie, header, or query parameter for path: {Path}", Request.Path);
             return AuthenticateResult.NoResult();
         }
 

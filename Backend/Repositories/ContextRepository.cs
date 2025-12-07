@@ -55,36 +55,20 @@ public class ContextRepository(
 
     public async Task<EntityContext?> GetContextAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var context = await QueryFirstOrDefaultAsync<EntityContext>(
-                ContextQueries.GetContext,
-                new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
-                cancellationToken);
-            return context;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving context for {EntityType} with ID {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            throw;
-        }
+        var context = await QueryFirstOrDefaultAsync<EntityContext>(
+            ContextQueries.GetContext,
+            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
+            cancellationToken);
+        return context;
     }
 
     public async Task<EntityContext?> GetContextByNameAsync(int projectId, string entityType, string entityName, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var context = await QueryFirstOrDefaultAsync<EntityContext>(
-                ContextQueries.GetContextByName,
-                new { ProjectId = projectId, EntityType = entityType, EntityName = entityName },
-                cancellationToken);
-            return context;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving context for {EntityType} with name {EntityName} in project {ProjectId}", entityType, entityName, projectId);
-            throw;
-        }
+        var context = await QueryFirstOrDefaultAsync<EntityContext>(
+            ContextQueries.GetContextByName,
+            new { ProjectId = projectId, EntityType = entityType, EntityName = entityName },
+            cancellationToken);
+        return context;
     }
 
     /// <summary>
@@ -108,107 +92,83 @@ public class ContextRepository(
         int userId,
         CancellationToken cancellationToken = default)
     {
-        try
+        // Check if context already exists
+        var existing = await GetContextAsync(projectId, entityType, entityId, cancellationToken);
+
+        var parameters = new
         {
-            // Check if context already exists
-            var existing = await GetContextAsync(projectId, entityType, entityId, cancellationToken);
+            ProjectId = projectId,
+            EntityType = entityType,
+            EntityId = entityId,
+            EntityName = entityName,
+            request.Purpose,
+            request.BusinessImpact,
+            request.DataOwner,
+            CriticalityLevel = request.CriticalityLevel ?? 3,
+            request.BusinessDomain,
+            request.Sensitivity,
+            request.DataSource,
+            request.ValidationRules,
+            request.RetentionPolicy,
+            request.DataFlow,
+            request.Frequency,
+            IsDeprecated = request.IsDeprecated ?? false,
+            request.DeprecationReason,
+            request.ReplacedBy,
+            UserId = userId
+        };
 
-            var parameters = new
-            {
-                ProjectId = projectId,
-                EntityType = entityType,
-                EntityId = entityId,
-                EntityName = entityName,
-                request.Purpose,
-                request.BusinessImpact,
-                request.DataOwner,
-                CriticalityLevel = request.CriticalityLevel ?? 3,
-                request.BusinessDomain,
-                request.Sensitivity,
-                request.DataSource,
-                request.ValidationRules,
-                request.RetentionPolicy,
-                request.DataFlow,
-                request.Frequency,
-                IsDeprecated = request.IsDeprecated ?? false,
-                request.DeprecationReason,
-                request.ReplacedBy,
-                UserId = userId
-            };
+        EntityContext? context;
 
-            EntityContext? context;
-
-            if (existing != null)
-            {
-                // Update existing context
-                context = await QueryFirstOrDefaultAsync<EntityContext>(
-                    ContextQueries.UpdateContext,
-                    parameters,
-                    cancellationToken);
-                _logger.LogInformation("Updated context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            }
-            else
-            {
-                // Insert new context
-                context = await QueryFirstOrDefaultAsync<EntityContext>(
-                    ContextQueries.InsertContext,
-                    parameters,
-                    cancellationToken);
-                _logger.LogInformation("Inserted context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            }
-
-            if (context is null)
-            {
-                _logger.LogError("Failed to save context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-                throw new InvalidOperationException("Failed to save context.");
-            }
-
-            return context;
-        }
-        catch (Exception ex)
+        if (existing != null)
         {
-            _logger.LogError(ex, "Error upserting context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            throw;
+            // Update existing context
+            context = await QueryFirstOrDefaultAsync<EntityContext>(
+                ContextQueries.UpdateContext,
+                parameters,
+                cancellationToken);
+            _logger.LogInformation("Updated context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
         }
+        else
+        {
+            // Insert new context
+            context = await QueryFirstOrDefaultAsync<EntityContext>(
+                ContextQueries.InsertContext,
+                parameters,
+                cancellationToken);
+            _logger.LogInformation("Inserted context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
+        }
+
+        if (context is null)
+        {
+            _logger.LogError("Failed to save context for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
+            throw new InvalidOperationException("Failed to save context.");
+        }
+
+        return context;
     }
 
     public async Task MarkContextStaleAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default)
     {
-        try
+        var rows = await ExecuteAsync(
+            ContextQueries.MarkContextStale,
+            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
+            cancellationToken);
+        if (rows == 0)
         {
-            var rows = await ExecuteAsync(
-                ContextQueries.MarkContextStale,
-                new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
-                cancellationToken);
-            if (rows == 0)
-            {
-                _logger.LogWarning("No rows marked stale for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error marking context stale for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            throw;
+            _logger.LogWarning("No rows marked stale for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
         }
     }
 
     public async Task MarkContextFreshAsync(int projectId, string entityType, int entityId, int userId, CancellationToken cancellationToken = default)
     {
-        try
+        var rows = await ExecuteAsync(
+            ContextQueries.MarkContextFresh,
+            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId, UserId = userId },
+            cancellationToken);
+        if (rows == 0)
         {
-            var rows = await ExecuteAsync(
-                ContextQueries.MarkContextFresh,
-                new { ProjectId = projectId, EntityType = entityType, EntityId = entityId, UserId = userId },
-                cancellationToken);
-            if (rows == 0)
-            {
-                _logger.LogWarning("No rows marked fresh for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error marking context fresh for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            throw;
+            _logger.LogWarning("No rows marked fresh for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
         }
     }
 
@@ -218,26 +178,18 @@ public class ContextRepository(
 
     public async Task<List<EntityExpert>> GetExpertsAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-            var experts = await connection.QueryAsync<EntityExpert, UserBasicInfo, EntityExpert>(
-                ContextQueries.GetExperts,
-                (expert, user) =>
-                {
-                    expert.User = user;
-                    return expert;
-                },
-                new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
-                splitOn: "UserID");
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var experts = await connection.QueryAsync<EntityExpert, UserBasicInfo, EntityExpert>(
+            ContextQueries.GetExperts,
+            (expert, user) =>
+            {
+                expert.User = user;
+                return expert;
+            },
+            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
+            splitOn: "UserID");
 
-            return experts.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving experts for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            throw;
-        }
+        return experts.ToList();
     }
 
     /// <summary>
@@ -253,80 +205,56 @@ public class ContextRepository(
     /// <param name="cancellationToken">Token to observe while waiting for the task to complete.</param>
     public async Task AddExpertAsync(int projectId, string entityType, int entityId, int userId, string expertiseLevel, string? notes, int addedBy, CancellationToken cancellationToken = default)
     {
-        try
+        // Check if expert already exists
+        var existing = await QueryFirstOrDefaultAsync<dynamic>(
+            ContextQueries.GetExpert,
+            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId, UserId = userId },
+            cancellationToken);
+
+        var parameters = new
         {
-            // Check if expert already exists
-            var existing = await QueryFirstOrDefaultAsync<dynamic>(
-                ContextQueries.GetExpert,
-                new { ProjectId = projectId, EntityType = entityType, EntityId = entityId, UserId = userId },
-                cancellationToken);
+            ProjectId = projectId,
+            EntityType = entityType,
+            EntityId = entityId,
+            UserId = userId,
+            ExpertiseLevel = expertiseLevel,
+            Notes = notes,
+            AddedBy = addedBy
+        };
 
-            var parameters = new
-            {
-                ProjectId = projectId,
-                EntityType = entityType,
-                EntityId = entityId,
-                UserId = userId,
-                ExpertiseLevel = expertiseLevel,
-                Notes = notes,
-                AddedBy = addedBy
-            };
-
-            if (existing != null)
-            {
-                // Update existing expert
-                await ExecuteAsync(ContextQueries.UpdateExpert, parameters, cancellationToken);
-                _logger.LogInformation("Updated expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
-            }
-            else
-            {
-                // Insert new expert
-                await ExecuteAsync(ContextQueries.InsertExpert, parameters, cancellationToken);
-                _logger.LogInformation("Added expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
-            }
+        if (existing != null)
+        {
+            // Update existing expert
+            await ExecuteAsync(ContextQueries.UpdateExpert, parameters, cancellationToken);
+            _logger.LogInformation("Updated expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError(ex, "Error adding expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
-            throw;
+            // Insert new expert
+            await ExecuteAsync(ContextQueries.InsertExpert, parameters, cancellationToken);
+            _logger.LogInformation("Added expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
         }
     }
 
     public async Task RemoveExpertAsync(int projectId, string entityType, int entityId, int userId, CancellationToken cancellationToken = default)
     {
-        try
+        var rows = await ExecuteAsync(
+            ContextQueries.RemoveExpert,
+            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId, UserId = userId },
+            cancellationToken);
+        if (rows == 0)
         {
-            var rows = await ExecuteAsync(
-                ContextQueries.RemoveExpert,
-                new { ProjectId = projectId, EntityType = entityType, EntityId = entityId, UserId = userId },
-                cancellationToken);
-            if (rows == 0)
-            {
-                _logger.LogWarning("No expert removed for {EntityType} {EntityId} in project {ProjectId} and user {UserId}", entityType, entityId, projectId, userId);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error removing expert {UserId} for {EntityType} {EntityId} in project {ProjectId}", userId, entityType, entityId, projectId);
-            throw;
+            _logger.LogWarning("No expert removed for {EntityType} {EntityId} in project {ProjectId} and user {UserId}", entityType, entityId, projectId, userId);
         }
     }
 
     public async Task<List<UserExpertiseItem>> GetUserExpertiseAsync(int userId, int projectId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var expertise = await QueryAsync<UserExpertiseItem>(
-                ContextQueries.GetUserExpertise,
-                new { UserId = userId, ProjectId = projectId },
-                cancellationToken);
-            return expertise.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving user expertise for {UserId} in project {ProjectId}", userId, projectId);
-            throw;
-        }
+        var expertise = await QueryAsync<UserExpertiseItem>(
+            ContextQueries.GetUserExpertise,
+            new { UserId = userId, ProjectId = projectId },
+            cancellationToken);
+        return expertise.ToList();
     }
 
     #endregion
@@ -335,44 +263,34 @@ public class ContextRepository(
 
     public async Task RecordContextChangeAsync(string entityType, int entityId, string fieldName, string? oldValue, string? newValue, int changedBy, string? changeReason = null, CancellationToken cancellationToken = default)
     {
-        try
+        var affected = await ExecuteAsync(
+            ContextQueries.RecordContextChange,
+            new
+            {
+                EntityType = entityType,
+                EntityId = entityId,
+                FieldName = fieldName,
+                OldValue = oldValue,
+                NewValue = newValue,
+                ChangedBy = changedBy,
+                ChangeReason = changeReason
+            },
+            cancellationToken);
+
+        if (affected == 0)
         {
-            await ExecuteAsync(
-                ContextQueries.RecordContextChange,
-                new
-                {
-                    EntityType = entityType,
-                    EntityId = entityId,
-                    FieldName = fieldName,
-                    OldValue = oldValue,
-                    NewValue = newValue,
-                    ChangedBy = changedBy,
-                    ChangeReason = changeReason
-                },
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error recording context change for {EntityType} {EntityId} field {FieldName}", entityType, entityId, fieldName);
-            throw;
+            _logger.LogError("Failed to record context change for {EntityType} {EntityId} field {FieldName}", entityType, entityId, fieldName);
+            throw new InvalidOperationException($"Failed to record context change for {entityType} {entityId}");
         }
     }
 
     public async Task<List<ContextHistory>> GetContextHistoryAsync(string entityType, int entityId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var history = await QueryAsync<ContextHistory>(
-                ContextQueries.GetContextHistory,
-                new { EntityType = entityType, EntityId = entityId },
-                cancellationToken);
-            return history.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving context history for {EntityType} {EntityId}", entityType, entityId);
-            throw;
-        }
+        var history = await QueryAsync<ContextHistory>(
+            ContextQueries.GetContextHistory,
+            new { EntityType = entityType, EntityId = entityId },
+            cancellationToken);
+        return history.ToList();
     }
 
     #endregion
@@ -381,87 +299,47 @@ public class ContextRepository(
     
     public async Task<List<ContextGap>> GetContextGapsAsync(int projectId, int limit, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var gaps = await QueryAsync<ContextGap>(
-                ContextQueries.GetContextGaps,
-                new { ProjectId = projectId, Limit = limit },
-                cancellationToken);
-            return gaps.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving context gaps for project {ProjectId}", projectId);
-            throw;
-        }
+        var gaps = await QueryAsync<ContextGap>(
+            ContextQueries.GetContextGaps,
+            new { ProjectId = projectId, Limit = limit },
+            cancellationToken);
+        return gaps.ToList();
     }
 
     public async Task<List<ContextCoverageStats>> GetContextCoverageAsync(int projectId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var stats = await QueryAsync<ContextCoverageStats>(
-                ContextQueries.GetContextCoverage,
-                new { ProjectId = projectId },
-                cancellationToken);
-            return stats.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving context coverage for project {ProjectId}", projectId);
-            throw;
-        }
+        var stats = await QueryAsync<ContextCoverageStats>(
+            ContextQueries.GetContextCoverage,
+            new { ProjectId = projectId },
+            cancellationToken);
+        return stats.ToList();
     }
 
     public async Task<List<StaleContextEntity>> GetStaleContextEntitiesAsync(int projectId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var entities = await QueryAsync<StaleContextEntity>(
-                ContextQueries.GetStaleContextEntities,
-                new { ProjectId = projectId },
-                cancellationToken);
-            return entities.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving stale context entities for project {ProjectId}", projectId);
-            throw;
-        }
+        var entities = await QueryAsync<StaleContextEntity>(
+            ContextQueries.GetStaleContextEntities,
+            new { ProjectId = projectId },
+            cancellationToken);
+        return entities.ToList();
     }
 
     public async Task<List<TopDocumentedEntity>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var entities = await QueryAsync<TopDocumentedEntity>(
-                ContextQueries.GetTopDocumentedEntities,
-                new { ProjectId = projectId, Limit = limit },
-                cancellationToken);
-            return entities.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving top documented entities for project {ProjectId}", projectId);
-            throw;
-        }
+        var entities = await QueryAsync<TopDocumentedEntity>(
+            ContextQueries.GetTopDocumentedEntities,
+            new { ProjectId = projectId, Limit = limit },
+            cancellationToken);
+        return entities.ToList();
     }
 
     public async Task<List<CriticalUndocumentedEntity>> GetCriticalUndocumentedAsync(int projectId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var entities = await QueryAsync<CriticalUndocumentedEntity>(
-                ContextQueries.GetCriticalUndocumented,
-                new { ProjectId = projectId },
-                cancellationToken);
-            return entities.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving critical undocumented entities for project {ProjectId}", projectId);
-            throw;
-        }
+        var entities = await QueryAsync<CriticalUndocumentedEntity>(
+            ContextQueries.GetCriticalUndocumented,
+            new { ProjectId = projectId },
+            cancellationToken);
+        return entities.ToList();
     }
 
     #endregion
@@ -470,68 +348,45 @@ public class ContextRepository(
 
     public async Task<int> CreateReviewRequestAsync(string entityType, int entityId, int requestedBy, int? assignedTo, string? reason, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var requestId = (await ExecuteScalarAsync<int?>(
-                ContextQueries.CreateReviewRequest,
-                new
-                {
-                    EntityType = entityType,
-                    EntityId = entityId,
-                    RequestedBy = requestedBy,
-                    AssignedTo = assignedTo,
-                    Reason = reason
-                },
-                cancellationToken)) ?? 0;
-
-            if (requestId == 0)
+        var requestId = (await ExecuteScalarAsync<int?>(
+            ContextQueries.CreateReviewRequest,
+            new
             {
-                _logger.LogWarning("CreateReviewRequest returned 0 for {EntityType} {EntityId}", entityType, entityId);
-            }
+                EntityType = entityType,
+                EntityId = entityId,
+                RequestedBy = requestedBy,
+                AssignedTo = assignedTo,
+                Reason = reason
+            },
+            cancellationToken)) ?? 0;
 
-            return requestId;
-        }
-        catch (Exception ex)
+        if (requestId == 0)
         {
-            _logger.LogError(ex, "Error creating review request for {EntityType} {EntityId}", entityType, entityId);
-            throw;
+            _logger.LogError("CreateReviewRequest failed for {EntityType} {EntityId}", entityType, entityId);
+            throw new InvalidOperationException($"Failed to create review request for {entityType} {entityId}");
         }
+
+        return requestId;
     }
 
     public async Task<List<ContextReviewRequest>> GetPendingReviewRequestsAsync(int? userId = null, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var requests = await QueryAsync<ContextReviewRequest>(
-                ContextQueries.GetPendingReviewRequests,
-                new { UserId = userId },
-                cancellationToken);
-            return requests.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving pending review requests for user {UserId}", userId);
-            throw;
-        }
+        var requests = await QueryAsync<ContextReviewRequest>(
+            ContextQueries.GetPendingReviewRequests,
+            new { UserId = userId },
+            cancellationToken);
+        return requests.ToList();
     }
 
     public async Task CompleteReviewRequestAsync(int requestId, CancellationToken cancellationToken = default)
     {
-        try
+        var rows = await ExecuteAsync(
+            ContextQueries.CompleteReviewRequest,
+            new { RequestId = requestId },
+            cancellationToken);
+        if (rows == 0)
         {
-            var rows = await ExecuteAsync(
-                ContextQueries.CompleteReviewRequest,
-                new { RequestId = requestId },
-                cancellationToken);
-            if (rows == 0)
-            {
-                _logger.LogWarning("No review request updated for RequestId {RequestId}", requestId);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error completing review request {RequestId}", requestId);
-            throw;
+            _logger.LogWarning("No review request updated for RequestId {RequestId}", requestId);
         }
     }
 
@@ -541,19 +396,11 @@ public class ContextRepository(
 
     public async Task<List<UserSuggestion>> GetPotentialExpertsAsync(string entityType, int entityId, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var suggestions = await QueryAsync<UserSuggestion>(
-                ContextQueries.GetPotentialExperts,
-                new { EntityType = entityType, EntityId = entityId },
-                cancellationToken);
-            return suggestions.ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving potential experts for {EntityType} {EntityId}", entityType, entityId);
-            throw;
-        }
+        var suggestions = await QueryAsync<UserSuggestion>(
+            ContextQueries.GetPotentialExperts,
+            new { EntityType = entityType, EntityId = entityId },
+            cancellationToken);
+        return suggestions.ToList();
     }
 
     #endregion

@@ -34,74 +34,78 @@ namespace ActoEngine.WebApi.Controllers
                 return Unauthorized(ApiResponse<object>.Failure("User not found"));
 
             user.PasswordHash = string.Empty;
+            
+            // Set cookies
+            SetAccessTokenCookie(result.SessionToken!, result.ExpiresAt);
+            SetRefreshTokenCookie(result.RefreshToken!, DateTime.UtcNow.AddDays(7));
+
             var responseData = new AuthTokenResponse
             {
-                Token = result.SessionToken!,
-                RefreshToken = result.RefreshToken!,
+                Token = string.Empty, // Token is now in cookie
+                RefreshToken = string.Empty, // Token is now in cookie
                 User = user,
                 ExpiresAt = result.ExpiresAt
             };
-
-            // Set refresh token as HttpOnly cookie for automatic refresh
-            SetRefreshTokenCookie(result.RefreshToken!, DateTime.UtcNow.AddDays(7));
 
             return Ok(ApiResponse<AuthTokenResponse>.Success(responseData, "Login successful"));
         }
 
         /// <summary>
-        /// Refreshes the session token using a valid refresh token,
-        /// It allows to obtain a new session token without re-authenticating
-        /// why is this important: Session tokens typically have a short lifespan for security reasons.
-        /// By using a refresh token, clients can seamlessly obtain a new session token without requiring 
-        /// the user to log in again, enhancing user experience while maintaining security.
-        /// frontend has to call this endpoint before session token expires and has to know when it expires,
-        /// these info is provided in the login response and refresh response
+        /// Refreshes the session token using a valid refresh token from cookie
         /// </summary>
-        /// <param name="request"></param>
-        /// <returns></returns>
         [HttpPost("refresh")]
         [EnableRateLimiting("AuthRateLimit")]
-        public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+        public async Task<IActionResult> Refresh()
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            // Try to get refresh token from cookie
+            var refreshToken = Request.Cookies["refresh_token"];
+            
+            if (string.IsNullOrEmpty(refreshToken))
+                return Unauthorized(ApiResponse<object>.Failure("No refresh token provided"));
 
-            var result = await _authService.RefreshSessionAsync(request.RefreshToken);
+            var result = await _authService.RefreshSessionAsync(refreshToken);
 
             if (!result.Success)
+            {
+                // Clear invalid cookies
+                ClearAccessTokenCookie();
+                ClearRefreshTokenCookie();
                 return Unauthorized(ApiResponse<object>.Failure(result.ErrorMessage ?? "Token refresh failed"));
+            }
+
+            // Set new access token cookie
+            SetAccessTokenCookie(result.SessionToken!, result.ExpiresAt);
+            
+            // Refresh token cookie is kept as is (or could be rotated here if implemented)
 
             var responseData = new AuthTokenResponse
             {
-                Token = result.SessionToken!,
-                RefreshToken = result.RefreshToken!,
+                Token = string.Empty,
+                RefreshToken = string.Empty,
                 ExpiresAt = result.ExpiresAt
             };
-
-            // Note: Refresh token cookie is not updated here since we keep the same refresh token
-            // with its original expiration for security reasons
 
             return Ok(ApiResponse<AuthTokenResponse>.Success(responseData, "Token refreshed successfully"));
         }
 
         /// <summary>
-        /// Logs out the user by invalidating the refresh token
+        /// Logs out the user by invalidating the refresh token and clearing cookies
         /// </summary>
-        /// <param name="request"></param>
-        /// <returns></returns>
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+        public async Task<IActionResult> Logout()
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            var refreshToken = Request.Cookies["refresh_token"];
+            
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                await _authService.LogoutAsync(refreshToken);
+            }
 
-            await _authService.LogoutAsync(request.RefreshToken);
-            var responseData = new MessageResponse { Message = "Logged out successfully" };
-
-            // Clear refresh token cookie
+            // Clear cookies
+            ClearAccessTokenCookie();
             ClearRefreshTokenCookie();
 
-            return Ok(ApiResponse<MessageResponse>.Success(responseData, "Logged out successfully"));
+            return Ok(ApiResponse<MessageResponse>.Success(new MessageResponse { Message = "Logged out successfully" }, "Logged out successfully"));
         }
 
 
@@ -134,9 +138,9 @@ namespace ActoEngine.WebApi.Controllers
             return Ok(ApiResponse<ProtectedResourceResponse>.Success(responseData, "Protected resource accessed successfully"));
         }
 
-        private void SetRefreshTokenCookie(string refreshToken, DateTime expiresAt)
+        private void SetAccessTokenCookie(string token, DateTime expiresAt)
         {
-            Response.Cookies.Append("refresh_token", refreshToken, new CookieOptions
+            Response.Cookies.Append("access_token", token, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = Request.IsHttps,
@@ -147,6 +151,30 @@ namespace ActoEngine.WebApi.Controllers
             });
         }
 
+        private void SetRefreshTokenCookie(string refreshToken, DateTime expiresAt)
+        {
+            Response.Cookies.Append("refresh_token", refreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Strict,
+                Expires = expiresAt,
+                Path = "/api/Auth", // Restrict refresh token to Auth controller
+                IsEssential = true
+            });
+        }
+
+        private void ClearAccessTokenCookie()
+        {
+            Response.Cookies.Delete("access_token", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Strict,
+                Path = "/"
+            });
+        }
+
         private void ClearRefreshTokenCookie()
         {
             Response.Cookies.Delete("refresh_token", new CookieOptions
@@ -154,7 +182,7 @@ namespace ActoEngine.WebApi.Controllers
                 HttpOnly = true,
                 Secure = Request.IsHttps,
                 SameSite = SameSiteMode.Strict,
-                Path = "/"
+                Path = "/api/Auth"
             });
         }
     }

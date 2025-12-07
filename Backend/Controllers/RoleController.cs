@@ -74,7 +74,7 @@ public class RoleController(IRoleService roleService) : ControllerBase
         try
         {
             await _roleService.UpdateRoleAsync(request, userId.Value);
-            return Ok(ApiResponse<object>.Success(null, "Role updated successfully"));
+            return Ok(ApiResponse<object>.Success(new {}, "Role updated successfully"));
         }
         catch (InvalidOperationException ex)
         {
@@ -89,7 +89,7 @@ public class RoleController(IRoleService roleService) : ControllerBase
         try
         {
             await _roleService.DeleteRoleAsync(roleId);
-            return Ok(ApiResponse<object>.Success(null, "Role deleted successfully"));
+            return Ok(ApiResponse<object>.Success(new {}, "Role deleted successfully"));
         }
         catch (InvalidOperationException ex)
         {
