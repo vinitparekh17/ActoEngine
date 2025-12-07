@@ -1,6 +1,6 @@
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
-type ToastType = 'success' | 'error' | 'info' | 'warning';
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface ToastOptions {
   description?: string;
@@ -19,15 +19,15 @@ interface ToastPayload extends ToastOptions {
 export function useToast() {
   const showToast = (
     arg: string | ToastPayload,
-    type: ToastType = 'info',
-    options?: ToastOptions
+    type: ToastType = "info",
+    options?: ToastOptions,
   ) => {
-    if (typeof arg === 'string') {
+    if (typeof arg === "string") {
       // old style: (message, type, options)
       toast[type](arg, options);
     } else {
       // new style: ({ title, description, ... })
-      const { title, type: argType = 'info', ...rest } = arg;
+      const { title, type: argType = "info", ...rest } = arg;
       toast[argType](title, rest);
     }
   };

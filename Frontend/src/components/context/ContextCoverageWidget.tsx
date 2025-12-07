@@ -53,7 +53,7 @@ export const ContextCoverageWidget: React.FC = () => {
       staleTime: 30 * 1000, // 30 seconds
       refetchInterval: 60 * 1000, // Refresh every minute
       retry: 2,
-    }
+    },
   );
 
   // Error state
@@ -110,7 +110,7 @@ export const ContextCoverageWidget: React.FC = () => {
   const totalEntities = coverage.reduce((sum, item) => sum + item.total, 0);
   const totalDocumented = coverage.reduce(
     (sum, item) => sum + item.documented,
-    0
+    0,
   );
   const overallPercentage =
     totalEntities > 0 ? Math.round((totalDocumented / totalEntities) * 100) : 0;

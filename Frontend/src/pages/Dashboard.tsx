@@ -1,33 +1,33 @@
-import { useAuth } from '../hooks/useAuth';
-import { Zap, FolderOpen, Clock, CheckCircle } from 'lucide-react';
+import { useAuth } from "../hooks/useAuth";
+import { Zap, FolderOpen, Clock, CheckCircle } from "lucide-react";
 
 export default function DashboardPage() {
   const { user } = useAuth();
 
   const stats = [
     {
-      label: 'Total Projects',
-      value: '12',
+      label: "Total Projects",
+      value: "12",
       icon: FolderOpen,
-      color: 'bg-blue-500',
+      color: "bg-blue-500",
     },
     {
-      label: 'SPs Generated',
-      value: '248',
+      label: "SPs Generated",
+      value: "248",
       icon: Zap,
-      color: 'bg-green-500',
+      color: "bg-green-500",
     },
     {
-      label: 'This Week',
-      value: '42',
+      label: "This Week",
+      value: "42",
       icon: Clock,
-      color: 'bg-purple-500',
+      color: "bg-purple-500",
     },
     {
-      label: 'Success Rate',
-      value: '98%',
+      label: "Success Rate",
+      value: "98%",
       icon: CheckCircle,
-      color: 'bg-emerald-500',
+      color: "bg-emerald-500",
     },
   ];
 

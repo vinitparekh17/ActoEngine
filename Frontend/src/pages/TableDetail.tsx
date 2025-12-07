@@ -30,6 +30,7 @@ import {
   Zap,
   Check,
   X,
+  Network,
 } from "lucide-react";
 import { ExpertManagement } from "@/components/context/ExpertManagement";
 import { ContextEditor } from "@/components/context/ContextEditorPanel";
@@ -127,7 +128,7 @@ export default function TableDetail() {
       enabled: hasProject && !!projectId && !!tableId,
       staleTime: 60 * 1000,
       retry: 2,
-    }
+    },
   );
 
   const renderIcons = (constraints: string[] = []) => {
@@ -235,6 +236,15 @@ export default function TableDetail() {
             </p>
           </div>
         </div>
+        <Button
+          variant="outline"
+          onClick={() =>
+            navigate(`/project/${projectId}/impact/TABLE/${tableId}`)
+          }
+        >
+          <Network className="mr-2 h-4 w-4" />
+          View Impact
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

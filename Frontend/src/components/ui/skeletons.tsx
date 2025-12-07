@@ -22,7 +22,10 @@ export function TableSkeleton({ rows = 5, columns = 4 }: TableSkeletonProps) {
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div key={`row-${rowIndex}`} className="flex space-x-4">
           {Array.from({ length: columns }).map((_, colIndex) => (
-            <Skeleton key={`cell-${rowIndex}-${colIndex}`} className="h-12 flex-1" />
+            <Skeleton
+              key={`cell-${rowIndex}-${colIndex}`}
+              className="h-12 flex-1"
+            />
           ))}
         </div>
       ))}
@@ -38,7 +41,10 @@ interface CardSkeletonProps {
   lines?: number;
 }
 
-export function CardSkeleton({ showAvatar = false, lines = 3 }: CardSkeletonProps) {
+export function CardSkeleton({
+  showAvatar = false,
+  lines = 3,
+}: CardSkeletonProps) {
   return (
     <div className="space-y-3 p-4 border rounded-lg">
       {showAvatar && (
@@ -53,7 +59,10 @@ export function CardSkeleton({ showAvatar = false, lines = 3 }: CardSkeletonProp
 
       <div className="space-y-2">
         {Array.from({ length: lines }).map((_, i) => (
-          <Skeleton key={i} className={`h-4 ${i === lines - 1 ? 'w-2/3' : 'w-full'}`} />
+          <Skeleton
+            key={i}
+            className={`h-4 ${i === lines - 1 ? "w-2/3" : "w-full"}`}
+          />
         ))}
       </div>
     </div>
@@ -89,7 +98,10 @@ interface ListSkeletonProps {
   showAvatar?: boolean;
 }
 
-export function ListSkeleton({ items = 5, showAvatar = false }: ListSkeletonProps) {
+export function ListSkeleton({
+  items = 5,
+  showAvatar = false,
+}: ListSkeletonProps) {
   return (
     <div className="space-y-4">
       {Array.from({ length: items }).map((_, i) => (
@@ -131,7 +143,7 @@ export function LoadingContainer({
   children,
   isLoading,
   skeleton,
-  className = ""
+  className = "",
 }: LoadingContainerProps) {
   if (isLoading) {
     return <div className={className}>{skeleton}</div>;

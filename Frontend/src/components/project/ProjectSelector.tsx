@@ -1,14 +1,20 @@
-"use client"
+"use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import type { ProjectOption } from '../../types/project'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import type { ProjectOption } from "../../types/project";
 
 export default function ProjectSelector({
   projects,
   onSelect,
 }: {
-  projects: ProjectOption[]
-  onSelect: (projectId: string) => void
+  projects: ProjectOption[];
+  onSelect: (projectId: string) => void;
 }) {
   return (
     <Select onValueChange={onSelect}>
@@ -23,5 +29,5 @@ export default function ProjectSelector({
         ))}
       </SelectContent>
     </Select>
-  )
+  );
 }

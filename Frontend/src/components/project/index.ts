@@ -1,2 +1,2 @@
-export { default as ProjectSelector } from './ProjectSelector';
-export { SyncProgressPanel } from './SyncProgressPanel';
+export { default as ProjectSelector } from "./ProjectSelector";
+export { SyncProgressPanel } from "./SyncProgressPanel";

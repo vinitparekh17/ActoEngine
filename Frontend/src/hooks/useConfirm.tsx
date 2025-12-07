@@ -1,14 +1,14 @@
 // ============================================
 // hooks/useConfirm.tsx
 // ============================================
-import { create } from 'zustand';
+import { create } from "zustand";
 
 interface ConfirmOptions {
   title: string;
   description: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'default' | 'destructive';
+  variant?: "default" | "destructive";
 }
 
 interface ConfirmState {

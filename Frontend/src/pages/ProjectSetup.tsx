@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Database,
   CheckCircle,
@@ -8,43 +8,43 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
-} from "lucide-react"
-import { useApiPost } from "../hooks/useApi"
-import { Input } from "../components/ui/input"
-import { Button } from "../components/ui/button"
-import { Label } from "../components/ui/label"
-import { Textarea } from "../components/ui/textarea"
-import { useForm } from "react-hook-form"
+} from "lucide-react";
+import { useApiPost } from "../hooks/useApi";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import { useForm } from "react-hook-form";
 import type {
   VerifyConnectionRequest,
   ConnectionResponse,
   CreateProjectRequest,
   LinkProjectRequest,
   ProjectResponse,
-} from "../types/project"
-import { ScrollArea } from "../components/ui/scroll-area"
+} from "../types/project";
+import { ScrollArea } from "../components/ui/scroll-area";
 
 interface FormData {
-  server: string
-  databaseName: string
-  username: string
-  password: string
-  port: number
-  databaseType: string
-  projectName: string
-  description: string
+  server: string;
+  databaseName: string;
+  username: string;
+  password: string;
+  port: number;
+  databaseType: string;
+  projectName: string;
+  description: string;
 }
 
-type Step = "connection" | "details"
+type Step = "connection" | "details";
 
 export default function ProjectSetup() {
-  const navigate = useNavigate()
-  const [step, setStep] = useState<Step>("connection")
+  const navigate = useNavigate();
+  const [step, setStep] = useState<Step>("connection");
   const [verificationResult, setVerificationResult] = useState<{
-    success: boolean
-    message: string
-  } | null>(null)
-  const [createdProjectId, setCreatedProjectId] = useState<number | null>(null)
+    success: boolean;
+    message: string;
+  } | null>(null);
+  const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
 
   const {
     register,
@@ -63,11 +63,11 @@ export default function ProjectSetup() {
       projectName: "",
       description: "",
     },
-  })
+  });
 
   const buildConnectionString = (data: FormData) => {
-    return `Server=${data.server},${data.port};Database=${data.databaseName};User Id=${data.username};Password=${data.password};TrustServerCertificate=True;`
-  }
+    return `Server=${data.server},${data.port};Database=${data.databaseName};User Id=${data.username};Password=${data.password};TrustServerCertificate=True;`;
+  };
 
   const verifyMutation = useApiPost<
     ConnectionResponse,
@@ -80,22 +80,22 @@ export default function ProjectSetup() {
         setVerificationResult({
           success: true,
           message: "Connection successful!",
-        })
-        setStep("details")
+        });
+        setStep("details");
       } else {
         setVerificationResult({
           success: false,
           message: data.message || "Connection failed",
-        })
+        });
       }
     },
     onError: (error) => {
       setVerificationResult({
         success: false,
         message: error.message || "Connection failed",
-      })
+      });
     },
-  })
+  });
 
   const createMutation = useApiPost<ProjectResponse, CreateProjectRequest>(
     "/Project",
@@ -104,15 +104,15 @@ export default function ProjectSetup() {
       invalidateKeys: [["projects"]],
       onSuccess: (data) => {
         // Store the created project ID and trigger link mutation
-        setCreatedProjectId(data.projectId)
-        const connectionString = buildConnectionString(getValues())
+        setCreatedProjectId(data.projectId);
+        const connectionString = buildConnectionString(getValues());
         linkMutation.mutate({
           projectId: data.projectId,
           connectionString: connectionString,
-        })
+        });
       },
-    }
-  )
+    },
+  );
 
   const linkMutation = useApiPost<ProjectResponse, LinkProjectRequest>(
     "/Project/link",
@@ -120,10 +120,10 @@ export default function ProjectSetup() {
       successMessage: "Project created and linked successfully!",
       invalidateKeys: [["projects"]],
       onSuccess: (data) => {
-        navigate(`/project/${data.projectId}`)
+        navigate(`/project/${data.projectId}`);
       },
-    }
-  )
+    },
+  );
 
   const handleVerifyConnection = async () => {
     const isValid = await trigger([
@@ -132,11 +132,11 @@ export default function ProjectSetup() {
       "username",
       "password",
       "port",
-    ])
-    if (!isValid) return
+    ]);
+    if (!isValid) return;
 
-    setVerificationResult(null)
-    const values = getValues()
+    setVerificationResult(null);
+    const values = getValues();
     verifyMutation.mutate({
       server: values.server,
       databaseName: values.databaseName,
@@ -144,8 +144,8 @@ export default function ProjectSetup() {
       password: values.password,
       port: values.port,
       databaseType: values.databaseType,
-    })
-  }
+    });
+  };
 
   const handleCreateProject = (data: FormData) => {
     // Create project first (without connection string)
@@ -155,10 +155,10 @@ export default function ProjectSetup() {
       description: data.description,
       databaseName: data.databaseName,
       databaseType: data.databaseType,
-    })
-  }
+    });
+  };
 
-  const isCreating = createMutation.isPending || linkMutation.isPending
+  const isCreating = createMutation.isPending || linkMutation.isPending;
 
   return (
     <div className="h-[calc(100vh-110px)] bg-background flex items-center justify-center p-4 overflow-hidden">
@@ -191,9 +191,7 @@ export default function ProjectSetup() {
               </div>
               <p
                 className={`mt-1.5 text-xs font-medium transition-colors ${
-                  step === "connection"
-                    ? "text-primary"
-                    : "text-primary/60"
+                  step === "connection" ? "text-primary" : "text-primary/60"
                 }`}
               >
                 Connection
@@ -218,9 +216,7 @@ export default function ProjectSetup() {
               </div>
               <p
                 className={`mt-1.5 text-xs font-medium transition-colors ${
-                  step === "details"
-                    ? "text-primary"
-                    : "text-muted-foreground"
+                  step === "details" ? "text-primary" : "text-muted-foreground"
                 }`}
               >
                 Details
@@ -403,7 +399,9 @@ export default function ProjectSetup() {
                   <div className="flex items-start gap-2 text-sm text-muted-foreground">
                     <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground mt-1.5 flex-shrink-0" />
                     <p>
-                      Your project will be created and automatically linked to your database. Connection string is used temporarily and not stored.
+                      Your project will be created and automatically linked to
+                      your database. Connection string is used temporarily and
+                      not stored.
                     </p>
                   </div>
                 </div>
@@ -519,9 +517,10 @@ export default function ProjectSetup() {
 
         {/* Footer Note */}
         <p className="text-center text-sm text-muted-foreground mt-6 flex-shrink-0">
-          Connection details are used temporarily to link your database and are not stored
+          Connection details are used temporarily to link your database and are
+          not stored
         </p>
       </div>
     </div>
-  )
+  );
 }

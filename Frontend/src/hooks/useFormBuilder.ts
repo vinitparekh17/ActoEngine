@@ -1,22 +1,22 @@
 // hooks/useFormBuilder.ts
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { nanoid } from 'nanoid';
-import { toast } from 'sonner';
-import { useApiPost } from './useApi';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { nanoid } from "nanoid";
+import { toast } from "sonner";
+import { useApiPost } from "./useApi";
 
 export type InputType =
-  | 'text'
-  | 'number'
-  | 'email'
-  | 'date'
-  | 'select'
-  | 'textarea'
-  | 'checkbox'
-  | 'password'
-  | 'radio'
-  | 'file'
-  | 'hidden';
+  | "text"
+  | "number"
+  | "email"
+  | "date"
+  | "select"
+  | "textarea"
+  | "checkbox"
+  | "password"
+  | "radio"
+  | "file"
+  | "hidden";
 
 export interface SelectOption {
   label: string;
@@ -25,7 +25,7 @@ export interface SelectOption {
 
 export interface ForeignKeyInfo {
   referencedTable: string;
-  referencedColumn: string; 
+  referencedColumn: string;
   displayColumn?: string;
   onDeleteAction: string;
   onUpdateAction: string;
@@ -112,7 +112,6 @@ export interface GeneratedCode {
 }
 
 export interface TableColumn {
-  schemaName: string;
   columnName: string;
   dataType: string;
   maxLength: number | null;
@@ -125,21 +124,20 @@ export interface TableColumn {
 }
 
 export interface TableSchema {
-    tableName: string;
-    schemaName: string;
-    columns: Array<{
-      schemaName: string;
-      columnName: string;
-      dataType: string;
-      maxLength: number | null;
-      isNullable: boolean;
-      isPrimaryKey: boolean;
-      isIdentity: boolean;
-      isForeignKey: boolean;
-      defaultValue: string;
-      foreignKeyInfo?: ForeignKeyInfo;
-    }>;
-    primaryKeys: string[];
+  tableName: string;
+  schemaName: string;
+  columns: Array<{
+    columnName: string;
+    dataType: string;
+    maxLength: number | null;
+    isNullable: boolean;
+    isPrimaryKey: boolean;
+    isIdentity: boolean;
+    isForeignKey: boolean;
+    defaultValue: string;
+    foreignKeyInfo?: ForeignKeyInfo;
+  }>;
+  primaryKeys: string[];
 }
 
 interface FormBuilderStore {
@@ -174,97 +172,121 @@ const useFormBuilderStore = create<FormBuilderStore>()(
 
       setConfig: (config) => set({ config }),
       setTableSchema: (schema) => set({ tableSchema: schema }),
-      addGroup: (group) => set((state) => {
-        if (!state.config) return state;
-        const newGroup: FormGroup = {
-          id: group?.id || `group-${nanoid(6)}`,
-          title: group?.title || 'New Group',
-          description: group?.description,
-          fields: group?.fields || [],
-          layout: group?.layout || 'row',
-          order: group?.order ?? state.config.groups.length,
-          collapsible: group?.collapsible ?? false,
-          collapsed: group?.collapsed ?? false,
-        };
-        return { config: { ...state.config, groups: [...state.config.groups, newGroup] } };
-      }),
-      updateGroup: (groupId, updates) => set((state) => {
-        if (!state.config) return state;
-        const groups = state.config.groups.map(g => g.id === groupId ? { ...g, ...updates } : g);
-        return { config: { ...state.config, groups } };
-      }),
-      deleteGroup: (groupId) => set((state) => {
-        if (!state.config) return state;
-        const groups = state.config.groups.filter(g => g.id !== groupId);
-        return { config: { ...state.config, groups } };
-      }),
-      addField: (groupId, field) => set((state) => {
-        if (!state.config) return state;
-        const groups = state.config.groups.map(g => {
-          if (g.id === groupId) {
-            const newField: FormField = {
-              id: field.id || `field-${nanoid(6)}`,
-              columnName: field.columnName || '',
-              dataType: field.dataType || 'varchar',
-              label: field.label || 'New Field',
-              inputType: field.inputType || 'text',
-              placeholder: field.placeholder,
-              defaultValue: field.defaultValue,
-              helpText: field.helpText,
-              colSize: field.colSize ?? 6,
-              order: field.order ?? g.fields.length,
-              required: field.required ?? false,
-              minLength: field.minLength,
-              maxLength: field.maxLength,
-              min: field.min,
-              max: field.max,
-              pattern: field.pattern,
-              errorMessage: field.errorMessage,
-              includeInInsert: field.includeInInsert ?? true,
-              includeInUpdate: field.includeInUpdate ?? true,
-              isPrimaryKey: field.isPrimaryKey ?? false,
-              isIdentity: field.isIdentity ?? false,
-              isForeignKey: field.isForeignKey ?? false,
-              options: field.options,
-              disabled: field.disabled ?? false,
-              readonly: field.readonly ?? false,
-            };
-            return { ...g, fields: [...g.fields, newField] };
-          }
-          return g;
-        });
-        return { config: { ...state.config, groups } };
-      }),
-      updateField: (fieldId, updates) => set((state) => {
-        if (!state.config) return state;
-        const groups = state.config.groups.map(g => ({
-          ...g,
-          fields: g.fields.map(f => f.id === fieldId ? { ...f, ...updates } : f)
-        }));
-        return { config: { ...state.config, groups } };
-      }),
-      deleteField: (fieldId) => set((state) => {
-        if (!state.config) return state;
-        const groups = state.config.groups.map(g => ({
-          ...g,
-          fields: g.fields.filter(f => f.id !== fieldId)
-        }));
-        return { config: { ...state.config, groups } };
-      }),
+      addGroup: (group) =>
+        set((state) => {
+          if (!state.config) return state;
+          const newGroup: FormGroup = {
+            id: group?.id || `group-${nanoid(6)}`,
+            title: group?.title || "New Group",
+            description: group?.description,
+            fields: group?.fields || [],
+            layout: group?.layout || "row",
+            order: group?.order ?? state.config.groups.length,
+            collapsible: group?.collapsible ?? false,
+            collapsed: group?.collapsed ?? false,
+          };
+          return {
+            config: {
+              ...state.config,
+              groups: [...state.config.groups, newGroup],
+            },
+          };
+        }),
+      updateGroup: (groupId, updates) =>
+        set((state) => {
+          if (!state.config) return state;
+          const groups = state.config.groups.map((g) =>
+            g.id === groupId ? { ...g, ...updates } : g,
+          );
+          return { config: { ...state.config, groups } };
+        }),
+      deleteGroup: (groupId) =>
+        set((state) => {
+          if (!state.config) return state;
+          const groups = state.config.groups.filter((g) => g.id !== groupId);
+          return { config: { ...state.config, groups } };
+        }),
+      addField: (groupId, field) =>
+        set((state) => {
+          if (!state.config) return state;
+          const groups = state.config.groups.map((g) => {
+            if (g.id === groupId) {
+              const newField: FormField = {
+                id: field.id || `field-${nanoid(6)}`,
+                columnName: field.columnName || "",
+                dataType: field.dataType || "varchar",
+                label: field.label || "New Field",
+                inputType: field.inputType || "text",
+                placeholder: field.placeholder,
+                defaultValue: field.defaultValue,
+                helpText: field.helpText,
+                colSize: field.colSize ?? 6,
+                order: field.order ?? g.fields.length,
+                required: field.required ?? false,
+                minLength: field.minLength,
+                maxLength: field.maxLength,
+                min: field.min,
+                max: field.max,
+                pattern: field.pattern,
+                errorMessage: field.errorMessage,
+                includeInInsert: field.includeInInsert ?? true,
+                includeInUpdate: field.includeInUpdate ?? true,
+                isPrimaryKey: field.isPrimaryKey ?? false,
+                isIdentity: field.isIdentity ?? false,
+                isForeignKey: field.isForeignKey ?? false,
+                referencedTable: field.referencedTable,
+                foreignKeyInfo: field.foreignKeyInfo,
+                options: field.options,
+                disabled: field.disabled ?? false,
+                readonly: field.readonly ?? false,
+              };
+              return { ...g, fields: [...g.fields, newField] };
+            }
+            return g;
+          });
+          return { config: { ...state.config, groups } };
+        }),
+      updateField: (fieldId, updates) =>
+        set((state) => {
+          if (!state.config) return state;
+          const groups = state.config.groups.map((g) => ({
+            ...g,
+            fields: g.fields.map((f) =>
+              f.id === fieldId ? { ...f, ...updates } : f,
+            ),
+          }));
+          return { config: { ...state.config, groups } };
+        }),
+      deleteField: (fieldId) =>
+        set((state) => {
+          if (!state.config) return state;
+          const groups = state.config.groups.map((g) => ({
+            ...g,
+            fields: g.fields.filter((f) => f.id !== fieldId),
+          }));
+          return { config: { ...state.config, groups } };
+        }),
       selectField: (fieldId) => set({ selectedFieldId: fieldId }),
       selectGroup: (groupId) => set({ selectedGroupId: groupId }),
       setGeneratedCode: (code) => set({ generatedCode: code }),
-      reset: () => set({ config: null, selectedFieldId: null, selectedGroupId: null, generatedCode: null, tableSchema: null }),
+      reset: () =>
+        set({
+          config: null,
+          selectedFieldId: null,
+          selectedGroupId: null,
+          generatedCode: null,
+          tableSchema: null,
+        }),
     }),
     {
-      name: 'actox-form-builder',
+      name: "actox-form-builder",
       version: 1,
       partialize: (state) => ({
         selectedFieldId: state.selectedFieldId,
         selectedGroupId: state.selectedGroupId,
       }),
-    }
-  )
+    },
+  ),
 );
 
 export function useFormBuilder() {
@@ -274,9 +296,9 @@ export function useFormBuilder() {
   const saveConfigMutation = useApiPost<
     { success: boolean; formId: number; config: FormConfig },
     { projectId: number; config: FormConfig; description?: string }
-  >('/formbuilder/save', {
+  >("/formbuilder/save", {
     onSuccess: () => {
-      toast.success('Form configuration saved!');
+      toast.success("Form configuration saved!");
     },
   });
 
@@ -288,28 +310,26 @@ export function useFormBuilder() {
       generateStoredProcedures?: boolean;
       preview?: boolean;
     }
-  >('/formbuilder/generate', {
+  >("/formbuilder/generate", {
     onSuccess: (data) => {
       const { success, message, warnings } = data || {};
       if (success) {
         store.setGeneratedCode(data);
 
         if (warnings?.length) {
-          toast.warning(
-            `Code generated with warnings: ${warnings.join(', ')}`
-          );
+          toast.warning(`Code generated with warnings: ${warnings.join(", ")}`);
         } else {
-          toast.success(message || 'Code generated successfully!');
+          toast.success(message || "Code generated successfully!");
         }
       } else {
         toast.error(
-          message || 'Failed to generate code. Please review inputs.'
+          message || "Failed to generate code. Please review inputs.",
         );
       }
     },
     onError: (error) => {
       console.error(error);
-      toast.error('Server error while generating code.');
+      toast.error("Server error while generating code.");
     },
   });
 
@@ -317,7 +337,7 @@ export function useFormBuilder() {
   const initializeFromTable = (
     tableId: string | number,
     projectId: number,
-    schema: TableSchema
+    schema: TableSchema,
   ) => {
     const tableName = schema.tableName;
     const config: FormConfig = {
@@ -336,9 +356,9 @@ export function useFormBuilder() {
     const groupId = `group-${nanoid(6)}`;
     const newGroup: FormGroup = {
       id: groupId,
-      title: 'Main Fields',
+      title: "Main Fields",
       fields: [],
-      layout: 'row',
+      layout: "row",
       order: 0,
       collapsible: false,
       collapsed: false,
@@ -381,53 +401,53 @@ export function useFormBuilder() {
 
   // Initialize without table
   const initializeCustomForm = (formName: string, projectId: number) => {
-  const config: FormConfig = {
-    id: `form-${nanoid(6)}`,
-    projectId,
-    tableName: null,
-    formName,
-    title: formName,
-    groups: [],
+    const config: FormConfig = {
+      id: `form-${nanoid(6)}`,
+      projectId,
+      tableName: null,
+      formName,
+      title: formName,
+      groups: [],
+    };
+
+    const groupId = `group-${nanoid(6)}`;
+    const newGroup: FormGroup = {
+      id: groupId,
+      title: "Main Fields",
+      fields: [
+        {
+          id: `field-${nanoid(6)}`,
+          columnName: "field_1",
+          dataType: "varchar",
+          label: "New Field",
+          inputType: "text",
+          colSize: 6,
+          order: 0,
+          required: false,
+          includeInInsert: true,
+          includeInUpdate: true,
+          isPrimaryKey: false,
+          isIdentity: false,
+          isForeignKey: false,
+          disabled: false,
+          readonly: false,
+        },
+      ],
+      layout: "row",
+      order: 0,
+      collapsible: false,
+      collapsed: false,
+    };
+
+    store.setConfig({
+      ...config,
+      groups: [newGroup],
+    });
+    store.setTableSchema(null);
+    store.selectGroup(groupId);
+
+    return config;
   };
-
-  const groupId = `group-${nanoid(6)}`;
-  const newGroup: FormGroup = {
-    id: groupId,
-    title: 'Main Fields',
-    fields: [
-      {
-        id: `field-${nanoid(6)}`,
-        columnName: 'field_1',
-        dataType: 'varchar',
-        label: 'New Field',
-        inputType: 'text',
-        colSize: 6,
-        order: 0,
-        required: false,
-        includeInInsert: true,
-        includeInUpdate: true,
-        isPrimaryKey: false,
-        isIdentity: false,
-        isForeignKey: false,
-        disabled: false,
-        readonly: false,
-      },
-    ],
-    layout: 'row',
-    order: 0,
-    collapsible: false,
-    collapsed: false,
-  };
-
-  store.setConfig({
-    ...config,
-    groups: [newGroup],
-  });
-  store.setTableSchema(null);
-  store.selectGroup(groupId);
-
-  return config;
-};
 
   // Get selected field
   const selectedField =
@@ -503,42 +523,42 @@ function mapColumnToInputType(col: TableColumn): InputType {
   const type = col.dataType.toUpperCase();
 
   // Foreign keys become dropdowns
-  if (col.isForeignKey) return 'select';
+  if (col.isForeignKey) return "select";
 
   // Type-based mapping
   if (
-    type.includes('INT') ||
-    type.includes('DECIMAL') ||
-    type.includes('NUMERIC')
+    type.includes("INT") ||
+    type.includes("DECIMAL") ||
+    type.includes("NUMERIC")
   )
-    return 'number';
-  if (type.includes('DATE') || type.includes('DATETIME')) return 'date';
-  if (type.includes('BIT')) return 'checkbox';
+    return "number";
+  if (type.includes("DATE") || type.includes("DATETIME")) return "date";
+  if (type.includes("BIT")) return "checkbox";
   if (
-    type.includes('TEXT') ||
-    type.includes('NVARCHAR(MAX)') ||
+    type.includes("TEXT") ||
+    type.includes("NVARCHAR(MAX)") ||
     (col.maxLength && col.maxLength > 200)
   )
-    return 'textarea';
+    return "textarea";
 
-  return 'text';
+  return "text";
 }
 
 // Suggest column size based on data type
 function suggestColSize(col: TableColumn): number {
-  if (col.dataType === 'bit') return 12; // Checkbox full width
+  if (col.dataType === "bit") return 12; // Checkbox full width
   if (col.isForeignKey) return 6; // Dropdowns half width
-  if (col.dataType.includes('date')) return 6;
+  if (col.dataType.includes("date")) return 6;
   if (col.maxLength && col.maxLength > 100) return 12;
   return 6; // Default half width
 }
 
 function formatLabel(columnName: string): string {
   return columnName
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/[_-]/g, ' ')
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]/g, " ")
     .trim()
-    .split(' ')
+    .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+    .join(" ");
 }

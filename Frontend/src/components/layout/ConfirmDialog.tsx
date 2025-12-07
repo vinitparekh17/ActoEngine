@@ -1,5 +1,4 @@
-
-import { useConfirmDialog } from '../../hooks/useConfirm';
+import { useConfirmDialog } from "../../hooks/useConfirm";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,7 +8,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
+} from "../ui/alert-dialog";
 
 export function ConfirmDialog() {
   const { isOpen, options, handleConfirm, handleCancel } = useConfirmDialog();
@@ -25,17 +24,17 @@ export function ConfirmDialog() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={handleCancel}>
-            {options.cancelText || 'Cancel'}
+            {options.cancelText || "Cancel"}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             className={
-              options.variant === 'destructive'
-                ? 'bg-red-600 hover:bg-red-700'
-                : ''
+              options.variant === "destructive"
+                ? "bg-red-600 hover:bg-red-700"
+                : ""
             }
           >
-            {options.confirmText || 'Continue'}
+            {options.confirmText || "Continue"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

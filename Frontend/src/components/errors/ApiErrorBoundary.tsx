@@ -1,7 +1,7 @@
-import { Component, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { Component, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 // ============================================
 // Error Types
@@ -24,7 +24,10 @@ interface ErrorBoundaryState {
 // ============================================
 // API Error Boundary Component
 // ============================================
-export class ApiErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ApiErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
@@ -45,21 +48,21 @@ export class ApiErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundar
 
     // Log to console in development
     if (import.meta.env.DEV) {
-      console.error('API Error Boundary caught:', error, errorInfo);
+      console.error("API Error Boundary caught:", error, errorInfo);
     }
 
     // Handle 401 - Redirect to login
     if (apiError.status === 401) {
       // Error boundary can't use hooks, so we manually navigate
-      window.location.href = '/login';
+      window.location.href = "/login";
       return;
     }
 
     // Show toast for other errors
     if (apiError.status === 403) {
-      toast.error('Access denied. You do not have permission.');
+      toast.error("Access denied. You do not have permission.");
     } else if (apiError.status && apiError.status >= 500) {
-      toast.error('Server error. Please try again later.');
+      toast.error("Server error. Please try again later.");
     }
 
     // Optional: Send to error tracking service (Sentry, etc.)
@@ -78,7 +81,9 @@ export class ApiErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundar
       }
 
       // Default error UI
-      return <DefaultErrorFallback error={this.state.error} reset={this.reset} />;
+      return (
+        <DefaultErrorFallback error={this.state.error} reset={this.reset} />
+      );
     }
 
     return this.props.children;
@@ -88,7 +93,13 @@ export class ApiErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundar
 // ============================================
 // Default Error Fallback UI
 // ============================================
-function DefaultErrorFallback({ error, reset }: { error: ApiError; reset: () => void }) {
+function DefaultErrorFallback({
+  error,
+  reset,
+}: {
+  error: ApiError;
+  reset: () => void;
+}) {
   return (
     <div className="flex min-h-[400px] items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4 rounded-2xl border border-red-200 bg-red-50 p-6">
@@ -101,15 +112,17 @@ function DefaultErrorFallback({ error, reset }: { error: ApiError; reset: () => 
 
         {/* Error Message */}
         <div className="text-center">
-          <h2 className="text-lg font-semibold text-red-900">Something went wrong</h2>
+          <h2 className="text-lg font-semibold text-red-900">
+            Something went wrong
+          </h2>
           <p className="mt-2 text-sm text-red-600">{error.message}</p>
-          
+
           {/* Validation Errors */}
           {error.errors && (
             <div className="mt-4 space-y-1 text-left">
               {Object.entries(error.errors).map(([field, messages]) => (
                 <div key={field} className="text-xs text-red-600">
-                  <strong>{field}:</strong> {messages.join(', ')}
+                  <strong>{field}:</strong> {messages.join(", ")}
                 </div>
               ))}
             </div>
@@ -127,7 +140,7 @@ function DefaultErrorFallback({ error, reset }: { error: ApiError; reset: () => 
           </button>
 
           <button
-            onClick={() => window.location.href = '/dashboard'}
+            onClick={() => (window.location.href = "/dashboard")}
             className="flex-1 rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
           >
             Go to Dashboard
@@ -141,7 +154,7 @@ function DefaultErrorFallback({ error, reset }: { error: ApiError; reset: () => 
 // ============================================
 // Hook-based Error Boundary (for functional components)
 // ============================================
-import { useQueryErrorResetBoundary } from '@tanstack/react-query';
+import { useQueryErrorResetBoundary } from "@tanstack/react-query";
 
 export function QueryErrorBoundary({ children }: { children: ReactNode }) {
   const { reset } = useQueryErrorResetBoundary();
@@ -151,7 +164,7 @@ export function QueryErrorBoundary({ children }: { children: ReactNode }) {
     <ApiErrorBoundary
       fallback={(error, resetError) => {
         if (error.status === 401) {
-          navigate('/login', { replace: true });
+          navigate("/login", { replace: true });
           return null;
         }
 

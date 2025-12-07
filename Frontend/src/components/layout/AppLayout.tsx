@@ -1,10 +1,9 @@
-import AppHeader from "./AppHeader"
-import AppSidebar from "./AppSidebar"
-import { Outlet } from "react-router-dom"
+import AppHeader from "./AppHeader";
+import AppSidebar from "./AppSidebar";
+import { Outlet } from "react-router-dom";
 
 // components/layout/AppLayout.tsx
 export default function AppLayout() {
-
   return (
     <div className="min-h-screen flex flex-col">
       {/* Global Header */}
@@ -20,5 +19,5 @@ export default function AppLayout() {
         </main>
       </div>
     </div>
-  )
+  );
 }

@@ -213,8 +213,8 @@ Task<bool> IsLinkedAsync(int projectId, int clientId);
         }
 
         /// <summary>
-        — Links a single client to multiple projects specified in the request.
-        </summary>
+        /// Links a single client to multiple projects specified in the request.
+        /// </summary>
         /// <param name="request">Request containing the target ClientId and the list of ProjectIds to link the client to.</param>
         /// <param name="userId">ID of the user performing the linking operation.</param>
         /// <returns>An enumerable of ProjectClientDetailResponse objects for each project the client was successfully linked to.</returns>

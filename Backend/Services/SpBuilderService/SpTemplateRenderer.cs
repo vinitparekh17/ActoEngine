@@ -111,7 +111,7 @@ public class SpTemplateRenderer
             var col = cols[i];
             sb.Append($"    @{col.ColumnName} {GetSqlType(col)}");
             if (col.IsNullable) sb.Append(" = NULL");
-            sb.Append(",");
+            sb.Append(',');
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd(',', '\n', '\r');
@@ -123,7 +123,7 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             sb.Append($"            [{cols[i].ColumnName}]");
-            if (i < cols.Count - 1) sb.Append(",");
+            if (i < cols.Count - 1) sb.Append(',');
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -135,7 +135,7 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             sb.Append($"            @{cols[i].ColumnName}");
-            if (i < cols.Count - 1) sb.Append(",");
+            if (i < cols.Count - 1) sb.Append(',');
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -148,7 +148,7 @@ public class SpTemplateRenderer
         {
             var col = cols[i];
             sb.Append($"            [{col.ColumnName}] = @{col.ColumnName}");
-            if (i < cols.Count - 1) sb.Append(",");
+            if (i < cols.Count - 1) sb.Append(',');
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -173,7 +173,7 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             sb.Append($"        [{cols[i].ColumnName}]");
-            if (i < cols.Count - 1) sb.Append(",");
+            if (i < cols.Count - 1) sb.Append(',');
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -185,7 +185,7 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             sb.Append($"        [{cols[i]}]");
-            if (i < cols.Count - 1) sb.Append(",");
+            if (i < cols.Count - 1) sb.Append(',');
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -265,7 +265,7 @@ public class SpTemplateRenderer
                     break;
             }
 
-            if (filter.IsOptional) sb.Append(")");
+            if (filter.IsOptional) sb.Append(')');
             sb.AppendLine();
         }
         

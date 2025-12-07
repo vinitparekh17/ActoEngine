@@ -22,17 +22,29 @@ public class AuthService(
     ITokenRepository tokenRepository,
     IPasswordHasher passwordHasher,
     ITokenHasher tokenHasher,
+    IRoleRepository roleRepository,
     ILogger<AuthService> logger) : IAuthService
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly ITokenRepository _tokenRepository = tokenRepository;
     private readonly IPasswordHasher _passwordHasher = passwordHasher;
     private readonly ITokenHasher _tokenHasher = tokenHasher;
+    private readonly IRoleRepository _roleRepository = roleRepository;
     private readonly ILogger<AuthService> _logger = logger;
 
     public async Task<User?> GetUserAsync(int userId)
     {
-        return await _userRepository.GetByIdAsync(userId);
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user != null)
+        {
+            var role = await _roleRepository.GetByNameAsync(user.Role);
+            if (role != null)
+            {
+                var permissions = await _roleRepository.GetRolePermissionsAsync(role.RoleId);
+                user.Permissions = permissions.Select(p => p.PermissionKey).ToList();
+            }
+        }
+        return user;
     }
 
     public async Task<AuthResult> LoginAsync(string username, string password)
@@ -44,6 +56,14 @@ public class AuthService(
             {
                 _logger.LogWarning("Login failed for username: {Username}", username);
                 return new AuthResult { Success = false, ErrorMessage = "Invalid credentials" };
+            }
+
+            // Fetch permissions
+            var role = await _roleRepository.GetByNameAsync(user.Role);
+            if (role != null)
+            {
+                var permissions = await _roleRepository.GetRolePermissionsAsync(role.RoleId);
+                user.Permissions = permissions.Select(p => p.PermissionKey).ToList();
             }
 
             // Delete existing tokens for this user (single session)
@@ -101,6 +121,8 @@ public class AuthService(
                 _tokenHasher.HashToken(newAccessToken),
                 newAccessExpiry);
 
+            // Fetch user to populate permissions (optional but good for consistency if we return user in future)
+            // For now, we just log success
             _logger.LogInformation("Access token refreshed successfully for user {UserId}", tokenRecord.UserID);
 
             return new AuthResult

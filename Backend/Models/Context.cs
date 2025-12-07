@@ -54,9 +54,9 @@ public class EntityExpert
     public string? Notes { get; set; }
     public DateTime AddedAt { get; set; } = DateTime.UtcNow;
     public int? AddedBy { get; set; }
-    
+
     // Navigation
-    public User? User { get; set; }
+    public UserBasicInfo? User { get; set; }
 }
 
 /// <summary>
@@ -151,8 +151,8 @@ public class ContextSuggestions
 public class UserSuggestion
 {
     public int UserId { get; set; }
-    public required string Name { get; set; }
-    public required string Email { get; set; }
+    public required string Username { get; set; }
+    public string? FullName { get; set; }
     public string? Reason { get; set; }
 }
 
@@ -267,4 +267,58 @@ public class ContextGap
     public int Priority { get; set; } // 1-5 (based on references, criticality)
     public string? Reason { get; set; }
     public int? DependencyCount { get; set; }
+}
+
+/// <summary>
+/// User expertise item showing entities where a user has expertise
+/// </summary>
+public class UserExpertiseItem
+{
+    public required string EntityType { get; set; }
+    public int EntityId { get; set; }
+    public required string ExpertiseLevel { get; set; }
+    public required string EntityName { get; set; }
+    public string? Purpose { get; set; }
+    public string? BusinessDomain { get; set; }
+}
+
+/// <summary>
+/// Entity with stale context that needs review
+/// </summary>
+public class StaleContextEntity
+{
+    public required string EntityType { get; set; }
+    public int EntityId { get; set; }
+    public required string EntityName { get; set; }
+    public DateTime? LastContextUpdate { get; set; }
+    public DateTime? LastReviewedAt { get; set; }
+    public int DaysSinceUpdate { get; set; }
+}
+
+/// <summary>
+/// Top documented entity with completeness metrics
+/// </summary>
+public class TopDocumentedEntity
+{
+    public required string EntityType { get; set; }
+    public int EntityId { get; set; }
+    public required string EntityName { get; set; }
+    public string? Purpose { get; set; }
+    public string? BusinessDomain { get; set; }
+    public string? DataOwner { get; set; }
+    public int CriticalityLevel { get; set; }
+    public int CompletenessScore { get; set; }
+    public int ExpertCount { get; set; }
+}
+
+/// <summary>
+/// Critical undocumented entity that needs attention
+/// </summary>
+public class CriticalUndocumentedEntity
+{
+    public required string EntityType { get; set; }
+    public int EntityId { get; set; }
+    public required string EntityName { get; set; }
+    public required string Reason { get; set; }
+    public int ReferenceCount { get; set; }
 }

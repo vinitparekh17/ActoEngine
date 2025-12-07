@@ -164,7 +164,7 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
 
     public override void Visit(NamedTableReference node)
     {
-        string tableName = GetFullTableName(node);
+        string? tableName = GetFullTableName(node);
 
         // Default to the current stack context
         string modificationType = _contextStack.Count > 0 ? _contextStack.Peek() : "SELECT";
@@ -176,7 +176,10 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
             modificationType = "SELECT";
         }
 
-        TableReferences.Add((tableName, modificationType));
+        if (tableName != null)
+        {
+            TableReferences.Add((tableName, modificationType));
+        }
         base.Visit(node);
     }
 
@@ -205,8 +208,11 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
                 prn.ProcedureReference is ProcedureReference pr &&
                 pr.Name != null)
             {
-                string procName = GetFullObjectName(pr.Name);
-                ProcedureReferences.Add(procName);
+                string? procName = GetFullObjectName(pr.Name);
+                if (procName != null)
+                {
+                    ProcedureReferences.Add(procName);
+                }
             }
         }
         base.Visit(node);
@@ -235,7 +241,7 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         base.Visit(node);
     }
 
-    private static string GetFullTableName(NamedTableReference node)
+    private static string? GetFullTableName(NamedTableReference node)
     {
         return GetFullObjectName(node.SchemaObject);
     }
@@ -248,15 +254,18 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         
         if (schemaObject.DatabaseIdentifier != null)
         {
-            sb.Append(schemaObject.DatabaseIdentifier.Value).Append(".");
+            sb.Append(schemaObject.DatabaseIdentifier.Value).Append('.');
         }
 
         if (schemaObject.SchemaIdentifier != null)
         {
-            sb.Append(schemaObject.SchemaIdentifier.Value).Append(".");
+            sb.Append(schemaObject.SchemaIdentifier.Value).Append('.');
         }
 
-        sb.Append(schemaObject.BaseIdentifier.Value);
+        if (schemaObject.BaseIdentifier != null)
+        {
+            sb.Append(schemaObject.BaseIdentifier.Value);
+        }
         
         return sb.ToString();
     }

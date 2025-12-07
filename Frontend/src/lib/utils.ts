@@ -1,9 +1,9 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-import { formatDistanceToNow, format } from "date-fns"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { formatDistanceToNow, format } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 /**
@@ -16,11 +16,11 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function formatRelativeTime(
   dateValue: string | Date | null | undefined,
-  fallback: string = "recently"
+  fallback: string = "recently",
 ): string {
   if (!dateValue) return fallback;
 
-  const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+  const date = typeof dateValue === "string" ? new Date(dateValue) : dateValue;
 
   // Check if date is valid
   if (isNaN(date.getTime())) {
@@ -42,11 +42,11 @@ export function formatRelativeTime(
 export function formatDate(
   dateValue: string | Date | null | undefined,
   formatString: string = "PPP",
-  fallback: string = "N/A"
+  fallback: string = "N/A",
 ): string {
   if (!dateValue) return fallback;
 
-  const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+  const date = typeof dateValue === "string" ? new Date(dateValue) : dateValue;
 
   // Check if date is valid
   if (isNaN(date.getTime())) {
