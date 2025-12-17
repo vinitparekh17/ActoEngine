@@ -36,8 +36,8 @@ import {
   FileCode,
   Table as TableIcon,
   AlertCircle,
-  Loader2,
 } from "lucide-react";
+import { GridSkeleton, PageHeaderSkeleton } from "@/components/ui/skeletons";
 
 // Types
 interface CoverageItem {
@@ -130,10 +130,16 @@ export const ContextDashboard: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading dashboard...</p>
+      <div className="space-y-6 p-6">
+        <PageHeaderSkeleton />
+        <GridSkeleton count={4} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" />
+        <div className="space-y-4">
+          <div className="grid w-full grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-10 bg-muted/20 animate-pulse rounded" />
+            ))}
+          </div>
+          <div className="h-[400px] w-full bg-muted/10 animate-pulse rounded-lg border border-neutral-200 dark:border-neutral-800" />
         </div>
       </div>
     );
@@ -243,11 +249,10 @@ export const ContextDashboard: React.FC = () => {
               </div>
               {dashboard?.trends?.coverageChange && (
                 <div
-                  className={`flex items-center text-xs ${
-                    dashboard.trends.coverageChange > 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
+                  className={`flex items-center text-xs ${dashboard.trends.coverageChange > 0
+                    ? "text-green-600"
+                    : "text-red-600"
+                    }`}
                 >
                   <TrendingUp className="h-3 w-3 mr-1" />
                   {dashboard.trends.coverageChange > 0 ? "+" : ""}

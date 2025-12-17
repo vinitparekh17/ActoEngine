@@ -1,7 +1,7 @@
 import { Tree, type NodeApi } from "react-arborist";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
-import { Skeleton } from "../ui/skeleton";
+import { Skeleton } from "../ui/skeletons";
 import {
   Folder,
   Table,
@@ -19,17 +19,17 @@ export type TreeNode = {
   name: string;
   children?: TreeNode[];
   type?:
-    | "database"
-    | "tables-folder"
-    | "programmability-folder"
-    | "table"
-    | "column"
-    | "index"
-    | "stored-procedures-folder"
-    | "functions-folder"
-    | "stored-procedure"
-    | "scalar-function"
-    | "table-function";
+  | "database"
+  | "tables-folder"
+  | "programmability-folder"
+  | "table"
+  | "column"
+  | "index"
+  | "stored-procedures-folder"
+  | "functions-folder"
+  | "stored-procedure"
+  | "scalar-function"
+  | "table-function";
 };
 
 function highlight(text: string, query: string) {

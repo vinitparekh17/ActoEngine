@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useApi } from "@/hooks/useApi";
+import { TableSkeleton, CardSkeleton } from "@/components/ui/skeletons";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,14 +63,10 @@ export const ImpactAnalysis: React.FC<ImpactAnalysisProps> = ({
 
   if (loading) {
     return (
-      <Card className="p-6 text-center">
-        <CardContent className="flex flex-col items-center">
-          <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Analyzing impact...
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <CardSkeleton />
+        <TableSkeleton rows={5} columns={6} />
+      </div>
     );
   }
 

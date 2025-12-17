@@ -155,3 +155,9 @@ CREATE TABLE ProjectClients (
 
 CREATE INDEX IX_ProjectClients_ProjectId ON ProjectClients(ProjectId);
 CREATE INDEX IX_ProjectClients_ClientId ON ProjectClients(ClientId);
+
+-- ============================================
+-- 5. CIRCULAR DEPENDENCY FIX
+-- ============================================
+ALTER TABLE Roles
+ADD CONSTRAINT FK_Roles_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserID);

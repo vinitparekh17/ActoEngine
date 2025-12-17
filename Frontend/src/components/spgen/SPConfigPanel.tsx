@@ -96,7 +96,7 @@ export default function SPConfigPanel({
         filters: [],
       } as any);
     }
-  }, [spType, form]);
+  }, [spType, form.reset]);
 
   const submit = form.handleSubmit((values) => {
     // Normalize orderBy if user typed comma-separated string into hidden field

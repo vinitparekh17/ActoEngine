@@ -125,7 +125,7 @@ namespace ActoEngine.WebApi.Controllers
         [HttpDelete("{id}")]
         [RequirePermission("Forms:Delete")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> DeleteFormConfig(int formId)
+        public async Task<IActionResult> DeleteFormConfig(int id)
         {
             try
             {
@@ -133,7 +133,7 @@ namespace ActoEngine.WebApi.Controllers
                 if (userId == null)
                     return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
-                var success = await _formBuilderService.DeleteFormConfigAsync(formId.ToString(), userId.Value);
+                var success = await _formBuilderService.DeleteFormConfigAsync(id.ToString(), userId.Value);
                 if (!success)
                     return NotFound(ApiResponse<string>.Failure("Form configuration not found or could not be deleted"));
                 return Ok(ApiResponse<string>.Success("Form configuration deleted successfully"));

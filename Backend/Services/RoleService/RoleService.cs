@@ -138,18 +138,11 @@ public class RoleService : IRoleService
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        // Clear existing permissions
-        await _roleRepository.ClearRolePermissionsAsync(roleId, cancellationToken);
-
-        // Add new permissions
-        foreach (var permissionId in permissionIds)
-        {
-            await _roleRepository.AddRolePermissionAsync(
-                roleId,
-                permissionId,
-                updatedBy,
-                cancellationToken);
-        }
+        await _roleRepository.UpdateRolePermissionsAtomicAsync(
+            roleId,
+            permissionIds,
+            updatedBy,
+            cancellationToken);
 
         _logger.LogInformation(
             "Updated permissions for role {RoleId}. Assigned {Count} permissions",

@@ -25,7 +25,7 @@ export function PermissionRoute({
     // Redirect to dashboard with a state indicating access denied
     return (
       <Navigate
-        to="/dashboard"
+        to="/access-denied"
         replace
         state={{ accessDenied: true, requiredPermission: permission }}
       />

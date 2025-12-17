@@ -24,11 +24,11 @@ import {
   ArrowLeft,
   Code2,
   AlertCircle,
-  Loader2,
-  FileCode,
   ArrowRight,
   Network,
+  FileCode,
 } from "lucide-react";
+import { GridSkeleton, PageHeaderSkeleton } from "@/components/ui/skeletons";
 import { ExpertManagement } from "@/components/context/ExpertManagement";
 import { ContextEditor } from "@/components/context/ContextEditorPanel";
 
@@ -154,13 +154,10 @@ export default function StoredProcedureDetail() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">
-            Loading stored procedure details...
-          </p>
-        </div>
+      <div className="space-y-6 p-6">
+        <PageHeaderSkeleton />
+        <GridSkeleton count={3} className="grid gap-4 md:grid-cols-3" />
+        <div className="h-[200px] w-full bg-muted/10 animate-pulse rounded-lg border border-neutral-200 dark:border-neutral-800" />
       </div>
     );
   }

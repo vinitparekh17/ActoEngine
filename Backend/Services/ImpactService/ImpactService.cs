@@ -39,7 +39,7 @@ public class ImpactService(
         // 2. Distinct list of affected entities (deduplicated)
         var uniqueAffected = rawGraph
             .GroupBy(g => new { g.SourceType, g.SourceId })
-            .Select(g => g.First())
+            .Select(g => g.OrderBy(n => n.Depth).First())
             .ToList();
 
         var affectedEntities = new List<AffectedEntity>();

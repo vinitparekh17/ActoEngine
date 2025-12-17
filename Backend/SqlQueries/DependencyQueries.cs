@@ -51,10 +51,11 @@ public static class DependencyQueries
                 CAST(CONCAT(r.Path, '->', d.SourceType, ':', d.SourceId) AS NVARCHAR(MAX))
             FROM Dependencies d
             INNER JOIN RecursiveDeps r 
-                ON d.TargetType = r.SourceType 
+                AND d.TargetType = r.SourceType 
                 AND d.TargetId = r.SourceId
             WHERE d.ProjectId = @ProjectId
               AND r.Depth < 10 -- Safety brake for circular dependencies
+              AND r.Path NOT LIKE CONCAT('%', d.SourceType, ':', d.SourceId, '%') -- Cycle detection
         )
         SELECT 
             rd.*,

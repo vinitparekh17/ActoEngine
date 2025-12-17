@@ -5,6 +5,7 @@ import { debounce } from "lodash";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { FormSkeleton } from "@/components/ui/skeletons";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -201,7 +202,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
     return (
       <Card>
         <CardContent className="pt-6">
-          <Progress value={undefined} className="w-full" />
+          <FormSkeleton fields={4} />
         </CardContent>
       </Card>
     );
@@ -428,11 +429,10 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                             ? "default"
                             : "outline"
                         }
-                        className={`cursor-pointer px-3 py-1 ${
-                          level === localContext?.criticalityLevel && level >= 4
-                            ? "bg-destructive hover:bg-destructive/90"
-                            : ""
-                        }`}
+                        className={`cursor-pointer px-3 py-1 ${level === localContext?.criticalityLevel && level >= 4
+                          ? "bg-destructive hover:bg-destructive/90"
+                          : ""
+                          }`}
                         onClick={() => handleCriticalityClick(level)}
                       >
                         {level}
@@ -480,7 +480,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                     <Badge
                       variant={
                         localContext?.sensitivity === "PII" ||
-                        localContext?.sensitivity === "FINANCIAL"
+                          localContext?.sensitivity === "FINANCIAL"
                           ? "destructive"
                           : "outline"
                       }

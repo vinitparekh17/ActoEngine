@@ -38,7 +38,6 @@ import {
   Table as TableIcon,
   Code2,
   AlertCircle,
-  Loader2,
   ArrowUpDown,
   ExternalLink,
   RefreshCw,
@@ -50,6 +49,7 @@ import {
   StoredProcedureMetadataDto,
   ColumnMetadataDto,
 } from "@/types/context";
+import { PageHeaderSkeleton, Skeleton, TableSkeleton } from "@/components/ui/skeletons";
 
 // Type aliases for cleaner code
 type TableMetadata = TableMetadataDto;
@@ -316,10 +316,25 @@ export default function ContextBrowse() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading database entities...</p>
+      <div className="space-y-6 p-6">
+        <div className="flex justify-between items-center">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1">
+            <Skeleton className="h-[300px] w-full rounded-lg" />
+          </div>
+          <div className="lg:col-span-3">
+            <TableSkeleton columns={6} rows={8} />
+          </div>
         </div>
       </div>
     );
@@ -623,13 +638,13 @@ export default function ContextBrowse() {
               </CardHeader>
               <CardContent>
                 {isLoadingTree ? (
-                  <div className="flex items-center justify-center h-64">
-                    <div className="flex flex-col items-center space-y-2">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        Loading database tree...
-                      </p>
-                    </div>
+                  <div className="flex flex-col space-y-2 p-4">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="flex gap-2">
+                        <Skeleton className="h-4 w-4" />
+                        <Skeleton className="h-4 flex-1" />
+                      </div>
+                    ))}
                   </div>
                 ) : treeError ? (
                   <Alert variant="destructive">

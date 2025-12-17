@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CardSkeleton } from "@/components/ui/skeletons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -325,13 +326,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
 
   // Loading state
   if (isLoadingContext) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-6">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </CardContent>
-      </Card>
-    );
+    return <CardSkeleton lines={5} showAvatar />;
   }
 
   // Error state
@@ -467,10 +462,10 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                               {experts.some(
                                 (e) => e.userId === user.userId,
                               ) && (
-                                <Badge variant="outline" className="text-xs">
-                                  Already assigned
-                                </Badge>
-                              )}
+                                  <Badge variant="outline" className="text-xs">
+                                    Already assigned
+                                  </Badge>
+                                )}
                             </div>
                           </SelectItem>
                         ))}

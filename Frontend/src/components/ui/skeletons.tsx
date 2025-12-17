@@ -1,4 +1,5 @@
 import { Skeleton } from "./skeleton";
+export { Skeleton };
 
 // ============================================
 // Table Skeleton
@@ -150,4 +151,27 @@ export function LoadingContainer({
   }
 
   return <>{children}</>;
+}
+
+// ============================================
+// Grid Skeleton
+// ============================================
+interface GridSkeletonProps {
+  count?: number;
+  skeleton?: React.ReactNode;
+  className?: string;
+}
+
+export function GridSkeleton({
+  count = 6,
+  skeleton = <CardSkeleton />,
+  className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6",
+}: GridSkeletonProps) {
+  return (
+    <div className={className}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i}>{skeleton}</div>
+      ))}
+    </div>
+  );
 }

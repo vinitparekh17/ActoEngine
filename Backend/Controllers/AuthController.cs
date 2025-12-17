@@ -77,6 +77,7 @@ namespace ActoEngine.WebApi.Controllers
             SetAccessTokenCookie(result.SessionToken!, result.ExpiresAt);
             
             // Refresh token cookie is kept as is (or could be rotated here if implemented)
+            SetRefreshTokenCookie(result.RefreshToken!, DateTime.UtcNow.AddDays(7));
 
             var responseData = new AuthTokenResponse
             {

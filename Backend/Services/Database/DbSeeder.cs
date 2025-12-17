@@ -57,7 +57,6 @@ public class DatabaseSeeder(
         try
         {
             await SeedAdminUserAsync(cancellationToken);
-            await SeedAdminUserAsync(cancellationToken);
             await SeedRolesAndPermissionsAsync(cancellationToken);
             await SeedDefaultDetailsAsync(cancellationToken);
             _logger.LogInformation("Database seeding completed successfully");
@@ -221,11 +220,13 @@ public class DatabaseSeeder(
             await connection.ExecuteAsync(SeedDataQueries.InsertRolePermissions, new { RoleName = "Admin", perm.PermissionKey });
         }
 
-        // User: Read + limited create/update
         var userPermissions = permissions.Where(p => 
+            // User: Read + Context Create/Update (excluding Delete/Review/Approve)
             p.PermissionKey.EndsWith(":Read") ||
-            p.PermissionKey.StartsWith("Contexts:") ||
-            p.PermissionKey == "Contexts:Create" || p.PermissionKey == "Contexts:Update"
+            (p.PermissionKey.StartsWith("Contexts:") && 
+             p.Action != "Delete" && 
+             p.Action != "Review" && 
+             p.Action != "Approve")
         ).Select(p => p.PermissionKey);
 
         foreach (var key in userPermissions)

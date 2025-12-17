@@ -67,7 +67,7 @@ public partial class ContextService(
                 ProjectId = projectId,
                 EntityType = entityType,
                 EntityId = entityId,
-                EntityName = await GetEntityNameAsync(projectId, entityType, entityId) ?? "Unknown"
+                EntityName = (await GetEntityNameAsync(projectId, entityType, entityId))?.Trim() ?? "Unknown"
             };
         }
 

@@ -27,6 +27,7 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "../ui/sidebar";
+import { Skeleton } from "../ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -122,7 +123,7 @@ export default function AppSidebar() {
                 {isLoadingProjects ? (
                   <DropdownMenuItem disabled>
                     <span className="text-muted-foreground">
-                      Loading projects...
+                      <Skeleton className="h-4 w-32" />
                     </span>
                   </DropdownMenuItem>
                 ) : projects?.length === 0 ? (

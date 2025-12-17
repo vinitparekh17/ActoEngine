@@ -32,6 +32,17 @@ public interface IDependencyRepository
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A Task containing a list of DependencyGraphNode representing downstream dependents</returns>
     Task<List<DependencyGraphNode>> GetDownstreamDependentsAsync(int projectId, string rootType, int rootId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Clears dependencies for a specific entity
+    /// </summary>
+    /// <param name="projectId">The project identifier</param>
+    /// <param name="entityType">The entity type (TABLE, SP, VIEW)</param>
+    /// <param name="entityId">The entity identifier</param>
+    /// <param name="conn">The database connection</param>
+    /// <param name="transaction">The database transaction</param>
+    /// <returns>A Task containing a boolean indicating success</returns>
+    Task ClearDependenciesAsync(int projectId, string entityType, int entityId, IDbConnection conn, IDbTransaction transaction);
 }
 
 /// <summary>
@@ -105,7 +116,7 @@ public class DependencyRepository(
 
         return (await conn.QueryAsync<DependencyGraphNode>(sql, new { ProjectId = projectId, RootType = rootType, RootId = rootId })).ToList();
     }
-        public async Task ClearDependenciesAsync(int projectId, string entityType, int entityId, IDbConnection conn, IDbTransaction transaction)
+    public async Task ClearDependenciesAsync(int projectId, string entityType, int entityId, IDbConnection conn, IDbTransaction transaction)
     {
         var sql = DependencyQueries.ClearDependencies;
         await conn.ExecuteAsync(sql, new { ProjectId = projectId, EntityType = entityType, EntityId = entityId }, transaction);

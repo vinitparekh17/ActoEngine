@@ -5,6 +5,7 @@ using ActoEngine.WebApi.Extensions;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.UserManagementService;
 using ActoEngine.WebApi.Services.Auth;
+using System.ComponentModel.DataAnnotations;
 
 namespace ActoEngine.WebApi.Controllers;
 
@@ -107,6 +108,14 @@ public class UserManagementController(IUserManagementService userManagementServi
     [RequirePermission("Users:Delete")]
     public async Task<IActionResult> DeleteUser(int userId)
     {
+        var currentUserId = HttpContext.GetUserId();
+        if (currentUserId == null)
+            return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+
+        if(currentUserId == userId) {
+            return BadRequest(ApiResponse<object>.Failure("Cannot delete the currently authenticated user."));
+        }
+
         try
         {
             await _userManagementService.DeleteUserAsync(userId);
@@ -165,5 +174,9 @@ public class ToggleStatusRequest
 // Simple request DTO for change password
 public class ChangePasswordRequestDto
 {
+    [Required(ErrorMessage = "New password is required")]
+    [MinLength(8, ErrorMessage = "Password must be at least 8 characters")]
+    [MaxLength(128, ErrorMessage = "Password cannot exceed 128 characters")]
+    [DataType(DataType.Password)]
     public string NewPassword { get; set; } = default!;
 }

@@ -26,14 +26,14 @@ public static class RoleQueries
         OUTPUT INSERTED.RoleId, INSERTED.RoleName, INSERTED.Description,
                INSERTED.IsSystem, INSERTED.IsActive, INSERTED.CreatedAt,
                INSERTED.CreatedBy, INSERTED.UpdatedAt, INSERTED.UpdatedBy
-        VALUES (@RoleName, @Description, 0, GETDATE(), @CreatedBy)";
+        VALUES (@RoleName, @Description, 0, GETUTCDATE(), @CreatedBy)";
 
     public const string Update = @"
         UPDATE Roles
         SET RoleName = @RoleName,
             Description = @Description,
             IsActive = @IsActive,
-            UpdatedAt = GETDATE(),
+            UpdatedAt = GETUTCDATE(),
             UpdatedBy = @UpdatedBy
         WHERE RoleId = @RoleId AND IsSystem = 0";
 
@@ -53,7 +53,7 @@ public static class RoleQueries
         IF NOT EXISTS (SELECT 1 FROM RolePermissions WHERE RoleId = @RoleId AND PermissionId = @PermissionId)
         BEGIN
             INSERT INTO RolePermissions (RoleId, PermissionId, GrantedAt, GrantedBy)
-            VALUES (@RoleId, @PermissionId, GETDATE(), @GrantedBy)
+            VALUES (@RoleId, @PermissionId, GETUTCDATE(), @GrantedBy)
         END";
 
     public const string RemoveRolePermission = @"

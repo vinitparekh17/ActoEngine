@@ -81,7 +81,8 @@ public class CustomTokenAuthenticationHandler(
                     claims.Add(new Claim("permission", permission));
                 }
 
-                var identity = new ClaimsIdentity(claims, "custom_token");
+                var authType = principal.Identity?.AuthenticationType ?? "custom_token";
+                var identity = new ClaimsIdentity(claims, authType);
                 principal = new ClaimsPrincipal(identity);
 
                 _logger.LogInformation("User authenticated: {UserId} with {PermissionCount} permissions", userId, permissions.Count());

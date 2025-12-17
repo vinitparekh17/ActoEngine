@@ -24,6 +24,7 @@ import {
   X,
   Database,
 } from "lucide-react";
+import { PageHeaderSkeleton, CardSkeleton } from "@/components/ui/skeletons";
 import { ExpertManagement } from "@/components/context/ExpertManagement";
 import { ContextEditor } from "@/components/context/ContextEditorPanel";
 
@@ -80,11 +81,14 @@ export default function ColumnDetail() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading column details...</p>
+      <div className="space-y-6 p-6">
+        <PageHeaderSkeleton />
+        <div className="flex gap-2 mb-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-6 w-24 bg-muted/20 animate-pulse rounded-full" />
+          ))}
         </div>
+        <CardSkeleton />
       </div>
     );
   }

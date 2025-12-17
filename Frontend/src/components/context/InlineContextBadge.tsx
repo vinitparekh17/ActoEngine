@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeletons";
 import {
   HoverCard,
   HoverCardContent,
@@ -47,10 +48,11 @@ interface ContextSummary {
     user?: {
       fullName?: string;
       username?: string;
-    };
+    } | null;
     expertiseLevel: string;
   }>;
   lastReviewed?: string;
+  lastReviewedAt?: string; // Fallback mapping
 }
 
 interface InlineContextBadgeProps {
@@ -94,9 +96,7 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
   // Loading state
   if (isLoading) {
     return (
-      <Badge variant="outline" className="animate-pulse">
-        <div className="h-3 w-12 bg-muted rounded" />
-      </Badge>
+      <Skeleton className="h-5 w-16 rounded-full" />
     );
   }
 
@@ -233,229 +233,241 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
         </div>
       );
     }
-    // Detailed variant - hover card with more info
+
+    // FIX: minimal variant without quick edit should just return the tooltip
     return (
       <TooltipProvider>
-        <HoverCard>
-          <HoverCardTrigger asChild>
-            <div className="flex items-center gap-1 cursor-pointer">
-              {/* Completeness Badge */}
-              <Badge
-                variant={
-                  completeness >= 80
-                    ? "default"
-                    : completeness >= 50
-                      ? "secondary"
-                      : "outline"
-                }
-                className="gap-1"
-              >
-                <FileText className="w-3 h-3" />
-                {completeness}%
-              </Badge>
-
-              {/* Criticality Badge */}
-              {context.criticalityLevel && context.criticalityLevel >= 4 && (
-                <Badge variant="destructive" className="gap-1">
-                  <Shield className="w-3 h-3" />
-                  Critical
-                </Badge>
-              )}
-
-              {/* Sensitivity Badge for columns */}
-              {entityType === "COLUMN" &&
-                context.sensitivity &&
-                ["PII", "FINANCIAL", "SENSITIVE"].includes(
-                  context.sensitivity,
-                ) && (
-                  <Badge variant="secondary" className="gap-1">
-                    <Shield className="w-3 h-3" />
-                    {context.sensitivity}
-                  </Badge>
-                )}
-
-              {/* Stale Warning */}
-              {isStale && (
-                <Badge
-                  variant="outline"
-                  className="gap-1 border-orange-500 text-orange-600"
-                >
-                  <AlertTriangle className="w-3 h-3" />
-                  Stale
-                </Badge>
-              )}
-
-              {/* Experts Count */}
-              {experts.length > 0 && (
-                <Badge variant="outline" className="gap-1">
-                  <Users className="w-3 h-3" />
-                  {experts.length}
-                </Badge>
-              )}
-            </div>
-          </HoverCardTrigger>
-
-          <HoverCardContent className="w-80" side="right">
-            <div className="space-y-3">
-              {/* Header */}
-              <div>
-                <h4 className="font-semibold text-sm">{entityName}</h4>
-                <p className="text-xs text-muted-foreground">
-                  {getEntityTypeLabel(entityType)} Documentation
-                </p>
-              </div>
-
-              {/* Purpose */}
-              {context.purpose && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                    Purpose:
-                  </p>
-                  <p className="text-sm">
-                    {context.purpose.length > 100
-                      ? `${context.purpose.substring(0, 100)}...`
-                      : context.purpose}
-                  </p>
-                </div>
-              )}
-
-              {/* Business Impact for tables/columns */}
-              {context.businessImpact &&
-                (entityType === "TABLE" || entityType === "COLUMN") && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
-                      Business Impact:
-                    </p>
-                    <p className="text-sm text-orange-700 dark:text-orange-300">
-                      {context.businessImpact.length > 100
-                        ? `${context.businessImpact.substring(0, 100)}...`
-                        : context.businessImpact}
-                    </p>
-                  </div>
-                )}
-
-              {/* Quick Info Grid */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {context.businessDomain && (
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground">Domain:</span>
-                    <Badge variant="outline" className="ml-1 text-xs">
-                      {context.businessDomain}
-                    </Badge>
-                  </div>
-                )}
-
-                {context.dataOwner && (
-                  <div>
-                    <span className="text-muted-foreground">Owner:</span>
-                    <span className="ml-1 font-medium">
-                      {context.dataOwner}
-                    </span>
-                  </div>
-                )}
-
-                <div>
-                  <span className="text-muted-foreground">Completeness:</span>
-                  <span className="ml-1 font-medium">{completeness}%</span>
-                </div>
-
-                <div>
-                  <span className="text-muted-foreground">Criticality:</span>
-                  <span className="ml-1 font-medium">
-                    {context.criticalityLevel || 3}/5
-                  </span>
-                </div>
-
-                {entityType === "COLUMN" && context.sensitivity && (
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Sensitivity:</span>
-                    <Badge
-                      variant={
-                        ["PII", "FINANCIAL"].includes(context.sensitivity)
-                          ? "destructive"
-                          : "secondary"
-                      }
-                      className="ml-1 text-xs"
-                    >
-                      {context.sensitivity}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-
-              {/* Experts */}
-              {experts.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                    Experts:
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {experts.slice(0, 3).map((expert) => (
-                      <Badge
-                        key={expert.userId}
-                        variant="secondary"
-                        className="text-xs"
-                      >
-                        {expert.user?.fullName ||
-                          expert.user?.username ||
-                          "Unknown"}
-                      </Badge>
-                    ))}
-                    {experts.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{experts.length - 3} more
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Last Review Info */}
-              {contextResponse.lastReviewed && (
-                <div className="text-xs text-muted-foreground">
-                  Last reviewed{" "}
-                  {formatRelativeTime(contextResponse.lastReviewed)}
-                  {context.reviewedBy && ` by ${context.reviewedBy}`}
-                </div>
-              )}
-
-              {/* Warnings */}
-              {isStale && (
-                <div className="flex items-start gap-2 p-2 rounded bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
-                  <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-orange-700 dark:text-orange-300">
-                    This documentation needs review due to recent schema changes
-                  </p>
-                </div>
-              )}
-
-              {/* Action Button */}
-              {detailsRoute ? (
-                <Button size="sm" className="w-full" variant="outline" asChild>
-                  <Link to={detailsRoute}>
-                    <ExternalLink className="w-3 h-3 mr-2" />
-                    View Details
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  className="w-full"
-                  variant="outline"
-                  disabled
-                  title="Select a project to view details"
-                >
-                  <ExternalLink className="w-3 h-3 mr-2" />
-                  View Details
-                </Button>
-              )}
-            </div>
-          </HoverCardContent>
-        </HoverCard>
+        <Tooltip>
+          <TooltipTrigger asChild>{badge}</TooltipTrigger>
+          <TooltipContent>
+            <p>{tooltipText}</p>
+          </TooltipContent>
+        </Tooltip>
       </TooltipProvider>
     );
   }
-};
+  // Detailed variant - hover card with more info
+  return (
+    <TooltipProvider>
+      <HoverCard>
+        <HoverCardTrigger asChild>
+          <div className="flex items-center gap-1 cursor-pointer">
+            {/* Completeness Badge */}
+            <Badge
+              variant={
+                completeness >= 80
+                  ? "default"
+                  : completeness >= 50
+                    ? "secondary"
+                    : "outline"
+              }
+              className="gap-1"
+            >
+              <FileText className="w-3 h-3" />
+              {completeness}%
+            </Badge>
+
+            {/* Criticality Badge */}
+            {context.criticalityLevel && context.criticalityLevel >= 4 && (
+              <Badge variant="destructive" className="gap-1">
+                <Shield className="w-3 h-3" />
+                Critical
+              </Badge>
+            )}
+
+            {/* Sensitivity Badge for columns */}
+            {entityType === "COLUMN" &&
+              context.sensitivity &&
+              ["PII", "FINANCIAL", "SENSITIVE"].includes(
+                context.sensitivity,
+              ) && (
+                <Badge variant="secondary" className="gap-1">
+                  <Shield className="w-3 h-3" />
+                  {context.sensitivity}
+                </Badge>
+              )}
+
+            {/* Stale Warning */}
+            {isStale && (
+              <Badge
+                variant="outline"
+                className="gap-1 border-orange-500 text-orange-600"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                Stale
+              </Badge>
+            )}
+
+            {/* Experts Count */}
+            {experts.length > 0 && (
+              <Badge variant="outline" className="gap-1">
+                <Users className="w-3 h-3" />
+                {experts.length}
+              </Badge>
+            )}
+          </div>
+        </HoverCardTrigger>
+
+        <HoverCardContent className="w-80" side="right">
+          <div className="space-y-3">
+            {/* Header */}
+            <div>
+              <h4 className="font-semibold text-sm">{entityName}</h4>
+              <p className="text-xs text-muted-foreground">
+                {getEntityTypeLabel(entityType)} Documentation
+              </p>
+            </div>
+
+            {/* Purpose */}
+            {context.purpose && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Purpose:
+                </p>
+                <p className="text-sm">
+                  {context.purpose.length > 100
+                    ? `${context.purpose.substring(0, 100)}...`
+                    : context.purpose}
+                </p>
+              </div>
+            )}
+
+            {/* Business Impact for tables/columns */}
+            {context.businessImpact &&
+              (entityType === "TABLE" || entityType === "COLUMN") && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                    Business Impact:
+                  </p>
+                  <p className="text-sm text-orange-700 dark:text-orange-300">
+                    {context.businessImpact.length > 100
+                      ? `${context.businessImpact.substring(0, 100)}...`
+                      : context.businessImpact}
+                  </p>
+                </div>
+              )}
+
+            {/* Quick Info Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {context.businessDomain && (
+                <div className="flex items-center">
+                  <span className="text-muted-foreground">Domain:</span>
+                  <Badge variant="outline" className="ml-1 text-xs">
+                    {context.businessDomain}
+                  </Badge>
+                </div>
+              )}
+
+              {context.dataOwner && (
+                <div>
+                  <span className="text-muted-foreground">Owner:</span>
+                  <span className="ml-1 font-medium">
+                    {context.dataOwner}
+                  </span>
+                </div>
+              )}
+
+              <div>
+                <span className="text-muted-foreground">Completeness:</span>
+                <span className="ml-1 font-medium">{completeness}%</span>
+              </div>
+
+              <div>
+                <span className="text-muted-foreground">Criticality:</span>
+                <span className="ml-1 font-medium">
+                  {context.criticalityLevel || 3}/5
+                </span>
+              </div>
+
+              {entityType === "COLUMN" && context.sensitivity && (
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Sensitivity:</span>
+                  <Badge
+                    variant={
+                      ["PII", "FINANCIAL"].includes(context.sensitivity)
+                        ? "destructive"
+                        : "secondary"
+                    }
+                    className="ml-1 text-xs"
+                  >
+                    {context.sensitivity}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            {/* Experts */}
+            {experts.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Experts:
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {experts.slice(0, 3).map((expert) => (
+                    <Badge
+                      key={expert.userId}
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      {expert.user?.fullName ||
+                        expert.user?.username ||
+                        "Unknown"}
+                    </Badge>
+                  ))}
+                  {experts.length > 3 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{experts.length - 3} more
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Last Review Info */}
+            {contextResponse.lastReviewed && (
+              <div className="text-xs text-muted-foreground">
+                Last reviewed{" "}
+                {formatRelativeTime(contextResponse.lastReviewed || contextResponse.lastReviewedAt || "")}
+                {(context.reviewedBy || (context as any).updatedBy) && ` by ${context.reviewedBy || (context as any).updatedBy}`}
+              </div>
+            )}
+
+            {/* Warnings */}
+            {isStale && (
+              <div className="flex items-start gap-2 p-2 rounded bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800">
+                <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-orange-700 dark:text-orange-300">
+                  This documentation needs review due to recent schema changes
+                </p>
+              </div>
+            )}
+
+            {/* Action Button */}
+            {detailsRoute ? (
+              <Button size="sm" className="w-full" variant="outline" asChild>
+                <Link to={detailsRoute}>
+                  <ExternalLink className="w-3 h-3 mr-2" />
+                  View Details
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="w-full"
+                variant="outline"
+                disabled
+                title="Select a project to view details"
+              >
+                <ExternalLink className="w-3 h-3 mr-2" />
+                View Details
+              </Button>
+            )}
+          </div>
+        </HoverCardContent>
+      </HoverCard>
+    </TooltipProvider>
+  );
+}
 
 // Helper functions
 function getEntityTypeLabel(entityType: string): string {

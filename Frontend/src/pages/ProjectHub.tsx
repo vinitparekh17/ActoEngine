@@ -14,7 +14,7 @@ import {
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Skeleton } from "../components/ui/skeleton";
+import { Skeleton, PageHeaderSkeleton, GridSkeleton } from "../components/ui/skeletons";
 import {
   Database,
   Code,
@@ -153,8 +153,10 @@ export default function ProjectHub() {
 
   if (!selectedProject) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <PageHeaderSkeleton />
+        <GridSkeleton count={3} className="grid gap-4 md:grid-cols-3" />
+        <GridSkeleton count={2} className="grid gap-6 md:grid-cols-2" />
       </div>
     );
   }

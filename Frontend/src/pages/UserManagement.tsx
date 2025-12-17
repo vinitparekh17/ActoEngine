@@ -119,8 +119,7 @@ export default function UserManagementPage() {
   };
 
   const handleUpdate = () => {
-    if (!editingUser) return;
-
+    if (!editingUser || !editingUser.userId) return;
     const updateData: UpdateUserRequest = {
       userId: editingUser.userId,
       fullName: formData.fullName,

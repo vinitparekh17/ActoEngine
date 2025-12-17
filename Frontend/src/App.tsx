@@ -111,7 +111,6 @@ function AppRoutes() {
         />
         {/* General routes */}
         {/* Legacy route - redirects to / */}
-        <Route path="dashboard" element={<Navigate to="/" replace />} />
         <Route
           path="clients"
           element={
@@ -151,17 +150,6 @@ function AppRoutes() {
           element={
             <PermissionRoute permission="StoredProcedures:Read">
               <SPGeneratorPage />
-            </PermissionRoute>
-          }
-        />
-        {/* Context routes */}
-        {/* Legacy route - redirects to / */}
-        <Route path="context" element={<Navigate to="/" replace />} />
-        <Route
-          path="project/:projectId/context/browse"
-          element={
-            <PermissionRoute permission="Contexts:Read">
-              <ContextBrowse />
             </PermissionRoute>
           }
         />

@@ -12,6 +12,7 @@ import SPPreviewPane from "../components/spgen/SPPreviewPanel";
 import { type TableSchema } from "../components/database/TableSchemaViewer";
 import TreeView from "../components/database/TreeView";
 import { Card } from "../components/ui/card";
+import { Skeleton, FormSkeleton } from "../components/ui/skeletons";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -30,17 +31,17 @@ type TreeNode = {
   name: string;
   children?: TreeNode[];
   type?:
-    | "database"
-    | "table"
-    | "column"
-    | "index"
-    | "stored-procedure"
-    | "scalar-function"
-    | "table-function"
-    | "tables-folder"
-    | "programmability-folder"
-    | "stored-procedures-folder"
-    | "functions-folder";
+  | "database"
+  | "table"
+  | "column"
+  | "index"
+  | "stored-procedure"
+  | "scalar-function"
+  | "table-function"
+  | "tables-folder"
+  | "programmability-folder"
+  | "stored-procedures-folder"
+  | "functions-folder";
 };
 
 export default function SpBuilder() {
@@ -244,35 +245,35 @@ export default function SpBuilder() {
         cudOptions:
           values.mode === "CUD"
             ? {
-                spPrefix: (values as any).spPrefix || "usp",
-                includeErrorHandling:
-                  (values as any).includeErrorHandling ?? true,
-                includeTransaction: (values as any).includeTransaction ?? true,
-                actionParamName: (values as any).actionParamName || "Action",
-              }
+              spPrefix: (values as any).spPrefix || "usp",
+              includeErrorHandling:
+                (values as any).includeErrorHandling ?? true,
+              includeTransaction: (values as any).includeTransaction ?? true,
+              actionParamName: (values as any).actionParamName || "Action",
+            }
             : undefined,
         selectOptions:
           values.mode === "SELECT"
             ? {
-                spPrefix: "usp",
-                filters:
-                  (values as any).filters?.map((f: any) => ({
-                    columnName: f.column,
-                    operator:
-                      f.operator === "="
-                        ? "Equals"
-                        : f.operator === "LIKE"
-                          ? "Like"
-                          : f.operator === ">"
-                            ? "GreaterThan"
-                            : f.operator === "<"
-                              ? "LessThan"
-                              : "Between",
-                    isOptional: f.optional,
-                  })) || [],
-                orderByColumns: (values as any).orderBy || [],
-                includePagination: (values as any).includePagination ?? true,
-              }
+              spPrefix: "usp",
+              filters:
+                (values as any).filters?.map((f: any) => ({
+                  columnName: f.column,
+                  operator:
+                    f.operator === "="
+                      ? "Equals"
+                      : f.operator === "LIKE"
+                        ? "Like"
+                        : f.operator === ">"
+                          ? "GreaterThan"
+                          : f.operator === "<"
+                            ? "LessThan"
+                            : "Between",
+                  isOptional: f.optional,
+                })) || [],
+              orderByColumns: (values as any).orderBy || [],
+              includePagination: (values as any).includePagination ?? true,
+            }
             : undefined,
       };
 
@@ -400,11 +401,9 @@ export default function SpBuilder() {
                       Configuration
                     </div>
                     {isLoadingSchema ? (
-                      <div className="flex items-center justify-center py-12 text-muted-foreground">
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                          <span>Loading schema...</span>
-                        </div>
+                      <div className="py-6 space-y-4">
+                        <Skeleton className="h-4 w-3/4 mx-auto" />
+                        <FormSkeleton fields={4} />
                       </div>
                     ) : schemaError ? (
                       <div className="flex items-center justify-center py-12 text-destructive">

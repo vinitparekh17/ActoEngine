@@ -1,6 +1,8 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.SqlQueries;
+using System.Data;
+using Dapper;
 
 namespace ActoEngine.WebApi.Repositories;
 
@@ -16,6 +18,7 @@ public interface IRoleRepository
     Task AddRolePermissionAsync(int roleId, int permissionId, int grantedBy, CancellationToken cancellationToken = default);
     Task RemoveRolePermissionAsync(int roleId, int permissionId, CancellationToken cancellationToken = default);
     Task ClearRolePermissionsAsync(int roleId, CancellationToken cancellationToken = default);
+    Task UpdateRolePermissionsAtomicAsync(int roleId, IEnumerable<int> permissionIds, int updatedBy, CancellationToken cancellationToken = default);
 }
 
 public class RoleRepository : BaseRepository, IRoleRepository
@@ -117,5 +120,40 @@ public class RoleRepository : BaseRepository, IRoleRepository
             RoleQueries.ClearRolePermissions,
             new { RoleId = roleId },
             cancellationToken);
+    }
+
+    public async Task UpdateRolePermissionsAtomicAsync(
+        int roleId,
+        IEnumerable<int> permissionIds,
+        int updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        await ExecuteInTransactionAsync(async (conn, transaction) =>
+        {
+            await ClearRolePermissionsAsync(roleId, conn, transaction);
+
+            foreach (var permissionId in permissionIds)
+            {
+                await AddRolePermissionAsync(roleId, permissionId, updatedBy, conn, transaction);
+            }
+            
+            return true;
+        }, cancellationToken);
+    }
+
+    private async Task ClearRolePermissionsAsync(int roleId, IDbConnection conn, IDbTransaction transaction)
+    {
+        await conn.ExecuteAsync(
+            RoleQueries.ClearRolePermissions,
+            new { RoleId = roleId },
+            transaction);
+    }
+
+    private async Task AddRolePermissionAsync(int roleId, int permissionId, int grantedBy, IDbConnection conn, IDbTransaction transaction)
+    {
+        await conn.ExecuteAsync(
+            RoleQueries.AddRolePermission,
+            new { RoleId = roleId, PermissionId = permissionId, GrantedBy = grantedBy },
+            transaction);
     }
 }
