@@ -6,19 +6,22 @@ import { useFormBuilder } from "../../hooks/useFormBuilder";
 
 export default function PreviewTab() {
   const { config, fields } = useFormBuilder();
-  const colSpanMap: Record<number, string> = {
-    1: "col-span-1",
-    2: "col-span-2",
-    3: "col-span-3",
-    4: "col-span-4",
-    5: "col-span-5",
-    6: "col-span-6",
-    7: "col-span-7",
-    8: "col-span-8",
-    9: "col-span-9",
-    10: "col-span-10",
-    11: "col-span-11",
-    12: "col-span-12",
+  const getColSpanClass = (size: number): string => {
+    switch (size) {
+      case 1: return "col-span-1";
+      case 2: return "col-span-2";
+      case 3: return "col-span-3";
+      case 4: return "col-span-4";
+      case 5: return "col-span-5";
+      case 6: return "col-span-6";
+      case 7: return "col-span-7";
+      case 8: return "col-span-8";
+      case 9: return "col-span-9";
+      case 10: return "col-span-10";
+      case 11: return "col-span-11";
+      case 12: return "col-span-12";
+      default: return "col-span-1";
+    }
   };
   if (!config) return null;
 
@@ -34,7 +37,7 @@ export default function PreviewTab() {
             {fields.map((field) => (
               <div
                 key={field.id}
-                className={`${colSpanMap[field.colSize] || "col-span-1"} other-static-classes`}
+                className={`${getColSpanClass(field.colSize)} other-static-classes`}
               >
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   {field.label}
