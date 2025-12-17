@@ -72,19 +72,16 @@ public class RoleService : IRoleService
             CreatedBy = createdBy
         };
 
-        var createdRole = await _roleRepository.CreateAsync(role, cancellationToken);
+        // Create role and assign permissions atomically
+        var permissionsToAssign = request.PermissionIds.Count > 0 ? request.PermissionIds : new List<int>();
 
-        // Assign permissions
-        if (request.PermissionIds.Any())
-        {
-            await UpdateRolePermissionsAsync(
-                createdRole.RoleId,
-                request.PermissionIds,
-                createdBy,
-                cancellationToken);
-        }
+        var createdRole = await _roleRepository.CreateRoleWithPermissionsAsync(
+            role,
+            permissionsToAssign,
+            createdBy,
+            cancellationToken);
 
-        _logger.LogInformation("Created role {RoleName} with {Count} permissions", createdRole.RoleName, request.PermissionIds.Count);
+        _logger.LogInformation("Created role {RoleName} with {Count} permissions", createdRole.RoleName, permissionsToAssign.Count);
         return createdRole;
     }
 
@@ -131,10 +128,9 @@ public class RoleService : IRoleService
         if (role.IsSystem)
             throw new InvalidOperationException("Cannot delete system roles");
 
-        // Remove role from users before deleting to prevent FK violations
-        await _userRepository.RemoveRoleFromUsersAsync(roleId, cancellationToken);
-
-        await _roleRepository.DeleteAsync(roleId, cancellationToken);
+        // Delete role and remove from users atomically
+        await _roleRepository.DeleteRoleWithUsersAsync(roleId, _userRepository, cancellationToken);
+        
         _logger.LogInformation("Deleted role {RoleName} (ID: {RoleId}) and updated associated users", role.RoleName, roleId);
     }
 

@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using System.Net;
 using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Middleware;
 using ActoEngine.WebApi.Repositories;
@@ -87,13 +88,71 @@ builder.Services.AddHsts(options =>
 });
 
 // Configure forwarded headers for reverse proxy support
-// This ensures Request.IsHttps reflects the original client scheme
+// SECURITY: Only trust X-Forwarded-* headers from known proxies to prevent IP spoofing
+// and other header injection attacks.
+//
+// DEPLOYMENT REQUIREMENTS:
+// - Development: Trusts localhost and Docker networks by default
+// - Production: Configure TRUSTED_PROXY_IPS environment variable with your reverse proxy IPs
+//   Example: TRUSTED_PROXY_IPS=10.0.0.1,172.16.0.0/16,192.168.1.100
+//
+// If deploying behind cloud load balancers (AWS ALB, Azure App Gateway, etc.):
+// - Add the load balancer's IP range to TRUSTED_PROXY_IPS
+// - Ensure your proxy/load balancer strips client-provided X-Forwarded headers
+//
+// References:
+// - https://docs.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer
+// - https://cheatsheetseries.owasp.org/cheatsheets/DotNet_Security_Cheat_Sheet.html#forwarded-headers
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    // Clear known networks and proxies to accept headers from any proxy
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
+    
+    // Development defaults: Trust localhost and common Docker networks
+    // These are safe for local development but should NOT be used in production
+    if (builder.Environment.IsDevelopment())
+    {
+        options.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));
+        options.KnownProxies.Add(IPAddress.Parse("::1"));
+        options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("172.17.0.0"), 16)); // Docker default bridge
+        options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("10.0.0.0"), 8));     // Common private network
+    }
+    
+    // Production: Load trusted proxy IPs from environment variable
+    // Format: Comma-separated IPs or CIDR notation (e.g., "10.0.0.1,172.16.0.0/16")
+    var trustedProxies = builder.Configuration["TRUSTED_PROXY_IPS"];
+    if (!string.IsNullOrEmpty(trustedProxies))
+    {
+        foreach (var proxy in trustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmedProxy = proxy.Trim();
+            
+            // Check if it's a CIDR notation (e.g., 172.16.0.0/16)
+            if (trimmedProxy.Contains('/'))
+            {
+                var parts = trimmedProxy.Split('/');
+                if (parts.Length == 2 && 
+                    IPAddress.TryParse(parts[0], out var networkAddress) && 
+                    int.TryParse(parts[1], out var prefixLength))
+                {
+                    options.KnownNetworks.Add(new IPNetwork(networkAddress, prefixLength));
+                }
+            }
+            // Single IP address
+            else if (IPAddress.TryParse(trimmedProxy, out var proxyAddress))
+            {
+                options.KnownProxies.Add(proxyAddress);
+            }
+        }
+    }
+    
+    // If no proxies configured in production, log a warning
+    if (!builder.Environment.IsDevelopment() && 
+        options.KnownProxies.Count == 0 && 
+        options.KnownNetworks.Count == 0)
+    {
+        Console.WriteLine("WARNING: No trusted proxies configured. X-Forwarded headers will not be processed.");
+        Console.WriteLine("Set TRUSTED_PROXY_IPS environment variable to configure trusted proxies.");
+    }
 });
 
 builder.Services.AddRateLimiter(options =>

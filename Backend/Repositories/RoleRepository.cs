@@ -19,6 +19,8 @@ public interface IRoleRepository
     Task RemoveRolePermissionAsync(int roleId, int permissionId, CancellationToken cancellationToken = default);
     Task ClearRolePermissionsAsync(int roleId, CancellationToken cancellationToken = default);
     Task UpdateRolePermissionsAtomicAsync(int roleId, IEnumerable<int> permissionIds, int updatedBy, CancellationToken cancellationToken = default);
+    Task<Role> CreateRoleWithPermissionsAsync(Role role, IEnumerable<int> permissionIds, int createdBy, CancellationToken cancellationToken = default);
+    Task DeleteRoleWithUsersAsync(int roleId, IUserRepository userRepository, CancellationToken cancellationToken = default);
 }
 
 public class RoleRepository : BaseRepository, IRoleRepository
@@ -137,6 +139,59 @@ public class RoleRepository : BaseRepository, IRoleRepository
                 await AddRolePermissionAsync(roleId, permissionId, updatedBy, conn, transaction);
             }
             
+            return true;
+        }, cancellationToken);
+    }
+
+    public async Task<Role> CreateRoleWithPermissionsAsync(
+        Role role,
+        IEnumerable<int> permissionIds,
+        int createdBy,
+        CancellationToken cancellationToken = default)
+    {
+        return await ExecuteInTransactionAsync(async (conn, transaction) =>
+        {
+            // 1. Create Role
+            var createdRole = await conn.QueryFirstOrDefaultAsync<Role>(
+                RoleQueries.Insert,
+                new { role.RoleName, role.Description, role.CreatedBy },
+                transaction);
+
+            if (createdRole == null)
+                throw new InvalidOperationException("Failed to create role");
+
+            // 2. Assign Permissions
+            foreach (var permissionId in permissionIds)
+            {
+                await AddRolePermissionAsync(createdRole.RoleId, permissionId, createdBy, conn, transaction);
+            }
+
+            return createdRole;
+        }, cancellationToken);
+    }
+
+    public async Task DeleteRoleWithUsersAsync(
+        int roleId,
+        IUserRepository userRepository,
+        CancellationToken cancellationToken = default)
+    {
+        await ExecuteInTransactionAsync(async (conn, transaction) =>
+        {
+            // 1. Remove role from users
+            await conn.ExecuteAsync(
+                UserSqlQueries.UpdateRoleForUsers,
+                new { RoleId = roleId },
+                transaction);
+
+            // 2. Delete the role
+            var rowsAffected = await conn.ExecuteAsync(
+                RoleQueries.Delete,
+                new { RoleId = roleId },
+                transaction);
+
+            if (rowsAffected == 0)
+                throw new InvalidOperationException($"Role {roleId} not found or is a system role");
+
             return true;
         }, cancellationToken);
     }
