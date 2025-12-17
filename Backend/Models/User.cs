@@ -26,6 +26,7 @@ namespace ActoEngine.WebApi.Models
         public string? SessionToken { get; set; }
         public string? RefreshToken { get; set; }
         public DateTime ExpiresAt { get; set; }
+        public DateTime RefreshExpiresAt { get; set; }
         public int? UserId { get; set; }
     }
 

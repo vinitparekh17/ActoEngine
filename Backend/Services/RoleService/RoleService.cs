@@ -17,15 +17,18 @@ public class RoleService : IRoleService
 {
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<RoleService> _logger;
 
     public RoleService(
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
+        IUserRepository userRepository,
         ILogger<RoleService> logger)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -128,8 +131,11 @@ public class RoleService : IRoleService
         if (role.IsSystem)
             throw new InvalidOperationException("Cannot delete system roles");
 
+        // Remove role from users before deleting to prevent FK violations
+        await _userRepository.RemoveRoleFromUsersAsync(roleId, cancellationToken);
+
         await _roleRepository.DeleteAsync(roleId, cancellationToken);
-        _logger.LogInformation("Deleted role {RoleName} (ID: {RoleId})", role.RoleName, roleId);
+        _logger.LogInformation("Deleted role {RoleName} (ID: {RoleId}) and updated associated users", role.RoleName, roleId);
     }
 
     public async Task UpdateRolePermissionsAsync(

@@ -221,12 +221,11 @@ public class DatabaseSeeder(
         }
 
         var userPermissions = permissions.Where(p => 
-            // User: Read + Context Create/Update (excluding Delete/Review/Approve)
+            // User: Read + Context Create/Update (excluding Delete/Review)
             p.PermissionKey.EndsWith(":Read") ||
             (p.PermissionKey.StartsWith("Contexts:") && 
              p.Action != "Delete" && 
-             p.Action != "Review" && 
-             p.Action != "Approve")
+             p.Action != "Review")
         ).Select(p => p.PermissionKey);
 
         foreach (var key in userPermissions)

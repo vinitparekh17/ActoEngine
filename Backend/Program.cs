@@ -152,6 +152,9 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddLogging(logging => logging.AddConsole());
 builder.Services.AddApiServices(builder.Configuration);
 
+// Add distributed memory cache for permission caching
+builder.Services.AddDistributedMemoryCache();
+
 builder.Services.AddScoped<IDbConnectionFactory, SqlServerConnectionFactory>();
 builder.Services.AddScoped<IDataSeeder, DatabaseSeeder>();
 

@@ -12,6 +12,7 @@ public interface IUserRepository
     Task<User> AddAsync(User user, CancellationToken cancellationToken = default);
     Task UpdateAsync(User user, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task RemoveRoleFromUsersAsync(int roleId, CancellationToken cancellationToken = default);
 }
 
 public class UserRepository(
@@ -112,6 +113,14 @@ public class UserRepository(
 
         if (rowsAffected == 0)
             throw new NotFoundException($"User with ID {id} not found");
+    }
+
+    public async Task RemoveRoleFromUsersAsync(int roleId, CancellationToken cancellationToken = default)
+    {
+        await ExecuteAsync(
+            UserSqlQueries.UpdateRoleForUsers,
+            new { RoleId = roleId },
+            cancellationToken);
     }
 
     private class UserDto

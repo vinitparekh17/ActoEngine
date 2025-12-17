@@ -89,6 +89,7 @@ public class AuthService(
                 SessionToken = accessToken,
                 RefreshToken = refreshToken,
                 ExpiresAt = accessExpiry,
+                RefreshExpiresAt = refreshExpiry,
                 UserId = user.UserID
             };
         }
@@ -131,6 +132,7 @@ public class AuthService(
                 SessionToken = newAccessToken,
                 RefreshToken = refreshToken, // Return the same refresh token
                 ExpiresAt = newAccessExpiry,
+                RefreshExpiresAt = tokenRecord.RefreshExpiresAt, // Return existing refresh token expiry
                 UserId = tokenRecord.UserID
             };
         }

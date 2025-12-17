@@ -476,14 +476,14 @@ export const ContextDashboard: React.FC = () => {
                         <TableCell>
                           <Badge
                             variant={
-                              item.priority === "HIGH"
+                              getGapPriority(item) === "HIGH"
                                 ? "destructive"
-                                : item.priority === "MEDIUM"
+                                : getGapPriority(item) === "MEDIUM"
                                   ? "secondary"
                                   : "outline"
                             }
                           >
-                            {item.priority}
+                            {getGapPriority(item)}
                           </Badge>
                         </TableCell>
                         <TableCell>

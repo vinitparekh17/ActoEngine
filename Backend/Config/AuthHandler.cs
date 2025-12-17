@@ -1,9 +1,11 @@
 using ActoEngine.WebApi.Services.Auth;
 using ActoEngine.WebApi.Services.PermissionService;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 
 namespace ActoEngine.WebApi.Config;
 
@@ -69,11 +71,46 @@ public class CustomTokenAuthenticationHandler(
         {
             Context.Items["UserId"] = userId;
 
-            // LOAD USER PERMISSIONS AND ADD TO CLAIMS
+            // LOAD USER PERMISSIONS AND ADD TO CLAIMS (with caching)
             try
             {
+                var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
                 var permissionService = scope.ServiceProvider.GetRequiredService<IPermissionService>();
-                var permissions = await permissionService.GetUserPermissionsAsync(userId);
+                
+                var cacheKey = $"user_permissions:{userId}";
+                IEnumerable<string> permissions;
+                bool cacheHit = false;
+
+                // Try to get permissions from cache
+                try
+                {
+                    var cachedPermissions = await cache.GetStringAsync(cacheKey);
+                    if (cachedPermissions != null)
+                    {
+                        permissions = JsonSerializer.Deserialize<IEnumerable<string>>(cachedPermissions) ?? [];
+                        cacheHit = true;
+                        _logger.LogDebug("Cache hit for user permissions: {UserId}", userId);
+                    }
+                    else
+                    {
+                        // Cache miss - load from database
+                        permissions = await permissionService.GetUserPermissionsAsync(userId);
+                        
+                        // Store in cache with 5-minute TTL
+                        var serialized = JsonSerializer.Serialize(permissions);
+                        await cache.SetStringAsync(cacheKey, serialized, new DistributedCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+                        });
+                        _logger.LogDebug("Cache miss - loaded and cached permissions for user: {UserId}", userId);
+                    }
+                }
+                catch (Exception cacheEx)
+                {
+                    // Cache failure - fall back to database
+                    _logger.LogWarning(cacheEx, "Cache operation failed for user {UserId}, falling back to database", userId);
+                    permissions = await permissionService.GetUserPermissionsAsync(userId);
+                }
 
                 var claims = principal.Claims.ToList();
                 foreach (var permission in permissions)
@@ -85,12 +122,17 @@ public class CustomTokenAuthenticationHandler(
                 var identity = new ClaimsIdentity(claims, authType);
                 principal = new ClaimsPrincipal(identity);
 
-                _logger.LogInformation("User authenticated: {UserId} with {PermissionCount} permissions", userId, permissions.Count());
+                _logger.LogInformation("User authenticated: {UserId} with {PermissionCount} permissions (cache: {CacheStatus})", 
+                    userId, permissions.Count(), cacheHit ? "hit" : "miss");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading permissions for user {UserId}", userId);
-                // Continue without permissions rather than failing authentication
+                #if DEBUG
+                return AuthenticateResult.Fail("Permission loading failed - check configuration");
+                #else
+                // Continue without permissions in production to maintain availability
+                #endif
             }
         }
 

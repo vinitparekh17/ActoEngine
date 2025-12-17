@@ -84,4 +84,10 @@ public static class UserSqlQueries
             UpdatedAt = @UpdatedAt,
             UpdatedBy = @UpdatedBy
         WHERE UserID = @UserId";
+    public const string UpdateRoleForUsers = @"
+        UPDATE Users
+        SET RoleId = NULL,
+            Role = 'User', -- Default role string
+            UpdatedAt = GETUTCDATE()
+        WHERE RoleId = @RoleId";
 }

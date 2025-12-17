@@ -44,6 +44,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import type { ProjectUser } from "../../types/project";
 
 // Types
 interface Expert {
@@ -78,8 +79,6 @@ interface ExpertSuggestions {
   potentialExperts: SuggestedExpert[];
   basedOn: string;
 }
-
-import type { ProjectUser } from "../../types/project";
 
 interface ExpertManagementProps {
   entityType: "TABLE" | "COLUMN" | "SP";
@@ -192,40 +191,35 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     },
   );
 
-  // Remove expert handler - manually handles the DELETE request with proper URL
-  const [isRemovingExpert, setIsRemovingExpert] = useState(false);
+  // Delete expert mutation
+  const { mutateAsync: deleteExpert, isPending: isDeletingExpert } =
+    useApiDelete<any, { userId: number }>(
+      `/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts/:userId`,
+      {
+        onSuccess: () => {
+          setRemovedExpertId(null);
+          refetchContext();
+        },
+        onError: () => {
+          setRemovedExpertId(null);
+        },
+        invalidateKeys: [
+          [
+            "projects",
+            String(selectedProjectId),
+            "context",
+            entityType,
+            String(entityId),
+          ],
+        ],
+      },
+    );
 
   const removeExpert = async (userId: number) => {
-    setIsRemovingExpert(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL || ""}/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts/${userId}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const error = await response
-          .json()
-          .catch(() => ({ message: "Failed to remove expert" }));
-        throw new Error(error.message || "Failed to remove expert");
-      }
-
-      toast.success("Expert removed successfully");
-      setRemovedExpertId(null);
-
-      // Refetch the context data to update the experts list
-      await refetchContext();
-    } catch (error: any) {
-      toast.error(`Failed to remove expert: ${error.message}`);
-      setRemovedExpertId(null);
-    } finally {
-      setIsRemovingExpert(false);
+      await deleteExpert({ userId });
+    } catch {
+      // Error handling is managed by the hook callbacks
     }
   };
 
@@ -632,10 +626,10 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                     className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
                     onClick={() => handleRemoveExpert(expert.userId)}
                     disabled={
-                      isRemovingExpert && removedExpertId === expert.userId
+                      isDeletingExpert && removedExpertId === expert.userId
                     }
                   >
-                    {isRemovingExpert && removedExpertId === expert.userId ? (
+                    {isDeletingExpert && removedExpertId === expert.userId ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <X className="w-4 h-4" />
@@ -938,10 +932,10 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                   className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
                   onClick={() => handleRemoveExpert(expert.userId)}
                   disabled={
-                    isRemovingExpert && removedExpertId === expert.userId
+                    isDeletingExpert && removedExpertId === expert.userId
                   }
                 >
-                  {isRemovingExpert && removedExpertId === expert.userId ? (
+                  {isDeletingExpert && removedExpertId === expert.userId ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <X className="w-4 h-4" />
