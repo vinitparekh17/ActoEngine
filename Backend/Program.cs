@@ -113,8 +113,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));
         options.KnownProxies.Add(IPAddress.Parse("::1"));
-        options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("172.17.0.0"), 16)); // Docker default bridge
-        options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("10.0.0.0"), 8));     // Common private network
+        options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("172.17.0.0"), 16)); // Docker default bridge
+        options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("10.0.0.0"), 8));     // Common private network
     }
     
     // Production: Load trusted proxy IPs from environment variable
@@ -134,7 +134,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
                     IPAddress.TryParse(parts[0], out var networkAddress) && 
                     int.TryParse(parts[1], out var prefixLength))
                 {
-                    options.KnownNetworks.Add(new IPNetwork(networkAddress, prefixLength));
+                    options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(networkAddress, prefixLength));
                 }
             }
             // Single IP address

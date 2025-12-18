@@ -107,11 +107,11 @@ public class RoleService : IRoleService
         role.IsActive = request.IsActive;
         role.UpdatedBy = updatedBy;
 
-        await _roleRepository.UpdateAsync(role, cancellationToken);
 
-        // Update permissions
-        await UpdateRolePermissionsAsync(
-            request.RoleId,
+
+        // Update role and permissions atomically
+        await _roleRepository.UpdateRoleWithPermissionsAsync(
+            role,
             request.PermissionIds,
             updatedBy,
             cancellationToken);

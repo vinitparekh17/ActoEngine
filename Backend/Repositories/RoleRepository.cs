@@ -21,6 +21,7 @@ public interface IRoleRepository
     Task UpdateRolePermissionsAtomicAsync(int roleId, IEnumerable<int> permissionIds, int updatedBy, CancellationToken cancellationToken = default);
     Task<Role> CreateRoleWithPermissionsAsync(Role role, IEnumerable<int> permissionIds, int createdBy, CancellationToken cancellationToken = default);
     Task DeleteRoleWithUsersAsync(int roleId, IUserRepository userRepository, CancellationToken cancellationToken = default);
+    Task UpdateRoleWithPermissionsAsync(Role role, IEnumerable<int> permissionIds, int updatedBy, CancellationToken cancellationToken = default);
 }
 
 public class RoleRepository : BaseRepository, IRoleRepository
@@ -177,13 +178,11 @@ public class RoleRepository : BaseRepository, IRoleRepository
     {
         await ExecuteInTransactionAsync(async (conn, transaction) =>
         {
-            // 1. Remove role from users
             await conn.ExecuteAsync(
                 UserSqlQueries.UpdateRoleForUsers,
                 new { RoleId = roleId },
                 transaction);
 
-            // 2. Delete the role
             var rowsAffected = await conn.ExecuteAsync(
                 RoleQueries.Delete,
                 new { RoleId = roleId },
@@ -191,6 +190,33 @@ public class RoleRepository : BaseRepository, IRoleRepository
 
             if (rowsAffected == 0)
                 throw new InvalidOperationException($"Role {roleId} not found or is a system role");
+
+            return true;
+        }, cancellationToken);
+    }
+
+    public async Task UpdateRoleWithPermissionsAsync(
+        Role role,
+        IEnumerable<int> permissionIds,
+        int updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        await ExecuteInTransactionAsync(async (conn, transaction) =>
+        {
+            var rowsAffected = await conn.ExecuteAsync(
+                RoleQueries.Update,
+                new { role.RoleId, role.RoleName, role.Description, role.IsActive, role.UpdatedBy },
+                transaction);
+
+            if (rowsAffected == 0)
+                throw new InvalidOperationException($"Role {role.RoleId} not found or is a system role");
+
+            await ClearRolePermissionsAsync(role.RoleId, conn, transaction);
+
+            foreach (var permissionId in permissionIds)
+            {
+                await AddRolePermissionAsync(role.RoleId, permissionId, updatedBy, conn, transaction);
+            }
 
             return true;
         }, cancellationToken);
