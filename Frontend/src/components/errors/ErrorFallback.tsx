@@ -1,12 +1,12 @@
-import { AlertTriangle, RefreshCw, Home, ChevronLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle, RefreshCw, Home, ChevronLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export interface ErrorFallbackProps {
   error: Error;
   resetError: () => void;
-  variant?: 'widget' | 'page' | 'app';
+  variant?: "widget" | "page" | "app";
   isRetrying?: boolean;
   componentName?: string;
   showDetails?: boolean;
@@ -19,16 +19,15 @@ export interface ErrorFallbackProps {
 export function ErrorFallback({
   error,
   resetError,
-  variant = 'widget',
+  variant = "widget",
   isRetrying = false,
   componentName,
   showDetails = import.meta.env.DEV,
 }: ErrorFallbackProps) {
-
   const navigate = useNavigate();
-  const isWidget = variant === 'widget';
-  const isPage = variant === 'page';
-  const isApp = variant === 'app';
+  const isWidget = variant === "widget";
+  const isPage = variant === "page";
+  const isApp = variant === "app";
 
   // Widget-level error (inline, compact)
   if (isWidget) {
@@ -36,10 +35,12 @@ export function ErrorFallback({
       <Alert variant="destructive" className="m-4">
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>
-          {componentName ? `${componentName} Error` : 'Something went wrong'}
+          {componentName ? `${componentName} Error` : "Something went wrong"}
         </AlertTitle>
         <AlertDescription className="mt-2 space-y-3">
-          <p className="text-sm">{error.message || 'An unexpected error occurred'}</p>
+          <p className="text-sm">
+            {error.message || "An unexpected error occurred"}
+          </p>
           {showDetails && error.stack && (
             <details className="text-xs opacity-75">
               <summary className="cursor-pointer hover:opacity-100">
@@ -76,7 +77,6 @@ export function ErrorFallback({
 
   // Page-level error (full page, centered)
   if (isPage) {
-
     return (
       <div className="flex items-center justify-center min-h-[400px] p-8">
         <div className="max-w-md w-full space-y-6">
@@ -84,7 +84,8 @@ export function ErrorFallback({
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
             <h2 className="mt-4 text-2xl font-bold">Page Error</h2>
             <p className="mt-2 text-muted-foreground">
-              {error.message || 'An unexpected error occurred while loading this page'}
+              {error.message ||
+                "An unexpected error occurred while loading this page"}
             </p>
           </div>
 
@@ -127,7 +128,7 @@ export function ErrorFallback({
                 try {
                   navigate(-1);
                 } catch {
-                  navigate('/');
+                  navigate("/");
                 }
               }}
               variant="outline"
@@ -154,7 +155,7 @@ export function ErrorFallback({
               We encountered a critical error. Please try refreshing the page.
             </p>
             <p className="text-sm text-muted-foreground">
-              {error.message || 'An unexpected error occurred'}
+              {error.message || "An unexpected error occurred"}
             </p>
           </div>
 
@@ -193,7 +194,7 @@ export function ErrorFallback({
               )}
             </Button>
             <Button
-              onClick={() => (window.location.href = '/')}
+              onClick={() => (window.location.href = "/")}
               variant="outline"
               size="lg"
               className="w-full"
@@ -204,7 +205,8 @@ export function ErrorFallback({
           </div>
 
           <p className="text-xs text-center text-muted-foreground">
-            If this problem persists, please contact support with the error details above.
+            If this problem persists, please contact support with the error
+            details above.
           </p>
         </div>
       </div>

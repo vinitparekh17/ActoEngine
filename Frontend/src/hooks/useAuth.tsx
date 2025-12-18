@@ -1,9 +1,9 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useApiPost } from './useApi';
-import { rolePermissions } from '../config/permissions';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useApiPost } from "./useApi";
+import { rolePermissions } from "../config/permissions";
 
 // ----------------------------
 // Types & constants
@@ -18,13 +18,24 @@ interface User {
   permissions?: string[];
 }
 
-interface LoginRequest { username: string; password: string; }
-interface AuthTokens { token: string; refreshToken: string; expiresAt: string; }
-interface LoginResponse extends AuthTokens { user: User | null; }
-interface RefreshResponse extends AuthTokens { user: User | null; }
+interface LoginRequest {
+  username: string;
+  password: string;
+}
+interface AuthTokens {
+  token: string;
+  refreshToken: string;
+  expiresAt: string;
+}
+interface LoginResponse extends AuthTokens {
+  user: User | null;
+}
+interface RefreshResponse extends AuthTokens {
+  user: User | null;
+}
 
 const TOKEN_REFRESH_BUFFER = 5 * 60 * 1000;
-const AUTH_STORAGE_KEY = 'actox-auth';
+const AUTH_STORAGE_KEY = "actox-auth";
 
 // ----------------------------
 // Zustand store
@@ -35,7 +46,12 @@ interface AuthStore {
   user: User | null;
   tokenExpiresAt: string | null;
 
-  setAuth: (token: string, refreshToken: string, user: User | null, expiresAt: string) => void;
+  setAuth: (
+    token: string,
+    refreshToken: string,
+    user: User | null,
+    expiresAt: string,
+  ) => void;
   clearAuth: () => void;
   updateUser: (user: User) => void;
   isTokenExpired: () => boolean;
@@ -54,7 +70,12 @@ export const useAuthStore = create<AuthStore>()(
         set({ token, refreshToken, user, tokenExpiresAt: expiresAt }),
 
       clearAuth: () =>
-        set({ token: null, refreshToken: null, user: null, tokenExpiresAt: null }),
+        set({
+          token: null,
+          refreshToken: null,
+          user: null,
+          tokenExpiresAt: null,
+        }),
 
       updateUser: (user) => set({ user }),
 
@@ -65,7 +86,9 @@ export const useAuthStore = create<AuthStore>()(
 
       getTimeUntilExpiry: () => {
         const expiry = get().tokenExpiresAt;
-        return expiry ? Math.max(0, new Date(expiry).getTime() - Date.now()) : 0;
+        return expiry
+          ? Math.max(0, new Date(expiry).getTime() - Date.now())
+          : 0;
       },
     }),
     {
@@ -76,8 +99,8 @@ export const useAuthStore = create<AuthStore>()(
         user: s.user,
         tokenExpiresAt: s.tokenExpiresAt,
       }),
-    }
-  )
+    },
+  ),
 );
 
 // ----------------------------
@@ -89,9 +112,8 @@ export function makeAuthHeaders(token?: string): HeadersInit {
 
 // Optional convenience wrapper that reads current state (keeps usage explicit)
 export function getAuthHeaders(): HeadersInit {
-  const s = useAuthStore.getState();
-  // Option A: Always attach headers when a token exists to avoid races during refresh
-  return s.token ? makeAuthHeaders(s.token) : {};
+  const token = useAuthStore.getState().token;
+  return makeAuthHeaders(token ?? undefined);
 }
 
 // ----------------------------
@@ -102,8 +124,6 @@ export function useAuth() {
   const location = useLocation();
 
   // Subscribe to stable store fields only
-  const token = useAuthStore((s) => s.token);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
   const user = useAuthStore((s) => s.user);
   // FIXED: Subscribe to stable string instead of time-based value
   const tokenExpiresAt = useAuthStore((s) => s.tokenExpiresAt);
@@ -116,17 +136,17 @@ export function useAuth() {
   const [, setRefreshingState] = useState<boolean>(false); // used to trigger rerenders when dedupe toggles
 
   // keep latest performRefresh for focus listener
-  const performRefreshLatestRef = useRef<() => Promise<void>>(async () => {});
+  const performRefreshLatestRef = useRef<() => Promise<void>>(async () => { });
 
   // ----------------------------
   // Mutations - Called at top level (Rules of Hooks)
   // ----------------------------
-  const loginMutation = useApiPost<LoginResponse, LoginRequest>('/Auth/login', {
+  const loginMutation = useApiPost<LoginResponse, LoginRequest>("/Auth/login", {
     showSuccessToast: false,
     showErrorToast: true,
   });
 
-  const logoutMutation = useApiPost<void, void>('/Auth/logout', {
+  const logoutMutation = useApiPost<void, void>("/Auth/logout", {
     showSuccessToast: false,
     showErrorToast: false,
     onSettled: () => {
@@ -134,9 +154,9 @@ export function useAuth() {
     },
   });
 
-  const refreshTokenMutation = useApiPost<RefreshResponse, { refreshToken: string }>(
-    '/Auth/refresh',
-    { showSuccessToast: false, showErrorToast: false }
+  const refreshTokenMutation = useApiPost<RefreshResponse, {}>(
+    "/Auth/refresh",
+    { showSuccessToast: false, showErrorToast: false },
   );
 
   // ----------------------------
@@ -144,29 +164,40 @@ export function useAuth() {
   // ----------------------------
   const performRefresh = useCallback(async (): Promise<void> => {
     // dedupe
-    if (isRefreshingRef.current && refreshPromiseRef.current) return refreshPromiseRef.current;
+    if (isRefreshingRef.current && refreshPromiseRef.current)
+      return refreshPromiseRef.current;
 
     const state = useAuthStore.getState();
-    const currentRefreshToken = state.refreshToken;
-    if (!currentRefreshToken) {
-      state.clearAuth();
-      navigate('/login', { replace: true, state: { from: location.pathname, reason: 'No refresh token' } });
-      return;
-    }
+    // Token Expiry Policy:
+    // When token is expired, we attempt a refresh rather than immediate logout.
+    // Server-side HttpOnly cookies provide the actual auth state; client-side
+    // expiry is used to proactively refresh before expiration.
+    // If refresh fails (server rejects expired refresh token), we redirect to login.
 
     isRefreshingRef.current = true;
     setRefreshingState(true);
 
     refreshPromiseRef.current = (async () => {
       try {
-        const result = await refreshTokenMutation.mutateAsync({ refreshToken: currentRefreshToken });
+        const result = await refreshTokenMutation.mutateAsync({});
         // prefer server-supplied user if present; otherwise read the freshest user from store (which may have changed)
-        const postRefreshUser = result.user ?? useAuthStore.getState().user ?? null;
-        useAuthStore.getState().setAuth(result.token, result.refreshToken, postRefreshUser, result.expiresAt);
+        const postRefreshUser =
+          result.user ?? useAuthStore.getState().user ?? null;
+        useAuthStore
+          .getState()
+          .setAuth(
+            result.token,
+            result.refreshToken,
+            postRefreshUser,
+            result.expiresAt,
+          );
       } catch (err) {
-        console.error('Token refresh failed:', err);
+        console.error("Token refresh failed:", err);
         useAuthStore.getState().clearAuth();
-        navigate('/login', { replace: true, state: { from: location.pathname, reason: 'Session expired' } });
+        navigate("/login", {
+          replace: true,
+          state: { from: location.pathname, reason: "Session expired" },
+        });
         throw err;
       } finally {
         isRefreshingRef.current = false;
@@ -195,16 +226,16 @@ export function useAuth() {
     clearRefreshTimer();
 
     const state = useAuthStore.getState();
-    if (!state.token || !state.refreshToken || !state.tokenExpiresAt) return;
+    if (!state.user || !state.tokenExpiresAt) return;
 
     // FIXED: Calculate time on-demand, not as a reactive value
     const expiryTime = new Date(state.tokenExpiresAt).getTime();
     const now = Date.now();
     const timeUntilExpiry = expiryTime - now;
-    
+
     // If already expired, refresh immediately
     if (timeUntilExpiry <= 0) {
-      performRefreshLatestRef.current().catch(() => {});
+      performRefreshLatestRef.current().catch(() => { });
       return;
     }
 
@@ -213,24 +244,24 @@ export function useAuth() {
 
     // If we need to refresh within the buffer period, do it now
     if (delay === 0) {
-      performRefreshLatestRef.current().catch(() => {});
+      performRefreshLatestRef.current().catch(() => { });
       return;
     }
 
     // Schedule the refresh
     refreshTimerRef.current = setTimeout(() => {
-      performRefreshLatestRef.current().catch(() => {});
+      performRefreshLatestRef.current().catch(() => { });
     }, delay);
   }, [clearRefreshTimer]);
 
   // FIXED: Effect now depends on stable string tokenExpiresAt, not time-based value
   useEffect(() => {
     // Only schedule if we have valid auth state
-    if (!token || !refreshToken || !tokenExpiresAt) return;
-    
+    if (!user || !tokenExpiresAt) return;
+
     scheduleRefresh();
     return clearRefreshTimer;
-  }, [token, refreshToken, tokenExpiresAt, scheduleRefresh, clearRefreshTimer]);
+  }, [user, tokenExpiresAt, scheduleRefresh, clearRefreshTimer]);
 
   // ----------------------------
   // focus listener uses ref to call latest performRefresh
@@ -238,12 +269,12 @@ export function useAuth() {
   useEffect(() => {
     const onFocus = () => {
       const s = useAuthStore.getState();
-      if (s.token && s.isTokenExpired()) {
-        performRefreshLatestRef.current().catch(() => {});
+      if (s.user && s.isTokenExpired()) {
+        performRefreshLatestRef.current().catch(() => { });
       }
     };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []); // stable because ref is updated every render
 
   // ----------------------------
@@ -253,12 +284,19 @@ export function useAuth() {
     async (payload: LoginRequest) => {
       const res = await loginMutation.mutateAsync(payload);
       // on success, ensure store updated exactly once
-      if (res && res.token) {
-        useAuthStore.getState().setAuth(res.token, res.refreshToken, res.user ?? null, res.expiresAt);
+      if (res) {
+        useAuthStore
+          .getState()
+          .setAuth(
+            res.token,
+            res.refreshToken,
+            res.user ?? null,
+            res.expiresAt,
+          );
       }
       return res;
     },
-    [loginMutation]
+    [loginMutation],
   );
 
   // ----------------------------
@@ -273,20 +311,20 @@ export function useAuth() {
   // FIXED: Compute isAuthenticated on-demand from stable tokenExpiresAt
   // ----------------------------
   const isAuthenticated = Boolean(
-    token && 
-    user && 
-    tokenExpiresAt && 
-    new Date(tokenExpiresAt).getTime() > Date.now()
+    user && tokenExpiresAt && new Date(tokenExpiresAt).getTime() > Date.now(),
   );
 
   // isRefreshing: combine network pending and internal dedupe state (reactive)
-  const isRefreshing = refreshTokenMutation.isPending || isRefreshingRef.current;
+  const isRefreshing =
+    refreshTokenMutation.isPending || isRefreshingRef.current;
 
-  const isLoading = loginMutation.isPending || refreshTokenMutation.isPending || logoutMutation.isPending;
+  const isLoading =
+    loginMutation.isPending ||
+    refreshTokenMutation.isPending ||
+    logoutMutation.isPending;
 
   return {
     user,
-    token,
     isAuthenticated, // Now computed on-demand, no continuous re-renders!
     isLoading,
     login,
@@ -306,7 +344,11 @@ export function useAuth() {
 // ----------------------------
 type HttpError = { response?: { status?: number } };
 function isHttpError(err: unknown): err is HttpError {
-  return typeof err === 'object' && err !== null && 'response' in (err as Record<string, unknown>);
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "response" in (err as Record<string, unknown>)
+  );
 }
 
 export function useAuthErrorHandler() {
@@ -317,29 +359,32 @@ export function useAuthErrorHandler() {
     (error: unknown) => {
       if (isHttpError(error) && error.response?.status === 401) {
         useAuthStore.getState().clearAuth();
-        navigate('/login', {
+        navigate("/login", {
           replace: true,
-          state: { from: location.pathname, message: 'Your session has expired. Please log in again.' },
+          state: {
+            from: location.pathname,
+            message: "Your session has expired. Please log in again.",
+          },
         });
       }
     },
-    [navigate, location.pathname]
+    [navigate, location.pathname],
   );
 }
 
 // ----------------------------
 // Protected Route Hook
 // ----------------------------
-export function useRequireAuth(redirectTo: string = '/login') {
+export function useRequireAuth(redirectTo: string = "/login") {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate(redirectTo, { 
+      navigate(redirectTo, {
         replace: true,
-        state: { from: location.pathname }
+        state: { from: location.pathname },
       });
     }
   }, [isAuthenticated, isLoading, navigate, location.pathname, redirectTo]);
@@ -363,15 +408,16 @@ export function useHasAnyRole(roles: string[]): boolean {
 // ----------------------------
 // Permission-based access control (if needed)
 // ----------------------------
-export function useCanAccess(resource: string): boolean {
+export function useAuthorization(resource: string): boolean {
   const { user, isAuthenticated } = useAuth();
-  
+
   if (!isAuthenticated || !user) return false;
 
   // Prefer server-provided permissions on the user object; fall back to config mapping
-  const userPermissions = (user.permissions && user.permissions.length > 0)
-    ? user.permissions
-    : (rolePermissions[user.role] || []);
+  const userPermissions =
+    user.permissions && user.permissions.length > 0
+      ? user.permissions
+      : rolePermissions[user.role] || [];
 
-  return userPermissions.includes('all') || userPermissions.includes(resource);
+  return userPermissions.includes("all") || userPermissions.includes(resource);
 }

@@ -1,14 +1,15 @@
 // components/context/InlineContextBadge.tsx
-import React from 'react';
-import { useProject } from '@/hooks/useProject';
-import { useApi } from '@/hooks/useApi';
-import { Badge } from '@/components/ui/badge';
+import React from "react";
+import { useProject } from "@/hooks/useProject";
+import { useApi } from "@/hooks/useApi";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeletons";
 import {
   HoverCard,
   HoverCardContent,
@@ -20,10 +21,14 @@ import {
   Users,
   Shield,
   AlertCircle,
-  ExternalLink
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+  ExternalLink,
+  Edit2,
+  BadgeAlert,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { QuickContextDialog } from "./QuickContextDialog";
+// import { RequireProject } from '@/components/errors/';
 
 // Types
 interface ContextSummary {
@@ -43,17 +48,20 @@ interface ContextSummary {
     user?: {
       fullName?: string;
       username?: string;
-    };
+    } | null;
     expertiseLevel: string;
   }>;
   lastReviewed?: string;
+  lastReviewedAt?: string; // Fallback mapping
 }
 
 interface InlineContextBadgeProps {
-  entityType: 'TABLE' | 'COLUMN' | 'SP';
+  entityType: "TABLE" | "COLUMN" | "SP";
   entityId: number;
   entityName: string;
-  variant?: 'minimal' | 'detailed';
+  variant?: "minimal" | "detailed";
+  allowQuickEdit?: boolean;
+  onEditSuccess?: () => void;
 }
 
 /**
@@ -65,14 +73,16 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
   entityType,
   entityId,
   entityName,
-  variant = 'minimal'
+  variant = "minimal",
+  allowQuickEdit = false,
+  onEditSuccess,
 }) => {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
 
-  const { 
-    data: contextResponse, 
-    isLoading, 
-    error 
+  const {
+    data: contextResponse,
+    isLoading,
+    error,
   } = useApi<ContextSummary>(
     `/projects/${selectedProjectId}/context/${entityType}/${entityId}`,
     {
@@ -80,15 +90,13 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
       staleTime: 5 * 60 * 1000, // Cache for 5 minutes
       retry: 1, // Only retry once for inline badges
       showErrorToast: false, // Don't show toast errors for inline badges
-    }
+    },
   );
 
   // Loading state
   if (isLoading) {
     return (
-      <Badge variant="outline" className="animate-pulse">
-        <div className="h-3 w-12 bg-muted rounded" />
-      </Badge>
+      <Skeleton className="h-5 w-16 rounded-full" />
     );
   }
 
@@ -119,60 +127,125 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
   const context = contextResponse?.context;
   const completeness = contextResponse?.completenessScore || 0;
   const isStale = contextResponse?.isStale || false;
+  const hasContext = !!(contextResponse && context && context.purpose);
   const experts = contextResponse?.experts || [];
   const detailsRoute =
     selectedProjectId != null
       ? getEntityRoute(entityType, entityId, selectedProjectId)
       : null;
 
-  // No context = show prompt
-  if (!contextResponse || !context || !context.purpose) {
+  const createBadge = () => {
+    if (!hasContext) {
+      // No context badge
+      return (
+        <Badge
+          variant="outline"
+          className="cursor-help border-dashed hover:border-solid transition-all"
+        >
+          <AlertCircle className="w-3 h-3 mr-1" />
+          No docs
+        </Badge>
+      );
+    }
+
+    // Has context badge
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge 
-              variant="outline" 
-              className="cursor-help border-dashed hover:border-solid transition-all"
-            >
-              <AlertCircle className="w-3 h-3 mr-1" />
-              No docs
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>This {entityType.toLowerCase()} hasn't been documented yet</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Badge
+        variant={
+          completeness >= 80
+            ? "default"
+            : completeness >= 50
+              ? "secondary"
+              : "outline"
+        }
+        className="cursor-help gap-1"
+      >
+        <FileText className="w-3 h-3" />
+        {completeness}%
+        {isStale && <AlertTriangle className="w-3 h-3 text-orange-500" />}
+      </Badge>
+    );
+  };
+
+  // No context = show prompt
+  if (!hasContext) {
+    return (
+      <QuickContextDialog
+        entityId={String(entityId)}
+        entityType={entityType}
+        entityName={entityName}
+        currentPurpose={context?.purpose}
+        currentSensitivity="PUBLIC"
+        onSuccess={onEditSuccess}
+        trigger={
+          <Badge
+            variant="outline"
+            className="cursor-pointer border-dashed hover:border-solid hover:bg-accent/50 transition-all"
+          >
+            <AlertCircle className="w-3 h-3 mr-1" />
+            No docs
+            <Edit2 className="h-3 w-3 ml-1 opacity-60" />
+          </Badge>
+        }
+      />
     );
   }
 
   // Minimal variant - just completeness
-  if (variant === 'minimal') {
+  if (variant === "minimal") {
+    const badge = createBadge();
+    const tooltipText = hasContext
+      ? `${completeness}% documented${isStale ? " (needs review)" : ""}`
+      : `This ${entityType.toLowerCase()} hasn't been documented yet`;
+
+    // If quick edit is enabled, wrap with edit button
+    if (allowQuickEdit) {
+      return (
+        <div className="inline-flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>{badge}</TooltipTrigger>
+              <TooltipContent>
+                <p>{tooltipText}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* Quick Edit Button - Always show when allowQuickEdit=true */}
+          <QuickContextDialog
+            entityId={String(entityId)}
+            entityType={entityType}
+            entityName={entityName}
+            currentPurpose={context?.purpose}
+            currentSensitivity={context?.sensitivity || "PUBLIC"}
+            onSuccess={onEditSuccess}
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 hover:bg-accent"
+                title={hasContext ? "Edit context" : "Add context"}
+              >
+                <Edit2 className="h-3 w-3" />
+              </Button>
+            }
+          />
+        </div>
+      );
+    }
+
+    // FIX: minimal variant without quick edit should just return the tooltip
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge 
-              variant={
-                completeness >= 80 ? 'default' :
-                completeness >= 50 ? 'secondary' : 'outline'
-              }
-              className="cursor-help gap-1"
-            >
-              <FileText className="w-3 h-3" />
-              {completeness}%
-              {isStale && <AlertTriangle className="w-3 h-3 text-orange-500" />}
-            </Badge>
-          </TooltipTrigger>
+          <TooltipTrigger asChild>{badge}</TooltipTrigger>
           <TooltipContent>
-            <p>{completeness}% documented{isStale && ' (needs review)'}</p>
+            <p>{tooltipText}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     );
   }
-
   // Detailed variant - hover card with more info
   return (
     <TooltipProvider>
@@ -180,10 +253,13 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
         <HoverCardTrigger asChild>
           <div className="flex items-center gap-1 cursor-pointer">
             {/* Completeness Badge */}
-            <Badge 
+            <Badge
               variant={
-                completeness >= 80 ? 'default' :
-                completeness >= 50 ? 'secondary' : 'outline'
+                completeness >= 80
+                  ? "default"
+                  : completeness >= 50
+                    ? "secondary"
+                    : "outline"
               }
               className="gap-1"
             >
@@ -200,17 +276,23 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
             )}
 
             {/* Sensitivity Badge for columns */}
-            {entityType === 'COLUMN' && context.sensitivity && 
-             ['PII', 'FINANCIAL', 'SENSITIVE'].includes(context.sensitivity) && (
-              <Badge variant="secondary" className="gap-1">
-                <Shield className="w-3 h-3" />
-                {context.sensitivity}
-              </Badge>
-            )}
+            {entityType === "COLUMN" &&
+              context.sensitivity &&
+              ["PII", "FINANCIAL", "SENSITIVE"].includes(
+                context.sensitivity,
+              ) && (
+                <Badge variant="secondary" className="gap-1">
+                  <Shield className="w-3 h-3" />
+                  {context.sensitivity}
+                </Badge>
+              )}
 
             {/* Stale Warning */}
             {isStale && (
-              <Badge variant="outline" className="gap-1 border-orange-500 text-orange-600">
+              <Badge
+                variant="outline"
+                className="gap-1 border-orange-500 text-orange-600"
+              >
                 <AlertTriangle className="w-3 h-3" />
                 Stale
               </Badge>
@@ -243,26 +325,27 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
                   Purpose:
                 </p>
                 <p className="text-sm">
-                  {context.purpose.length > 100 
-                    ? `${context.purpose.substring(0, 100)}...` 
+                  {context.purpose.length > 100
+                    ? `${context.purpose.substring(0, 100)}...`
                     : context.purpose}
                 </p>
               </div>
             )}
 
             {/* Business Impact for tables/columns */}
-            {context.businessImpact && (entityType === 'TABLE' || entityType === 'COLUMN') && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">
-                  Business Impact:
-                </p>
-                <p className="text-sm text-orange-700 dark:text-orange-300">
-                  {context.businessImpact.length > 100 
-                    ? `${context.businessImpact.substring(0, 100)}...` 
-                    : context.businessImpact}
-                </p>
-              </div>
-            )}
+            {context.businessImpact &&
+              (entityType === "TABLE" || entityType === "COLUMN") && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                    Business Impact:
+                  </p>
+                  <p className="text-sm text-orange-700 dark:text-orange-300">
+                    {context.businessImpact.length > 100
+                      ? `${context.businessImpact.substring(0, 100)}...`
+                      : context.businessImpact}
+                  </p>
+                </div>
+              )}
 
             {/* Quick Info Grid */}
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -274,11 +357,13 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
                   </Badge>
                 </div>
               )}
-              
+
               {context.dataOwner && (
                 <div>
                   <span className="text-muted-foreground">Owner:</span>
-                  <span className="ml-1 font-medium">{context.dataOwner}</span>
+                  <span className="ml-1 font-medium">
+                    {context.dataOwner}
+                  </span>
                 </div>
               )}
 
@@ -294,14 +379,15 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
                 </span>
               </div>
 
-              {entityType === 'COLUMN' && context.sensitivity && (
+              {entityType === "COLUMN" && context.sensitivity && (
                 <div className="col-span-2">
                   <span className="text-muted-foreground">Sensitivity:</span>
-                  <Badge 
+                  <Badge
                     variant={
-                      ['PII', 'FINANCIAL'].includes(context.sensitivity) 
-                        ? 'destructive' : 'secondary'
-                    } 
+                      ["PII", "FINANCIAL"].includes(context.sensitivity)
+                        ? "destructive"
+                        : "secondary"
+                    }
                     className="ml-1 text-xs"
                   >
                     {context.sensitivity}
@@ -318,8 +404,14 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {experts.slice(0, 3).map((expert) => (
-                    <Badge key={expert.userId} variant="secondary" className="text-xs">
-                      {expert.user?.fullName || expert.user?.username || 'Unknown'}
+                    <Badge
+                      key={expert.userId}
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      {expert.user?.fullName ||
+                        expert.user?.username ||
+                        "Unknown"}
                     </Badge>
                   ))}
                   {experts.length > 3 && (
@@ -334,8 +426,9 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
             {/* Last Review Info */}
             {contextResponse.lastReviewed && (
               <div className="text-xs text-muted-foreground">
-                Last reviewed {formatRelativeTime(contextResponse.lastReviewed)}
-                {context.reviewedBy && ` by ${context.reviewedBy}`}
+                Last reviewed{" "}
+                {formatRelativeTime(contextResponse.lastReviewed || contextResponse.lastReviewedAt || "")}
+                {(context.reviewedBy || (context as any).updatedBy) && ` by ${context.reviewedBy || (context as any).updatedBy}`}
               </div>
             )}
 
@@ -374,23 +467,27 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
       </HoverCard>
     </TooltipProvider>
   );
-};
+}
 
 // Helper functions
 function getEntityTypeLabel(entityType: string): string {
   switch (entityType) {
-    case 'TABLE':
-      return 'Table';
-    case 'COLUMN':
-      return 'Column';
-    case 'SP':
-      return 'Stored Procedure';
+    case "TABLE":
+      return "Table";
+    case "COLUMN":
+      return "Column";
+    case "SP":
+      return "Stored Procedure";
     default:
       return entityType;
   }
 }
 
-function getEntityRoute(entityType: string, entityId: number, projectId: number): string {
+function getEntityRoute(
+  entityType: string,
+  entityId: number,
+  projectId: number,
+): string {
   switch (entityType) {
     case "TABLE":
       return `/project/${projectId}/tables/${entityId}`;
@@ -410,11 +507,11 @@ function formatRelativeTime(date: string): string {
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   const diffInHours = Math.floor(diffInMinutes / 60);
   const diffInDays = Math.floor(diffInHours / 24);
-  
-  if (diffInSeconds < 60) return 'just now';
+
+  if (diffInSeconds < 60) return "just now";
   if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
   if (diffInHours < 24) return `${diffInHours}h ago`;
-  if (diffInDays === 1) return 'yesterday';
+  if (diffInDays === 1) return "yesterday";
   if (diffInDays < 7) return `${diffInDays}d ago`;
   return past.toLocaleDateString();
 }

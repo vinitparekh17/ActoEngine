@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using System.Net;
 using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Middleware;
 using ActoEngine.WebApi.Repositories;
@@ -7,6 +8,7 @@ using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.Services.ProjectService;
 using ActoEngine.WebApi.Services.FormBuilderService;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Data.SqlClient;
 using ActoEngine.WebApi.Services.Schema;
@@ -15,7 +17,11 @@ using ActoEngine.WebApi.Services.ProjectClientService;
 using ActoEngine.WebApi.Services.SpBuilder;
 using ActoEngine.WebApi.Services.ContextService;
 using DotNetEnv;
-using ActoEngine.WebApi.Services.DependencyService;
+using ActoEngine.WebApi.Services.ImpactService;
+using ActoEngine.WebApi.Services.RoleService;
+using ActoEngine.WebApi.Services.PermissionService;
+using ActoEngine.WebApi.Services.UserManagementService;
+using ActoEngine.WebApi.Services.ValidationService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,9 +87,77 @@ builder.Services.AddHsts(options =>
     options.MaxAge = TimeSpan.FromDays(365);
 });
 
+// Configure forwarded headers for reverse proxy support
+// SECURITY: Only trust X-Forwarded-* headers from known proxies to prevent IP spoofing
+// and other header injection attacks.
+//
+// DEPLOYMENT REQUIREMENTS:
+// - Development: Trusts localhost and Docker networks by default
+// - Production: Configure TRUSTED_PROXY_IPS environment variable with your reverse proxy IPs
+//   Example: TRUSTED_PROXY_IPS=10.0.0.1,172.16.0.0/16,192.168.1.100
+//
+// If deploying behind cloud load balancers (AWS ALB, Azure App Gateway, etc.):
+// - Add the load balancer's IP range to TRUSTED_PROXY_IPS
+// - Ensure your proxy/load balancer strips client-provided X-Forwarded headers
+//
+// References:
+// - https://docs.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer
+// - https://cheatsheetseries.owasp.org/cheatsheets/DotNet_Security_Cheat_Sheet.html#forwarded-headers
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    
+    // Development defaults: Trust localhost and common Docker networks
+    // These are safe for local development but should NOT be used in production
+    if (builder.Environment.IsDevelopment())
+    {
+        options.KnownProxies.Add(IPAddress.Parse("127.0.0.1"));
+        options.KnownProxies.Add(IPAddress.Parse("::1"));
+        options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("172.17.0.0"), 16)); // Docker default bridge
+        options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("10.0.0.0"), 8));     // Common private network
+    }
+    
+    // Production: Load trusted proxy IPs from environment variable
+    // Format: Comma-separated IPs or CIDR notation (e.g., "10.0.0.1,172.16.0.0/16")
+    var trustedProxies = builder.Configuration["TRUSTED_PROXY_IPS"];
+    if (!string.IsNullOrEmpty(trustedProxies))
+    {
+        foreach (var proxy in trustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmedProxy = proxy.Trim();
+            
+            // Check if it's a CIDR notation (e.g., 172.16.0.0/16)
+            if (trimmedProxy.Contains('/'))
+            {
+                var parts = trimmedProxy.Split('/');
+                if (parts.Length == 2 && 
+                    IPAddress.TryParse(parts[0], out var networkAddress) && 
+                    int.TryParse(parts[1], out var prefixLength))
+                {
+                    options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(networkAddress, prefixLength));
+                }
+            }
+            // Single IP address
+            else if (IPAddress.TryParse(trimmedProxy, out var proxyAddress))
+            {
+                options.KnownProxies.Add(proxyAddress);
+            }
+        }
+    }
+    
+    // If no proxies configured in production, log a warning
+    if (!builder.Environment.IsDevelopment() && 
+        options.KnownProxies.Count == 0 && 
+        options.KnownNetworks.Count == 0)
+    {
+        Console.WriteLine("WARNING: No trusted proxies configured. X-Forwarded headers will not be processed.");
+        Console.WriteLine("Set TRUSTED_PROXY_IPS environment variable to configure trusted proxies.");
+    }
+});
+
 builder.Services.AddRateLimiter(options =>
 {
-    // Auth-specific limiter
+    // Auth-specific limiter (strengthened)
     options.AddFixedWindowLimiter("AuthRateLimit", opt =>
     {
         opt.PermitLimit = 5;
@@ -137,6 +211,9 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddLogging(logging => logging.AddConsole());
 builder.Services.AddApiServices(builder.Configuration);
 
+// Add distributed memory cache for permission caching
+builder.Services.AddDistributedMemoryCache();
+
 builder.Services.AddScoped<IDbConnectionFactory, SqlServerConnectionFactory>();
 builder.Services.AddScoped<IDataSeeder, DatabaseSeeder>();
 
@@ -147,6 +224,11 @@ builder.Services.AddScoped<ISchemaRepository, SchemaRepository>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IProjectClientRepository, ProjectClientRepository>();
 builder.Services.AddScoped<IContextRepository, ContextRepository>();
+builder.Services.AddScoped<IDependencyRepository, DependencyRepository>();
+
+// Role & Permission Repositories
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
@@ -156,6 +238,12 @@ builder.Services.AddScoped<IFormBuilderService, FormBuilderService>();
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IProjectClientService, ProjectClientService>();
 builder.Services.AddScoped<IContextService, ContextService>();
+builder.Services.AddScoped<IImpactService, ImpactService>();
+
+// Role & Permission Services
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
 // Form Builder Services
 builder.Services.AddScoped<IFormConfigRepository, FormConfigRepository>();
@@ -165,6 +253,10 @@ builder.Services.AddScoped<ITemplateRenderService, TemplateRenderService>();
 
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<ITokenHasher, TokenHasher>();
+
+// Validation Services
+builder.Services.AddSingleton<IPasswordValidator, PasswordValidator>();
+builder.Services.AddSingleton<IDatabaseIdentifierValidator, DatabaseIdentifierValidator>();
 
 builder.Services.AddTransient<DatabaseMigrator>();
 
@@ -177,6 +269,9 @@ var seeder = scope.ServiceProvider.GetRequiredService<IDataSeeder>();
 await seeder.SeedAsync();
 
 // Configure middleware/pipeline
+
+// Apply forwarded headers first to ensure Request.IsHttps is correct for downstream middleware
+app.UseForwardedHeaders();
 
 // HSTS (HTTP Strict Transport Security) for production
 if (app.Environment.IsProduction())
@@ -202,5 +297,6 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseTokenAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
 app.MapControllers();
 app.Run();

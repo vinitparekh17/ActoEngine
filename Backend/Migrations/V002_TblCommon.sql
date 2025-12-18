@@ -9,7 +9,62 @@ USE ActoEngine;
 GO
 
 -- ============================================
--- 1. USERS TABLE
+-- 1. ROLES TABLE
+-- ============================================
+CREATE TABLE Roles (
+    RoleId INT PRIMARY KEY IDENTITY(1,1),
+    RoleName NVARCHAR(50) NOT NULL UNIQUE,
+    Description NVARCHAR(255),
+    IsSystem BIT DEFAULT 0,  -- System roles cannot be deleted
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    CreatedBy INT, -- Circular dependency if FK to Users, so leaving as INT for now or handling later. Original V009 had FK to Users.
+    UpdatedAt DATETIME2,
+    UpdatedBy INT
+);
+
+CREATE INDEX IX_Roles_RoleName ON Roles(RoleName);
+CREATE INDEX IX_Roles_IsActive ON Roles(IsActive);
+
+-- ============================================
+-- 2. PERMISSIONS TABLE
+-- ============================================
+CREATE TABLE Permissions (
+    PermissionId INT PRIMARY KEY IDENTITY(1,1),
+    PermissionKey NVARCHAR(100) NOT NULL UNIQUE,
+    Resource NVARCHAR(50) NOT NULL,
+    Action NVARCHAR(50) NOT NULL,
+    Description NVARCHAR(255),
+    Category NVARCHAR(50),
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETDATE()
+);
+
+CREATE INDEX IX_Permissions_Resource ON Permissions(Resource);
+CREATE INDEX IX_Permissions_PermissionKey ON Permissions(PermissionKey);
+CREATE UNIQUE INDEX UQ_Permissions_Resource_Action ON Permissions(Resource, Action);
+
+-- ============================================
+-- 3. ROLEPERMISSIONS JUNCTION TABLE
+-- ============================================
+CREATE TABLE RolePermissions (
+    RolePermissionId INT PRIMARY KEY IDENTITY(1,1),
+    RoleId INT NOT NULL,
+    PermissionId INT NOT NULL,
+    GrantedAt DATETIME2 DEFAULT GETDATE(),
+    GrantedBy INT,
+    CONSTRAINT FK_RolePermissions_Roles FOREIGN KEY (RoleId)
+        REFERENCES Roles(RoleId) ON DELETE CASCADE,
+    CONSTRAINT FK_RolePermissions_Permissions FOREIGN KEY (PermissionId)
+        REFERENCES Permissions(PermissionId) ON DELETE CASCADE,
+    CONSTRAINT UQ_RolePermissions UNIQUE (RoleId, PermissionId)
+);
+
+CREATE INDEX IX_RolePermissions_RoleId ON RolePermissions(RoleId);
+CREATE INDEX IX_RolePermissions_PermissionId ON RolePermissions(PermissionId);
+
+-- ============================================
+-- 4. USERS TABLE
 -- ============================================
 CREATE TABLE Users (
     UserID INT PRIMARY KEY IDENTITY(1,1),
@@ -17,12 +72,16 @@ CREATE TABLE Users (
     PasswordHash NVARCHAR(255) NOT NULL,
     FullName NVARCHAR(100),
     IsActive BIT DEFAULT 1,
-    Role NVARCHAR(50) DEFAULT 'User',
+    Role NVARCHAR(50) DEFAULT 'User', -- Kept for backward compatibility as per V009 notes, or should we remove? V009 said "Keep existing Role column".
+    RoleId INT NULL,
     CreatedAt DATETIME2 DEFAULT GETDATE(),
     CreatedBy NVARCHAR(50),
     UpdatedAt DATETIME2,
-    UpdatedBy NVARCHAR(50)
+    UpdatedBy NVARCHAR(50),
+    CONSTRAINT FK_Users_Roles FOREIGN KEY (RoleId) REFERENCES Roles(RoleId)
 );
+
+CREATE INDEX IX_Users_RoleId ON Users(RoleId);
 
 CREATE INDEX IX_Users_Fullname ON Users(FullName);
 
@@ -96,3 +155,9 @@ CREATE TABLE ProjectClients (
 
 CREATE INDEX IX_ProjectClients_ProjectId ON ProjectClients(ProjectId);
 CREATE INDEX IX_ProjectClients_ClientId ON ProjectClients(ClientId);
+
+-- ============================================
+-- 5. CIRCULAR DEPENDENCY FIX
+-- ============================================
+ALTER TABLE Roles
+ADD CONSTRAINT FK_Roles_CreatedBy FOREIGN KEY (CreatedBy) REFERENCES Users(UserID);

@@ -1,11 +1,17 @@
-import { useParams, Link } from 'react-router-dom';
-import { useProject } from '@/hooks/useProject';
-import { useApi } from '@/hooks/useApi';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useParams, Link } from "react-router-dom";
+import { useProject } from "@/hooks/useProject";
+import { useApi } from "@/hooks/useApi";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   Columns,
@@ -17,9 +23,10 @@ import {
   Check,
   X,
   Database,
-} from 'lucide-react';
-import { ExpertManagement } from '@/components/context/ExpertManagement';
-import { ContextEditor } from '@/components/context/ContextEditorPanel';
+} from "lucide-react";
+import { PageHeaderSkeleton, CardSkeleton } from "@/components/ui/skeletons";
+import { ExpertManagement } from "@/components/context/ExpertManagement";
+import { ContextEditor } from "@/components/context/ContextEditorPanel";
 
 // Types
 interface ColumnMetadata {
@@ -74,11 +81,14 @@ export default function ColumnDetail() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading column details...</p>
+      <div className="space-y-6 p-6">
+        <PageHeaderSkeleton />
+        <div className="flex gap-2 mb-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-6 w-24 bg-muted/20 animate-pulse rounded-full" />
+          ))}
         </div>
+        <CardSkeleton />
       </div>
     );
   }
@@ -90,7 +100,8 @@ export default function ColumnDetail() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load column details: {error?.message || 'Column not found'}
+            Failed to load column details:{" "}
+            {error?.message || "Column not found"}
           </AlertDescription>
         </Alert>
         <div className="flex justify-center">
@@ -108,7 +119,9 @@ export default function ColumnDetail() {
       <div className="space-y-6 p-6">
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Please select a project to view column details.</AlertDescription>
+          <AlertDescription>
+            Please select a project to view column details.
+          </AlertDescription>
         </Alert>
         <div className="flex justify-center">
           <Button asChild>
@@ -125,7 +138,9 @@ export default function ColumnDetail() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to={`/project/${projectId}/tables/${tableId || columnData.tableId}`}>
+            <Link
+              to={`/project/${projectId}/tables/${tableId || columnData.tableId}`}
+            >
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -143,7 +158,7 @@ export default function ColumnDetail() {
                 to={`/project/${projectId}/tables/${tableId || columnData.tableId}`}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
-                {columnData.schemaName ? `${columnData.schemaName}.` : ''}
+                {columnData.schemaName ? `${columnData.schemaName}.` : ""}
                 {columnData.tableName}
               </Link>
               <span className="text-muted-foreground">in</span>
@@ -208,42 +223,64 @@ export default function ColumnDetail() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Data Type</p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Data Type
+                    </p>
                     <p className="text-lg font-mono">{columnData.dataType}</p>
                   </div>
                   {columnData.maxLength && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Max Length</p>
-                      <p className="text-lg font-mono">{columnData.maxLength}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Max Length
+                      </p>
+                      <p className="text-lg font-mono">
+                        {columnData.maxLength}
+                      </p>
                     </div>
                   )}
                   {columnData.precision !== undefined && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Precision</p>
-                      <p className="text-lg font-mono">{columnData.precision}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Precision
+                      </p>
+                      <p className="text-lg font-mono">
+                        {columnData.precision}
+                      </p>
                     </div>
                   )}
                   {columnData.scale !== undefined && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Scale</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Scale
+                      </p>
                       <p className="text-lg font-mono">{columnData.scale}</p>
                     </div>
                   )}
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Nullable</p>
-                    <p className="text-lg">{columnData.isNullable ? 'Yes' : 'No'}</p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Nullable
+                    </p>
+                    <p className="text-lg">
+                      {columnData.isNullable ? "Yes" : "No"}
+                    </p>
                   </div>
                   {columnData.defaultValue && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Default Value</p>
-                      <p className="text-lg font-mono">{columnData.defaultValue}</p>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Default Value
+                      </p>
+                      <p className="text-lg font-mono">
+                        {columnData.defaultValue}
+                      </p>
                     </div>
                   )}
                 </div>
 
                 {columnData.description && (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-2">Description</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">
+                      Description
+                    </p>
                     <p className="text-base">{columnData.description}</p>
                   </div>
                 )}
@@ -259,11 +296,15 @@ export default function ColumnDetail() {
                   <LinkIcon className="h-5 w-5 text-blue-600" />
                   Foreign Key Reference
                 </CardTitle>
-                <CardDescription>This column references another table</CardDescription>
+                <CardDescription>
+                  This column references another table
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/50">
-                  <span className="font-mono text-sm">{columnData.columnName}</span>
+                  <span className="font-mono text-sm">
+                    {columnData.columnName}
+                  </span>
                   <span className="text-muted-foreground">→</span>
                   <span className="font-mono text-sm font-medium">
                     {columnData.foreignKeyReference.referencedTable}.

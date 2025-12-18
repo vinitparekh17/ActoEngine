@@ -57,6 +57,7 @@ public class DatabaseSeeder(
         try
         {
             await SeedAdminUserAsync(cancellationToken);
+            await SeedRolesAndPermissionsAsync(cancellationToken);
             await SeedDefaultDetailsAsync(cancellationToken);
             _logger.LogInformation("Database seeding completed successfully");
         }
@@ -126,6 +127,132 @@ public class DatabaseSeeder(
             var clientId = await connection.QuerySingleAsync<int>(SeedDataQueries.InsertDefaultClient, new { UserId = createdByUserId });
             _logger.LogInformation("Created global default client with ClientId: {ClientId}", clientId);
         }
+    }
+
+    private async Task SeedRolesAndPermissionsAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Seeding Roles and Permissions...");
+        using var connection = _connectionFactory.CreateConnection();
+
+        // 1. Seed Roles
+        var roles = new[]
+        {
+            new { RoleName = "Admin", Description = "System administrator with full access", IsSystem = true },
+            new { RoleName = "User", Description = "Standard user with limited permissions", IsSystem = true },
+            new { RoleName = "Manager", Description = "Manager with most permissions except user management", IsSystem = true },
+            new { RoleName = "ReadOnly", Description = "Read-only access to all resources", IsSystem = true }
+        };
+
+        foreach (var role in roles)
+        {
+            await connection.ExecuteAsync(SeedDataQueries.InsertRoles, role);
+        }
+
+        // 2. Seed Permissions
+        var permissions = new[]
+        {
+            // User Management
+            new { PermissionKey = "Users:Read", Resource = "Users", Action = "Read", Description = "View user information", Category = "User Management" },
+            new { PermissionKey = "Users:Create", Resource = "Users", Action = "Create", Description = "Create new users", Category = "User Management" },
+            new { PermissionKey = "Users:Update", Resource = "Users", Action = "Update", Description = "Update user information", Category = "User Management" },
+            new { PermissionKey = "Users:Delete", Resource = "Users", Action = "Delete", Description = "Delete users", Category = "User Management" },
+            new { PermissionKey = "Users:Activate", Resource = "Users", Action = "Activate", Description = "Activate/deactivate users", Category = "User Management" },
+
+            // Role Management
+            new { PermissionKey = "Roles:Read", Resource = "Roles", Action = "Read", Description = "View roles and permissions", Category = "Role Management" },
+            new { PermissionKey = "Roles:Create", Resource = "Roles", Action = "Create", Description = "Create new roles", Category = "Role Management" },
+            new { PermissionKey = "Roles:Update", Resource = "Roles", Action = "Update", Description = "Update existing roles", Category = "Role Management" },
+            new { PermissionKey = "Roles:Delete", Resource = "Roles", Action = "Delete", Description = "Delete roles", Category = "Role Management" },
+            new { PermissionKey = "Roles:Assign", Resource = "Roles", Action = "Assign", Description = "Assign roles to users", Category = "Role Management" },
+
+            // Project Management
+            new { PermissionKey = "Projects:Read", Resource = "Projects", Action = "Read", Description = "View projects", Category = "Project Management" },
+            new { PermissionKey = "Projects:Create", Resource = "Projects", Action = "Create", Description = "Create new projects", Category = "Project Management" },
+            new { PermissionKey = "Projects:Update", Resource = "Projects", Action = "Update", Description = "Update project information", Category = "Project Management" },
+            new { PermissionKey = "Projects:Delete", Resource = "Projects", Action = "Delete", Description = "Delete projects", Category = "Project Management" },
+            new { PermissionKey = "Projects:Link", Resource = "Projects", Action = "Link", Description = "Link projects to databases", Category = "Project Management" },
+
+            // Client Management
+            new { PermissionKey = "Clients:Read", Resource = "Clients", Action = "Read", Description = "View clients", Category = "Client Management" },
+            new { PermissionKey = "Clients:Create", Resource = "Clients", Action = "Create", Description = "Create new clients", Category = "Client Management" },
+            new { PermissionKey = "Clients:Update", Resource = "Clients", Action = "Update", Description = "Update client information", Category = "Client Management" },
+            new { PermissionKey = "Clients:Delete", Resource = "Clients", Action = "Delete", Description = "Delete clients", Category = "Client Management" },
+
+            // Context Management
+            new { PermissionKey = "Contexts:Read", Resource = "Contexts", Action = "Read", Description = "View context information", Category = "Context Management" },
+            new { PermissionKey = "Contexts:Create", Resource = "Contexts", Action = "Create", Description = "Create context entries", Category = "Context Management" },
+            new { PermissionKey = "Contexts:Update", Resource = "Contexts", Action = "Update", Description = "Update context information", Category = "Context Management" },
+            new { PermissionKey = "Contexts:Delete", Resource = "Contexts", Action = "Delete", Description = "Delete context entries", Category = "Context Management" },
+            new { PermissionKey = "Contexts:Review", Resource = "Contexts", Action = "Review", Description = "Review and approve context changes", Category = "Context Management" },
+
+            // Schema Management
+            new { PermissionKey = "Schema:Read", Resource = "Schema", Action = "Read", Description = "View database schema", Category = "Schema Management" },
+            new { PermissionKey = "Schema:Sync", Resource = "Schema", Action = "Sync", Description = "Synchronize database schema", Category = "Schema Management" },
+
+            // Form Builder
+            new { PermissionKey = "Forms:Read", Resource = "Forms", Action = "Read", Description = "View form configurations", Category = "Form Builder" },
+            new { PermissionKey = "Forms:Create", Resource = "Forms", Action = "Create", Description = "Create new form configurations", Category = "Form Builder" },
+            new { PermissionKey = "Forms:Update", Resource = "Forms", Action = "Update", Description = "Update form configurations", Category = "Form Builder" },
+            new { PermissionKey = "Forms:Delete", Resource = "Forms", Action = "Delete", Description = "Delete form configurations", Category = "Form Builder" },
+            new { PermissionKey = "Forms:Generate", Resource = "Forms", Action = "Generate", Description = "Generate forms from configurations", Category = "Form Builder" },
+
+            // SP Builder
+            new { PermissionKey = "StoredProcedures:Read", Resource = "StoredProcedures", Action = "Read", Description = "View stored procedures", Category = "SP Builder" },
+            new { PermissionKey = "StoredProcedures:Create", Resource = "StoredProcedures", Action = "Create", Description = "Create new stored procedures", Category = "SP Builder" },
+            new { PermissionKey = "StoredProcedures:Update", Resource = "StoredProcedures", Action = "Update", Description = "Update stored procedures", Category = "SP Builder" },
+            new { PermissionKey = "StoredProcedures:Delete", Resource = "StoredProcedures", Action = "Delete", Description = "Delete stored procedures", Category = "SP Builder" },
+            new { PermissionKey = "StoredProcedures:Execute", Resource = "StoredProcedures", Action = "Execute", Description = "Execute stored procedures", Category = "SP Builder" },
+
+            // System
+            new { PermissionKey = "System:ViewLogs", Resource = "System", Action = "ViewLogs", Description = "View system logs", Category = "System" },
+            new { PermissionKey = "System:ManageSettings", Resource = "System", Action = "ManageSettings", Description = "Manage system settings", Category = "System" }
+        };
+
+        foreach (var perm in permissions)
+        {
+            await connection.ExecuteAsync(SeedDataQueries.InsertPermissions, perm);
+        }
+
+        // 3. Map Permissions to Roles
+        // Admin: All permissions
+        foreach (var perm in permissions)
+        {
+            await connection.ExecuteAsync(SeedDataQueries.InsertRolePermissions, new { RoleName = "Admin", perm.PermissionKey });
+        }
+
+        var userPermissions = permissions.Where(p => 
+            // User: Read + Context Create/Update (excluding Delete/Review)
+            p.PermissionKey.EndsWith(":Read") ||
+            (p.PermissionKey.StartsWith("Contexts:") && 
+             p.Action != "Delete" && 
+             p.Action != "Review")
+        ).Select(p => p.PermissionKey);
+
+        foreach (var key in userPermissions)
+        {
+             await connection.ExecuteAsync(SeedDataQueries.InsertRolePermissions, new { RoleName = "User", PermissionKey = key });
+        }
+
+        // Manager: All except User/Role Management
+        var managerPermissions = permissions.Where(p => 
+            p.Category != "User Management" && p.Category != "Role Management"
+        ).Select(p => p.PermissionKey);
+
+        foreach (var key in managerPermissions)
+        {
+            await connection.ExecuteAsync(SeedDataQueries.InsertRolePermissions, new { RoleName = "Manager", PermissionKey = key });
+        }
+
+        // ReadOnly: All Read permissions
+        var readOnlyPermissions = permissions.Where(p => p.Action == "Read").Select(p => p.PermissionKey);
+        foreach (var key in readOnlyPermissions)
+        {
+            await connection.ExecuteAsync(SeedDataQueries.InsertRolePermissions, new { RoleName = "ReadOnly", PermissionKey = key });
+        }
+
+        // 4. Migrate Users
+        await connection.ExecuteAsync(SeedDataQueries.MigrateUserRoles);
+        _logger.LogInformation("Roles and Permissions seeded successfully.");
     }
     // private string? GetEmbeddedScript(string scriptName)
     // {

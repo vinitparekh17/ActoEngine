@@ -26,6 +26,7 @@ namespace ActoEngine.WebApi.Models
         public string? SessionToken { get; set; }
         public string? RefreshToken { get; set; }
         public DateTime ExpiresAt { get; set; }
+        public DateTime RefreshExpiresAt { get; set; }
         public int? UserId { get; set; }
     }
 
@@ -72,6 +73,7 @@ public class User
     public string? CreatedBy { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
     public string? UpdatedBy { get; private set; }
+    public List<string> Permissions { get; set; } = new();
 
     // Constructor for creating new users
     public User(string username, string passwordHash, string? fullName = null, string role = "User", string? createdBy = null)
@@ -128,4 +130,15 @@ public class User
         UpdatedAt = DateTime.UtcNow;
         UpdatedBy = updatedBy;
     }
+}
+
+/// <summary>
+/// Lightweight DTO for User information in contexts where only basic user details are needed.
+/// Used to avoid materializing the full User entity with sensitive fields like PasswordHash.
+/// </summary>
+public class UserBasicInfo
+{
+    public int UserId { get; set; }
+    public string Username { get; set; } = default!;
+    public string? FullName { get; set; }
 }

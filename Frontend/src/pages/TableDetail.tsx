@@ -30,7 +30,9 @@ import {
   Zap,
   Check,
   X,
+  Network,
 } from "lucide-react";
+import { PageHeaderSkeleton, GridSkeleton } from "@/components/ui/skeletons";
 import { ExpertManagement } from "@/components/context/ExpertManagement";
 import { ContextEditor } from "@/components/context/ContextEditorPanel";
 
@@ -127,7 +129,7 @@ export default function TableDetail() {
       enabled: hasProject && !!projectId && !!tableId,
       staleTime: 60 * 1000,
       retry: 2,
-    }
+    },
   );
 
   const renderIcons = (constraints: string[] = []) => {
@@ -164,11 +166,10 @@ export default function TableDetail() {
   // Loading state always short-circuits first
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading table details...</p>
-        </div>
+      <div className="space-y-6 p-6">
+        <PageHeaderSkeleton />
+        <GridSkeleton count={2} className="grid gap-4 md:grid-cols-3" />
+        <div className="h-[400px] w-full bg-muted/10 animate-pulse rounded-lg border border-neutral-200 dark:border-neutral-800" />
       </div>
     );
   }
@@ -235,6 +236,15 @@ export default function TableDetail() {
             </p>
           </div>
         </div>
+        <Button
+          variant="outline"
+          onClick={() =>
+            navigate(`/project/${projectId}/impact/TABLE/${tableId}`)
+          }
+        >
+          <Network className="mr-2 h-4 w-4" />
+          View Impact
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

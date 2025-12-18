@@ -1,4 +1,4 @@
-import { useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, type ReactNode } from "react";
 /**
  * Form field error type
  */
@@ -21,7 +21,11 @@ export interface FormValidationState {
   clearAllErrors: () => void;
   hasError: (field: string) => boolean;
   getError: (field: string) => string | undefined;
-  validateField: (field: string, value: unknown, rules: ValidationRule[]) => boolean;
+  validateField: (
+    field: string,
+    value: unknown,
+    rules: ValidationRule[],
+  ) => boolean;
 }
 
 /**
@@ -72,54 +76,67 @@ export function useFormValidation(): FormValidationState {
    * Extract and set errors from API error response (400 validation errors)
    * Fixed: Added explicit type definition for error object structure
    */
-  const setApiError = useCallback((error: unknown) => {
-    // Define the expected error structure for type narrowing
-    interface ValidationError {
-      errors?: Record<string, string[] | string>;
-      message?: string;
-    }
-
-    // Type guard to check if error matches ValidationError structure
-    const isValidationError = (err: unknown): err is ValidationError => {
-      return err !== null && typeof err === 'object';
-    };
-
-    if (!isValidationError(error)) {
-      return;
-    }
-
-    // Handle ApiError with errors field
-    if (error.errors && typeof error.errors === 'object') {
-      const fieldErrors: Record<string, string> = {};
-
-      // Convert errors object to flat field-message map
-      // Fixed: Explicit type assertion after validation
-      Object.entries(error.errors as Record<string, string[] | string>).forEach(([field, messages]) => {
-        if (Array.isArray(messages) && messages.length > 0) {
-          // Use first error message for each field
-          fieldErrors[field] = messages[0];
-        } else if (typeof messages === 'string') {
-          fieldErrors[field] = messages;
-        }
-      });
-
-      setErrors(fieldErrors);
-      return;
-    }
-
-    // Handle standard validation error format
-    if (error.message && typeof error.message === 'string') {
-      // Try to extract field name from message like "Username is required"
-      const match = error.message.match(/^(\w+)\s/i);
-      if (match) {
-        const field = match[1];
-        setFieldError(field, error.message);
-      } else {
-        // Generic error - set on '_general' field
-        setFieldError('_general', error.message);
+  const setApiError = useCallback(
+    (error: unknown) => {
+      // Define the expected error structure for type narrowing
+      interface ValidationError {
+        errors?: Record<string, string[] | string>;
+        message?: string;
       }
-    }
-  }, [setFieldError]);
+
+      // Type guard to check if error matches ValidationError structure
+      const isValidationError = (err: unknown): err is ValidationError => {
+        return (
+          err !== null &&
+          typeof err === "object" &&
+          ("errors" in err || "message" in err) &&
+          (("errors" in err &&
+            (typeof (err as any).errors === "object" ||
+              Array.isArray((err as any).errors))) ||
+            ("message" in err && typeof (err as any).message === "string"))
+        );
+      };
+
+      if (!isValidationError(error)) {
+        return;
+      }
+
+      // Handle ApiError with errors field
+      if (error.errors && typeof error.errors === "object") {
+        const fieldErrors: Record<string, string> = {};
+
+        // Convert errors object to flat field-message map
+        // Fixed: Explicit type assertion after validation
+        Object.entries(
+          error.errors as Record<string, string[] | string>,
+        ).forEach(([field, messages]) => {
+          if (Array.isArray(messages) && messages.length > 0) {
+            // Use first error message for each field
+            fieldErrors[field] = messages[0];
+          } else if (typeof messages === "string") {
+            fieldErrors[field] = messages;
+          }
+        });
+
+        setErrors(fieldErrors);
+        return;
+      }
+
+      // Handle standard validation error format
+      if (error.message && typeof error.message === "string") {
+        // Try to extract field name from message like "Username is required"
+        const match = error.message.match(/^(\w+)\s/i);
+        if (match) {
+          const field = match[1];
+          setFieldError(field, error.message);
+        } else {
+          // Generic error - set on '_general' field
+          setFieldError("_general", error.message);
+        }
+      }
+    },
+    [setFieldError],
+  );
 
   /**
    * Clear error for a specific field
@@ -146,7 +163,7 @@ export function useFormValidation(): FormValidationState {
     (field: string): boolean => {
       return field in errors && errors[field].length > 0;
     },
-    [errors]
+    [errors],
   );
 
   /**
@@ -156,7 +173,7 @@ export function useFormValidation(): FormValidationState {
     (field: string): string | undefined => {
       return errors[field];
     },
-    [errors]
+    [errors],
   );
 
   /**
@@ -175,7 +192,7 @@ export function useFormValidation(): FormValidationState {
       clearError(field);
       return true;
     },
-    [setFieldError, clearError]
+    [setFieldError, clearError],
   );
 
   return {
@@ -205,70 +222,96 @@ export const validationRules = {
   /**
    * Fixed: Only reject null, undefined, or empty string (accept false and 0)
    */
-  required: (fieldName: string): ValidationRule => (value) => {
-    if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
-      return `${fieldName} is required`;
-    }
-    return null;
-  },
+  required:
+    (fieldName: string): ValidationRule =>
+      (value) => {
+        if (
+          value === null ||
+          value === undefined ||
+          (typeof value === "string" && value.trim() === "")
+        ) {
+          return `${fieldName} is required`;
+        }
+        return null;
+      },
 
   /**
    * Fixed: Guard .length access with type check
    */
-  minLength: (fieldName: string, min: number): ValidationRule => (value) => {
-    if (value != null && (typeof value === 'string' || Array.isArray(value))) {
-      if (value.length < min) {
-        return `${fieldName} must be at least ${min} characters`;
-      }
-    }
-    return null;
-  },
+  minLength:
+    (fieldName: string, min: number): ValidationRule =>
+      (value) => {
+        if (
+          value != null &&
+          (typeof value === "string" || Array.isArray(value))
+        ) {
+          if (value.length < min) {
+            return `${fieldName} must be at least ${min} characters`;
+          }
+        }
+        return null;
+      },
 
   /**
    * Fixed: Guard .length access with type check
    */
-  maxLength: (fieldName: string, max: number): ValidationRule => (value) => {
-    if (value != null && (typeof value === 'string' || Array.isArray(value))) {
-      if (value.length > max) {
-        return `${fieldName} must be at most ${max} characters`;
-      }
-    }
-    return null;
-  },
+  maxLength:
+    (fieldName: string, max: number): ValidationRule =>
+      (value) => {
+        if (
+          value != null &&
+          (typeof value === "string" || Array.isArray(value))
+        ) {
+          if (value.length > max) {
+            return `${fieldName} must be at most ${max} characters`;
+          }
+        }
+        return null;
+      },
 
-  email: (fieldName: string): ValidationRule => (value) => {
-    if (value && typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      return `${fieldName} must be a valid email address`;
-    }
-    return null;
-  },
+  email:
+    (fieldName: string): ValidationRule =>
+      (value) => {
+        if (
+          value &&
+          typeof value === "string" &&
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+        ) {
+          return `${fieldName} must be a valid email address`;
+        }
+        return null;
+      },
 
-  pattern: (fieldName: string, pattern: RegExp, message: string): ValidationRule => (
-    value
-  ) => {
-    if (value && typeof value === 'string' && !pattern.test(value)) {
-      return message;
-    }
-    return null;
-  },
+  pattern:
+    (fieldName: string, pattern: RegExp, message: string): ValidationRule =>
+      (value) => {
+        if (value && typeof value === "string" && !pattern.test(value)) {
+          return message;
+        }
+        return null;
+      },
 
-  match: (fieldName: string, otherValue: unknown, otherFieldName: string): ValidationRule => (
-    value
-  ) => {
-    if (value !== otherValue) {
-      return `${fieldName} must match ${otherFieldName}`;
-    }
-    return null;
-  },
+  match:
+    (
+      fieldName: string,
+      otherValue: unknown,
+      otherFieldName: string,
+    ): ValidationRule =>
+      (value) => {
+        if (value !== otherValue) {
+          return `${fieldName} must match ${otherFieldName}`;
+        }
+        return null;
+      },
 
-  custom: (validator: (value: unknown) => boolean, message: string): ValidationRule => (
-    value
-  ) => {
-    if (!validator(value)) {
-      return message;
-    }
-    return null;
-  },
+  custom:
+    (validator: (value: unknown) => boolean, message: string): ValidationRule =>
+      (value) => {
+        if (!validator(value)) {
+          return message;
+        }
+        return null;
+      },
 };
 
 /**
@@ -293,7 +336,12 @@ interface FormFieldProps {
   className?: string;
 }
 
-export function FormField({ children, error, onFocus, className = '' }: FormFieldProps) {
+export function FormField({
+  children,
+  error,
+  onFocus,
+  className = "",
+}: FormFieldProps) {
   return (
     <div className={`space-y-1 ${className}`} onFocus={onFocus}>
       {children}

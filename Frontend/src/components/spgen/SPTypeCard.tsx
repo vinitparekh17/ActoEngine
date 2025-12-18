@@ -1,21 +1,26 @@
-"use client"
+"use client";
 
-import { Card } from "../ui/card"
-import { cn } from "../../lib/utils"
+import { Card } from "../ui/card";
+import { cn } from "../../lib/utils";
 
-export type SPType = "CUD" | "SELECT"
+export type SPType = "CUD" | "SELECT";
 
 export default function SPTypeCard({
   type,
   selected,
   onChange,
 }: {
-  type: SPType
-  selected?: boolean
-  onChange: (type: SPType) => void
+  type: SPType;
+  selected?: boolean;
+  onChange: (type: SPType) => void;
 }) {
   return (
-    <button type="button" onClick={() => onChange(type)} className="text-left" aria-pressed={selected}>
+    <button
+      type="button"
+      onClick={() => onChange(type)}
+      className="text-left"
+      aria-pressed={selected}
+    >
       <Card
         className={cn(
           "rounded-2xl p-4 transition shadow-sm",
@@ -30,15 +35,15 @@ export default function SPTypeCard({
         </div>
       </Card>
     </button>
-//     return (
-//     <Card className="mb-6 rounded-xl shadow-md">
-//       <Tabs value={selectedType} onValueChange={(v) => onChange(v as 'CUD' | 'SELECT')} className="p-6">
-//         <TabsList className="grid w-full grid-cols-2">
-//           <TabsTrigger value="CUD">CUD (Create/Update/Delete)</TabsTrigger>
-//           <TabsTrigger value="SELECT">SELECT (with filtering/paging)</TabsTrigger>
-//         </TabsList>
-//       </Tabs>
-//     </Card>
-//   );
-  )
+    //     return (
+    //     <Card className="mb-6 rounded-xl shadow-md">
+    //       <Tabs value={selectedType} onValueChange={(v) => onChange(v as 'CUD' | 'SELECT')} className="p-6">
+    //         <TabsList className="grid w-full grid-cols-2">
+    //           <TabsTrigger value="CUD">CUD (Create/Update/Delete)</TabsTrigger>
+    //           <TabsTrigger value="SELECT">SELECT (with filtering/paging)</TabsTrigger>
+    //         </TabsList>
+    //       </Tabs>
+    //     </Card>
+    //   );
+  );
 }

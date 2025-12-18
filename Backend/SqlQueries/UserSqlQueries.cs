@@ -42,6 +42,52 @@ public static class UserSqlQueries
         WHERE UserID = @UserID";
 
     public const string HardDelete = @"
-        DELETE FROM Users 
+        DELETE FROM Users
         WHERE UserID = @UserID";
+
+    // New queries for User Management with Roles
+    public const string GetAllWithRoles = @"
+        SELECT u.UserID, u.Username, u.FullName, u.IsActive,
+               u.CreatedAt, u.UpdatedAt, u.RoleId,
+               r.RoleName
+        FROM Users u
+        LEFT JOIN Roles r ON u.RoleId = r.RoleId
+        ORDER BY u.CreatedAt DESC
+        OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY";
+
+    public const string GetUserWithRole = @"
+        SELECT u.UserID, u.Username, u.FullName, u.IsActive,
+               u.CreatedAt, u.UpdatedAt, u.RoleId,
+               r.RoleName
+        FROM Users u
+        LEFT JOIN Roles r ON u.RoleId = r.RoleId
+        WHERE u.UserID = @UserId";
+
+    public const string UpdateRole = @"
+        UPDATE Users
+        SET RoleId = @RoleId,
+            UpdatedAt = @UpdatedAt,
+            UpdatedBy = @UpdatedBy
+        WHERE UserID = @UserId";
+
+    public const string InsertWithRole = @"
+        INSERT INTO Users (Username, PasswordHash, FullName, RoleId, CreatedAt, CreatedBy)
+        OUTPUT INSERTED.UserID, INSERTED.Username, INSERTED.FullName, INSERTED.IsActive,
+               INSERTED.RoleId, INSERTED.CreatedAt, INSERTED.UpdatedAt
+        VALUES (@Username, @PasswordHash, @FullName, @RoleId, @CreatedAt, @CreatedBy)";
+
+    public const string UpdateUserManagement = @"
+        UPDATE Users
+        SET FullName = @FullName,
+            RoleId = @RoleId,
+            IsActive = @IsActive,
+            UpdatedAt = @UpdatedAt,
+            UpdatedBy = @UpdatedBy
+        WHERE UserID = @UserId";
+    public const string UpdateRoleForUsers = @"
+        UPDATE Users
+        SET RoleId = NULL,
+            Role = 'User', -- Default role string
+            UpdatedAt = GETUTCDATE()
+        WHERE RoleId = @RoleId";
 }

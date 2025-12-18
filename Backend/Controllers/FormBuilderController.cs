@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Services.FormBuilderService;
 using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Extensions;
+using ActoEngine.WebApi.Repositories;
 
 namespace ActoEngine.WebApi.Controllers
 {
@@ -20,7 +22,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Save form configuration
         /// </summary>
         [HttpPost("save")]
-        [ProducesResponseType(typeof(ApiResponse<SaveFormConfigResponse>), StatusCodes.Status200OK)]
+        [RequirePermission("Forms:Update")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveFormConfig([FromBody] SaveFormConfigRequest request)
@@ -45,6 +47,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Load form configuration by ID or name
         /// </summary>
         [HttpGet("load/{formId}")]
+        [RequirePermission("Forms:Read")]
         [ProducesResponseType(typeof(ApiResponse<FormConfig>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> LoadFormConfig(string formId)
@@ -74,6 +77,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Get all form configurations for a project
         /// </summary>
         [HttpGet("configs/{projectId}")]
+        [RequirePermission("Forms:Read")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<FormConfigListItem>>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<FormConfigListItem>>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetFormConfigs(int projectId)
@@ -94,7 +98,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Generate HTML, JavaScript, and optionally stored procedures
         /// </summary>
         [HttpPost("generate")]
-        [ProducesResponseType(typeof(ApiResponse<GenerateFormResponse>), StatusCodes.Status200OK)]
+        [RequirePermission("Forms:Generate")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GenerateForm([FromBody] GenerateFormRequest request)
@@ -118,10 +122,10 @@ namespace ActoEngine.WebApi.Controllers
         /// <summary>
         /// Delete a form configuration
         /// </summary>
-        [HttpDelete("delete/{formId}")]
-        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+        [HttpDelete("{id}")]
+        [RequirePermission("Forms:Delete")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> DeleteFormConfig(int formId)
+        public async Task<IActionResult> DeleteFormConfig(int id)
         {
             try
             {
@@ -129,7 +133,7 @@ namespace ActoEngine.WebApi.Controllers
                 if (userId == null)
                     return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
-                var success = await _formBuilderService.DeleteFormConfigAsync(formId.ToString(), userId.Value);
+                var success = await _formBuilderService.DeleteFormConfigAsync(id.ToString(), userId.Value);
                 if (!success)
                     return NotFound(ApiResponse<string>.Failure("Form configuration not found or could not be deleted"));
                 return Ok(ApiResponse<string>.Success("Form configuration deleted successfully"));
@@ -145,6 +149,7 @@ namespace ActoEngine.WebApi.Controllers
         /// Get available templates
         /// </summary>
         [HttpGet("templates")]
+        [RequirePermission("Forms:Read")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<object>>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetTemplates()

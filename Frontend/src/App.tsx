@@ -1,25 +1,31 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import SPGeneratorPage from "@/pages/SpBuilder";
 import AppLayout from "@/components/layout/Layout";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { useAuth, useAuthStore } from "@/hooks/useAuth";
-// import { useCsrfInit } from "@/hooks/useCsrf";
+import { useCsrfInit } from "@/hooks/useCsrf";
 import { ApiErrorBoundary } from "@/components/errors/ApiErrorBoundary";
+import { PermissionRoute } from "@/components/routing/PermissionRoute";
 import FormBuilderPage from "@/pages/FormBuilder";
 import LoginPage from "@/pages/Login";
-import DashboardPage from "@/pages/Dashboard";
+// import DashboardPage from "@/pages/Dashboard";
 import ClientManagementPage from "@/pages/ClientManagement";
 import ProjectDashboard from "@/pages/ProjectDashboard";
 import ProjectSetup from "@/pages/ProjectSetup";
 import ProjectHub from "@/pages/ProjectHub";
 import ProjectSettings from "@/pages/ProjectSetting";
 import { ContextDashboard } from "@/pages/ContextDashboard";
-import ContextExperts from "./pages/ContextExpert";
-import ContextBrowse from "./pages/ContextBrowser";
-import TableDetail from "./pages/TableDetail";
-import StoredProcedureDetail from "./pages/StoredProcedureDetail";
-import ColumnDetail from "./pages/ColumnDetail";
+import ContextExperts from "@/pages/ContextExpert";
+import ContextBrowse from "@/pages/ContextBrowser";
+import TableDetail from "@/pages/TableDetail";
+import StoredProcedureDetail from "@/pages/StoredProcedureDetail";
+import ColumnDetail from "@/pages/ColumnDetail";
+import ImpactAnalysisPage from "@/pages/ImpactAnalysis";
+import UserManagementPage from "@/pages/UserManagement";
+import RoleManagementPage from "@/pages/RoleManagement";
+import { AccessDenied } from "./components/feedback/AccessDenied";
 import { initializeApiClient } from "./lib/api";
 
 // ============================================
@@ -40,9 +46,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  initializeApiClient(() => {
-    useAuthStore.getState().clearAuth();
-  });
+  useEffect(() => {
+    initializeApiClient(() => {
+      useAuthStore.getState().clearAuth();
+    });
+  }, []);
+
+  useCsrfInit();
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -56,53 +67,148 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        {/* Default landing page */}
+        <Route
+          index
+          element={
+            <PermissionRoute permission="Contexts:Read">
+              <ContextDashboard />
+            </PermissionRoute>
+          }
+        />
         {/* Project routes */}
-        <Route path="projects" element={<ProjectDashboard />} />
-        <Route path="project/:projectId" element={<ProjectHub />} />
+        <Route
+          path="projects"
+          element={
+            <PermissionRoute permission="Projects:Read">
+              <ProjectDashboard />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="project/:projectId"
+          element={
+            <PermissionRoute permission="Projects:Read">
+              <ProjectHub />
+            </PermissionRoute>
+          }
+        />
         <Route
           path="project/:projectId/settings"
-          element={<ProjectSettings />}
+          element={
+            <PermissionRoute permission="Projects:Read">
+              <ProjectSettings />
+            </PermissionRoute>
+          }
         />
-        <Route path="project/new" element={<ProjectSetup />} />
-        {/* General routes */}
-        <Route path="dashboard" element={<ContextDashboard />} />
-        <Route path="clients" element={<ClientManagementPage />} />
-        {/* Builder routes */}
-        <Route path="form-builder" element={<FormBuilderPage />} />
-        <Route path="sp-builder" element={<SPGeneratorPage />} />
-        {/* Context routes */}
-        <Route path="context" element={<ContextDashboard />} />
         <Route
-          path="project/:projectId/context/browse"
-          element={<ContextBrowse />}
+          path="project/new"
+          element={
+            <PermissionRoute permission="Projects:Create">
+              <ProjectSetup />
+            </PermissionRoute>
+          }
+        />
+        {/* General routes */}
+        {/* Legacy route - redirects to / */}
+        <Route
+          path="clients"
+          element={
+            <PermissionRoute permission="Clients:Read">
+              <ClientManagementPage />
+            </PermissionRoute>
+          }
+        />
+        {/* Admin routes */}
+        <Route
+          path="admin/users"
+          element={
+            <PermissionRoute permission="Users:Read">
+              <UserManagementPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="admin/roles"
+          element={
+            <PermissionRoute permission="Roles:Read">
+              <RoleManagementPage />
+            </PermissionRoute>
+          }
+        />
+        {/* Builder routes */}
+        <Route
+          path="form-builder"
+          element={
+            <PermissionRoute permission="Forms:Read">
+              <FormBuilderPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="sp-builder"
+          element={
+            <PermissionRoute permission="StoredProcedures:Read">
+              <SPGeneratorPage />
+            </PermissionRoute>
+          }
         />
         <Route
           path="project/:projectId/context/experts"
-          element={<ContextExperts />}
+          element={
+            <PermissionRoute permission="Contexts:Read">
+              <ContextExperts />
+            </PermissionRoute>
+          }
         />
         {/* Entity detail routes */}
         <Route
           path="project/:projectId/tables/:tableId"
-          element={<TableDetail />}
+          element={
+            <PermissionRoute permission="Schema:Read">
+              <TableDetail />
+            </PermissionRoute>
+          }
         />
         <Route
           path="project/:projectId/stored-procedures/:procedureId"
-          element={<StoredProcedureDetail />}
+          element={
+            <PermissionRoute permission="StoredProcedures:Read">
+              <StoredProcedureDetail />
+            </PermissionRoute>
+          }
         />
+        {/* Impact Analysis route */}
+        <Route
+          path="project/:projectId/impact/:entityType/:entityId"
+          element={
+            <PermissionRoute permission="Contexts:Read">
+              <ImpactAnalysisPage />
+            </PermissionRoute>
+          }
+        />
+        <Route path="access-denied" element={<AccessDenied />} />
         {/* Standalone column route for direct navigation from context dialogs */}
         <Route
           path="project/:projectId/columns/:columnId"
           element={
-            <ApiErrorBoundary>
-              <ColumnDetail />
-            </ApiErrorBoundary>
+            <PermissionRoute permission="Schema:Read">
+              <ApiErrorBoundary>
+                <ColumnDetail />
+              </ApiErrorBoundary>
+            </PermissionRoute>
           }
         />
         {/* Nested column route for navigation from table detail pages */}
         <Route
           path="project/:projectId/tables/:tableId/columns/:columnId"
-          element={<ColumnDetail />}
+          element={
+            <PermissionRoute permission="Schema:Read">
+              <ApiErrorBoundary>
+                <ColumnDetail />
+              </ApiErrorBoundary>
+            </PermissionRoute>
+          }
         />
       </Route>
     </Routes>

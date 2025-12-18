@@ -8,12 +8,12 @@
 // import { useFormBuilder } from '../../hooks/formBuilder/useFormBuilder';
 // import { useSpCompliance, useSchemaCompliance } from '../../hooks/formBuilder/useFormContext';
 // import type { SchemaMismatch } from '../../hooks/formBuilder/useFormContext';
-// import { 
-//   CheckCircle, 
-//   XCircle, 
-//   AlertTriangle, 
-//   RefreshCw, 
-//   Code, 
+// import {
+//   CheckCircle,
+//   XCircle,
+//   AlertTriangle,
+//   RefreshCw,
+//   Code,
 //   ExternalLink,
 // } from 'lucide-react';
 // import { Button } from '../ui/button';
@@ -214,13 +214,13 @@
 //   isGenerating: boolean;
 // }
 
-// function ActionCard({ 
-//   action, 
-//   binding, 
-//   isSelected, 
-//   onSelect, 
+// function ActionCard({
+//   action,
+//   binding,
+//   isSelected,
+//   onSelect,
 //   onGenerate,
-//   isGenerating 
+//   isGenerating
 // }: ActionCardProps) {
 //   const actionColors = {
 //     create: 'border-green-300 bg-green-50',
@@ -404,7 +404,7 @@
 //                 {Object.entries(binding.parameterMap).map(([fieldId, paramName]) => {
 //                   const field = allFields.find(f => f.id === fieldId);
 //                   const isRequired = binding.requiredFields.includes(fieldId);
-                  
+
 //                   return (
 //                     <tr key={fieldId} className={isRequired ? 'bg-yellow-50' : ''}>
 //                       <td className="px-3 py-2">
@@ -431,7 +431,7 @@
 //               </tbody>
 //             </table>
 //           </div>
-          
+
 //           <div className="mt-3 text-xs text-gray-600">
 //             <p>✓ {binding.requiredFields.length} required field(s)</p>
 //             <p>• {binding.optionalFields.length} optional field(s)</p>
@@ -457,15 +457,15 @@
 // // ============================================
 
 // export function ComplianceIndicators() {
-//   const { 
-//     isCompliant, 
-//     errorCount, 
+//   const {
+//     isCompliant,
+//     errorCount,
 //     validateCompliance,
 //     isCheckingCompliance,
 //   } = useSchemaCompliance();
-  
-//   const { 
-//     allSpsExist, 
+
+//   const {
+//     allSpsExist,
 //     missingCount,
 //     validateSpExistence,
 //     isVerifyingSps,

@@ -40,7 +40,6 @@ import {
   Database,
   Code2,
   AlertCircle,
-  Loader2,
   ExternalLink,
   FileText,
   Filter,
@@ -48,6 +47,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { TableMetadataDto, StoredProcedureMetadataDto } from "@/types/context";
+import { GridSkeleton, PageHeaderSkeleton } from "@/components/ui/skeletons";
 
 // Types
 interface Expert {
@@ -109,7 +109,7 @@ export default function ContextExperts() {
       enabled: hasProject && !!selectedProjectId,
       staleTime: 60 * 1000,
       retry: 2,
-    }
+    },
   );
 
   // Fetch all SPs
@@ -123,7 +123,7 @@ export default function ContextExperts() {
       enabled: hasProject && !!selectedProjectId,
       staleTime: 60 * 1000,
       retry: 2,
-    }
+    },
   );
 
   // Fetch expert summary (if available)
@@ -270,11 +270,10 @@ export default function ContextExperts() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading entities...</p>
-        </div>
+      <div className="space-y-6 p-6">
+        <PageHeaderSkeleton />
+        <GridSkeleton count={4} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" />
+        <div className="h-[200px] w-full bg-muted/10 animate-pulse rounded-lg border border-neutral-200 dark:border-neutral-800" />
       </div>
     );
   }
@@ -342,7 +341,7 @@ export default function ContextExperts() {
               <div className="text-2xl font-bold">
                 {expertSummary.reduce(
                   (acc, expert) => acc + (expert.expertiseBreakdown.OWNER || 0),
-                  0
+                  0,
                 )}
               </div>
             </CardContent>
@@ -357,7 +356,7 @@ export default function ContextExperts() {
                 {expertSummary.reduce(
                   (acc, expert) =>
                     acc + (expert.expertiseBreakdown.EXPERT || 0),
-                  0
+                  0,
                 )}
               </div>
             </CardContent>
@@ -548,7 +547,7 @@ export default function ContextExperts() {
                                       .split(/\s+/)
                                       .filter(Boolean)
                                       .map((word) =>
-                                        word && word[0] ? word[0] : ""
+                                        word && word[0] ? word[0] : "",
                                       )
                                       .join("")
                                       .toUpperCase();
@@ -586,7 +585,7 @@ export default function ContextExperts() {
                                       {getExpertIcon(level)}
                                       <span className="ml-1">{count}</span>
                                     </Badge>
-                                  )
+                                  ),
                               )}
                             </div>
                           </TableCell>

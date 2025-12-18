@@ -4,6 +4,7 @@ import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
 import { formatRelativeTime } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardSkeleton } from "@/components/ui/skeletons";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export const ContextCoverageWidget: React.FC = () => {
       staleTime: 30 * 1000, // 30 seconds
       refetchInterval: 60 * 1000, // Refresh every minute
       retry: 2,
-    }
+    },
   );
 
   // Error state
@@ -74,21 +75,7 @@ export const ContextCoverageWidget: React.FC = () => {
 
   // Loading state
   if (isLoading || !coverageData) {
-    return (
-      <Card>
-        <CardContent className="py-4">
-          <div className="animate-pulse space-y-2">
-            <div className="h-4 bg-muted rounded w-3/4" />
-            <div className="h-2 bg-muted rounded" />
-            <div className="space-y-1">
-              <div className="h-3 bg-muted rounded w-full" />
-              <div className="h-3 bg-muted rounded w-5/6" />
-              <div className="h-3 bg-muted rounded w-4/5" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <CardSkeleton lines={4} />;
   }
 
   // No project selected
@@ -110,7 +97,7 @@ export const ContextCoverageWidget: React.FC = () => {
   const totalEntities = coverage.reduce((sum, item) => sum + item.total, 0);
   const totalDocumented = coverage.reduce(
     (sum, item) => sum + item.documented,
-    0
+    0,
   );
   const overallPercentage =
     totalEntities > 0 ? Math.round((totalDocumented / totalEntities) * 100) : 0;

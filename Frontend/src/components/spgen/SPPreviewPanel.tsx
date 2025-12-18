@@ -1,20 +1,20 @@
-"use client"
+"use client";
 
-import { lazy } from "react"
-import { Skeleton } from "../ui/skeleton"   
-const MonacoEditor = lazy(() => import("@monaco-editor/react"))
+import { lazy } from "react";
+import { Skeleton } from "../ui/skeleton";
+const MonacoEditor = lazy(() => import("@monaco-editor/react"));
 
 export default function SPPreviewPane({
   sqlCode,
   onChange,
   isLoading = false,
 }: {
-  sqlCode: string
-  onChange: (value: string) => void
-  isLoading?: boolean
+  sqlCode: string;
+  onChange: (value: string) => void;
+  isLoading?: boolean;
 }) {
   return (
-  <div className="border rounded-xl overflow-hidden h-full">
+    <div className="border rounded-xl overflow-hidden h-full">
       {isLoading ? (
         <div className="p-4 space-y-2">
           {Array.from({ length: 10 }).map((_, i) => (
@@ -36,5 +36,5 @@ export default function SPPreviewPane({
         />
       )}
     </div>
-  )
+  );
 }
