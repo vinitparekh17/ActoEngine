@@ -1,6 +1,6 @@
-// hooks/useContext.ts
 import { useCallback } from "react";
-import { useApi, useApiPost, useApiPut, useApiDelete } from "./useApi";
+import { useQuery } from "@tanstack/react-query";
+import { useApi, useApiPost, useApiPut, useApiDelete, api } from "./useApi";
 import { useProject } from "./useProject";
 import { toast } from "sonner";
 import { EntityContext, SaveContextRequest } from "../types/context";
@@ -22,6 +22,8 @@ export interface ContextData {
   deprecationReason?: string;
   replacedBy?: string;
   expertUserIds?: number[];
+  entityType?: string;
+  entityId?: number;
 }
 
 export interface Expert {
@@ -175,22 +177,22 @@ export function useSaveContext(
       invalidateKeys:
         selectedProjectId != null
           ? [
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                entityType,
-                String(entityId),
-              ],
-              ["projects", String(selectedProjectId), "context", "dashboard"],
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                "statistics",
-                "coverage",
-              ],
-            ]
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              entityType,
+              String(entityId),
+            ],
+            ["projects", String(selectedProjectId), "context", "dashboard"],
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              "statistics",
+              "coverage",
+            ],
+          ]
           : [],
     },
   );
@@ -227,15 +229,15 @@ export function useQuickSaveContext(onSuccess?: (data: EntityContext) => void) {
       invalidateKeys:
         selectedProjectId != null
           ? [
-              ["projects", String(selectedProjectId), "context", "dashboard"],
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                "statistics",
-                "coverage",
-              ],
-            ]
+            ["projects", String(selectedProjectId), "context", "dashboard"],
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              "statistics",
+              "coverage",
+            ],
+          ]
           : [],
     },
   );
@@ -384,14 +386,14 @@ export function useAddExpert(
       invalidateKeys:
         selectedProjectId != null
           ? [
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                entityType,
-                String(entityId),
-              ],
-            ]
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              entityType,
+              String(entityId),
+            ],
+          ]
           : [],
     },
   );
@@ -424,14 +426,14 @@ export function useRemoveExpert(
       invalidateKeys:
         selectedProjectId != null
           ? [
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                entityType,
-                String(entityId),
-              ],
-            ]
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              entityType,
+              String(entityId),
+            ],
+          ]
           : [],
     },
   );
@@ -463,22 +465,22 @@ export function useMarkContextReviewed(
       invalidateKeys:
         selectedProjectId != null
           ? [
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                entityType,
-                String(entityId),
-              ],
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                "statistics",
-                "stale",
-              ],
-              ["projects", String(selectedProjectId), "context", "dashboard"],
-            ]
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              entityType,
+              String(entityId),
+            ],
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              "statistics",
+              "stale",
+            ],
+            ["projects", String(selectedProjectId), "context", "dashboard"],
+          ]
           : [],
     },
   );
@@ -520,15 +522,15 @@ export function useBulkImportContext(
     invalidateKeys:
       selectedProjectId != null
         ? [
-            ["projects", String(selectedProjectId), "context", "dashboard"],
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              "statistics",
-              "coverage",
-            ],
-          ]
+          ["projects", String(selectedProjectId), "context", "dashboard"],
+          [
+            "projects",
+            String(selectedProjectId),
+            "context",
+            "statistics",
+            "coverage",
+          ],
+        ]
         : [],
   });
 }
@@ -596,9 +598,8 @@ export function useContextSearch(
     searchParams.append("minCompleteness", options.minCompleteness.toString());
   }
 
-  const endpoint = `/projects/${selectedProjectId}/context/search${
-    searchParams.toString() ? `?${searchParams.toString()}` : ""
-  }`;
+  const endpoint = `/projects/${selectedProjectId}/context/search${searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`;
 
   return useApi<
     Array<{
@@ -618,28 +619,36 @@ export function useContextSearch(
 }
 
 /**
- * Utility hook to get context completeness for multiple entities
+ * Hook to fetch context for multiple entities
  */
-export function useEntitiesContextStatus(
+export function useContextBatch(
   entities: Array<{
     entityType: string;
     entityId: number;
   }>,
+  options?: { enabled?: boolean },
 ) {
   const { selectedProjectId, hasProject } = useProject();
 
-  return useApiPost<
-    Array<{
-      entityType: string;
-      entityId: number;
-      hasContext: boolean;
-      completenessScore: number;
-      isStale: boolean;
-      expertCount: number;
-    }>,
-    { entities: typeof entities }
-  >(`/projects/${selectedProjectId}/context/batch-status`, {
-    showErrorToast: false,
-    showSuccessToast: false,
+  // Sort entities to ensure stable query key if list order changes but content doesn't
+  const sortedKey = entities
+    .map((e) => `${e.entityType}:${e.entityId}`)
+    .sort()
+    .join(",");
+
+  return useQuery({
+    queryKey: ["context", "batch", String(selectedProjectId), sortedKey],
+    queryFn: async () => {
+      return api.post<ContextResponse[]>(
+        `/projects/${selectedProjectId}/context/batch`,
+        { entities },
+      );
+    },
+    enabled:
+      hasProject &&
+      !!selectedProjectId &&
+      entities.length > 0 &&
+      options?.enabled !== false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

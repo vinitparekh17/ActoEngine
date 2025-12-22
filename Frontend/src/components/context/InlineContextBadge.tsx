@@ -62,6 +62,9 @@ interface InlineContextBadgeProps {
   variant?: "minimal" | "detailed";
   allowQuickEdit?: boolean;
   onEditSuccess?: () => void;
+  preloadedContext?: ContextSummary;
+  disableFetch?: boolean;
+  loading?: boolean;
 }
 
 /**
@@ -76,22 +79,33 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
   variant = "minimal",
   allowQuickEdit = false,
   onEditSuccess,
+  preloadedContext,
+  disableFetch = false,
+  loading = false,
 }) => {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
 
   const {
-    data: contextResponse,
-    isLoading,
+    data: fetchedContext,
+    isLoading: isFetching,
     error,
   } = useApi<ContextSummary>(
     `/projects/${selectedProjectId}/context/${entityType}/${entityId}`,
     {
-      enabled: hasProject && !!selectedProjectId && !!entityId,
+      enabled:
+        !disableFetch &&
+        !preloadedContext &&
+        hasProject &&
+        !!selectedProjectId &&
+        !!entityId,
       staleTime: 5 * 60 * 1000, // Cache for 5 minutes
       retry: 1, // Only retry once for inline badges
       showErrorToast: false, // Don't show toast errors for inline badges
     },
   );
+
+  const contextResponse = preloadedContext || fetchedContext;
+  const isLoading = loading || (!preloadedContext && isFetching);
 
   // Loading state
   if (isLoading) {

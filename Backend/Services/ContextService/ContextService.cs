@@ -8,6 +8,7 @@ public interface IContextService
 {
     // Get Context
     Task<ContextResponse?> GetContextAsync(int projectId, string entityType, int entityId);
+    Task<List<ContextResponse>> GetContextBatchAsync(int projectId, List<EntityKey> entities);
 
     // Save Context
     Task<EntityContext> SaveContextAsync(int projectId, string entityType, int entityId, SaveContextRequest request, int userId);
@@ -86,6 +87,52 @@ public partial class ContextService(
         };
     }
 
+    public async Task<List<ContextResponse>> GetContextBatchAsync(int projectId, List<EntityKey> entities)
+    {
+        var responses = new List<ContextResponse>();
+        if (entities == null || entities.Count == 0)
+            return responses;
+
+        // 1. Fetch contexts in batch
+        var contexts = await _contextRepo.GetContextBatchAsync(projectId, entities);
+        
+        // Map contexts by key (Type-Id)
+        var contextMap = contexts.ToDictionary(k => $"{k.EntityType}-{k.EntityId}", v => v);
+
+        // 2. Build responses
+        foreach (var entity in entities)
+        {
+            if (contextMap.TryGetValue($"{entity.EntityType}-{entity.EntityId}", out var context))
+            {
+                // Has context
+                var completeness = CalculateCompletenessScore(context);
+                responses.Add(new ContextResponse
+                {
+                    Context = context,
+                    Experts = new List<EntityExpert>(), // Optimization: Skip experts for batch view
+                    Suggestions = null, // Skip suggestions for batch view
+                    CompletenessScore = completeness,
+                    IsStale = context.IsContextStale,
+                    DependencyCount = 0
+                });
+            }
+            else
+            {
+                // No context
+                responses.Add(new ContextResponse
+                {
+                    Context = null, // Explicitly null to indicate no context found
+                    Experts = new List<EntityExpert>(),
+                    Suggestions = null,
+                    CompletenessScore = 0,
+                    IsStale = false,
+                    DependencyCount = 0
+                });
+            }
+        }
+        return responses;
+    }
+
     /// <summary>
     /// Get entity name from metadata
     /// </summary>
@@ -133,7 +180,7 @@ public partial class ContextService(
         }
 
         // Update experts if provided
-        if (request.ExpertUserIds != null && request.ExpertUserIds.Any())
+        if (request.ExpertUserIds != null && request.ExpertUserIds.Count != 0)
         {
             foreach (var expertUserId in request.ExpertUserIds)
             {

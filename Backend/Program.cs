@@ -165,7 +165,7 @@ builder.Services.AddRateLimiter(options =>
         opt.QueueLimit = 0;
         opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
     }).RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
+    
     // Global limiter
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
@@ -210,6 +210,10 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddLogging(logging => logging.AddConsole());
 builder.Services.AddApiServices(builder.Configuration);
+
+// Configure batch settings from appsettings.json
+builder.Services.Configure<BatchSettings>(builder.Configuration.GetSection("BatchSettings"));
+
 
 // Add distributed memory cache for permission caching
 builder.Services.AddDistributedMemoryCache();

@@ -12,6 +12,7 @@ public interface IContextRepository
 {
     // Entity Context
     Task<EntityContext?> GetContextAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<EntityContext>> GetContextBatchAsync(int projectId, List<EntityKey> entities, CancellationToken cancellationToken = default);
     Task<EntityContext?> GetContextByNameAsync(int projectId, string entityType, string entityName, CancellationToken cancellationToken = default);
     Task<EntityContext> UpsertContextAsync(int projectId, string entityType, int entityId, string entityName, SaveContextRequest request, int userId, CancellationToken cancellationToken = default);
     Task MarkContextStaleAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
@@ -60,6 +61,44 @@ public class ContextRepository(
             new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
             cancellationToken);
         return context;
+    }
+
+    public async Task<IEnumerable<EntityContext>> GetContextBatchAsync(int projectId, List<EntityKey> entities, CancellationToken cancellationToken = default)
+    {
+        if (entities == null || entities.Count == 0)
+            return Enumerable.Empty<EntityContext>();
+
+        // Construct dynamic WHERE clause for (EntityType, EntityId) tuples
+        // Build parameterized OR clauses to handle multiple entity type-id pairs
+        // Example: WHERE ProjectId = @ProjectId AND ((EntityType = @T0 AND EntityId = @I0) OR (EntityType = @T1 AND EntityId = @I1))
+        
+        var sql = ContextQueries.GetContextBatchBase; 
+        var parameters = new DynamicParameters();
+        parameters.Add("ProjectId", projectId);
+
+        var clauses = new List<string>();
+        for (int i = 0; i < entities.Count; i++)
+        {
+            // SECURITY FIX: Build parameter placeholders as part of SQL string, not through interpolation
+            // These are safe string literals that will be bound to parameters by Dapper
+            var typeParam = $"T{i}";
+            var idParam = $"I{i}";
+            clauses.Add($"(EntityType = @{typeParam} AND EntityId = @{idParam})");
+            parameters.Add(typeParam, entities[i].EntityType);
+            parameters.Add(idParam, entities[i].EntityId);
+        }
+
+        if (clauses.Count != 0)
+        {
+            sql += " AND (" + string.Join(" OR ", clauses) + ")";
+        }
+
+        var contexts = await QueryAsync<EntityContext>(
+            sql,
+            parameters,
+            cancellationToken);
+
+        return contexts;
     }
 
     public async Task<EntityContext?> GetContextByNameAsync(int projectId, string entityType, string entityName, CancellationToken cancellationToken = default)
