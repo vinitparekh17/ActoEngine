@@ -161,6 +161,15 @@ function AppRoutes() {
             </PermissionRoute>
           }
         />
+        <Route
+          path="project/:projectId/context/browse"
+          element={
+            <PermissionRoute permission="Contexts:Read">
+              <ContextBrowse />
+            </PermissionRoute>
+          }
+        />
+
         {/* Entity detail routes */}
         <Route
           path="project/:projectId/tables/:tableId"

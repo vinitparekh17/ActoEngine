@@ -3,6 +3,7 @@ import React, { useState, useMemo } from "react";
 import { format, parseISO, isValid } from "date-fns";
 import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
+import { useContextBatch } from "@/hooks/useContext";
 import {
   Card,
   CardContent,
@@ -42,6 +43,8 @@ import {
   ExternalLink,
   RefreshCw,
   Funnel,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -88,6 +91,8 @@ export default function ContextBrowse() {
   const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [sortBy, setSortBy] = useState<SortField>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
 
   // Fetch tables
   const {
@@ -231,6 +236,47 @@ export default function ContextBrowse() {
     sortOrder,
     selectedProject?.databaseType,
   ]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredEntities.length / pageSize);
+  const paginatedEntities = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredEntities.slice(start, start + pageSize);
+  }, [filteredEntities, currentPage, pageSize]);
+
+  // Reset page when filters change and clamp to valid range when data changes
+  React.useEffect(() => {
+    // Clamp currentPage to valid range (1 to totalPages)
+    // This handles cases where:
+    // 1. Filters change and reduce the result set
+    // 2. Refresh occurs and data size changes
+    // 3. Current page becomes out of range
+    const validPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
+    if (validPage !== currentPage) {
+      setCurrentPage(validPage);
+    }
+  }, [searchQuery, filterType, sortBy, sortOrder, totalPages, currentPage]);
+
+  // Batch fetch context for visible entities
+  const { data: batchContextData, isLoading: isBatchLoading } = useContextBatch(
+    paginatedEntities.map((e) => ({
+      entityType: e.entityType,
+      entityId: e.entityId,
+    })),
+    { enabled: paginatedEntities.length > 0 },
+  );
+
+  // Map context data for easy lookup
+  const contextMap = useMemo(() => {
+    if (!batchContextData) return {};
+    const map: Record<string, any> = {};
+    batchContextData.forEach((ctx) => {
+      if (ctx.context?.entityType && ctx.context?.entityId) {
+        map[`${ctx.context.entityType}:${ctx.context.entityId}`] = ctx;
+      }
+    });
+    return map;
+  }, [batchContextData]);
 
   // Helper functions
   const getEntityIcon = (type: EntityType) => {
@@ -535,6 +581,40 @@ export default function ContextBrowse() {
             </Card>
           )}
 
+          {/* Pagination Controls (Top) */}
+          {view === "list" && filteredEntities.length > pageSize && (
+            <div className="flex justify-between items-center px-2">
+              <span className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * pageSize) + 1} to{" "}
+                {Math.min(currentPage * pageSize, filteredEntities.length)} of{" "}
+                {filteredEntities.length} entities
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm border rounded px-3 py-1 bg-white dark:bg-zinc-900 flex items-center">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Content - List or Tree View */}
           {view === "list" ? (
             <Card>
@@ -568,7 +648,7 @@ export default function ContextBrowse() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredEntities.map((entity) => (
+                        {paginatedEntities.map((entity) => (
                           <TableRow
                             key={`${entity.entityType}-${entity.entityId}`}
                           >
@@ -607,6 +687,13 @@ export default function ContextBrowse() {
                                 entityName={entity.entityName}
                                 variant="minimal"
                                 allowQuickEdit={true}
+                                preloadedContext={
+                                  contextMap[
+                                  `${entity.entityType}:${entity.entityId}`
+                                  ]
+                                }
+                                disableFetch={true}
+                                loading={isBatchLoading}
                                 onEditSuccess={() => {
                                   // Optionally refetch data or show a toast
                                 }}

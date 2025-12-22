@@ -39,6 +39,36 @@ public static class ContextQueries
           AND EntityType = @EntityType 
           AND EntityId = @EntityId;";
 
+    public const string GetContextBatchBase = @"
+        SELECT 
+            ContextId,
+            ProjectId,
+            EntityType,
+            EntityId,
+            EntityName,
+            Purpose,
+            BusinessImpact,
+            DataOwner,
+            CriticalityLevel,
+            BusinessDomain,
+            Sensitivity,
+            DataSource,
+            ValidationRules,
+            RetentionPolicy,
+            DataFlow,
+            Frequency,
+            IsDeprecated,
+            DeprecationReason,
+            ReplacedBy,
+            IsContextStale,
+            LastReviewedAt,
+            ReviewedBy,
+            LastContextUpdate,
+            ContextUpdatedBy,
+            CreatedAt
+        FROM EntityContext
+        WHERE ProjectId = @ProjectId";
+
     public const string GetContextByName = @"
         SELECT * FROM EntityContext
         WHERE ProjectId = @ProjectId 

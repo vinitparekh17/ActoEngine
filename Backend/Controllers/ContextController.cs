@@ -5,6 +5,7 @@ using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Services.ContextService;
 using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace ActoEngine.WebApi.Controllers;
 
@@ -16,10 +17,12 @@ namespace ActoEngine.WebApi.Controllers;
 [Route("api/projects/{projectId}/context")]
 public class ContextController(
     IContextService contextService,
-    ILogger<ContextController> logger) : ControllerBase
+    ILogger<ContextController> logger,
+    IOptions<BatchSettings> batchSettings) : ControllerBase
 {
     private readonly IContextService _contextService = contextService;
     private readonly ILogger<ContextController> _logger = logger;
+    private readonly BatchSettings _batchSettings = batchSettings.Value;
 
     #region Context CRUD
 
@@ -51,6 +54,39 @@ public class ContextController(
         {
             _logger.LogError(ex, "Error getting context for {EntityType} {EntityId}", entityType, entityId);
             return StatusCode(500, ApiResponse<object>.Failure("An error occurred while retrieving context"));
+        }
+    }
+
+    /// <summary>
+    /// Get context for multiple entities in batch
+    /// </summary>
+    [HttpPost("batch")]
+    [RequirePermission("Contexts:Read")]
+    [ProducesResponseType(typeof(IEnumerable<ContextResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetContextBatch(
+        int projectId,
+        [FromBody] BatchContextRequest request)
+    {
+        try
+        {
+            if (request.Entities == null || request.Entities.Count == 0)
+                return Ok(ApiResponse<List<ContextResponse>>.Success(new List<ContextResponse>(), "No entities provided"));
+
+            // Validate batch size against configured limit with fallback
+            var maxBatchSize = _batchSettings.MaxBatchSize > 0 ? _batchSettings.MaxBatchSize : 100;
+            if (request.Entities.Count > maxBatchSize)
+                return BadRequest(ApiResponse<object>.Failure($"Batch size limited to {maxBatchSize} entities"));
+
+            var contexts = await _contextService.GetContextBatchAsync(projectId, request.Entities);
+
+            return Ok(ApiResponse<IEnumerable<ContextResponse>>.Success(contexts, "Batch context retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting batch context for project {ProjectId}", projectId);
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred while retrieving batch context"));
         }
     }
 
