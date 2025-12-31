@@ -20,59 +20,133 @@ public static class DependencyQueries
 
     public const string GetDownstreamDependents = @"
         WITH RecursiveDeps AS (
-            -- Anchor: Direct dependents of the changed entity
-            SELECT 
-                d.DependencyId,
+            -- Depth 1: direct dependents
+            SELECT
                 d.ProjectId,
-                d.SourceType, -- The dependent (e.g., the SP)
-                d.SourceId,
-                d.TargetType, -- The dependency (e.g., the Table)
-                d.TargetId,
+        
+                d.SourceType AS SourceEntityType,
+                d.SourceId   AS SourceEntityId,
+        
+                d.TargetType AS TargetEntityType,
+                d.TargetId   AS TargetEntityId,
+        
                 d.DependencyType,
                 1 AS Depth,
-                CAST(CONCAT(d.TargetType, ':', d.TargetId, '->', d.SourceType, ':', d.SourceId) AS NVARCHAR(MAX)) AS Path
+        
+                CAST(
+                    CONCAT(
+                        d.TargetType, ':', d.TargetId,
+                        '->',
+                        d.SourceType, ':', d.SourceId
+                    ) AS NVARCHAR(MAX)
+                ) AS PathKey
             FROM Dependencies d
-            WHERE d.ProjectId = @ProjectId 
-              AND d.TargetType = @RootType 
-              AND d.TargetId = @RootId
-
+            WHERE d.ProjectId = @ProjectId
+              AND d.TargetType = @RootEntityType
+              AND d.TargetId = @RootEntityId
+        
             UNION ALL
-
-            -- Recursive: Dependents of the dependents
-            SELECT 
-                d.DependencyId,
+        
+            -- Transitive dependents
+            SELECT
                 d.ProjectId,
-                d.SourceType,
-                d.SourceId,
-                d.TargetType,
-                d.TargetId,
+        
+                d.SourceType AS SourceEntityType,
+                d.SourceId   AS SourceEntityId,
+        
+                d.TargetType AS TargetEntityType,
+                d.TargetId   AS TargetEntityId,
+        
                 d.DependencyType,
                 r.Depth + 1,
-                CAST(CONCAT(r.Path, '->', d.SourceType, ':', d.SourceId) AS NVARCHAR(MAX))
+        
+                CAST(
+                    CONCAT(
+                        r.PathKey,
+                        '->',
+                        d.SourceType, ':', d.SourceId
+                    ) AS NVARCHAR(MAX)
+                )
             FROM Dependencies d
-            INNER JOIN RecursiveDeps r 
-                AND d.TargetType = r.SourceType 
-                AND d.TargetId = r.SourceId
+            INNER JOIN RecursiveDeps r
+                ON d.TargetType = r.SourceEntityType
+               AND d.TargetId = r.SourceEntityId
             WHERE d.ProjectId = @ProjectId
-              AND r.Depth < 10 -- Safety brake for circular dependencies
-              AND r.Path NOT LIKE CONCAT('%', d.SourceType, ':', d.SourceId, '%') -- Cycle detection
+              AND r.Depth < 10
+              AND r.PathKey NOT LIKE
+                  CONCAT('%', d.SourceType, ':', d.SourceId, '%')
         )
-        SELECT 
-            rd.*,
-            CASE rd.SourceType
-                WHEN 'TABLE' THEN t.TableName
-                WHEN 'SP' THEN sp.ProcedureName
-                WHEN 'VIEW' THEN v.ViewName
-            END as EntityName,
-            -- Get Owner/Context info here for scoring
-            ctx.DataOwner,
-            ctx.CriticalityLevel
+        
+        SELECT
+            rd.SourceEntityType,
+            rd.SourceEntityId,
+            rd.TargetEntityType,
+            rd.TargetEntityId,
+            rd.DependencyType,
+            rd.Depth,
+        
+            -- Source Name
+            COALESCE(
+                ctx.EntityName, 
+                CASE 
+                    WHEN rd.SourceEntityType = 'TABLE' THEN tms.TableName
+                    WHEN rd.SourceEntityType = 'SP' THEN sps.ProcedureName
+                    WHEN rd.SourceEntityType = 'FUNCTION' THEN fns.FunctionName
+                    ELSE NULL 
+                END
+            ) AS SourceEntityName,
+
+            -- Target Name
+            COALESCE(
+                ctxt.EntityName, 
+                CASE 
+                    WHEN rd.TargetEntityType = 'TABLE' THEN tmt.TableName
+                    WHEN rd.TargetEntityType = 'SP' THEN spt.ProcedureName
+                    WHEN rd.TargetEntityType = 'FUNCTION' THEN fnt.FunctionName
+                    ELSE NULL 
+                END
+            ) AS TargetEntityName,
+            
+            ctx.CriticalityLevel AS SourceCriticalityLevel
         FROM RecursiveDeps rd
-        LEFT JOIN TablesMetadata t ON rd.SourceType = 'TABLE' AND rd.SourceId = t.TableId
-        LEFT JOIN SpMetadata sp ON rd.SourceType = 'SP' AND rd.SourceId = sp.SpId
-        LEFT JOIN ViewsMetadata v ON rd.SourceType = 'VIEW' AND rd.SourceId = v.ViewId
-        LEFT JOIN BusinessContext ctx ON rd.SourceType = ctx.EntityType AND rd.SourceId = ctx.EntityId AND rd.ProjectId = ctx.ProjectId
-        ORDER BY rd.Depth, rd.SourceType";
+        
+        -- Source Joins
+        LEFT JOIN EntityContext ctx
+            ON ctx.ProjectId = rd.ProjectId
+           AND ctx.EntityType = rd.SourceEntityType
+           AND ctx.EntityId = rd.SourceEntityId
+        LEFT JOIN TablesMetadata tms
+            ON rd.SourceEntityType = 'TABLE' 
+           AND tms.ProjectId = rd.ProjectId 
+           AND tms.TableId = rd.SourceEntityId
+        LEFT JOIN SpMetadata sps
+            ON rd.SourceEntityType = 'SP'
+           AND sps.ProjectId = rd.ProjectId
+           AND sps.SpId = rd.SourceEntityId
+        LEFT JOIN FunctionMetadata fns
+            ON rd.SourceEntityType = 'FUNCTION'
+           AND fns.ProjectId = rd.ProjectId
+           AND fns.FunctionId = rd.SourceEntityId
+
+        -- Target Joins
+        LEFT JOIN EntityContext ctxt
+            ON ctxt.ProjectId = rd.ProjectId
+           AND ctxt.EntityType = rd.TargetEntityType
+           AND ctxt.EntityId = rd.TargetEntityId
+        LEFT JOIN TablesMetadata tmt
+            ON rd.TargetEntityType = 'TABLE' 
+           AND tmt.ProjectId = rd.ProjectId 
+           AND tmt.TableId = rd.TargetEntityId
+        LEFT JOIN SpMetadata spt
+            ON rd.TargetEntityType = 'SP'
+           AND spt.ProjectId = rd.ProjectId
+           AND spt.SpId = rd.TargetEntityId
+        LEFT JOIN FunctionMetadata fnt
+            ON rd.TargetEntityType = 'FUNCTION'
+           AND fnt.ProjectId = rd.ProjectId
+           AND fnt.FunctionId = rd.TargetEntityId
+
+        ORDER BY rd.Depth;";
 
     public const string ClearDependencies = "DELETE FROM Dependencies WHERE ProjectId = @ProjectId AND SourceType = @EntityType AND SourceId = @EntityId";
 }

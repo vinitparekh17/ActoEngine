@@ -365,7 +365,7 @@ $(document).ready(function() {
         // ============================================
         private static string GenerateCrudStoredProcedure(FormConfig config)
         {
-            var fields = config.Groups?.SelectMany(g => g.Fields) ?? new List<FormField>();
+            var fields = config.Groups?.SelectMany(g => g.Fields) ?? [];
             var tableName = config.TableName;
             var pkField = fields.FirstOrDefault(f => f.IsPrimaryKey);
 

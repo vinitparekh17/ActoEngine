@@ -15,8 +15,16 @@ public partial class DatabaseIdentifierValidator : IDatabaseIdentifierValidator
 
     public bool IsValidIdentifier(string identifier)
     {
-        if (string.IsNullOrWhiteSpace(identifier)) return false;
-        if (identifier.Length > 128) return false;
+        if (string.IsNullOrWhiteSpace(identifier))
+        {
+            return false;
+        }
+
+        if (identifier.Length > 128)
+        {
+            return false;
+        }
+
         return IdentifierRegex().IsMatch(identifier);
     }
 

@@ -38,29 +38,21 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         /// <returns></returns>
         Task<CodeTemplate> SaveTemplateAsync(CodeTemplate template);
     }
-    public class TemplateRenderService : ITemplateRenderService
+    public class TemplateRenderService(
+        ICodeTemplateRepository templateRepository,
+        ILogger<TemplateRenderService> logger) : ITemplateRenderService
     {
-        private readonly ICodeTemplateRepository _templateRepository;
-        private readonly ILogger<TemplateRenderService> _logger;
 
         // Cache compiled templates for performance
         private static readonly Dictionary<string, Template> _compiledTemplates = [];
         private static readonly object _cacheLock = new();
-
-        public TemplateRenderService(
-            ICodeTemplateRepository templateRepository,
-            ILogger<TemplateRenderService> logger)
-        {
-            _templateRepository = templateRepository;
-            _logger = logger;
-        }
 
         public async Task<string> RenderTemplateAsync(string templateType, string framework, object context, string? version = null)
         {
             try
             {
                 // Get template content
-                var template = await _templateRepository.GetTemplateAsync(templateType, framework, version) ?? throw new InvalidOperationException($"Template not found: {templateType}/{framework}");
+                var template = await templateRepository.GetTemplateAsync(templateType, framework, version) ?? throw new InvalidOperationException($"Template not found: {templateType}/{framework}");
 
                 // Get or compile template
                 var cacheKey = $"{templateType}_{framework}_{template.Version}";
@@ -73,21 +65,21 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
                         compiledTemplate = Template.Parse(template.TemplateContent);
                         _compiledTemplates[cacheKey] = compiledTemplate;
 
-                        _logger.LogInformation("Compiled and cached template: {CacheKey}", cacheKey);
+                        logger.LogInformation("Compiled and cached template: {CacheKey}", cacheKey);
                     }
                 }
 
                 // Render template
                 var result = await compiledTemplate!.RenderAsync(context);
 
-                _logger.LogInformation("Rendered template: {TemplateType}/{Framework} v{TemplateVersion}",
+                logger.LogInformation("Rendered template: {TemplateType}/{Framework} v{TemplateVersion}",
                     templateType, framework, template.Version);
 
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error rendering template: {TemplateType}/{Framework}", templateType, framework);
+                logger.LogError(ex, "Error rendering template: {TemplateType}/{Framework}", templateType, framework);
                 throw new TemplateRenderException($"Failed to render template {templateType}/{framework}", ex.Message);
             }
         }
@@ -97,7 +89,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
             try
             {
                 // Get template by name
-                var template = await _templateRepository.GetByNameAsync(templateName) ?? throw new InvalidOperationException($"Template not found: {templateName}");
+                var template = await templateRepository.GetByNameAsync(templateName) ?? throw new InvalidOperationException($"Template not found: {templateName}");
 
                 // Get or compile template
                 var cacheKey = templateName;
@@ -110,27 +102,27 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
                         compiledTemplate = Template.Parse(template.TemplateContent);
                         _compiledTemplates[cacheKey] = compiledTemplate;
 
-                        _logger.LogInformation("Compiled and cached template: {TemplateName}", templateName);
+                        logger.LogInformation("Compiled and cached template: {TemplateName}", templateName);
                     }
                 }
 
                 // Render template
                 var result = await compiledTemplate.RenderAsync(context);
 
-                _logger.LogInformation("Rendered template: {TemplateName}", templateName);
+                logger.LogInformation("Rendered template: {TemplateName}", templateName);
 
                 return result;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error rendering template: {TemplateName}", templateName);
+                logger.LogError(ex, "Error rendering template: {TemplateName}", templateName);
                 throw new TemplateRenderException($"Failed to render template {templateName}", ex.Message);
             }
         }
 
         public async Task<List<CodeTemplate>> GetAvailableTemplatesAsync(string? type = null, string? framework = null)
         {
-            return await _templateRepository.GetTemplatesAsync(type, framework);
+            return await templateRepository.GetTemplatesAsync(type, framework);
         }
 
         public async Task<CodeTemplate> SaveTemplateAsync(CodeTemplate template)
@@ -145,11 +137,11 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
                 foreach (var key in keysToRemove)
                 {
                     _compiledTemplates.Remove(key);
-                    _logger.LogInformation("Cleared cached template: {CacheKey}", key);
+                    logger.LogInformation("Cleared cached template: {CacheKey}", key);
                 }
             }
 
-            return await _templateRepository.SaveAsync(template);
+            return await templateRepository.SaveAsync(template);
         }
 
         // Clear all cached templates (useful for development/testing)
@@ -158,7 +150,7 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
             lock (_cacheLock)
             {
                 _compiledTemplates.Clear();
-                _logger.LogInformation("Cleared all template cache");
+                logger.LogInformation("Cleared all template cache");
             }
         }
     }

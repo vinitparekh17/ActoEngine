@@ -1,7 +1,7 @@
 using ActoEngine.WebApi.Models;
 using System.Text;
 
-namespace ActoEngine.WebApi.Services.SpBuilder;
+namespace ActoEngine.WebApi.Services.SpBuilderService;
 
 public class SpTemplateRenderer
 {
@@ -41,7 +41,9 @@ public class SpTemplateRenderer
     public string RenderSelect(string tableName, List<SpColumnConfig> cols, SelectSpOptions opts)
     {
         if (cols == null || cols.Count == 0)
+        {
             throw new ArgumentException("Columns collection cannot be empty when rendering SELECT stored procedure.", nameof(cols));
+        }
 
         var spName = $"{opts.SpPrefix}_{tableName}_Select";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
@@ -103,14 +105,21 @@ public class SpTemplateRenderer
     // Helper methods
     private static string BuildParameters(List<SpColumnConfig> cols)
     {
-        if (cols.Count == 0) return "";
-        
+        if (cols.Count == 0)
+        {
+            return "";
+        }
+
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
             var col = cols[i];
             sb.Append($"    @{col.ColumnName} {GetSqlType(col)}");
-            if (col.IsNullable) sb.Append(" = NULL");
+            if (col.IsNullable)
+            {
+                sb.Append(" = NULL");
+            }
+
             sb.Append(',');
             sb.AppendLine();
         }
@@ -123,7 +132,11 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             sb.Append($"            [{cols[i].ColumnName}]");
-            if (i < cols.Count - 1) sb.Append(',');
+            if (i < cols.Count - 1)
+            {
+                sb.Append(',');
+            }
+
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -135,7 +148,11 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             sb.Append($"            @{cols[i].ColumnName}");
-            if (i < cols.Count - 1) sb.Append(',');
+            if (i < cols.Count - 1)
+            {
+                sb.Append(',');
+            }
+
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -148,7 +165,11 @@ public class SpTemplateRenderer
         {
             var col = cols[i];
             sb.Append($"            [{col.ColumnName}] = @{col.ColumnName}");
-            if (i < cols.Count - 1) sb.Append(',');
+            if (i < cols.Count - 1)
+            {
+                sb.Append(',');
+            }
+
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -161,7 +182,11 @@ public class SpTemplateRenderer
         {
             var col = cols[i];
             sb.Append($"            [{col.ColumnName}] = @{col.ColumnName}");
-            if (i < cols.Count - 1) sb.Append(" AND");
+            if (i < cols.Count - 1)
+            {
+                sb.Append(" AND");
+            }
+
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -173,7 +198,11 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             sb.Append($"        [{cols[i].ColumnName}]");
-            if (i < cols.Count - 1) sb.Append(',');
+            if (i < cols.Count - 1)
+            {
+                sb.Append(',');
+            }
+
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -185,7 +214,11 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             sb.Append($"        [{cols[i]}]");
-            if (i < cols.Count - 1) sb.Append(',');
+            if (i < cols.Count - 1)
+            {
+                sb.Append(',');
+            }
+
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
@@ -193,28 +226,46 @@ public class SpTemplateRenderer
 
     private static string BuildFilterParameters(List<FilterColumn> filters, List<SpColumnConfig> allCols)
     {
-        if (filters.Count == 0) return "";
+        if (filters.Count == 0)
+        {
+            return "";
+        }
 
         var sb = new StringBuilder();
         foreach (var filter in filters)
         {
             var col = allCols.FirstOrDefault(c => c.ColumnName == filter.ColumnName);
-            if (col == null) continue;
+            if (col == null)
+            {
+                continue;
+            }
 
             if (filter.Operator == FilterOperator.Between)
             {
                 // BETWEEN requires two parameters: Start and End
                 sb.Append($"    @{filter.ColumnName}Start {GetSqlType(col)}");
-                if (filter.IsOptional) sb.Append(" = NULL");
+                if (filter.IsOptional)
+                {
+                    sb.Append(" = NULL");
+                }
+
                 sb.AppendLine(",");
                 sb.Append($"    @{filter.ColumnName}End {GetSqlType(col)}");
-                if (filter.IsOptional) sb.Append(" = NULL");
+                if (filter.IsOptional)
+                {
+                    sb.Append(" = NULL");
+                }
+
                 sb.AppendLine(",");
             }
             else
             {
                 sb.Append($"    @{filter.ColumnName} {GetSqlType(col)}");
-                if (filter.IsOptional) sb.Append(" = NULL");
+                if (filter.IsOptional)
+                {
+                    sb.Append(" = NULL");
+                }
+
                 sb.AppendLine(",");
             }
         }
@@ -223,7 +274,10 @@ public class SpTemplateRenderer
 
     private static string BuildWhereFilters(List<FilterColumn> filters)
     {
-        if (filters.Count == 0) return "";
+        if (filters.Count == 0)
+        {
+            return "";
+        }
 
         var sb = new StringBuilder();
         sb.AppendLine("    WHERE 1=1");
@@ -265,7 +319,11 @@ public class SpTemplateRenderer
                     break;
             }
 
-            if (filter.IsOptional) sb.Append(')');
+            if (filter.IsOptional)
+            {
+                sb.Append(')');
+            }
+
             sb.AppendLine();
         }
         
@@ -301,7 +359,10 @@ public class SpTemplateRenderer
     /// </summary>
     private static string BracketQualifiedName(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) return name;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return name;
+        }
 
         // Split on '.' to handle schema-qualified names; simple approach assuming 2 parts max.
         var parts = name.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -326,7 +387,10 @@ public class SpTemplateRenderer
     /// </summary>
     private static string BracketIdentifier(string identifier)
     {
-        if (string.IsNullOrWhiteSpace(identifier)) return identifier;
+        if (string.IsNullOrWhiteSpace(identifier))
+        {
+            return identifier;
+        }
 
         var trimmed = identifier.Trim();
         // Remove outer brackets if present

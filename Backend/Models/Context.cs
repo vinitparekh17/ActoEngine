@@ -128,7 +128,7 @@ public class SaveContextRequest
 public class ContextResponse
 {
     public required EntityContext Context { get; set; }
-    public List<EntityExpert> Experts { get; set; } = new();
+    public List<EntityExpert> Experts { get; set; } = [];
     public ContextSuggestions? Suggestions { get; set; }
     public int CompletenessScore { get; set; }
     public bool IsStale { get; set; }
@@ -144,8 +144,8 @@ public class ContextSuggestions
     public string? BusinessDomain { get; set; }
     public string? Sensitivity { get; set; }
     public string? ValidationRules { get; set; }
-    public List<UserSuggestion> PotentialOwners { get; set; } = new();
-    public List<UserSuggestion> PotentialExperts { get; set; } = new();
+    public List<UserSuggestion> PotentialOwners { get; set; } = [];
+    public List<UserSuggestion> PotentialExperts { get; set; } = [];
 }
 
 public class UserSuggestion

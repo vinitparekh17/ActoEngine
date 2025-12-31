@@ -91,7 +91,9 @@ public partial class ContextService(
     {
         var responses = new List<ContextResponse>();
         if (entities == null || entities.Count == 0)
+        {
             return responses;
+        }
 
         // 1. Fetch contexts in batch
         var contexts = await _contextRepo.GetContextBatchAsync(projectId, entities);
@@ -109,7 +111,7 @@ public partial class ContextService(
                 responses.Add(new ContextResponse
                 {
                     Context = context,
-                    Experts = new List<EntityExpert>(), // Optimization: Skip experts for batch view
+                    Experts = [], // Optimization: Skip experts for batch view
                     Suggestions = null, // Skip suggestions for batch view
                     CompletenessScore = completeness,
                     IsStale = context.IsContextStale,
@@ -122,7 +124,7 @@ public partial class ContextService(
                 responses.Add(new ContextResponse
                 {
                     Context = null, // Explicitly null to indicate no context found
-                    Experts = new List<EntityExpert>(),
+                    Experts = [],
                     Suggestions = null,
                     CompletenessScore = 0,
                     IsStale = false,
@@ -164,7 +166,9 @@ public partial class ContextService(
         // Validate entity exists
         var entityName = await GetEntityNameAsync(projectId, entityType, entityId);
         if (entityName == null)
+        {
             throw new ArgumentException($"{entityType} with ID {entityId} not found");
+        }
 
         // Get old context for history tracking
         var oldContext = await _contextRepo.GetContextAsync(projectId, entityType, entityId);
@@ -207,24 +211,36 @@ public partial class ContextService(
 
         // Compare fields
         if (oldContext.Purpose != newContext.Purpose)
+        {
             changes.Add(("Purpose", oldContext.Purpose, newContext.Purpose));
+        }
 
         if (oldContext.BusinessImpact != newContext.BusinessImpact)
+        {
             changes.Add(("BusinessImpact", oldContext.BusinessImpact, newContext.BusinessImpact));
+        }
 
         if (oldContext.DataOwner != newContext.DataOwner)
+        {
             changes.Add(("DataOwner", oldContext.DataOwner, newContext.DataOwner));
+        }
 
         if (oldContext.CriticalityLevel != newContext.CriticalityLevel)
+        {
             changes.Add(("CriticalityLevel", 
                 oldContext.CriticalityLevel.ToString(), 
                 newContext.CriticalityLevel.ToString()));
+        }
 
         if (oldContext.BusinessDomain != newContext.BusinessDomain)
+        {
             changes.Add(("BusinessDomain", oldContext.BusinessDomain, newContext.BusinessDomain));
+        }
 
         if (oldContext.Sensitivity != newContext.Sensitivity)
+        {
             changes.Add(("Sensitivity", oldContext.Sensitivity, newContext.Sensitivity));
+        }
 
         // Record each change
         foreach (var (field, oldValue, newValue) in changes)
@@ -286,22 +302,34 @@ public partial class ContextService(
         var lowerName = name.ToLower();
 
         if (ContainsAny(lowerName, "order", "cart", "checkout"))
+        {
             return "ORDERS";
-        
+        }
+
         if (ContainsAny(lowerName, "invoice", "payment", "transaction", "billing", "revenue"))
+        {
             return "FINANCE";
-        
+        }
+
         if (ContainsAny(lowerName, "user", "customer", "account", "profile", "member"))
+        {
             return "USERS";
-        
+        }
+
         if (ContainsAny(lowerName, "product", "inventory", "stock", "item", "sku"))
+        {
             return "INVENTORY";
-        
+        }
+
         if (ContainsAny(lowerName, "report", "analytics", "metric", "dashboard"))
+        {
             return "REPORTING";
-        
+        }
+
         if (ContainsAny(lowerName, "integration", "sync", "webhook", "api"))
+        {
             return "INTEGRATION";
+        }
 
         return "GENERAL";
     }
@@ -316,21 +344,29 @@ public partial class ContextService(
         // PII indicators
         if (ContainsAny(lowerName, "ssn", "social", "tax", "dob", "birthdate", "email", 
             "phone", "address", "passport", "license"))
+        {
             return "PII";
+        }
 
         // Financial indicators
         if (ContainsAny(lowerName, "salary", "wage", "income", "revenue", "cost", "price", 
             "amount", "balance", "credit", "account"))
+        {
             return "FINANCIAL";
+        }
 
         // Sensitive indicators
         if (ContainsAny(lowerName, "password", "secret", "token", "key", "hash", 
             "credential", "pin"))
+        {
             return "SENSITIVE";
+        }
 
         // Internal indicators
         if (ContainsAny(lowerName, "internal", "private", "confidential"))
+        {
             return "INTERNAL";
+        }
 
         return "PUBLIC";
     }
@@ -390,12 +426,16 @@ public partial class ContextService(
         // Validate user exists
         var user = await _userRepo.GetByIdAsync(userId);
         if (user == null)
+        {
             throw new ArgumentException($"User with ID {userId} not found");
+        }
 
         // Validate expertise level
         var validLevels = new[] { "OWNER", "EXPERT", "FAMILIAR", "CONTRIBUTOR" };
         if (!validLevels.Contains(expertiseLevel.ToUpper()))
+        {
             throw new ArgumentException($"Invalid expertise level. Must be one of: {string.Join(", ", validLevels)}");
+        }
 
         await _contextRepo.AddExpertAsync(
             projectId, entityType, entityId, userId, 
@@ -476,22 +516,30 @@ public partial class ContextService(
         // Purpose (30 points)
         maxScore += 30;
         if (!string.IsNullOrWhiteSpace(context.Purpose))
+        {
             score += 30;
+        }
 
         // Data Owner (20 points)
         maxScore += 20;
         if (!string.IsNullOrWhiteSpace(context.DataOwner))
+        {
             score += 20;
+        }
 
         // Business Domain (15 points)
         maxScore += 15;
         if (!string.IsNullOrWhiteSpace(context.BusinessDomain))
+        {
             score += 15;
+        }
 
         // Business Impact (20 points - important for "what breaks")
         maxScore += 20;
         if (!string.IsNullOrWhiteSpace(context.BusinessImpact))
+        {
             score += 20;
+        }
 
         // Type-specific scoring
         if (context.EntityType == "COLUMN")
@@ -499,14 +547,18 @@ public partial class ContextService(
             // Sensitivity (15 points)
             maxScore += 15;
             if (!string.IsNullOrWhiteSpace(context.Sensitivity))
+            {
                 score += 15;
+            }
         }
         else if (context.EntityType == "SP")
         {
             // Data Flow (15 points)
             maxScore += 15;
             if (!string.IsNullOrWhiteSpace(context.DataFlow))
+            {
                 score += 15;
+            }
         }
 
         return maxScore > 0 ? (int)Math.Round((double)score / maxScore * 100) : 0;

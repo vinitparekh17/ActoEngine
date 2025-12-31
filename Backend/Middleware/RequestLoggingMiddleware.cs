@@ -30,7 +30,9 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
                     request.Method, request.Path, request.QueryString.HasValue ? request.QueryString.Value : string.Empty);
 
                 if (_logHeaders)
+                {
                     _logger.LogDebug("[Headers] {Headers}", GetSafeHeaders(request));
+                }
 
                 if (_logBody && request.ContentLength > 0 &&
                     (request.Method == HttpMethods.Post || request.Method == HttpMethods.Put || request.Method == HttpMethods.Patch) &&
@@ -99,7 +101,11 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
 
     private static async Task<string> ReadRequestBodyAsync(HttpRequest request, int maxLength = 1024)
     {
-        if (request.ContentLength > maxLength) return $"[Truncated: {request.ContentLength}]";
+        if (request.ContentLength > maxLength)
+        {
+            return $"[Truncated: {request.ContentLength}]";
+        }
+
         request.EnableBuffering();
         using var reader = new StreamReader(request.Body, Encoding.UTF8, leaveOpen: true);
         var body = await reader.ReadToEndAsync();
@@ -109,8 +115,16 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
 
     private static string SafeResponseBody(string body, int maxLength = 1024)
     {
-        if (string.IsNullOrWhiteSpace(body)) return "[Empty]";
-        if (body.Length > maxLength) return $"[Truncated: {body.Length}]";
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return "[Empty]";
+        }
+
+        if (body.Length > maxLength)
+        {
+            return $"[Truncated: {body.Length}]";
+        }
+
         return body.Contains("password", StringComparison.OrdinalIgnoreCase) ? "[Redacted]" : body;
     }
 }

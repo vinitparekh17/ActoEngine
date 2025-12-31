@@ -25,7 +25,10 @@ public class DependencyResolutionService(
 
     public async Task ResolveAndSaveDependenciesAsync(int projectId, List<Dependency> rawDependencies)
     {
-        if (rawDependencies.Count == 0) return;
+        if (rawDependencies.Count == 0)
+        {
+            return;
+        }
 
         using var conn = await _connectionFactory.CreateConnectionAsync();
 
@@ -82,17 +85,26 @@ public class DependencyResolutionService(
     private static int? FindEntityId(Dictionary<string, int> map, string name)
     {
         // 1. Try exact match (Schema.Table)
-        if (map.TryGetValue(name, out var id)) return id;
+        if (map.TryGetValue(name, out var id))
+        {
+            return id;
+        }
 
         // 2. Try without schema (if code says "Users" but DB has "dbo.Users")
         if (!name.Contains('.'))
         {
             // Check if any key ends with ".Name"
             var match = map.Keys.FirstOrDefault(k => k.EndsWith($".{name}", StringComparison.OrdinalIgnoreCase));
-            if (match != null) return map[match];
-            
+            if (match != null)
+            {
+                return map[match];
+            }
+
             // Check for default dbo
-            if (map.TryGetValue($"dbo.{name}", out var dboId)) return dboId;
+            if (map.TryGetValue($"dbo.{name}", out var dboId))
+            {
+                return dboId;
+            }
         }
 
         return null;
@@ -133,7 +145,10 @@ public class DependencyResolutionService(
 
             // Track all occurrences for unqualified name
             if (!unqualifiedTracker.ContainsKey(tableName))
-                unqualifiedTracker[tableName] = new List<(string, int)>();
+            {
+                unqualifiedTracker[tableName] = [];
+            }
+
             unqualifiedTracker[tableName].Add((schema, tableId));
         }
 
@@ -206,7 +221,10 @@ public class DependencyResolutionService(
             
             // Track all occurrences for unqualified name resolution
             if (!unqualifiedTracker.ContainsKey(name))
-                unqualifiedTracker[name] = new List<(string, int)>();
+            {
+                unqualifiedTracker[name] = [];
+            }
+
             unqualifiedTracker[name].Add((schema, row.SpId));
         }
 

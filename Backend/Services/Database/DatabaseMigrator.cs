@@ -69,7 +69,10 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
     {
         var assembly = Assembly.GetExecutingAssembly();
         using var stream = assembly.GetManifestResourceStream(scriptName);
-        if (stream == null) return null;
+        if (stream == null)
+        {
+            return null;
+        }
 
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();

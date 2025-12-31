@@ -418,7 +418,7 @@ public class DatabaseBrowserController(
                 TableName = table.TableName,
                 SchemaName = table.SchemaName,
                 RowCount = null, // Can be populated from actual DB if needed
-                Columns = columns.Select(c => new ColumnDetailInfo
+                Columns = [.. columns.Select(c => new ColumnDetailInfo
                 {
                     ColumnId = c.ColumnId,
                     Name = c.ColumnName,
@@ -426,8 +426,8 @@ public class DatabaseBrowserController(
                     IsNullable = c.IsNullable,
                     DefaultValue = c.DefaultValue,
                     Constraints = BuildConstraints(c)
-                }).ToList(),
-                PrimaryKeys = columns.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName).ToList(),
+                })],
+                PrimaryKeys = [.. columns.Where(c => c.IsPrimaryKey).Select(c => c.ColumnName)],
                 ForeignKeys = null, // Can be populated from FK metadata if needed
                 Indexes = null // Can be populated from index metadata if needed
             };
@@ -632,16 +632,24 @@ public class DatabaseBrowserController(
         var constraints = new List<string>();
 
         if (column.IsPrimaryKey)
+        {
             constraints.Add("PRIMARY KEY");
+        }
 
         if (column.IsForeignKey)
+        {
             constraints.Add("FOREIGN KEY");
+        }
 
         if (!column.IsNullable)
+        {
             constraints.Add("NOT NULL");
+        }
 
         if (!string.IsNullOrEmpty(column.DefaultValue))
+        {
             constraints.Add($"DEFAULT {column.DefaultValue}");
+        }
 
         return constraints;
     }

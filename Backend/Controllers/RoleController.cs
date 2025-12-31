@@ -28,7 +28,9 @@ public class RoleController(IRoleService roleService) : ControllerBase
     {
         var role = await _roleService.GetRoleWithPermissionsAsync(roleId);
         if (role == null)
+        {
             return NotFound(ApiResponse<object>.Failure("Role not found"));
+        }
 
         return Ok(ApiResponse<RoleWithPermissions>.Success(role, "Role retrieved successfully"));
     }
@@ -38,12 +40,16 @@ public class RoleController(IRoleService roleService) : ControllerBase
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
     {
         if (!ModelState.IsValid)
+        {
             return BadRequest(ApiResponse<object>.Failure("Invalid request data",
                 [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+        }
 
         var userId = HttpContext.GetUserId();
         if (userId == null)
+        {
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+        }
 
         try
         {
@@ -61,15 +67,21 @@ public class RoleController(IRoleService roleService) : ControllerBase
     public async Task<IActionResult> UpdateRole(int roleId, [FromBody] UpdateRoleRequest request)
     {
         if (roleId != request.RoleId)
+        {
             return BadRequest(ApiResponse<object>.Failure("Role ID mismatch"));
+        }
 
         if (!ModelState.IsValid)
+        {
             return BadRequest(ApiResponse<object>.Failure("Invalid request data",
                 [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+        }
 
         var userId = HttpContext.GetUserId();
         if (userId == null)
+        {
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+        }
 
         try
         {

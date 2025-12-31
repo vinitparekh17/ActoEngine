@@ -12,15 +12,10 @@ namespace ActoEngine.WebApi.Repositories
         Task<List<GenerationHistory>> GetRecentAsync(int userId, int limit = 10);
     }
 
-    public class GenerationHistoryRepository : IGenerationHistoryRepository
+    public class GenerationHistoryRepository(IConfiguration configuration) : IGenerationHistoryRepository
     {
-        private readonly string _connectionString;
-
-        public GenerationHistoryRepository(IConfiguration configuration)
-        {
-            _connectionString = configuration.GetConnectionString("DefaultConnection")
+        private readonly string _connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new ArgumentNullException("DefaultConnection");
-        }
 
         private IDbConnection CreateConnection() => new SqlConnection(_connectionString);
 

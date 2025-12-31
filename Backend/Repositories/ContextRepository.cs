@@ -66,12 +66,14 @@ public class ContextRepository(
     public async Task<IEnumerable<EntityContext>> GetContextBatchAsync(int projectId, List<EntityKey> entities, CancellationToken cancellationToken = default)
     {
         if (entities == null || entities.Count == 0)
+        {
             return Enumerable.Empty<EntityContext>();
+        }
 
         // Construct dynamic WHERE clause for (EntityType, EntityId) tuples
         // Build parameterized OR clauses to handle multiple entity type-id pairs
         // Example: WHERE ProjectId = @ProjectId AND ((EntityType = @T0 AND EntityId = @I0) OR (EntityType = @T1 AND EntityId = @I1))
-        
+
         var sql = ContextQueries.GetContextBatchBase; 
         var parameters = new DynamicParameters();
         parameters.Add("ProjectId", projectId);
@@ -228,7 +230,7 @@ public class ContextRepository(
             new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
             splitOn: "UserID");
 
-        return experts.ToList();
+        return [.. experts];
     }
 
     /// <summary>
@@ -293,7 +295,7 @@ public class ContextRepository(
             ContextQueries.GetUserExpertise,
             new { UserId = userId, ProjectId = projectId },
             cancellationToken);
-        return expertise.ToList();
+        return [.. expertise];
     }
 
     #endregion
@@ -329,7 +331,7 @@ public class ContextRepository(
             ContextQueries.GetContextHistory,
             new { EntityType = entityType, EntityId = entityId },
             cancellationToken);
-        return history.ToList();
+        return [.. history];
     }
 
     #endregion
@@ -342,7 +344,7 @@ public class ContextRepository(
             ContextQueries.GetContextGaps,
             new { ProjectId = projectId, Limit = limit },
             cancellationToken);
-        return gaps.ToList();
+        return [.. gaps];
     }
 
     public async Task<List<ContextCoverageStats>> GetContextCoverageAsync(int projectId, CancellationToken cancellationToken = default)
@@ -351,7 +353,7 @@ public class ContextRepository(
             ContextQueries.GetContextCoverage,
             new { ProjectId = projectId },
             cancellationToken);
-        return stats.ToList();
+        return [.. stats];
     }
 
     public async Task<List<StaleContextEntity>> GetStaleContextEntitiesAsync(int projectId, CancellationToken cancellationToken = default)
@@ -360,7 +362,7 @@ public class ContextRepository(
             ContextQueries.GetStaleContextEntities,
             new { ProjectId = projectId },
             cancellationToken);
-        return entities.ToList();
+        return [.. entities];
     }
 
     public async Task<List<TopDocumentedEntity>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10, CancellationToken cancellationToken = default)
@@ -369,7 +371,7 @@ public class ContextRepository(
             ContextQueries.GetTopDocumentedEntities,
             new { ProjectId = projectId, Limit = limit },
             cancellationToken);
-        return entities.ToList();
+        return [.. entities];
     }
 
     public async Task<List<CriticalUndocumentedEntity>> GetCriticalUndocumentedAsync(int projectId, CancellationToken cancellationToken = default)
@@ -378,7 +380,7 @@ public class ContextRepository(
             ContextQueries.GetCriticalUndocumented,
             new { ProjectId = projectId },
             cancellationToken);
-        return entities.ToList();
+        return [.. entities];
     }
 
     #endregion
@@ -414,7 +416,7 @@ public class ContextRepository(
             ContextQueries.GetPendingReviewRequests,
             new { UserId = userId },
             cancellationToken);
-        return requests.ToList();
+        return [.. requests];
     }
 
     public async Task CompleteReviewRequestAsync(int requestId, CancellationToken cancellationToken = default)
@@ -439,7 +441,7 @@ public class ContextRepository(
             ContextQueries.GetPotentialExperts,
             new { EntityType = entityType, EntityId = entityId },
             cancellationToken);
-        return suggestions.ToList();
+        return [.. suggestions];
     }
 
     #endregion

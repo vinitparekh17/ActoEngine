@@ -1,42 +1,105 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.ImpactService;
-using ActoEngine.WebApi.Attributes;
+using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Services.ImpactAnalysis.Mapping;
+using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
+using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.VerdictBuilder;
 
 namespace ActoEngine.WebApi.Controllers;
 
 /// <summary>
-/// API endpoints for impact analysis
+/// Impact analysis API.
+/// Thin controller using standard ApiResponse envelope.
 /// </summary>
 [ApiController]
-[Authorize]
-[Route("api/projects/{projectId}/impact")]
-public class ImpactController(
-    IImpactService impactService,
-    ILogger<ImpactController> logger) : ControllerBase
+[Route("api/impact")]
+public sealed class ImpactController(
+    IImpactFacade impactFacade,
+    ImpactVerdictBuilder verdictBuilder) : ControllerBase
 {
-    /// <summary>
-    /// Analyze impact of changing an entity
-    /// </summary>
-    [HttpGet("{entityType}/{entityId}")]
-    [RequirePermission("Contexts:Read")] // Re-using Contexts permission for now
-    [ProducesResponseType(typeof(ImpactAnalysisResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetImpactAnalysis(
-        int projectId,
-        string entityType,
-        int entityId,
-        [FromQuery] string changeType = "MODIFY")
+
+    [HttpGet("~/api/projects/{projectId:int}/impact/{entityType}/{entityId:int}")]
+    public async Task<ActionResult<ApiResponse<ImpactDecisionResponse>>> Analyze(
+        [FromRoute] int projectId,
+        [FromRoute] string entityType,
+        [FromRoute] int entityId,
+        [FromQuery] string changeType,
+        CancellationToken cancellationToken)
     {
-        try
+        // -----------------------------
+        // Input validation
+        // -----------------------------
+
+        if (!Enum.TryParse<EntityType>(
+                entityType,
+                ignoreCase: true,
+                out var parsedEntityType))
         {
-            var analysis = await impactService.GetImpactAnalysisAsync(projectId, entityType, entityId, changeType);
-            return Ok(ApiResponse<ImpactAnalysisResponse>.Success(analysis, "Impact analysis completed"));
+            return BadRequest(
+                ApiResponse<ImpactDecisionResponse>.Failure(
+                    "Invalid entityType",
+                    [$"Unsupported entityType '{entityType}'"]
+                ));
         }
-        catch (Exception ex)
+
+        if (!Enum.TryParse<ChangeType>(
+                changeType,
+                ignoreCase: true,
+                out var parsedChangeType))
         {
-            logger.LogError(ex, "Error analyzing impact for {EntityType} {EntityId}", entityType, entityId);
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred during impact analysis"));
+            return BadRequest(
+                ApiResponse<ImpactDecisionResponse>.Failure(
+                    "Invalid changeType",
+                    [$"Unsupported changeType '{changeType}'"]
+                ));
         }
+
+        var rootEntity = new EntityRef(parsedEntityType, entityId);
+
+        // -----------------------------
+        // 1. Run factual analysis (engine)
+        // -----------------------------
+
+        var analysis = await impactFacade.AnalyzeAsync(
+            projectId,
+            rootEntity,
+            parsedChangeType,
+            cancellationToken);
+
+        // -----------------------------
+        // 2. Build verdict (NEW, opinionated)
+        // -----------------------------
+
+        var verdict = verdictBuilder.Build(analysis);
+
+        // -----------------------------
+        // 3. Shape verdict-first response
+        // -----------------------------
+
+        var response = new ImpactDecisionResponse
+        {
+            Verdict = verdict,
+
+            // Aggregated summary (existing engine output)
+            Summary = analysis.OverallImpact,
+
+            // Ranked impacts (trimmed, not exhaustive)
+            Entities = analysis.EntityImpacts
+                .OrderByDescending(e => e.WorstCaseImpactLevel)
+                .ThenByDescending(e => e.WorstCaseRiskScore)
+                .Take(10)
+                .Cast<object>()
+                .ToList(),
+
+            // Evidence (UI can hide)
+            Paths = analysis.Paths,
+            Graph = null // TODO (graphs not yet supported)
+        };
+
+        return Ok(
+            ApiResponse<ImpactDecisionResponse>.Success(
+                response,
+                "Impact analysis completed"
+            ));
     }
 }

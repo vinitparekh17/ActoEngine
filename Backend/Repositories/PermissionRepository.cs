@@ -13,13 +13,10 @@ public interface IPermissionRepository
     Task<IEnumerable<string>> GetUserPermissionsAsync(int userId, CancellationToken cancellationToken = default);
 }
 
-public class PermissionRepository : BaseRepository, IPermissionRepository
+public class PermissionRepository(
+    IDbConnectionFactory connectionFactory,
+    ILogger<PermissionRepository> logger) : BaseRepository(connectionFactory, logger), IPermissionRepository
 {
-    public PermissionRepository(
-        IDbConnectionFactory connectionFactory,
-        ILogger<PermissionRepository> logger)
-        : base(connectionFactory, logger) { }
-
     public async Task<IEnumerable<Permission>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await QueryAsync<Permission>(PermissionQueries.GetAll, cancellationToken: cancellationToken);
@@ -53,7 +50,7 @@ public class PermissionRepository : BaseRepository, IPermissionRepository
             .Select(g => new PermissionGroupDto
             {
                 Category = g.Key,
-                Permissions = g.ToList()
+                Permissions = [.. g]
             });
     }
 

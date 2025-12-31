@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.Database;
+using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
 using ActoEngine.WebApi.SqlQueries;
 using Dapper;
 using System.Data;
@@ -30,8 +31,8 @@ public interface IDependencyRepository
     /// <param name="rootType">The root entity type (TABLE, SP, VIEW)</param>
     /// <param name="rootId">The root entity identifier</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>A Task containing a list of DependencyGraphNode representing downstream dependents</returns>
-    Task<List<DependencyGraphNode>> GetDownstreamDependentsAsync(int projectId, string rootType, int rootId, CancellationToken cancellationToken = default);
+    /// <returns>A Task containing a list of DependencyGraphRow representing downstream dependents</returns>
+    Task<List<DependencyGraphRow>> GetDownstreamDependentsAsync(int projectId, string rootType, int rootId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Clears dependencies for a specific entity
@@ -58,7 +59,10 @@ public class DependencyRepository(
         CancellationToken cancellationToken = default)
     {
         var depsList = dependencies.ToList();
-        if (depsList.Count == 0) return;
+        if (depsList.Count == 0)
+        {
+            return;
+        }
 
         await ExecuteInTransactionAsync(async (conn, transaction) =>
         {
@@ -96,26 +100,39 @@ public class DependencyRepository(
     {
         var sql = DependencyQueries.GetDependents;
 
-        var dependencies = await QueryAsync<ResolvedDependency>(sql, new 
-        { 
-            ProjectId = projectId, 
-            TargetType = targetType, 
-            TargetId = targetId 
+        var dependencies = await QueryAsync<ResolvedDependency>(sql, new
+        {
+            ProjectId = projectId,
+            TargetType = targetType,
+            TargetId = targetId
         }, cancellationToken);
 
-        return dependencies.ToList();
+        return [.. dependencies];
     }
 
-    public async Task<List<DependencyGraphNode>> GetDownstreamDependentsAsync(int projectId, string rootType, int rootId, CancellationToken cancellationToken = default)
+    public async Task<List<DependencyGraphRow>> GetDownstreamDependentsAsync(
+        int projectId,
+        string rootEntityType,
+        int rootEntityId,
+        CancellationToken cancellationToken = default)
     {
-        using var conn = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        
-        // This Recursive CTE finds ALL downstream dependencies, not just direct ones.
-        // It tracks "Depth" to show how far away the impact is.
-        var sql = DependencyQueries.GetDownstreamDependents;
+        var parameters = new
+        {
+            ProjectId = projectId,
+            RootEntityType = rootEntityType,
+            RootEntityId = rootEntityId
+        };
 
-        return (await conn.QueryAsync<DependencyGraphNode>(sql, new { ProjectId = projectId, RootType = rootType, RootId = rootId })).ToList();
+        var result = await QueryAsync<DependencyGraphRow>(
+            DependencyQueries.GetDownstreamDependents,
+            parameters,
+            cancellationToken);
+
+        // Materialize once – engine assumes stable collection
+        return [.. result];
     }
+
+    // ...existing code...
     public async Task ClearDependenciesAsync(int projectId, string entityType, int entityId, IDbConnection conn, IDbTransaction transaction)
     {
         var sql = DependencyQueries.ClearDependencies;

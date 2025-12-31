@@ -2,6 +2,7 @@ using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.Services.Schema;
+using ActoEngine.WebApi.Services.DependencyService;
 using ActoEngine.WebApi.SqlQueries;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -24,7 +25,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
     public class ProjectService(IProjectRepository projectRepository, ISchemaRepository schemaRepository,
     IDbConnectionFactory connectionFactory, ISchemaService schemaService, IClientRepository clientRepository,
-    IProjectClientRepository projectClientRepository, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
+    IProjectClientRepository projectClientRepository, IDependencyOrchestrationService dependencyOrchestrationService, ILogger<ProjectService> logger, IConfiguration configuration) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly ISchemaRepository _schemaRepository = schemaRepository;
@@ -32,6 +33,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
         private readonly ISchemaService _schemaService = schemaService;
         private readonly IClientRepository _clientRepository = clientRepository;
         private readonly IProjectClientRepository _projectClientRepository = projectClientRepository;
+        private readonly IDependencyOrchestrationService _dependencyOrchestrationService = dependencyOrchestrationService;
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
 
@@ -140,6 +142,19 @@ namespace ActoEngine.WebApi.Services.ProjectService
                     }
 
                     transaction.Commit();
+                    
+                    // Trigger Dependency Analysis (Non-blocking / "Dumb" integration)
+                    await _projectRepository.UpdateSyncStatusAsync(projectId, "Analyzing Dependencies...", 95);
+                    try 
+                    {
+                        await _dependencyOrchestrationService.AnalyzeProjectAsync(projectId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Dependency analysis failed for project {ProjectId}. Schema sync remains successful.", projectId);
+                        // Do not re-throw, allow sync to complete
+                    }
+
                     await _projectRepository.UpdateSyncStatusAsync(projectId, "Completed", 100);
 
                     // Set IsLinked to true after successful sync
@@ -289,8 +304,6 @@ namespace ActoEngine.WebApi.Services.ProjectService
             }
             return columns;
         }
-
-
 
         private static async Task SyncViaSameServerAsync(
             int projectId,
