@@ -76,7 +76,9 @@ public class TokenRepository(
 
         var rowsAffected = await ExecuteAsync(TokenSqlQueries.Update, parameters);
         if (rowsAffected == 0)
+        {
             throw new InvalidOperationException($"No token session found for UserID {userId}");
+        }
     }
 
     public async Task UpdateAccessTokenAsync(int userId, string newSessionToken, DateTime newSessionExpiry)
@@ -90,7 +92,9 @@ public class TokenRepository(
 
         var rowsAffected = await ExecuteAsync(TokenSqlQueries.UpdateAccessToken, parameters);
         if (rowsAffected == 0)
+        {
             throw new InvalidOperationException($"No token session found for UserID {userId}");
+        }
     }
 
     public async Task DeleteByRefreshTokenHashAsync(string refreshToken)
@@ -100,7 +104,9 @@ public class TokenRepository(
             new { RefreshToken = refreshToken });
 
         if (rowsAffected == 0)
+        {
             throw new InvalidOperationException("Refresh token not found");
+        }
     }
 
     public async Task DeleteByUserIdAsync(int userId)

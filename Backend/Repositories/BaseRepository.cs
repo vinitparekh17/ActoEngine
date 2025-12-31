@@ -4,6 +4,7 @@ using ActoEngine.WebApi.Services.Database;
 using Dapper;
 
 namespace ActoEngine.WebApi.Repositories;
+
 public abstract class BaseRepository(IDbConnectionFactory connectionFactory, ILogger logger)
 {
     protected readonly IDbConnectionFactory _connectionFactory = connectionFactory;

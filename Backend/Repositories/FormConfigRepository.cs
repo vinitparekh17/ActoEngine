@@ -41,7 +41,9 @@ namespace ActoEngine.WebApi.Repositories
                 new { Id = id, UserId = userId });
 
             if (string.IsNullOrEmpty(configJson))
+            {
                 return null;
+            }
 
             return System.Text.Json.JsonSerializer.Deserialize<FormConfig>(configJson);
         }
@@ -53,7 +55,9 @@ namespace ActoEngine.WebApi.Repositories
                 new { IdOrName = idOrName, UserId = userId });
 
             if (string.IsNullOrEmpty(configJson))
+            {
                 return null;
+            }
 
             return System.Text.Json.JsonSerializer.Deserialize<FormConfig>(configJson);
         }

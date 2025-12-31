@@ -5,15 +5,8 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace ActoEngine.WebApi.Attributes;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
-public class RequirePermissionAttribute : Attribute, IAsyncAuthorizationFilter
+public class RequirePermissionAttribute(string permissionKey) : Attribute, IAsyncAuthorizationFilter
 {
-    private readonly string _permissionKey;
-
-    public RequirePermissionAttribute(string permissionKey)
-    {
-        _permissionKey = permissionKey;
-    }
-
     public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
         // Check if user is authenticated
@@ -31,7 +24,7 @@ public class RequirePermissionAttribute : Attribute, IAsyncAuthorizationFilter
             .ToList();
 
         // Check if user has the required permission
-        if (!permissions.Contains(_permissionKey))
+        if (!permissions.Contains(permissionKey))
         {
             var logger = context.HttpContext.RequestServices
                 .GetRequiredService<ILogger<RequirePermissionAttribute>>();
@@ -40,10 +33,10 @@ public class RequirePermissionAttribute : Attribute, IAsyncAuthorizationFilter
                 "User {UserId} attempted to access {Path} without permission {Permission}",
                 context.HttpContext.User.FindFirst("user_id")?.Value,
                 context.HttpContext.Request.Path,
-                _permissionKey);
+                permissionKey);
 
             context.Result = new ForbiddenObjectResult(
-                ApiResponse<object>.Failure($"Permission '{_permissionKey}' is required"));
+                ApiResponse<object>.Failure($"Permission '{permissionKey}' is required"));
             return;
         }
 

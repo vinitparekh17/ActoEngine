@@ -14,15 +14,10 @@ namespace ActoEngine.WebApi.Repositories
         Task<bool> DeactivateAsync(string templateName);
     }
 
-    public class CodeTemplateRepository : ICodeTemplateRepository
+    public class CodeTemplateRepository(IConfiguration configuration) : ICodeTemplateRepository
     {
-        private readonly string _connectionString;
-
-        public CodeTemplateRepository(IConfiguration configuration)
-        {
-            _connectionString = configuration.GetConnectionString("DefaultConnection")
+        private readonly string _connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new ArgumentNullException("DefaultConnection");
-        }
 
         private IDbConnection CreateConnection() => new SqlConnection(_connectionString);
 

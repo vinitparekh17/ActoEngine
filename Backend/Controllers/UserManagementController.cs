@@ -31,7 +31,9 @@ public class UserManagementController(IUserManagementService userManagementServi
     {
         var user = await _userManagementService.GetUserWithPermissionsAsync(userId);
         if (user == null)
+        {
             return NotFound(ApiResponse<object>.Failure("User not found"));
+        }
 
         return Ok(ApiResponse<UserWithPermissionsDto>.Success(user, "User retrieved successfully"));
     }
@@ -41,12 +43,16 @@ public class UserManagementController(IUserManagementService userManagementServi
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
         if (!ModelState.IsValid)
+        {
             return BadRequest(ApiResponse<object>.Failure("Invalid request data",
                 [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+        }
 
         var createdBy = HttpContext.GetUserId();
         if (createdBy == null)
+        {
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+        }
 
         try
         {
@@ -64,15 +70,21 @@ public class UserManagementController(IUserManagementService userManagementServi
     public async Task<IActionResult> UpdateUser(int userId, [FromBody] UpdateUserRequest request)
     {
         if (userId != request.UserId)
+        {
             return BadRequest(ApiResponse<object>.Failure("User ID mismatch"));
+        }
 
         if (!ModelState.IsValid)
+        {
             return BadRequest(ApiResponse<object>.Failure("Invalid request data",
                 [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+        }
 
         var updatedBy = HttpContext.GetUserId();
         if (updatedBy == null)
+        {
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+        }
 
         try
         {
@@ -91,7 +103,9 @@ public class UserManagementController(IUserManagementService userManagementServi
     {
         var updatedBy = HttpContext.GetUserId();
         if (updatedBy == null)
+        {
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+        }
 
         try
         {
@@ -110,9 +124,11 @@ public class UserManagementController(IUserManagementService userManagementServi
     {
         var currentUserId = HttpContext.GetUserId();
         if (currentUserId == null)
+        {
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+        }
 
-        if(currentUserId == userId) {
+        if (currentUserId == userId) {
             return BadRequest(ApiResponse<object>.Failure("Cannot delete the currently authenticated user."));
         }
 
@@ -133,7 +149,9 @@ public class UserManagementController(IUserManagementService userManagementServi
     {
         var updatedBy = HttpContext.GetUserId();
         if (updatedBy == null)
+        {
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+        }
 
         try
         {

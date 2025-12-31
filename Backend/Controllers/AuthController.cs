@@ -22,16 +22,22 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var result = await _authService.LoginAsync(request.Username, request.Password);
 
             if (!result.Success)
+            {
                 return Unauthorized(ApiResponse<object>.Failure(result.ErrorMessage ?? "Authentication failed"));
+            }
 
             var user = await _authService.GetUserAsync(result.UserId ?? 0);
             if (user == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not found"));
+            }
 
             user.PasswordHash = string.Empty;
             
@@ -61,7 +67,9 @@ namespace ActoEngine.WebApi.Controllers
             var refreshToken = Request.Cookies["refresh_token"];
             
             if (string.IsNullOrEmpty(refreshToken))
+            {
                 return Unauthorized(ApiResponse<object>.Failure("No refresh token provided"));
+            }
 
             var result = await _authService.RefreshSessionAsync(refreshToken);
 

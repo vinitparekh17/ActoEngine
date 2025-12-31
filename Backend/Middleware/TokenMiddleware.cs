@@ -92,7 +92,9 @@ namespace ActoEngine.WebApi.Middleware
         {
             var authHeader = request.Headers.Authorization.FirstOrDefault();
             if (string.IsNullOrEmpty(authHeader))
+            {
                 return null;
+            }
 
             const string bearerPrefix = "Bearer ";
             return authHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase)

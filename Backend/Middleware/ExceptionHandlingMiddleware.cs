@@ -1,29 +1,20 @@
 using System.Text.Json;
 using ActoEngine.WebApi.Models;
 
-public class ExceptionHandlingMiddleware
+public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<ExceptionHandlingMiddleware> _logger;
-
-    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
-    {
-        _next = next;
-        _logger = logger;
-    }
-
     public async Task InvokeAsync(HttpContext context)
     {
         try
         {
-            await _next(context);
+            await next(context);
         }
         catch (Exception ex)
         {
             if (context.Response.HasStarted)
             {
-                _logger.LogWarning("Cannot handle exception for {Path}; response has already started.", context.Request.Path);
-                _logger.LogError(ex, "Unhandled exception occurred");
+                logger.LogWarning("Cannot handle exception for {Path}; response has already started.", context.Request.Path);
+                logger.LogError(ex, "Unhandled exception occurred");
                 // Rethrowing might terminate the connection abruptly
                 return;
             }
@@ -34,11 +25,11 @@ public class ExceptionHandlingMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        _logger.LogError(exception, "An unhandled exception occurred for path: {Path}", context.Request.Path);
+        logger.LogError(exception, "An unhandled exception occurred for path: {Path}", context.Request.Path);
 
         if (context.Response.HasStarted)
         {
-            _logger.LogWarning("Cannot handle exception for {Path}; response has already started.", context.Request.Path);
+            logger.LogWarning("Cannot handle exception for {Path}; response has already started.", context.Request.Path);
             return;
         }
 

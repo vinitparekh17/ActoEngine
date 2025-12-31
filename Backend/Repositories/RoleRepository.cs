@@ -24,13 +24,10 @@ public interface IRoleRepository
     Task UpdateRoleWithPermissionsAsync(Role role, IEnumerable<int> permissionIds, int updatedBy, CancellationToken cancellationToken = default);
 }
 
-public class RoleRepository : BaseRepository, IRoleRepository
+public class RoleRepository(
+    IDbConnectionFactory connectionFactory,
+    ILogger<RoleRepository> logger) : BaseRepository(connectionFactory, logger), IRoleRepository
 {
-    public RoleRepository(
-        IDbConnectionFactory connectionFactory,
-        ILogger<RoleRepository> logger)
-        : base(connectionFactory, logger) { }
-
     public async Task<IEnumerable<Role>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await QueryAsync<Role>(RoleQueries.GetAll, cancellationToken: cancellationToken);
@@ -70,7 +67,9 @@ public class RoleRepository : BaseRepository, IRoleRepository
             cancellationToken);
 
         if (rowsAffected == 0)
+        {
             throw new InvalidOperationException($"Role {role.RoleId} not found or is a system role");
+        }
     }
 
     public async Task DeleteAsync(int roleId, CancellationToken cancellationToken = default)
@@ -81,7 +80,9 @@ public class RoleRepository : BaseRepository, IRoleRepository
             cancellationToken);
 
         if (rowsAffected == 0)
+        {
             throw new InvalidOperationException($"Role {roleId} not found or is a system role");
+        }
     }
 
     public async Task<IEnumerable<Permission>> GetRolePermissionsAsync(
@@ -159,7 +160,9 @@ public class RoleRepository : BaseRepository, IRoleRepository
                 transaction);
 
             if (createdRole == null)
+            {
                 throw new InvalidOperationException("Failed to create role");
+            }
 
             // 2. Assign Permissions
             foreach (var permissionId in permissionIds)
@@ -189,7 +192,9 @@ public class RoleRepository : BaseRepository, IRoleRepository
                 transaction);
 
             if (rowsAffected == 0)
+            {
                 throw new InvalidOperationException($"Role {roleId} not found or is a system role");
+            }
 
             return true;
         }, cancellationToken);
@@ -209,7 +214,9 @@ public class RoleRepository : BaseRepository, IRoleRepository
                 transaction);
 
             if (rowsAffected == 0)
+            {
                 throw new InvalidOperationException($"Role {role.RoleId} not found or is a system role");
+            }
 
             await ClearRolePermissionsAsync(role.RoleId, conn, transaction);
 

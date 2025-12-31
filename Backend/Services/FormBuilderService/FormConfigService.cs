@@ -12,36 +12,23 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         Task<List<FormConfigListItem>> GetByProjectIdAsync(int projectId, int userId);
         Task<bool> DeleteAsync(string id, int userId);
     }
-    public class FormConfigService : IFormConfigService
+    public class FormConfigService(
+        FormConfigRepository repository,
+        IProjectRepository projectRepository,
+        IValidator<FormConfig> validator,
+        ILogger<FormConfigService> logger) : IFormConfigService
     {
-        private readonly FormConfigRepository _repository;
-        private readonly IProjectRepository _projectRepository;
-        private readonly IValidator<FormConfig> _validator;
-        private readonly ILogger<FormConfigService> _logger;
-
-        public FormConfigService(
-            FormConfigRepository repository,
-            IProjectRepository projectRepository,
-            IValidator<FormConfig> validator,
-            ILogger<FormConfigService> logger)
-        {
-            _repository = repository;
-            _projectRepository = projectRepository;
-            _validator = validator;
-            _logger = logger;
-        }
-
         public async Task<FormConfig> SaveAsync(FormConfig config, int userId)
         {
             // Verify user has access to project
-            var project = await _projectRepository.GetByIdAsync(config.ProjectId);
+            var project = await projectRepository.GetByIdAsync(config.ProjectId);
             if (project == null || project.CreatedBy != userId)
             {
                 throw new UnauthorizedAccessException("Access denied to project");
             }
 
             // Validate config
-            var validationResult = await _validator.ValidateAsync(config);
+            var validationResult = await validator.ValidateAsync(config);
             if (!validationResult.IsValid)
             {
                 var errors = string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage));
@@ -59,12 +46,12 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
             var configJson = JsonSerializer.Serialize(config);
 
             // Save to database
-            var savedConfig = await _repository.SaveAsync(config, configJson, userId);
+            var savedConfig = await repository.SaveAsync(config, configJson, userId);
 
             // Save denormalized data for querying
-            await _repository.SaveDenormalizedDataAsync(savedConfig);
+            await repository.SaveDenormalizedDataAsync(savedConfig);
 
-            _logger.LogInformation("Saved form configuration {FormId} for project {ProjectId}",
+            logger.LogInformation("Saved form configuration {FormId} for project {ProjectId}",
                 config.Id, config.ProjectId);
 
             return savedConfig;
@@ -72,11 +59,11 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
 
         public async Task<FormConfig?> LoadAsync(string id, int userId)
         {
-            var config = await _repository.GetByIdAsync(id, userId);
+            var config = await repository.GetByIdAsync(id, userId);
 
             if (config != null)
             {
-                _logger.LogInformation("Loaded form configuration {FormId} for user {UserId}",
+                logger.LogInformation("Loaded form configuration {FormId} for user {UserId}",
                     id, userId);
             }
 
@@ -86,15 +73,15 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
         public async Task<List<FormConfigListItem>> GetByProjectIdAsync(int projectId, int userId)
         {
             // Verify user has access to project
-            var project = await _projectRepository.GetByIdAsync(projectId);
+            var project = await projectRepository.GetByIdAsync(projectId);
             if (project == null || project.CreatedBy != userId)
             {
                 throw new UnauthorizedAccessException("Access denied to project");
             }
 
-            var configs = await _repository.GetByProjectIdAsync(projectId, userId);
+            var configs = await repository.GetByProjectIdAsync(projectId, userId);
 
-            _logger.LogInformation("Retrieved {Count} form configurations for project {ProjectId}",
+            logger.LogInformation("Retrieved {Count} form configurations for project {ProjectId}",
                 configs.Count, projectId);
 
             return configs;
@@ -102,11 +89,11 @@ namespace ActoEngine.WebApi.Services.FormBuilderService
 
         public async Task<bool> DeleteAsync(string id, int userId)
         {
-            var success = await _repository.DeleteAsync(id, userId);
+            var success = await repository.DeleteAsync(id, userId);
 
             if (success)
             {
-                _logger.LogInformation("Deleted form configuration {FormId} for user {UserId}",
+                logger.LogInformation("Deleted form configuration {FormId} for user {UserId}",
                     id, userId);
             }
 

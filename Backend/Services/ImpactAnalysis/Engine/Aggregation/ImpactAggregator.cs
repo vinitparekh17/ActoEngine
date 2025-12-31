@@ -1,0 +1,88 @@
+using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
+using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+
+namespace ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Aggregation;
+
+/// <summary>
+/// Aggregates scored dependency paths into entity-level and overall impact.
+/// Worst-case dominates, cumulative risk is preserved.
+/// </summary>
+public sealed class ImpactAggregator : IImpactAggregator
+{
+    public ImpactAggregationResult Aggregate(
+        IReadOnlyList<DependencyPath> scoredPaths)
+    {
+        if (scoredPaths.Count == 0)
+        {
+            return new ImpactAggregationResult
+            {
+                OverallImpact = new OverallImpactSummary
+                {
+                    WorstImpactLevel = ImpactLevel.None,
+                    WorstRiskScore = 0,
+                    TriggeringEntity = null!,
+                    TriggeringPathId = string.Empty,
+                    RequiresApproval = false
+                },
+                EntityImpacts = Array.Empty<EntityImpact>()
+            };
+        }
+
+        // Group paths by terminal entity (last node in path)
+        var entityGroups = scoredPaths
+            .GroupBy(p => p.Nodes[^1]);
+
+        var entityImpacts = new List<EntityImpact>();
+
+        foreach (var group in entityGroups)
+        {
+            var paths = group.ToList();
+
+            var dominantPath = paths
+                .OrderByDescending(p => p.RiskScore)
+                .First();
+
+            var worstImpactLevel = paths
+                .Max(p => p.ImpactLevel);
+
+            var worstRiskScore = paths
+                .Max(p => p.RiskScore);
+
+            var cumulativeRisk = paths
+                .Sum(p => p.RiskScore);
+
+            entityImpacts.Add(new EntityImpact
+            {
+                Entity = group.Key,
+                WorstCaseImpactLevel = worstImpactLevel,
+                WorstCaseRiskScore = worstRiskScore,
+                CumulativeRiskScore = cumulativeRisk,
+                DominantPathId = dominantPath.PathId,
+                Paths = paths
+            });
+        }
+
+        // Determine overall worst-case entity
+        var triggeringEntityImpact = entityImpacts
+            .OrderByDescending(e => e.WorstCaseImpactLevel)
+            .ThenByDescending(e => e.WorstCaseRiskScore)
+            .First();
+
+        var overallImpact = new OverallImpactSummary
+        {
+            WorstImpactLevel = triggeringEntityImpact.WorstCaseImpactLevel,
+            WorstRiskScore = triggeringEntityImpact.WorstCaseRiskScore,
+            TriggeringEntity = triggeringEntityImpact.Entity,
+            TriggeringPathId = triggeringEntityImpact.DominantPathId,
+
+            // Approval decision happens later (policy)
+            RequiresApproval = false
+        };
+
+        return new ImpactAggregationResult
+        {
+            OverallImpact = overallImpact,
+            EntityImpacts = entityImpacts
+        };
+    }
+}

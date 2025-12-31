@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Mvc;
-using ActoEngine.WebApi.Models;
 
 namespace ActoEngine.WebApi.Controllers
 {

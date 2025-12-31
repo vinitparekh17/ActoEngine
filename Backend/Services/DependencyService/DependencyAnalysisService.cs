@@ -17,7 +17,10 @@ public class DependencyAnalysisService(ILogger<DependencyAnalysisService> logger
     {
         var dependencies = new List<Dependency>();
 
-        if (string.IsNullOrWhiteSpace(sqlDefinition)) return dependencies;
+        if (string.IsNullOrWhiteSpace(sqlDefinition))
+        {
+            return dependencies;
+        }
 
         // 1. Parse
         var parser = new TSql160Parser(true);
@@ -78,10 +81,10 @@ public class DependencyAnalysisService(ILogger<DependencyAnalysisService> logger
 
 internal class SqlDependencyVisitor : TSqlFragmentVisitor
 {
-    public List<(string Name, string ModificationType)> TableReferences { get; } = new();
-    public List<string> ProcedureReferences { get; } = new();
+    public List<(string Name, string ModificationType)> TableReferences { get; } = [];
+    public List<string> ProcedureReferences { get; } = [];
     // Storing (TableName, ColumnName, FullIdentifier)
-    public List<(string TableName, string ColumnName, string FullIdentifier)> ColumnReferences { get; } = new();
+    public List<(string TableName, string ColumnName, string FullIdentifier)> ColumnReferences { get; } = [];
 
     private readonly Stack<string> _contextStack = new();
 
@@ -94,19 +97,28 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         _contextStack.Push("INSERT");
 
         // Visit Target (The table being inserted into)
-        if (node.Target != null) node.Target.Accept(this);
+        if (node.Target != null)
+        {
+            node.Target.Accept(this);
+        }
 
         // Visit Columns (if explicit)
         if (node.Columns != null)
         {
-            foreach (var c in node.Columns) c.Accept(this);
+            foreach (var c in node.Columns)
+            {
+                c.Accept(this);
+            }
         }
 
         // Everything else (SELECT/VALUES) is essentially "Reading" from other sources
         // So we switch context for the rest of the query
         _contextStack.Push("SELECT");
 
-        if (node.InsertSource != null) node.InsertSource.Accept(this);
+        if (node.InsertSource != null)
+        {
+            node.InsertSource.Accept(this);
+        }
 
         _contextStack.Pop(); // Pop SELECT
         _contextStack.Pop(); // Pop INSERT
@@ -117,7 +129,10 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         _contextStack.Push("UPDATE");
 
         // The Target is being Modified
-        if (node.Target != null) node.Target.Accept(this);
+        if (node.Target != null)
+        {
+            node.Target.Accept(this);
+        }
 
         // Visit SET clause - expressions are reads (right-hand side of assignments)
         _contextStack.Pop(); // Pop UPDATE temporarily
@@ -135,8 +150,15 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         // Continue with SELECT context
         _inFromClause = true;
 
-        if (node.FromClause != null) node.FromClause.Accept(this);
-        if (node.WhereClause != null) node.WhereClause.Accept(this);
+        if (node.FromClause != null)
+        {
+            node.FromClause.Accept(this);
+        }
+
+        if (node.WhereClause != null)
+        {
+            node.WhereClause.Accept(this);
+        }
 
         _inFromClause = false;
         _contextStack.Pop(); // Pop SELECT
@@ -147,16 +169,27 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         _contextStack.Push("DELETE");
         
         // Visit target table (being deleted from)
-        if (node.Target != null) node.Target.Accept(this);
-        
+        if (node.Target != null)
+        {
+            node.Target.Accept(this);
+        }
+
         // Pop DELETE before processing FROM/WHERE as SELECT (matches UPDATE pattern)
         _contextStack.Pop();
         _contextStack.Push("SELECT");
         
         // FROM and WHERE clauses are reads
         _inFromClause = true;
-        if (node.FromClause != null) node.FromClause.Accept(this);
-        if (node.WhereClause != null) node.WhereClause.Accept(this);
+        if (node.FromClause != null)
+        {
+            node.FromClause.Accept(this);
+        }
+
+        if (node.WhereClause != null)
+        {
+            node.WhereClause.Accept(this);
+        }
+
         _inFromClause = false;
         
         _contextStack.Pop(); // Remove SELECT
@@ -248,7 +281,10 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
 
     private static string? GetFullObjectName(SchemaObjectName schemaObject)
     {
-        if (schemaObject == null) return null;
+        if (schemaObject == null)
+        {
+            return null;
+        }
 
         var sb = new StringBuilder();
         

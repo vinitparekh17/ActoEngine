@@ -16,14 +16,14 @@ public class Role
 public class RoleWithPermissions
 {
     public Role Role { get; set; } = default!;
-    public List<Permission> Permissions { get; set; } = new();
+    public List<Permission> Permissions { get; set; } = [];
 }
 
 public class CreateRoleRequest
 {
     public string RoleName { get; set; } = default!;
     public string? Description { get; set; }
-    public List<int> PermissionIds { get; set; } = new();
+    public List<int> PermissionIds { get; set; } = [];
 }
 
 public class UpdateRoleRequest
@@ -32,5 +32,5 @@ public class UpdateRoleRequest
     public string RoleName { get; set; } = default!;
     public string? Description { get; set; }
     public bool IsActive { get; set; }
-    public List<int> PermissionIds { get; set; } = new();
+    public List<int> PermissionIds { get; set; } = [];
 }

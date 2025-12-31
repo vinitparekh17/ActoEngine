@@ -29,11 +29,15 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> CreateClient([FromBody] CreateClientRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var response = await _clientService.CreateClientAsync(request, userId.Value);
             return Ok(ApiResponse<ClientResponse>.Success(response, "Client created successfully"));
@@ -49,7 +53,9 @@ namespace ActoEngine.WebApi.Controllers
         {
             var client = await _clientService.GetClientByIdAsync(clientId);
             if (client == null)
+            {
                 return NotFound(ApiResponse<object>.Failure("Client not found"));
+            }
 
             var response = new ClientResponse
             {
@@ -105,16 +111,22 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> UpdateClient(int clientId, [FromBody] UpdateClientRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             // Load existing client to preserve IsActive when not provided
             var existingClient = await _clientService.GetClientByIdAsync(clientId);
             if (existingClient == null)
+            {
                 return NotFound(ApiResponse<object>.Failure("Client not found"));
+            }
 
             // Convert UpdateClientRequest to Client entity
             var client = new Client
@@ -126,7 +138,9 @@ namespace ActoEngine.WebApi.Controllers
 
             var success = await _clientService.UpdateClientAsync(clientId, client, userId.Value);
             if (!success)
+            {
                 return NotFound(ApiResponse<object>.Failure("Client not found or could not be updated"));
+            }
 
             return Ok(ApiResponse<object>.Success(new { }, "Client updated successfully"));
         }
@@ -147,11 +161,15 @@ namespace ActoEngine.WebApi.Controllers
         {
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var success = await _clientService.DeleteClientAsync(clientId, userId.Value);
             if (!success)
+            {
                 return NotFound(ApiResponse<object>.Failure("Client not found or could not be deleted"));
+            }
 
             return Ok(ApiResponse<object>.Success(new { }, "Client deleted successfully"));
         }

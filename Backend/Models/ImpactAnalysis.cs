@@ -1,3 +1,5 @@
+using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+
 namespace ActoEngine.WebApi.Models;
 
 /// <summary>
@@ -51,12 +53,50 @@ public class ImpactAnalysisResult
 /// <summary>
 /// API response for impact analysis
 /// </summary>
-public class ImpactAnalysisResponse
+public class ImpactDecisionResponse
 {
-    public required string RootId { get; set; }
-    public int TotalRiskScore { get; set; }
-    public bool RequiresApproval { get; set; }
-    public ImpactSummary Summary { get; set; } = new();
-    public List<AffectedEntity> AffectedEntities { get; set; } = [];
-    public List<GraphEdge> GraphEdges { get; set; } = [];
+    // === Decision (what users read first) ===
+    public ImpactVerdict Verdict { get; set; } = default!;
+
+    // === Aggregated facts (secondary) ===
+    public object Summary { get; set; } = default!;
+
+    // === Ranked entity impacts (trimmed) ===
+    public List<object> Entities { get; set; } = [];
+
+    // === Evidence (expandable / optional) ===
+    public object? Paths { get; set; }
+    public object? Graph { get; set; }
+}
+
+public sealed class EntityDto
+{
+    public required string Type { get; init; }
+    public required int Id { get; init; }
+    public string? Name { get; init; }
+}
+
+public sealed class DependencyPathDto
+{
+    public required string PathId { get; init; }
+    public required IReadOnlyList<string> NodeSequence { get; init; }
+    public required IReadOnlyList<string> DependencySequence { get; init; }
+
+    public required int Depth { get; init; }
+    public required int RiskScore { get; init; }
+    public required string ImpactLevel { get; init; }
+}
+
+public sealed class EntityImpactDto
+{
+    public required EntityDto Entity { get; init; }
+
+    public required string WorstCaseImpactLevel { get; init; }
+    public required int WorstCaseRiskScore { get; init; }
+
+    public required int CumulativeRiskScore { get; init; }
+
+    public required string DominantPathId { get; init; }
+
+    public required IReadOnlyList<string> PathIds { get; init; }
 }

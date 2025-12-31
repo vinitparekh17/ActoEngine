@@ -24,7 +24,9 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> VerifyConnection([FromBody] VerifyConnectionRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var connectionResponse = await _projectService.VerifyConnectionAsync(request);
 
@@ -44,11 +46,16 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> LinkProject([FromBody] LinkProjectRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
             var response = await _projectService.LinkProjectAsync(request, userId.Value);
             return Ok(ApiResponse<ProjectResponse>.Success(response, "Project linked successfully"));
         }
@@ -59,11 +66,15 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> ReSyncProject([FromBody] ReSyncProjectRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             try
             {
@@ -82,11 +93,15 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> CreateProject([FromBody] CreateProjectRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var response = await _projectService.CreateProjectAsync(request, userId.Value);
             return Ok(ApiResponse<ProjectResponse>.Success(response, "Project created successfully"));
@@ -98,9 +113,15 @@ namespace ActoEngine.WebApi.Controllers
         {
             var status = await _projectService.GetSyncStatusAsync(projectId);
             if (status == null)
+            {
                 return NotFound(ApiResponse<SyncStatusResponse>.Failure("Project not found"));
+            }
+
             if (status.Status == null)
+            {
                 return NotFound(ApiResponse<SyncStatusResponse>.Failure("Sync status not available"));
+            }
+
             var response = new SyncStatusResponse
             {
                 ProjectId = projectId,
@@ -218,7 +239,9 @@ namespace ActoEngine.WebApi.Controllers
 
             var project = await _projectService.GetProjectByIdAsync(projectId);
             if (project == null)
+            {
                 return NotFound(ApiResponse<object>.Failure("Project not found"));
+            }
 
             return Ok(ApiResponse<PublicProjectDto>.Success(project, "Project retrieved successfully"));
         }
@@ -238,7 +261,9 @@ namespace ActoEngine.WebApi.Controllers
         {
             var stats = await _projectService.GetProjectStatsAsync(projectId);
             if (stats == null)
+            {
                 return NotFound(ApiResponse<object>.Failure("Project not found"));
+            }
 
             return Ok(ApiResponse<ProjectStatsResponse>.Success(stats, "Project stats retrieved successfully"));
         }
@@ -249,15 +274,21 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> UpdateProject(int projectId, [FromBody] Project project)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var success = await _projectService.UpdateProjectAsync(projectId, project, userId.Value);
             if (!success)
+            {
                 return NotFound(ApiResponse<object>.Failure("Project not found or could not be updated"));
+            }
 
             return Ok(ApiResponse<object>.Success(new { }, "Project updated successfully"));
         }
@@ -269,11 +300,15 @@ namespace ActoEngine.WebApi.Controllers
         {
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var success = await _projectService.DeleteProjectAsync(projectId, userId.Value);
             if (!success)
+            {
                 return NotFound(ApiResponse<object>.Failure("Project not found or could not be deleted"));
+            }
 
             return Ok(ApiResponse<object>.Success(new { }, "Project deleted successfully"));
         }
