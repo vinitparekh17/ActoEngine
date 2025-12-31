@@ -21,37 +21,20 @@ public interface IUserManagementService
     Task DeleteUserAsync(int userId, CancellationToken cancellationToken = default);
 }
 
-public class UserManagementService : IUserManagementService
+public class UserManagementService(
+    IUserRepository userRepository,
+    IPermissionRepository permissionRepository,
+    IPasswordHasher passwordHasher,
+    IPasswordValidator passwordValidator,
+    Services.Database.IDbConnectionFactory connectionFactory,
+    ILogger<UserManagementService> logger) : IUserManagementService
 {
-    private readonly IUserRepository _userRepository;
-    private readonly IPermissionRepository _permissionRepository;
-    private readonly IPasswordHasher _passwordHasher;
-    private readonly IPasswordValidator _passwordValidator;
-    private readonly Services.Database.IDbConnectionFactory _connectionFactory;
-    private readonly ILogger<UserManagementService> _logger;
-
-    public UserManagementService(
-        IUserRepository userRepository,
-        IPermissionRepository permissionRepository,
-        IPasswordHasher passwordHasher,
-        IPasswordValidator passwordValidator,
-        Services.Database.IDbConnectionFactory connectionFactory,
-        ILogger<UserManagementService> logger)
-    {
-        _userRepository = userRepository;
-        _permissionRepository = permissionRepository;
-        _passwordHasher = passwordHasher;
-        _passwordValidator = passwordValidator;
-        _connectionFactory = connectionFactory;
-        _logger = logger;
-    }
-
     public async Task<(IEnumerable<UserDto> Users, int TotalCount)> GetAllUsersAsync(
         int page = 1,
         int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var connection = await connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var offset = (page - 1) * pageSize;
         var users = await connection.QueryAsync<UserDto>(
@@ -67,20 +50,23 @@ public class UserManagementService : IUserManagementService
         int userId,
         CancellationToken cancellationToken = default)
     {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var connection = await connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var user = await connection.QueryFirstOrDefaultAsync<UserDto>(
             UserSqlQueries.GetUserWithRole,
             new { UserId = userId });
 
-        if (user == null) return null;
+        if (user == null)
+        {
+            return null;
+        }
 
-        var permissions = await _permissionRepository.GetUserPermissionsAsync(userId, cancellationToken);
+        var permissions = await permissionRepository.GetUserPermissionsAsync(userId, cancellationToken);
 
         return new UserWithPermissionsDto
         {
             User = user,
-            Permissions = permissions.ToList()
+            Permissions = [.. permissions]
         };
     }
 
@@ -90,18 +76,22 @@ public class UserManagementService : IUserManagementService
         CancellationToken cancellationToken = default)
     {
         // Check for duplicate username
-        var existing = await _userRepository.GetByUserNameAsync(request.Username, cancellationToken);
+        var existing = await userRepository.GetByUserNameAsync(request.Username, cancellationToken);
         if (existing != null)
+        {
             throw new InvalidOperationException($"Username '{request.Username}' already exists");
+        }
 
         // Validate password strength
-        var (isValid, errorMessage) = _passwordValidator.ValidatePassword(request.Password);
+        var (isValid, errorMessage) = passwordValidator.ValidatePassword(request.Password);
         if (!isValid)
+        {
             throw new InvalidOperationException(errorMessage ?? "Invalid password");
+        }
 
-        var passwordHash = _passwordHasher.HashPassword(request.Password);
+        var passwordHash = passwordHasher.HashPassword(request.Password);
 
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var connection = await connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var user = await connection.QueryFirstOrDefaultAsync<UserDto>(
             UserSqlQueries.InsertWithRole,
@@ -116,9 +106,11 @@ public class UserManagementService : IUserManagementService
             });
 
         if (user == null)
+        {
             throw new InvalidOperationException("Failed to create user");
+        }
 
-        _logger.LogInformation("Created user {Username} (ID: {UserId})", request.Username, user.UserId);
+        logger.LogInformation("Created user {Username} (ID: {UserId})", request.Username, user.UserId);
         return user;
     }
 
@@ -127,11 +119,13 @@ public class UserManagementService : IUserManagementService
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user == null)
+        {
             throw new InvalidOperationException($"User {request.UserId} not found");
+        }
 
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var connection = await connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(
             UserSqlQueries.UpdateUserManagement,
@@ -145,7 +139,7 @@ public class UserManagementService : IUserManagementService
                 UpdatedBy = updatedBy
             });
 
-        _logger.LogInformation("Updated user {Username} (ID: {UserId})", user.Username, request.UserId);
+        logger.LogInformation("Updated user {Username} (ID: {UserId})", user.Username, request.UserId);
     }
 
     public async Task ChangePasswordAsync(
@@ -153,20 +147,24 @@ public class UserManagementService : IUserManagementService
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user == null)
+        {
             throw new InvalidOperationException($"User {request.UserId} not found");
+        }
 
         // Validate password strength
-        var (isValid, errorMessage) = _passwordValidator.ValidatePassword(request.NewPassword);
+        var (isValid, errorMessage) = passwordValidator.ValidatePassword(request.NewPassword);
         if (!isValid)
+        {
             throw new InvalidOperationException(errorMessage ?? "Invalid password");
+        }
 
-        var newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        var newPasswordHash = passwordHasher.HashPassword(request.NewPassword);
         user.ChangePassword(newPasswordHash, updatedBy.ToString());
 
-        await _userRepository.UpdateAsync(user, cancellationToken);
-        _logger.LogInformation("Changed password for user {Username} (ID: {UserId})", user.Username, request.UserId);
+        await userRepository.UpdateAsync(user, cancellationToken);
+        logger.LogInformation("Changed password for user {Username} (ID: {UserId})", user.Username, request.UserId);
     }
 
     public async Task ToggleUserStatusAsync(
@@ -175,14 +173,16 @@ public class UserManagementService : IUserManagementService
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null)
+        {
             throw new InvalidOperationException($"User {userId} not found");
+        }
 
         user.SetActiveStatus(isActive, updatedBy.ToString());
-        await _userRepository.UpdateAsync(user, cancellationToken);
+        await userRepository.UpdateAsync(user, cancellationToken);
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "{Action} user {Username} (ID: {UserId})",
             isActive ? "Activated" : "Deactivated",
             user.Username,
@@ -191,11 +191,13 @@ public class UserManagementService : IUserManagementService
 
     public async Task DeleteUserAsync(int userId, CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user == null)
+        {
             throw new InvalidOperationException($"User {userId} not found");
+        }
 
-        await _userRepository.DeleteAsync(userId, cancellationToken);
-        _logger.LogInformation("Deleted user {Username} (ID: {UserId})", user.Username, userId);
+        await userRepository.DeleteAsync(userId, cancellationToken);
+        logger.LogInformation("Deleted user {Username} (ID: {UserId})", user.Username, userId);
     }
 }

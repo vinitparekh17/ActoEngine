@@ -38,7 +38,7 @@ namespace ActoEngine.WebApi.Models
         public bool Success { get; set; }
         public required string Html { get; set; }
         public required string JavaScript { get; set; }
-        public List<GeneratedSpInfo> StoredProcedures { get; set; } = new();
+        public List<GeneratedSpInfo> StoredProcedures { get; set; } = [];
         public required string FileName { get; set; }
         public List<string>? Warnings { get; set; }
     }
@@ -64,7 +64,7 @@ namespace ActoEngine.WebApi.Models
         public required string FormName { get; set; }
         public required string Title { get; set; }
         public string? Description { get; set; }
-        public List<FormGroup> Groups { get; set; } = new();
+        public List<FormGroup> Groups { get; set; } = [];
         public FormGenerationOptions? Options { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
@@ -75,7 +75,7 @@ namespace ActoEngine.WebApi.Models
         public required string Id { get; set; }
         public string? Title { get; set; }
         public string? Description { get; set; }
-        public List<FormField> Fields { get; set; } = new();
+        public List<FormField> Fields { get; set; } = [];
         public string Layout { get; set; } = "row"; // "row" or "column"
         public int Order { get; set; }
         public bool Collapsible { get; set; }

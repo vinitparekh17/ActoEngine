@@ -46,7 +46,9 @@ public class ContextController(
             var context = await _contextService.GetContextAsync(projectId, entityType, entityId);
 
             if (context == null)
+            {
                 return NotFound(ApiResponse<object>.Failure($"Context not found for {entityType} with ID {entityId}"));
+            }
 
             return Ok(ApiResponse<ContextResponse>.Success(context, "Context retrieved successfully"));
         }
@@ -72,12 +74,16 @@ public class ContextController(
         try
         {
             if (request.Entities == null || request.Entities.Count == 0)
-                return Ok(ApiResponse<List<ContextResponse>>.Success(new List<ContextResponse>(), "No entities provided"));
+            {
+                return Ok(ApiResponse<List<ContextResponse>>.Success([], "No entities provided"));
+            }
 
             // Validate batch size against configured limit with fallback
             var maxBatchSize = _batchSettings.MaxBatchSize > 0 ? _batchSettings.MaxBatchSize : 100;
             if (request.Entities.Count > maxBatchSize)
+            {
                 return BadRequest(ApiResponse<object>.Failure($"Batch size limited to {maxBatchSize} entities"));
+            }
 
             var contexts = await _contextService.GetContextBatchAsync(projectId, request.Entities);
 
@@ -110,11 +116,15 @@ public class ContextController(
         try
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var context = await _contextService.SaveContextAsync(
                 projectId, entityType, entityId, request, userId.Value);
@@ -148,17 +158,25 @@ public class ContextController(
         {
             // Validate all required fields
             if (string.IsNullOrWhiteSpace(request.Purpose))
+            {
                 return BadRequest(ApiResponse<object>.Failure("Purpose is required"));
+            }
 
             if (string.IsNullOrWhiteSpace(request.EntityType))
+            {
                 return BadRequest(ApiResponse<object>.Failure("EntityType is required"));
+            }
 
             if (request.EntityId <= 0)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Valid EntityId is required"));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             // Convert to full SaveContextRequest
             var fullRequest = new SaveContextRequest
@@ -225,7 +243,9 @@ public class ContextController(
         {
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             await _contextService.MarkContextFreshAsync(projectId, entityType, entityId, userId.Value);
 
@@ -258,11 +278,15 @@ public class ContextController(
         try
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var currentUserId = HttpContext.GetUserId();
             if (currentUserId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             await _contextService.AddExpertAsync(
                 projectId,
@@ -519,11 +543,15 @@ public class ContextController(
         try
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var results = await _contextService.BulkImportContextAsync(projectId, entries, userId.Value);
 
@@ -553,11 +581,15 @@ public class ContextController(
         try
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList()));
+            {
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var requestId = await _contextService.CreateReviewRequestAsync(
                 request.EntityType,
@@ -609,12 +641,16 @@ public class ContextController(
         // Option 1: If you store UserId in claims
         var userIdClaim = User.FindFirst("UserId")?.Value;
         if (userIdClaim != null && int.TryParse(userIdClaim, out int userId))
+        {
             return userId;
+        }
 
         // Option 2: If you store it differently
         var nameIdentifier = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (nameIdentifier != null && int.TryParse(nameIdentifier, out int uid))
+        {
             return uid;
+        }
 
         // Fallback - adjust based on your needs
         throw new UnauthorizedAccessException("User ID not found in authentication context");

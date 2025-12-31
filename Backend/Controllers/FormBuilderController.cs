@@ -4,7 +4,6 @@ using ActoEngine.WebApi.Services.FormBuilderService;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Extensions;
-using ActoEngine.WebApi.Repositories;
 
 namespace ActoEngine.WebApi.Controllers
 {
@@ -56,7 +55,9 @@ namespace ActoEngine.WebApi.Controllers
             {
                 var userId = HttpContext.GetUserId();
                 if (userId == null)
+                {
                     return Unauthorized(ApiResponse<FormConfig>.Failure("User not authenticated"));
+                }
 
                 var config = await _formBuilderService.LoadFormConfigAsync(new LoadFormConfigRequest
                 {
@@ -131,11 +132,16 @@ namespace ActoEngine.WebApi.Controllers
             {
                 var userId = HttpContext.GetUserId();
                 if (userId == null)
+                {
                     return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+                }
 
                 var success = await _formBuilderService.DeleteFormConfigAsync(id.ToString(), userId.Value);
                 if (!success)
+                {
                     return NotFound(ApiResponse<string>.Failure("Form configuration not found or could not be deleted"));
+                }
+
                 return Ok(ApiResponse<string>.Success("Form configuration deleted successfully"));
             }
             catch (Exception ex)

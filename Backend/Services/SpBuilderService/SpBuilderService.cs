@@ -1,7 +1,7 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 
-namespace ActoEngine.WebApi.Services.SpBuilder;
+namespace ActoEngine.WebApi.Services.SpBuilderService;
 
 public interface ISpBuilderService
 {
@@ -81,7 +81,9 @@ public class SpBuilderService(ISchemaRepository schemaRepo, IProjectRepository p
             : "Select with optional filters";
 
         if (opts.Filters.Count != 0)
+        {
             desc += $". Filters: {string.Join(", ", opts.Filters.Select(f => f.ColumnName))}";
+        }
 
         return new GeneratedSpItem
         {

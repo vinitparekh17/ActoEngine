@@ -101,7 +101,9 @@ public class UserRepository(
             cancellationToken);
 
         if (rowsAffected == 0)
+        {
             throw new NotFoundException($"User with ID {user.UserID} not found");
+        }
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
@@ -112,7 +114,9 @@ public class UserRepository(
             cancellationToken);
 
         if (rowsAffected == 0)
+        {
             throw new NotFoundException($"User with ID {id} not found");
+        }
     }
 
     public async Task RemoveRoleFromUsersAsync(int roleId, CancellationToken cancellationToken = default)

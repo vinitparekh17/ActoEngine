@@ -24,11 +24,15 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> LinkClientToProject([FromBody] LinkClientToProjectRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             try
             {
@@ -59,11 +63,15 @@ namespace ActoEngine.WebApi.Controllers
         {
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             var result = await _projectClientService.UnlinkClientFromProjectAsync(projectId, clientId, userId.Value);
             if (!result)
+            {
                 return NotFound(ApiResponse<object>.Failure("Client-project link not found or already inactive"));
+            }
 
             return Ok(ApiResponse<object>.Success(new { }, "Client unlinked from project successfully"));
         }
@@ -84,11 +92,15 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> LinkMultipleClientsToProject([FromBody] LinkMultipleClientsRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             try
             {
@@ -115,11 +127,15 @@ namespace ActoEngine.WebApi.Controllers
         public async Task<IActionResult> LinkClientToMultipleProjects([FromBody] LinkClientToMultipleProjectsRequest request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
 
             var userId = HttpContext.GetUserId();
             if (userId == null)
+            {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
 
             try
             {

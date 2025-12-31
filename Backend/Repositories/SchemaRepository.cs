@@ -434,7 +434,7 @@ public class SchemaRepository(
                 OnUpdateAction = (string)(fk.OnUpdateAction ?? "NO ACTION")
             });
 
-            return result.ToList();
+            return [.. result];
         }
         catch (Exception ex)
         {

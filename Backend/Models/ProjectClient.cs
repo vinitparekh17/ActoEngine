@@ -61,7 +61,7 @@ namespace ActoEngine.WebApi.Models
 
         [Required(ErrorMessage = "At least one client ID is required")]
         [MinLength(1, ErrorMessage = "At least one client ID is required")]
-        public List<int> ClientIds { get; set; } = new();
+        public List<int> ClientIds { get; set; } = [];
     }
 
     /// <summary>
@@ -74,7 +74,7 @@ namespace ActoEngine.WebApi.Models
 
         [Required(ErrorMessage = "At least one project ID is required")]
         [MinLength(1, ErrorMessage = "At least one project ID is required")]
-        public List<int> ProjectIds { get; set; } = new();
+        public List<int> ProjectIds { get; set; } = [];
     }
 
     /// <summary>

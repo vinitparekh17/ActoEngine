@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 
 namespace ActoEngine.WebApi.Extensions
 {
@@ -17,15 +16,22 @@ namespace ActoEngine.WebApi.Extensions
         public static int? GetUserId(this HttpContext? httpContext)
         {
             if (httpContext is null)
+            {
                 return null;
+            }
 
             // 1) Preferred: set by TokenMiddleware or similar
             if (httpContext.Items.TryGetValue("UserId", out var value))
             {
                 if (value is int i && i > 0)
+                {
                     return i;
+                }
+
                 if (value is string s && int.TryParse(s, out var parsed) && parsed > 0)
+                {
                     return parsed;
+                }
             }
 
             // 2) Fallback: check common claim types
@@ -34,7 +40,9 @@ namespace ActoEngine.WebApi.Extensions
                         ?? httpContext.User?.FindFirst("sub");
 
             if (claim != null && int.TryParse(claim.Value, out var fromClaims) && fromClaims > 0)
+            {
                 return fromClaims;
+            }
 
             return null;
         }

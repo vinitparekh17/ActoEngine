@@ -13,43 +13,33 @@ public interface IRoleService
     Task UpdateRolePermissionsAsync(int roleId, List<int> permissionIds, int updatedBy, CancellationToken cancellationToken = default);
 }
 
-public class RoleService : IRoleService
+public class RoleService(
+    IRoleRepository roleRepository,
+    IPermissionRepository permissionRepository,
+    IUserRepository userRepository,
+    ILogger<RoleService> logger) : IRoleService
 {
-    private readonly IRoleRepository _roleRepository;
-    private readonly IPermissionRepository _permissionRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly ILogger<RoleService> _logger;
-
-    public RoleService(
-        IRoleRepository roleRepository,
-        IPermissionRepository permissionRepository,
-        IUserRepository userRepository,
-        ILogger<RoleService> logger)
-    {
-        _roleRepository = roleRepository;
-        _permissionRepository = permissionRepository;
-        _userRepository = userRepository;
-        _logger = logger;
-    }
-
     public async Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken = default)
     {
-        return await _roleRepository.GetAllAsync(cancellationToken);
+        return await roleRepository.GetAllAsync(cancellationToken);
     }
 
     public async Task<RoleWithPermissions?> GetRoleWithPermissionsAsync(
         int roleId,
         CancellationToken cancellationToken = default)
     {
-        var role = await _roleRepository.GetByIdAsync(roleId, cancellationToken);
-        if (role == null) return null;
+        var role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
+        if (role == null)
+        {
+            return null;
+        }
 
-        var permissions = await _roleRepository.GetRolePermissionsAsync(roleId, cancellationToken);
+        var permissions = await roleRepository.GetRolePermissionsAsync(roleId, cancellationToken);
 
         return new RoleWithPermissions
         {
             Role = role,
-            Permissions = permissions.ToList()
+            Permissions = [.. permissions]
         };
     }
 
@@ -59,9 +49,11 @@ public class RoleService : IRoleService
         CancellationToken cancellationToken = default)
     {
         // Check for duplicate role name
-        var existing = await _roleRepository.GetByNameAsync(request.RoleName, cancellationToken);
+        var existing = await roleRepository.GetByNameAsync(request.RoleName, cancellationToken);
         if (existing != null)
+        {
             throw new InvalidOperationException($"Role '{request.RoleName}' already exists");
+        }
 
         var role = new Role
         {
@@ -73,15 +65,15 @@ public class RoleService : IRoleService
         };
 
         // Create role and assign permissions atomically
-        var permissionsToAssign = request.PermissionIds.Count > 0 ? request.PermissionIds : new List<int>();
+        var permissionsToAssign = request.PermissionIds.Count > 0 ? request.PermissionIds : [];
 
-        var createdRole = await _roleRepository.CreateRoleWithPermissionsAsync(
+        var createdRole = await roleRepository.CreateRoleWithPermissionsAsync(
             role,
             permissionsToAssign,
             createdBy,
             cancellationToken);
 
-        _logger.LogInformation("Created role {RoleName} with {Count} permissions", createdRole.RoleName, permissionsToAssign.Count);
+        logger.LogInformation("Created role {RoleName} with {Count} permissions", createdRole.RoleName, permissionsToAssign.Count);
         return createdRole;
     }
 
@@ -90,17 +82,23 @@ public class RoleService : IRoleService
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var role = await _roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
+        var role = await roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
         if (role == null)
+        {
             throw new InvalidOperationException($"Role {request.RoleId} not found");
+        }
 
         if (role.IsSystem)
+        {
             throw new InvalidOperationException("Cannot modify system roles");
+        }
 
         // Check for duplicate role name (excluding current role)
-        var existingWithName = await _roleRepository.GetByNameAsync(request.RoleName, cancellationToken);
+        var existingWithName = await roleRepository.GetByNameAsync(request.RoleName, cancellationToken);
         if (existingWithName != null && existingWithName.RoleId != request.RoleId)
+        {
             throw new InvalidOperationException($"Role '{request.RoleName}' already exists");
+        }
 
         role.RoleName = request.RoleName;
         role.Description = request.Description;
@@ -110,28 +108,32 @@ public class RoleService : IRoleService
 
 
         // Update role and permissions atomically
-        await _roleRepository.UpdateRoleWithPermissionsAsync(
+        await roleRepository.UpdateRoleWithPermissionsAsync(
             role,
             request.PermissionIds,
             updatedBy,
             cancellationToken);
 
-        _logger.LogInformation("Updated role {RoleName} (ID: {RoleId})", role.RoleName, role.RoleId);
+        logger.LogInformation("Updated role {RoleName} (ID: {RoleId})", role.RoleName, role.RoleId);
     }
 
     public async Task DeleteRoleAsync(int roleId, CancellationToken cancellationToken = default)
     {
-        var role = await _roleRepository.GetByIdAsync(roleId, cancellationToken);
+        var role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
         if (role == null)
+        {
             throw new InvalidOperationException($"Role {roleId} not found");
+        }
 
         if (role.IsSystem)
+        {
             throw new InvalidOperationException("Cannot delete system roles");
+        }
 
         // Delete role and remove from users atomically
-        await _roleRepository.DeleteRoleWithUsersAsync(roleId, _userRepository, cancellationToken);
+        await roleRepository.DeleteRoleWithUsersAsync(roleId, userRepository, cancellationToken);
         
-        _logger.LogInformation("Deleted role {RoleName} (ID: {RoleId}) and updated associated users", role.RoleName, roleId);
+        logger.LogInformation("Deleted role {RoleName} (ID: {RoleId}) and updated associated users", role.RoleName, roleId);
     }
 
     public async Task UpdateRolePermissionsAsync(
@@ -140,13 +142,13 @@ public class RoleService : IRoleService
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        await _roleRepository.UpdateRolePermissionsAtomicAsync(
+        await roleRepository.UpdateRolePermissionsAtomicAsync(
             roleId,
             permissionIds,
             updatedBy,
             cancellationToken);
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Updated permissions for role {RoleId}. Assigned {Count} permissions",
             roleId,
             permissionIds.Count);

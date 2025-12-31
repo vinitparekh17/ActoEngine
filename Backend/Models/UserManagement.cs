@@ -37,5 +37,5 @@ public class ChangePasswordRequest
 public class UserWithPermissionsDto
 {
     public UserDto User { get; set; } = default!;
-    public List<string> Permissions { get; set; } = new();
+    public List<string> Permissions { get; set; } = [];
 }

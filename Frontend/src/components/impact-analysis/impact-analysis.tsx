@@ -41,7 +41,7 @@ export const ImpactAnalysis: React.FC<ImpactAnalysisProps> = ({
     isLoading: loading,
     error,
   } = useApi<ImpactAnalysisResponse>(
-    `/projects/${projectId}/impact/${encodeURIComponent(entityType)}/${encodeURIComponent(String(entityId))}?changeType=${encodeURIComponent(changeType)}`,
+    `/projects/${projectId}/impact/${encodeURIComponent(entityType)}/${encodeURIComponent(String(entityId))}?changeType=${encodeURIComponent(changeType)}`
   );
 
   const getImpactIcon = (level: string) => {
@@ -165,12 +165,12 @@ export const ImpactAnalysis: React.FC<ImpactAnalysisProps> = ({
       <Card>
         <CardHeader>
           <CardTitle>
-            Affected Entities ({impact.affectedEntities.length})
+            Affected Entities ({impact.affectedEntities?.length || 0})
           </CardTitle>
         </CardHeader>
 
         <CardContent>
-          {impact.affectedEntities.length === 0 ? (
+          {(impact.affectedEntities?.length || 0) === 0 ? (
             <Alert className="border-green-600 text-green-700">
               <AlertTitle>Safe</AlertTitle>
               <AlertDescription>
@@ -191,31 +191,33 @@ export const ImpactAnalysis: React.FC<ImpactAnalysisProps> = ({
               </TableHeader>
 
               <TableBody>
-                {impact.affectedEntities.map((entity) => (
-                  <TableRow key={`${entity.entityType}-${entity.entityId}`}>
-                    <TableCell>{getImpactIcon(entity.impactLevel)}</TableCell>
+                {impact.affectedEntities &&
+                  impact.affectedEntities.length > 0 &&
+                  impact.affectedEntities.map((entity) => (
+                    <TableRow key={`${entity.entityType}-${entity.entityId}`}>
+                      <TableCell>{getImpactIcon(entity.impactLevel)}</TableCell>
 
-                    <TableCell>
-                      <Badge variant="secondary">{entity.entityType}</Badge>
-                    </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{entity.entityType}</Badge>
+                      </TableCell>
 
-                    <TableCell className="font-medium">
-                      {entity.entityName}
-                    </TableCell>
+                      <TableCell className="font-medium">
+                        {entity.entityName}
+                      </TableCell>
 
-                    <TableCell>{entity.owner || "-"}</TableCell>
+                      <TableCell>{entity.owner || "-"}</TableCell>
 
-                    <TableCell className="text-muted-foreground text-sm">
-                      {entity.reason}
-                    </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {entity.reason}
+                      </TableCell>
 
-                    <TableCell>
-                      <Badge variant="outline">
-                        {entity.criticalityLevel}/5
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      <TableCell>
+                        <Badge variant="outline">
+                          {entity.criticalityLevel}/5
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           )}

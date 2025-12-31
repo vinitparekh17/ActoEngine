@@ -15,5 +15,5 @@ public class Permission
 public class PermissionGroupDto
 {
     public string Category { get; set; } = default!;
-    public List<Permission> Permissions { get; set; } = new();
+    public List<Permission> Permissions { get; set; } = [];
 }
