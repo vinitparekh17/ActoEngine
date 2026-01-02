@@ -35,9 +35,9 @@ public static class DependencyQueries
         
                 CAST(
                     CONCAT(
-                        d.TargetType, ':', d.TargetId,
+                        '|', d.TargetType, ':', d.TargetId, '|',
                         '->',
-                        d.SourceType, ':', d.SourceId
+                        '|', d.SourceType, ':', d.SourceId, '|'
                     ) AS NVARCHAR(MAX)
                 ) AS PathKey
             FROM Dependencies d
@@ -64,7 +64,7 @@ public static class DependencyQueries
                     CONCAT(
                         r.PathKey,
                         '->',
-                        d.SourceType, ':', d.SourceId
+                        '|', d.SourceType, ':', d.SourceId, '|'
                     ) AS NVARCHAR(MAX)
                 )
             FROM Dependencies d
@@ -74,7 +74,7 @@ public static class DependencyQueries
             WHERE d.ProjectId = @ProjectId
               AND r.Depth < 10
               AND r.PathKey NOT LIKE
-                  CONCAT('%', d.SourceType, ':', d.SourceId, '%')
+                  CONCAT('%|', d.SourceType, ':', d.SourceId, '|%')
         )
         
         SELECT

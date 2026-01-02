@@ -131,7 +131,7 @@ public class UserManagementService(
             UserSqlQueries.UpdateUserManagement,
             new
             {
-                UserId = request.UserId,
+                request.UserId,
                 request.FullName,
                 request.RoleId,
                 request.IsActive,

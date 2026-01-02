@@ -33,16 +33,28 @@ public sealed class GraphBuilder : IGraphBuilder
                 row.TargetEntityName);
 
             // ---- Register Nodes ----
-
-            if (!nodes.ContainsKey(sourceEntity))
+            // Source entities: use explicit criticality when available
+            var sourceCriticality = NormalizeCriticality(row.SourceCriticalityLevel);
+            if (!nodes.TryGetValue(sourceEntity, out var existingSourceNode))
             {
                 nodes[sourceEntity] = new GraphNode
                 {
                     Entity = sourceEntity,
-                    CriticalityLevel = NormalizeCriticality(row.SourceCriticalityLevel)
+                    CriticalityLevel = sourceCriticality
+                };
+            }
+            else if (row.SourceCriticalityLevel.HasValue && existingSourceNode.CriticalityLevel == 3)
+            {
+                // Only overwrite when existing node has default criticality (3)
+                // This prevents order-dependent behavior when multiple rows reference the same entity
+                nodes[sourceEntity] = new GraphNode
+                {
+                    Entity = sourceEntity,
+                    CriticalityLevel = sourceCriticality
                 };
             }
 
+            // Target entities: only set default if not already known
             if (!nodes.ContainsKey(targetEntity))
             {
                 nodes[targetEntity] = new GraphNode

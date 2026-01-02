@@ -357,11 +357,12 @@ public class SpTemplateRenderer
     /// Brackets and escapes a possibly schema-qualified identifier like "schema.Table" or "Table".
     /// If the parts are already bracketed, they will be normalized.
     /// </summary>
+    /// <exception cref="ArgumentException">Thrown when name is null, empty, or whitespace.</exception>
     private static string BracketQualifiedName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            return name;
+            throw new ArgumentException("Identifier name cannot be null, empty, or whitespace.", nameof(name));
         }
 
         // Split on '.' to handle schema-qualified names; simple approach assuming 2 parts max.
@@ -385,11 +386,12 @@ public class SpTemplateRenderer
     /// Wraps the identifier in brackets and escapes any closing bracket characters.
     /// Accepts identifiers that may already be bracketed and normalizes them.
     /// </summary>
+    /// <exception cref="ArgumentException">Thrown when identifier is null, empty, or whitespace.</exception>
     private static string BracketIdentifier(string identifier)
     {
         if (string.IsNullOrWhiteSpace(identifier))
         {
-            return identifier;
+            throw new ArgumentException("Identifier cannot be null, empty, or whitespace.", nameof(identifier));
         }
 
         var trimmed = identifier.Trim();

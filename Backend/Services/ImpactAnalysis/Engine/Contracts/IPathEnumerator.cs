@@ -29,15 +29,15 @@ public interface IPathEnumerator
         EntityRef root);
 }
 
-    /// <summary>
-    /// Result of path enumeration from a root entity.
-    /// </summary>
-    public sealed class PathEnumerationResult
-    {
-        public required IReadOnlyList<DependencyPath> Paths { get; init; }
+/// <summary>
+/// Result of path enumeration from a root entity.
+/// </summary>
+public sealed class PathEnumerationResult
+{
+    public required IReadOnlyList<DependencyPath> Paths { get; init; }
 
-        public required bool IsTruncated { get; init; }
-        public string? TruncationReason { get; init; }
+    public required bool IsTruncated { get; init; }
+    public string? TruncationReason { get; init; }
 
-        public required int MaxDepthReached { get; init; }
-    }
+    public required int MaxDepthReached { get; init; }
+}
