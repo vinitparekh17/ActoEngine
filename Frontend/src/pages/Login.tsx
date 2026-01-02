@@ -23,7 +23,7 @@ export default function LoginPage() {
     try {
       await login({ username, password });
       toast.success("Welcome back!");
-      navigate("/dashboard");
+      navigate("/");
     } catch (error) {
       // Error already in loginError state
       toast.error(loginError || "Login failed");

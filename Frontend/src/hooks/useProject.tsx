@@ -256,7 +256,7 @@ export function useProjectTables() {
     data: tables,
     isLoading,
     error,
-  } = useApi<string[]>(`/SpBuilder/schema/tables/${selectedProjectId}`, {
+  } = useApi<string[]>(`/SpBuilder/schema/${selectedProjectId}`, {
     queryKey: [...projectQueryKeys.tables(selectedProjectId!)],
     enabled: hasProject && !!selectedProjectId,
     staleTime: 2 * 60 * 1000,
@@ -275,16 +275,20 @@ export function useProjectTables() {
 // ============================================
 // Hook - useTableSchema (with connection string)
 // ============================================
-export function useTableSchema(tableName: string | undefined) {
+export function useTableSchema(tableName: string | undefined, schemaName?: string) {
   const { selectedProjectId, hasProject } = useProject();
+  const effectiveSchemaName = schemaName || "dbo";
+  const schemaUrl = tableName && selectedProjectId
+    ? `/DatabaseBrowser/projects/${selectedProjectId}/tables/${tableName}/schema?schemaName=${encodeURIComponent(effectiveSchemaName)}`
+    : "";
   const {
     data: schema,
     isLoading,
     error,
   } = useApi<TableSchemaResponse>(
-    `/DatabaseBrowser/projects/${selectedProjectId}/tables/${tableName}/schema`,
+    schemaUrl,
     {
-      queryKey: ["projects", selectedProjectId, "tables", tableName, "schema"],
+      queryKey: ["projects", selectedProjectId, "tables", tableName, "schema", effectiveSchemaName],
       enabled: hasProject && !!tableName && !!selectedProjectId,
       staleTime: 5 * 60 * 1000,
       retry: 2,
