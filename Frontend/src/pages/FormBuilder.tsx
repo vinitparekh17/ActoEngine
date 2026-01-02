@@ -59,15 +59,24 @@ export default function FormBuilder() {
       tablesUrl,
     );
 
-  // Fetch schema when table is selected
+  const availableTables = tablesData || [];
+
+  // Find selected table info (name and schema)
+  const selectedTableInfo = availableTables.find(
+    (t) => String(t.tableId) === String(selectedTable)
+  );
+  const selectedTableName = selectedTableInfo?.tableName;
+  const selectedSchemaName = selectedTableInfo?.schemaName || "dbo";
+
+  // Fetch schema when table is selected - include schemaName as query param
   const schemaUrl =
-    selectedProject && selectedTable && selectedTable !== "custom"
-      ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${selectedTable}/schema`
+    selectedProject && selectedTableName && selectedTable !== "custom"
+      ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${encodeURIComponent(selectedTableName)}/schema?schemaName=${encodeURIComponent(selectedSchemaName)}`
       : "";
   const { data: schemaData, isLoading: loadingSchema } =
     useApi<TableSchema>(schemaUrl);
 
-  const availableTables = tablesData || [];
+
 
   // Initialize form when table schema is loaded or custom form is created
   useEffect(() => {
