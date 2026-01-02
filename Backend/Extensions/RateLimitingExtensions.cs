@@ -48,7 +48,10 @@ namespace ActoEngine.WebApi.Extensions
 
                     if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
                     {
-                        context.HttpContext.Response.Headers.RetryAfter = retryAfter.TotalSeconds.ToString();
+                        // Use integer seconds per RFC (ceiling to avoid under-retrying)
+                        var retrySeconds = Math.Max(0, (int)Math.Ceiling(retryAfter.TotalSeconds));
+                        context.HttpContext.Response.Headers.RetryAfter = 
+                            retrySeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     }
 
                     await context.HttpContext.Response.WriteAsJsonAsync(new

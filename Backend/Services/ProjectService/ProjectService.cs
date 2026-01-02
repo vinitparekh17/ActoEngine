@@ -143,10 +143,11 @@ namespace ActoEngine.WebApi.Services.ProjectService
 
                     transaction.Commit();
                     
-                    // Trigger Dependency Analysis (Non-blocking / "Dumb" integration)
-                    await _projectRepository.UpdateSyncStatusAsync(projectId, "Analyzing Dependencies...", 95);
+                    // Trigger Dependency Analysis (Fault-tolerant integration)
+                    // Analysis failures do not fail the schema sync
                     try 
                     {
+                        await _projectRepository.UpdateSyncStatusAsync(projectId, "Analyzing Dependencies...", 95);
                         await _dependencyOrchestrationService.AnalyzeProjectAsync(projectId);
                     }
                     catch (Exception ex)

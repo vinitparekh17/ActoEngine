@@ -145,6 +145,7 @@ namespace ActoEngine.WebApi.Services.Auth
 
         public async Task<TokenRotationResult?> RotateTokensAsync(string currentAccessToken, string refreshToken)
         {
+            // Note: currentAccessToken parameter is unused but kept for API compatibility
             var result = await RefreshSessionAsync(refreshToken);
             if (!result.Success || result.SessionToken == null)
             {
@@ -156,7 +157,7 @@ namespace ActoEngine.WebApi.Services.Auth
                 SessionToken = result.SessionToken,
                 RefreshToken = result.RefreshToken,
                 AccessExpiresAt = result.ExpiresAt,
-                RefreshExpiresAt = DateTime.UtcNow.AddDays(7),
+                RefreshExpiresAt = result.RefreshExpiresAt, // Use actual expiry from result
                 UserId = result.UserId ?? 0
             };
         }

@@ -39,7 +39,9 @@ public sealed class ImpactVerdictBuilder
 
     private static List<VerdictReason> BuildReasons(ImpactResult analysis)
     {
+        var rootEntityType = analysis.RootEntity.Type;
         var reasons = new List<VerdictReason>();
+        var rootEntityNoun = FormatEntityType(rootEntityType);
 
         // var rankedEntities = analysis.EntityImpacts
         //     .OrderByDescending(e => e.WorstCaseImpactLevel)
@@ -50,15 +52,15 @@ public sealed class ImpactVerdictBuilder
                 .Where(p => p.Depth == 1)
                 .Select(p => new
                 {
-                    Entity = e.Entity,
+                    e.Entity,
                     EntityType = e.Entity.Type,
                     DependencyType = p.DominantDependencyType
                 }))
             .GroupBy(x => new { x.EntityType, x.DependencyType })
             .Select(g => new
             {
-                EntityType = g.Key.EntityType,
-                DependencyType = g.Key.DependencyType,
+                g.Key.EntityType,
+                g.Key.DependencyType,
                 Count = g.Count(),
                 Entities = g.Select(x => x.Entity).Distinct().ToList()
             })
@@ -85,7 +87,7 @@ public sealed class ImpactVerdictBuilder
         reasons.Add(new VerdictReason
         {
             Priority = 1,
-            Statement = BuildGroupedStatement(primary),
+            Statement = BuildGroupedStatement(primary, rootEntityNoun),
             Implication = BuildGroupedImplication(primary),
             Evidence = [.. primary.Entities.Select(e => e.StableKey)]
         });
@@ -117,7 +119,7 @@ public sealed class ImpactVerdictBuilder
     }
 
 
-    private static string BuildGroupedStatement(dynamic group)
+    private static string BuildGroupedStatement(dynamic group, string rootEntityNoun)
     {
         var noun = group.EntityType switch
         {
@@ -130,7 +132,7 @@ public sealed class ImpactVerdictBuilder
         var plural = group.Count == 1 ? "" : "s";
         var verb = GetVerb(group.DependencyType);
 
-        return $"{group.Count} {noun}{plural} {verb} this table";
+        return $"{group.Count} {noun}{plural} {verb} this {rootEntityNoun}";
     }
 
 
@@ -228,29 +230,17 @@ public sealed class ImpactVerdictBuilder
         _ => 0
     };
 
-    // private static string BuildStatement(
-    //     int count,
-    //     string entityType,
-    //     DependencyType operation,
-    //     string entityName)
-    // {
-    //     // Make plural if needed
-    //     string plural = count == 1 ? "" : "s";
-    //     string verb = GetVerb(operation);
-
-    //     // Format: "3 stored procedures read from Users"
-    //     return $"{count} {entityType}{plural} {verb} {entityName}";
-    // }
     private static string BuildStatement(
     int count,
     string entityType,
-    DependencyType operation)
+    DependencyType operation,
+    string rootEntityNoun = "table")
     {
         string plural = count == 1 ? "" : "s";
         string verb = GetVerb(operation);
 
         // Root entity is implicit — NEVER show dependent entity identifiers
-        return $"{count} {entityType}{plural} {verb} this table";
+        return $"{count} {entityType}{plural} {verb} this {rootEntityNoun}";
     }
 
 

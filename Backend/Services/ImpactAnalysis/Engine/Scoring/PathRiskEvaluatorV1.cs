@@ -13,36 +13,64 @@ public sealed class PathRiskEvaluatorV1 : IPathRiskEvaluator
     public string Version => "v1.0";
 
     /// <summary>
+    /// Canonical source for dependency type weights.
+    /// Used by both PolicySnapshot and GetDependencyWeight.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<DependencyType, int> DependencyWeightsSource = new Dictionary<DependencyType, int>
+    {
+        { DependencyType.Delete, 10 },
+        { DependencyType.Update, 8 },
+        { DependencyType.Insert, 7 },
+        { DependencyType.Select, 4 },
+        { DependencyType.SchemaDependency, 9 },
+        { DependencyType.ApiCall, 6 },
+        { DependencyType.Unknown, 5 }
+    };
+
+    /// <summary>
+    /// Canonical source for change type multipliers.
+    /// Used by both PolicySnapshot and GetChangeMultiplier.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<ChangeType, int> ChangeTypeMultipliersSource = new Dictionary<ChangeType, int>
+    {
+        { ChangeType.Delete, 3 },
+        { ChangeType.Modify, 2 },
+        { ChangeType.Create, 1 }
+    };
+
+    private const double DepthDecayFactor = 0.2;
+    private const int DefaultWeight = 5;
+    private const int DefaultMultiplier = 1;
+
+    /// <summary>
     /// Serializable snapshot of scoring policy used for this evaluator.
     /// This must be embedded into ImpactResult for audit replay.
+    /// Built from canonical sources to prevent drift.
     /// </summary>
-    public object PolicySnapshot => new
+    public IReadOnlyDictionary<string, object> PolicySnapshot => new Dictionary<string, object>
     {
-        Version = Version,
-        DepthDecayFactor = 0.2,
-        DependencyWeights = new Dictionary<DependencyType, int>
-        {
-            { DependencyType.Delete, 10 },
-            { DependencyType.Update, 8 },
-            { DependencyType.Insert, 7 },
-            { DependencyType.Select, 4 },
-            { DependencyType.SchemaDependency, 9 },
-            { DependencyType.ApiCall, 6 },
-            { DependencyType.Unknown, 5 }
-        },
-        ChangeTypeMultipliers = new Dictionary<ChangeType, int>
-        {
-            { ChangeType.Delete, 3 },
-            { ChangeType.Modify, 2 },
-            { ChangeType.Create, 1 }
-        },
-        CriticalityScale = "1-5"
+        ["Version"] = Version,
+        ["DepthDecayFactor"] = DepthDecayFactor,
+        ["DependencyWeights"] = DependencyWeightsSource.ToDictionary(
+            kvp => kvp.Key.ToString(),
+            kvp => kvp.Value),
+        ["ChangeTypeMultipliers"] = ChangeTypeMultipliersSource.ToDictionary(
+            kvp => kvp.Key.ToString(),
+            kvp => kvp.Value),
+        ["CriticalityScale"] = "1-5"
     };
 
     public DependencyPath Evaluate(
         DependencyPath path,
         ChangeType changeType)
     {
+        ArgumentNullException.ThrowIfNull(path);
+        
+        if (path.Nodes == null || path.Nodes.Count == 0)
+        {
+            throw new ArgumentException("Path must have at least one node.", nameof(path));
+        }
+
         // 1. Base dependency weight (worst interaction dominates)
         int dependencyWeight = GetDependencyWeight(path.MaxDependencyType);
 
@@ -87,32 +115,21 @@ public sealed class PathRiskEvaluatorV1 : IPathRiskEvaluator
 
     private static int GetDependencyWeight(DependencyType type)
     {
-        return type switch
-        {
-            DependencyType.Delete => 10,
-            DependencyType.Update => 8,
-            DependencyType.Insert => 7,
-            DependencyType.SchemaDependency => 9,
-            DependencyType.ApiCall => 6,
-            DependencyType.Select => 4,
-            DependencyType.Unknown => 5,
-            _ => 5
-        };
+        return DependencyWeightsSource.TryGetValue(type, out var weight) ? weight : DefaultWeight;
     }
 
     private static int GetChangeMultiplier(ChangeType changeType)
     {
-        return changeType switch
-        {
-            ChangeType.Delete => 3,
-            ChangeType.Modify => 2,
-            ChangeType.Create => 1,
-            _ => 1
-        };
+        return ChangeTypeMultipliersSource.TryGetValue(changeType, out var multiplier) ? multiplier : DefaultMultiplier;
     }
 
     private static double CalculateDepthFactor(int depth)
     {
+        if (depth < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(depth), depth, "Depth must be >= 1.");
+        }
+
         // Depth 1 = 1.0
         // Depth 2 = 0.8
         // Depth 3 = 0.6

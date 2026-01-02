@@ -30,13 +30,22 @@ namespace ActoEngine.WebApi.Controllers
 
             if (!result.Success)
             {
-                return Unauthorized(ApiResponse<object>.Failure(result.ErrorMessage ?? "Authentication failed"));
+                return Unauthorized(ApiResponse<object>.Failure("Authentication failed"));
             }
 
-            var user = await _authService.GetUserAsync(result.UserId ?? 0);
+            // Guard against unexpected null UserId when authentication succeeds
+            if (!result.UserId.HasValue)
+            {
+                // Log unexpected state - authentication succeeded but UserId is null
+                // This indicates a bug in the auth service implementation
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    ApiResponse<object>.Failure("Authentication failed: unexpected null user ID"));
+            }
+
+            var user = await _authService.GetUserAsync(result.UserId.Value);
             if (user == null)
             {
-                return Unauthorized(ApiResponse<object>.Failure("User not found"));
+                return Unauthorized(ApiResponse<object>.Failure("Authentication failed"));
             }
 
             user.PasswordHash = string.Empty;

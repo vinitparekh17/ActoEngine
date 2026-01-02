@@ -33,6 +33,9 @@ public sealed class BfsPathEnumerator : IPathEnumerator
         ImpactGraph graph,
         EntityRef root)
     {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(root);
+
         var paths = new List<DependencyPath>();
         var queue = new Queue<PathState>();
 
@@ -40,7 +43,9 @@ public sealed class BfsPathEnumerator : IPathEnumerator
         int maxDepthReached = 0;
 
         // Initialize BFS with root-only path
-        var rootNode = graph.GetNode(root);
+        var rootNode = graph.GetNode(root)
+            ?? throw new InvalidOperationException(
+                $"Root entity '{root.StableKey}' not found in graph. Ensure the graph contains the root before enumeration.");
 
         var initialState = new PathState(
             nodes: [root],
@@ -78,6 +83,11 @@ public sealed class BfsPathEnumerator : IPathEnumerator
                 }
 
                 var nextNode = graph.GetNode(edge.To);
+                if (nextNode == null)
+                {
+                    // Node referenced by edge but not in graph; skip silently
+                    continue;
+                }
 
                 var nextNodes = new List<EntityRef>(current.Nodes)
                 {

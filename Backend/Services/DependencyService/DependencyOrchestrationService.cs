@@ -81,11 +81,10 @@ public class DependencyOrchestrationService(
         }
         catch (Exception ex)
         {
-            // If the whole process fails (e.g. database down), log it.
-            // We do NOT rethrow because we don't want to crash the calling background job if possible,
-            // or at least we want to control how it fails.
+            // Log the critical failure and rethrow so the caller (ProjectService) 
+            // can observe and handle it appropriately.
             _logger.LogError(ex, "Critical failure during dependency analysis for project {ProjectId}", projectId);
-            throw; // Rethrowing here so the caller (ProjectService) knows it failed, though ProjectService will likely just log it too.
+            throw;
         }
     }
 }
