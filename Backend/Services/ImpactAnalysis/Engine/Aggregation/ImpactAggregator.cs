@@ -29,7 +29,9 @@ public sealed class ImpactAggregator : IImpactAggregator
         }
 
         // Group paths by terminal entity (last node in path)
+        // Filter out any paths with empty Nodes to prevent IndexOutOfRangeException
         var entityGroups = scoredPaths
+            .Where(p => p.Nodes != null && p.Nodes.Count > 0)
             .GroupBy(p => p.Nodes[^1]);
 
         var entityImpacts = new List<EntityImpact>();

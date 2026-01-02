@@ -101,25 +101,5 @@ namespace ActoEngine.WebApi.Extensions
 
             services.AddTransient<DatabaseMigrator>();
         }
-
-        // Helper meant to capture the existing AddApiServices call if it was an extension method elsewhere, 
-        // but looking at Program.cs line 212: builder.Services.AddApiServices(builder.Configuration);
-        // It seems AddApiServices is ALREADY an extension method likely in another file?
-        // Let's check Extensions folder content again. 
-        // Oh, I see "HttpContextExtensions.cs" only.
-        // Wait, where is AddApiServices defined? Is it in one of the existing defined namespaces?
-        // Typically it might be in Extensions class in the root or close by.
-        // I will assume for now I should just call it. 
-        // Actually, if AddApiServices is ALREADY an extension, I should check where it is.
-        // If it's not standard, maybe it was added recently?
-        // Let's look at the imports in Program.cs.
-        // using ActoEngine.WebApi.Extensions; is NOT there initially, only Namespace imports.
-        // Wait, line 212 calls builder.Services.AddApiServices.
-        // I will assume it is available via one of the imported namespaces or I'll find it invalid.
-        // But scanning `Program.cs` again...
-        // Line 212: builder.Services.AddApiServices(builder.Configuration);
-        // I don't see `using ActoEngine.WebApi.Extensions;` in the file view of Program.cs.
-        // Maybe it's in `ActoEngine.WebApi.Config`? Or just in the global namespace?
-        // I'll keep it there.
     }
 }

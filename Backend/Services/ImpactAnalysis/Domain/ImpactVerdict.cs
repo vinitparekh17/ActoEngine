@@ -14,7 +14,7 @@ namespace ActoEngine.WebApi.Services.ImpactAnalysis.Domain
         public required List<string> Limitations { get; set; }  // Simple strings, not a complex object
 
         // === Metadata ===
-        public DateTime GeneratedAt { get; set; }
+        public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
     }
 
     public class VerdictReason
@@ -22,7 +22,7 @@ namespace ActoEngine.WebApi.Services.ImpactAnalysis.Domain
         public int Priority { get; set; }           // 1 = most important
         public required string Statement { get; set; }       // "3 stored procedures read from this table"
         public required string Implication { get; set; }     // "Test these procedures after deployment"
-        public List<string?> Evidence { get; set; } = new();  // ["SP_GetUsers", "SP_GetOrders", "SP_Dashboard"]
+        public List<string> Evidence { get; set; } = new();  // ["SP_GetUsers", "SP_GetOrders", "SP_Dashboard"]
     }
 
     public enum RiskLevel

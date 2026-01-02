@@ -15,17 +15,23 @@ namespace ActoEngine.WebApi.Controllers;
 [Route("api/impact")]
 public sealed class ImpactController(
     IImpactFacade impactFacade,
-    ImpactVerdictBuilder verdictBuilder) : ControllerBase
+    ImpactVerdictBuilder verdictBuilder,
+    ILogger<ImpactController> logger) : ControllerBase
 {
+    private readonly ILogger<ImpactController> _logger = logger;
 
     [HttpGet("~/api/projects/{projectId:int}/impact/{entityType}/{entityId:int}")]
     public async Task<ActionResult<ApiResponse<ImpactDecisionResponse>>> Analyze(
         [FromRoute] int projectId,
         [FromRoute] string entityType,
         [FromRoute] int entityId,
-        [FromQuery] string changeType,
-        CancellationToken cancellationToken)
+        [FromQuery] string changeType = "MODIFY", // Default to MODIFY for backward compatibility
+        CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation(
+            "Impact analysis requested: ProjectId={ProjectId}, EntityType={EntityType}, EntityId={EntityId}, ChangeType={ChangeType}",
+            projectId, entityType, entityId, changeType);
+
         // -----------------------------
         // Input validation
         // -----------------------------
@@ -35,6 +41,7 @@ public sealed class ImpactController(
                 ignoreCase: true,
                 out var parsedEntityType))
         {
+            _logger.LogWarning("Invalid entityType '{EntityType}' provided", entityType);
             return BadRequest(
                 ApiResponse<ImpactDecisionResponse>.Failure(
                     "Invalid entityType",
@@ -47,6 +54,7 @@ public sealed class ImpactController(
                 ignoreCase: true,
                 out var parsedChangeType))
         {
+            _logger.LogWarning("Invalid changeType '{ChangeType}' provided", changeType);
             return BadRequest(
                 ApiResponse<ImpactDecisionResponse>.Failure(
                     "Invalid changeType",
@@ -60,11 +68,15 @@ public sealed class ImpactController(
         // 1. Run factual analysis (engine)
         // -----------------------------
 
+        _logger.LogDebug("Starting impact analysis for {RootEntity}", rootEntity.StableKey);
+
         var analysis = await impactFacade.AnalyzeAsync(
             projectId,
             rootEntity,
             parsedChangeType,
             cancellationToken);
+
+        _logger.LogDebug("Impact analysis completed with {PathCount} paths", analysis.Paths.Count);
 
         // -----------------------------
         // 2. Build verdict (NEW, opinionated)
@@ -80,8 +92,21 @@ public sealed class ImpactController(
         {
             Verdict = verdict,
 
-            // Aggregated summary (existing engine output)
-            Summary = analysis.OverallImpact,
+            // Aggregated summary (existing engine output) + Frontend context
+            Summary = new
+            {
+                analysis.OverallImpact.WorstImpactLevel,
+                analysis.OverallImpact.WorstRiskScore,
+                analysis.OverallImpact.TriggeringEntity,
+                analysis.OverallImpact.TriggeringPathId,
+                analysis.OverallImpact.RequiresApproval,
+
+                // Frontend specific context
+                RootEntity = analysis.RootEntity,
+                Environment = "Production", // Placeholder
+                AnalysisType = "Impact Analysis",
+                Action = changeType ?? "Modify"
+            },
 
             // Ranked impacts (trimmed, not exhaustive)
             Entities = analysis.EntityImpacts
@@ -95,6 +120,10 @@ public sealed class ImpactController(
             Paths = analysis.Paths,
             Graph = null // TODO (graphs not yet supported)
         };
+
+        _logger.LogInformation(
+            "Impact analysis completed successfully for ProjectId={ProjectId}, EntityType={EntityType}, EntityId={EntityId}",
+            projectId, entityType, entityId);
 
         return Ok(
             ApiResponse<ImpactDecisionResponse>.Success(
