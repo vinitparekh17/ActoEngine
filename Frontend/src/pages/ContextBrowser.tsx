@@ -255,7 +255,7 @@ export default function ContextBrowse() {
     if (validPage !== currentPage) {
       setCurrentPage(validPage);
     }
-  }, [searchQuery, filterType, sortBy, sortOrder, totalPages, currentPage]);
+  }, [searchQuery, filterType, sortBy, sortOrder, totalPages]);
 
   // Batch fetch context for visible entities
   const { data: batchContextData, isLoading: isBatchLoading } = useContextBatch(
