@@ -25,13 +25,13 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        logger.LogError(exception, "An unhandled exception occurred for path: {Path}", context.Request.Path);
-
         if (context.Response.HasStarted)
         {
             logger.LogWarning("Cannot handle exception for {Path}; response has already started.", context.Request.Path);
             return;
         }
+
+        logger.LogError(exception, "An unhandled exception occurred for path: {Path}", context.Request.Path);
 
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";

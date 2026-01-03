@@ -1,3 +1,4 @@
+using ActoEngine.Domain.Entities;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using System.Text.RegularExpressions;

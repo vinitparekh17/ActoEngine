@@ -1,10 +1,10 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
-using ActoEngine.WebApi.Models;
+using ActoEngine.Domain.Entities;
+using ActoEngine.Application.Contracts.Auth;
 using ActoEngine.WebApi.Repositories;
 
-namespace ActoEngine.WebApi.Services.Auth
-{
+namespace ActoEngine.WebApi.Services.Auth;
     public interface IAuthService
     {
         Task<AuthResult> LoginAsync(string username, string password);
@@ -243,4 +243,3 @@ namespace ActoEngine.WebApi.Services.Auth
             return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         }
     }
-}

@@ -1,3 +1,4 @@
+using ActoEngine.Domain.Entities;
 using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Services.Database;
 using ActoEngine.WebApi.SqlQueries;

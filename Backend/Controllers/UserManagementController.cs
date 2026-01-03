@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Extensions;
 using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Models.Requests.Users;
+using ActoEngine.WebApi.Models.Responses.Users;
 using ActoEngine.WebApi.Services.UserManagementService;
 using ActoEngine.WebApi.Services.Auth;
 using System.ComponentModel.DataAnnotations;
@@ -181,20 +183,4 @@ public class UserManagementController(IUserManagementService userManagementServi
             return BadRequest(ApiResponse<object>.Failure(ex.Message));
         }
     }
-}
-
-// Simple request DTO for toggle status
-public class ToggleStatusRequest
-{
-    public bool IsActive { get; set; }
-}
-
-// Simple request DTO for change password
-public class ChangePasswordRequestDto
-{
-    [Required(ErrorMessage = "New password is required")]
-    [MinLength(8, ErrorMessage = "Password must be at least 8 characters")]
-    [MaxLength(128, ErrorMessage = "Password cannot exceed 128 characters")]
-    [DataType(DataType.Password)]
-    public string NewPassword { get; set; } = default!;
 }
