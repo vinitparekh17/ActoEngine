@@ -1,0 +1,9 @@
+namespace ActoEngine.WebApi.Models.Responses.Project;
+
+public class ProjectResponse
+{
+    public int ProjectId { get; set; }
+    public required string Message { get; set; }
+    public int SyncJobId { get; internal set; }
+}
+

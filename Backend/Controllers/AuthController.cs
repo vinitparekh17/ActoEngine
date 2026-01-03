@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Models.Requests.Auth;
+using ActoEngine.WebApi.Models.Responses.Auth;
+using ActoEngine.Application.Contracts.Auth;
 using ActoEngine.WebApi.Services.Auth;
 
-namespace ActoEngine.WebApi.Controllers
-{
+namespace ActoEngine.WebApi.Controllers;
     [ApiController]
     [Route("api/[controller]")]
     public class AuthController(IAuthService authService) : ControllerBase
@@ -204,4 +206,3 @@ namespace ActoEngine.WebApi.Controllers
             });
         }
     }
-}

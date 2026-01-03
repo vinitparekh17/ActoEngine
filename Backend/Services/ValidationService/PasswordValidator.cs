@@ -39,7 +39,7 @@ public class PasswordValidator : IPasswordValidator
             return (false, "Password must contain at least one digit");
         }
 
-        if (!password.Any(ch => !char.IsLetterOrDigit(ch)))
+        if (password.All(char.IsLetterOrDigit)) 
         {
             return (false, "Password must contain at least one special character");
         }

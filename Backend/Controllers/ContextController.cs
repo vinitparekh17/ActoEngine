@@ -6,6 +6,7 @@ using ActoEngine.WebApi.Services.ContextService;
 using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Extensions;
 using Microsoft.Extensions.Options;
+using ActoEngine.Domain.Entities;
 
 namespace ActoEngine.WebApi.Controllers;
 

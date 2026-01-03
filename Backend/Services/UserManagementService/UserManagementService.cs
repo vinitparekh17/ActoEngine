@@ -1,4 +1,6 @@
-using ActoEngine.WebApi.Models;
+using ActoEngine.Domain.Entities;
+using ActoEngine.WebApi.Models.Requests.Users;
+using ActoEngine.WebApi.Models.Responses.Users;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Services.Auth;
 using ActoEngine.WebApi.Services.ValidationService;

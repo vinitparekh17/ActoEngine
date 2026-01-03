@@ -1,14 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using ActoEngine.Domain.Entities;
 
-namespace ActoEngine.WebApi.Models;
+namespace ActoEngine.WebApi.Models.DTOs.Context;
 
-// ==================== DTOs ====================
-
-
-/// <summary>
-/// Request to save/update context
-/// </summary>
 public class SaveContextRequest
 {
     public string? Purpose { get; set; }
@@ -35,9 +29,6 @@ public class SaveContextRequest
     public List<int>? ExpertUserIds { get; set; }
 }
 
-/// <summary>
-/// Context response with all related data
-/// </summary>
 public class ContextResponse
 {
     public required EntityContext Context { get; set; }
@@ -48,9 +39,6 @@ public class ContextResponse
     public int DependencyCount { get; set; }
 }
 
-/// <summary>
-/// Smart suggestions for context
-/// </summary>
 public class ContextSuggestions
 {
     public string? Purpose { get; set; }
@@ -69,23 +57,17 @@ public class UserSuggestion
     public string? Reason { get; set; }
 }
 
-/// <summary>
-/// Request to add expert
-/// </summary>
 public class AddExpertRequest
 {
     [Required]
     public int UserId { get; set; }
     
     [Required]
-    public required string ExpertiseLevel { get; set; } // 'OWNER', 'EXPERT', 'FAMILIAR'
+    public required string ExpertiseLevel { get; set; }
     
     public string? Notes { get; set; }
 }
 
-/// <summary>
-/// Bulk context entry for seeding
-/// </summary>
 public class BulkContextEntry
 {
     [Required]
@@ -108,9 +90,6 @@ public class BulkImportResult
     public string? Error { get; set; }
 }
 
-/// <summary>
-/// Request model for creating a review request for an entity's context
-/// </summary>
 public class CreateReviewRequestModel
 {
     [Required]
@@ -120,21 +99,12 @@ public class CreateReviewRequestModel
     [Range(1, int.MaxValue)]
     public int EntityId { get; set; }
 
-    /// <summary>
-    /// Optional: Assign the review to a specific user
-    /// </summary>
     public int? AssignedTo { get; set; }
 
-    /// <summary>
-    /// Optional: Reason or context for the review
-    /// </summary>
     [StringLength(500)]
     public string? Reason { get; set; }
 }
 
-/// <summary>
-/// Context coverage statistics
-/// </summary>
 public class ContextCoverageStats
 {
     public required string EntityType { get; set; }
@@ -144,9 +114,6 @@ public class ContextCoverageStats
     public decimal? AvgCompleteness { get; set; }
 }
 
-/// <summary>
-/// Minimal request for quick context entry
-/// </summary>
 public class QuickSaveRequest
 {
     [Required]
@@ -177,14 +144,11 @@ public class ContextGap
     public int EntityId { get; set; }
     public required string EntityName { get; set; }
     [Range(1,5)]
-    public int Priority { get; set; } // 1-5 (based on references, criticality)
+    public int Priority { get; set; }
     public string? Reason { get; set; }
     public int? DependencyCount { get; set; }
 }
 
-/// <summary>
-/// User expertise item showing entities where a user has expertise
-/// </summary>
 public class UserExpertiseItem
 {
     public required string EntityType { get; set; }
@@ -195,9 +159,6 @@ public class UserExpertiseItem
     public string? BusinessDomain { get; set; }
 }
 
-/// <summary>
-/// Entity with stale context that needs review
-/// </summary>
 public class StaleContextEntity
 {
     public required string EntityType { get; set; }
@@ -208,9 +169,6 @@ public class StaleContextEntity
     public int DaysSinceUpdate { get; set; }
 }
 
-/// <summary>
-/// Top documented entity with completeness metrics
-/// </summary>
 public class TopDocumentedEntity
 {
     public required string EntityType { get; set; }
@@ -224,9 +182,6 @@ public class TopDocumentedEntity
     public int ExpertCount { get; set; }
 }
 
-/// <summary>
-/// Critical undocumented entity that needs attention
-/// </summary>
 public class CriticalUndocumentedEntity
 {
     public required string EntityType { get; set; }
