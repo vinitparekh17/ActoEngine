@@ -56,7 +56,9 @@ public class AuthController(IAuthService authService) : ControllerBase
         {
             UserId = user.UserID,
             Username = user.Username,
-            FullName = user.FullName
+            FullName = user.FullName,
+            Role = user.Role,
+            Permissions = user.Permissions ?? []
         };
 
         // Set cookies
