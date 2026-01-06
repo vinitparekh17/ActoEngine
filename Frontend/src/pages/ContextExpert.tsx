@@ -99,6 +99,8 @@ export default function ContextExperts() {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<FilterType>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
 
   // Fetch all tables
   const {
@@ -204,13 +206,18 @@ export default function ContextExperts() {
     return filteredEntities.slice(start, start + pageSize);
   }, [filteredEntities, currentPage, pageSize]);
 
-  // Reset page when filters change
+  // Reset page when filters change and clamp to valid range when data changes
   React.useEffect(() => {
+    // Clamp currentPage to valid range (1 to totalPages)
+    // This handles cases where:
+    // 1. Filters change and reduce the result set
+    // 2. Refresh occurs and data size changes
+    // 3. Current page becomes out of range
     const validPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
     if (validPage !== currentPage) {
       setCurrentPage(validPage);
     }
-  }, [searchQuery, filterType, totalPages, currentPage]);
+  }, [searchQuery, filterType, totalPages]);
 
   // Helper functions
   const getExpertIcon = (level: string) => {
@@ -535,7 +542,7 @@ export default function ContextExperts() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -547,7 +554,7 @@ export default function ContextExperts() {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        setCurrentPage((p: number) => Math.min(totalPages, p + 1))
                       }
                       disabled={currentPage === totalPages}
                     >
