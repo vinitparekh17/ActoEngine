@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace ActoEngine.WebApi.Helpers;
+namespace ActoEngine.WebApi.Infrastructure.Security;
 
 public static partial class SecurityHelper
 {

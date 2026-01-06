@@ -1,15 +1,12 @@
-using ActoEngine.WebApi.Config;
+using ActoEngine.WebApi.Shared;
 using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Services.Auth;
-using ActoEngine.WebApi.Services.ClientService;
-using ActoEngine.WebApi.Services.ContextService;
-using ActoEngine.WebApi.Services.Database;
-using ActoEngine.WebApi.Services.FormBuilderService;
+using ActoEngine.WebApi.Infrastructure.Database;
+using ActoEngine.WebApi.Features.FormBuilder;
 using ActoEngine.WebApi.Services.PermissionService;
 using ActoEngine.WebApi.Services.ProjectClientService;
-using ActoEngine.WebApi.Services.ProjectService;
+using ActoEngine.WebApi.Features.Projects;
 using ActoEngine.WebApi.Services.RoleService;
-using ActoEngine.WebApi.Services.Schema;
+using ActoEngine.WebApi.Features.Schema;
 using ActoEngine.WebApi.Services.SpBuilderService;
 using ActoEngine.WebApi.Services.UserManagementService;
 using ActoEngine.WebApi.Services.ValidationService;
@@ -22,6 +19,11 @@ using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Approval;
 using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Aggregation;
 using ActoEngine.WebApi.Services.ImpactAnalysis;
 using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.VerdictBuilder;
+using ActoEngine.WebApi.Features.Auth;
+using ActoEngine.WebApi.Features.Clients;
+using ActoEngine.WebApi.Features.Context;
+using ActoEngine.WebApi.Features.Users;
+using ActoEngine.WebApi.Features.SpBuilder;
 
 namespace ActoEngine.WebApi.Extensions
 {

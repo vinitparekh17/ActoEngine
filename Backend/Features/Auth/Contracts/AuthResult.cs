@@ -1,4 +1,4 @@
-namespace ActoEngine.Application.Contracts.Auth;
+namespace ActoEngine.WebApi.Features.Auth.Contracts;
 
 public class AuthResult
 {

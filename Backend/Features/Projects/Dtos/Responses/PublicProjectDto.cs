@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models.Responses.Project;
+namespace ActoEngine.WebApi.Features.Project.Dtos.Responses;
 
 /// <summary>
 /// Public DTO for Project

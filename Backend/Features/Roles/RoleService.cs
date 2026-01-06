@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
+using ActoEngine.WebApi.Features.Users;
 
 namespace ActoEngine.WebApi.Services.RoleService;
 

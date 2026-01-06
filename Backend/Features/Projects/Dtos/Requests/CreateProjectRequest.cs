@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ActoEngine.WebApi.Models.Requests.Project;
+namespace ActoEngine.WebApi.Features.Project.Dtos.Requests;
 
 public class CreateProjectRequest
 {

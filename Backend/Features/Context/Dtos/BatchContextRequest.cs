@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ActoEngine.WebApi.Models;
+namespace ActoEngine.WebApi.Features.Context.Dtos;
 
 public class BatchContextRequest
 {

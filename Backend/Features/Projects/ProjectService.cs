@@ -1,15 +1,17 @@
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Models.Requests.Project;
+using ActoEngine.WebApi.Shared;
 using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Services.Database;
-using ActoEngine.WebApi.Services.Schema;
+using ActoEngine.WebApi.Infrastructure.Database;
+using ActoEngine.WebApi.Features.Schema;
 using ActoEngine.WebApi.Services.DependencyService;
 using ActoEngine.WebApi.SqlQueries;
 using Microsoft.Data.SqlClient;
 using System.Data;
-
-using ActoEngine.WebApi.Helpers;
-namespace ActoEngine.WebApi.Services.ProjectService
+using ActoEngine.WebApi.Features.Project.Dtos.Requests;
+using ActoEngine.WebApi.Infrastructure.Security;
+using ActoEngine.WebApi.Features.Clients;
+using ActoEngine.WebApi.Services.ProjectClientService;
+namespace ActoEngine.WebApi.Features.Projects
 {
     public interface IProjectService
     {
@@ -20,7 +22,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
         Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId);
         Task<PublicProjectDto?> GetProjectByIdAsync(int projectId);
         Task<IEnumerable<PublicProjectDto>> GetAllProjectsAsync();
-        Task<bool> UpdateProjectAsync(int projectId, Project project, int userId);
+        Task<bool> UpdateProjectAsync(int projectId, ActoEngine.WebApi.Models.Project project, int userId);
         Task<bool> DeleteProjectAsync(int projectId, int userId);
         Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId);
     }
@@ -90,7 +92,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             var builder = new SqlConnectionStringBuilder(request.ConnectionString);
             var databaseName = builder.InitialCatalog;
 
-            var project = new Project
+            var project = new ActoEngine.WebApi.Models.Project
             {
                 ProjectId = request.ProjectId,
                 ProjectName = databaseName, // Use database name as project name
@@ -448,7 +450,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
         {
             try
             {
-                var project = new Project(
+                var project = new ActoEngine.WebApi.Models.Project(
                     request.ProjectName,
                     request.DatabaseName,
                     DateTime.UtcNow,
@@ -496,7 +498,7 @@ namespace ActoEngine.WebApi.Services.ProjectService
             }
         }
 
-        public async Task<bool> UpdateProjectAsync(int projectId, Project project, int userId)
+        public async Task<bool> UpdateProjectAsync(int projectId, ActoEngine.WebApi.Models.Project project, int userId)
         {
             try
             {

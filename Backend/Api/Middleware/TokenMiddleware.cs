@@ -1,6 +1,6 @@
 using System.Text.Json;
+using ActoEngine.WebApi.Features.Auth;
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.Auth;
 
 namespace ActoEngine.WebApi.Middleware
 {

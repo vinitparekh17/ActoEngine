@@ -1,8 +1,9 @@
 using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Shared;
 using ActoEngine.WebApi.Repositories;
 using System.Text.RegularExpressions;
 
-namespace ActoEngine.WebApi.Services.Schema;
+namespace ActoEngine.WebApi.Features.Schema;
 
 public interface ISchemaService
 {

@@ -1,12 +1,9 @@
-using ActoEngine.Domain.Entities;
-using ActoEngine.WebApi.Config;
-using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Services.Auth;
-using ActoEngine.WebApi.SqlQueries;
+using ActoEngine.WebApi.Features.Auth;
+using ActoEngine.WebApi.Features.Users;
 using Dapper;
 using Microsoft.Extensions.Options;
 
-namespace ActoEngine.WebApi.Services.Database;
+namespace ActoEngine.WebApi.Infrastructure.Database;
 
 public interface IDataSeeder
 {

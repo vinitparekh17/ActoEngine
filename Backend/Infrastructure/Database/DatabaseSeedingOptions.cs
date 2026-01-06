@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Config;
+namespace ActoEngine.WebApi.Infrastructure.Database;
 
 public class DatabaseSeedingOptions
 {

@@ -1,4 +1,4 @@
-namespace ActoEngine.Domain.Entities;
+namespace ActoEngine.WebApi.Features.Users;
 
 public class User
 {

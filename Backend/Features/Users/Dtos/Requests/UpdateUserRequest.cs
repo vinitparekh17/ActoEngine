@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models.Requests.Users;
+namespace ActoEngine.WebApi.Features.Users.Dtos.Requests;
 
 public class UpdateUserRequest
 {

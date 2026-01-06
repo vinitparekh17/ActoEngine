@@ -1,8 +1,7 @@
 using System.Security;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Hosting;
 
-namespace ActoEngine.WebApi.Helpers;
+namespace ActoEngine.WebApi.Infrastructure.Security;
 
 /// <summary>
 /// Provides secure methods for building SQL Server connection strings and credentials.

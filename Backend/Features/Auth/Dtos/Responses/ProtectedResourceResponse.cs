@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models.Responses.Auth;
+namespace ActoEngine.WebApi.Features.Auth.Dtos.Responses;
 
 public class ProtectedResourceResponse
 {

@@ -1,28 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ActoEngine.WebApi.Models;
-
-public class Client
-{
-    public Client() { }
-
-    public Client(string clientName, DateTime createdAt, int createdBy)
-    {
-        ClientName = clientName;
-        CreatedAt = createdAt;
-        CreatedBy = createdBy;
-        IsActive = true;
-    }
-
-    public int ClientId { get; set; }
-    public string ClientName { get; set; } = string.Empty;
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; }
-    public int CreatedBy { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-    public int? UpdatedBy { get; set; }
-}
-
+namespace ActoEngine.WebApi.Features.Clients;
 
 public class CreateClientRequest
 {

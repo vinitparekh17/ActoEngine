@@ -1,8 +1,8 @@
-using ActoEngine.Domain.Entities;
-using ActoEngine.WebApi.Models.Requests.Users;
-using ActoEngine.WebApi.Models.Responses.Users;
+using ActoEngine.WebApi.Features.Auth;
+using ActoEngine.WebApi.Features.Users.Dtos.Requests;
+using ActoEngine.WebApi.Features.Users.Dtos.Responses;
 using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Services.Auth;
+using ActoEngine.WebApi.Features.Users;
 using ActoEngine.WebApi.Services.ValidationService;
 using ActoEngine.WebApi.SqlQueries;
 using Dapper;
@@ -28,7 +28,7 @@ public class UserManagementService(
     IPermissionRepository permissionRepository,
     IPasswordHasher passwordHasher,
     IPasswordValidator passwordValidator,
-    Services.Database.IDbConnectionFactory connectionFactory,
+    Infrastructure.Database.IDbConnectionFactory connectionFactory,
     ILogger<UserManagementService> logger) : IUserManagementService
 {
     public async Task<(IEnumerable<UserDto> Users, int TotalCount)> GetAllUsersAsync(

@@ -1,10 +1,10 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
-using ActoEngine.Domain.Entities;
-using ActoEngine.Application.Contracts.Auth;
 using ActoEngine.WebApi.Repositories;
+using ActoEngine.WebApi.Features.Auth.Contracts;
+using ActoEngine.WebApi.Features.Users;
 
-namespace ActoEngine.WebApi.Services.Auth;
+namespace ActoEngine.WebApi.Features.Auth;
 public interface IAuthService
 {
     Task<AuthResult> LoginAsync(string username, string password);

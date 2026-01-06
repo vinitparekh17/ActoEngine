@@ -1,4 +1,4 @@
-namespace ActoEngine.Domain.Entities;
+namespace ActoEngine.WebApi.Features.Clients;
 
 public class Client
 {

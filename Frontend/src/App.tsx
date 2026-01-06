@@ -10,7 +10,6 @@ import { ApiErrorBoundary } from "@/components/errors/ApiErrorBoundary";
 import { PermissionRoute } from "@/components/routing/PermissionRoute";
 import FormBuilderPage from "@/pages/FormBuilder";
 import LoginPage from "@/pages/Login";
-// import DashboardPage from "@/pages/Dashboard";
 import ClientManagementPage from "@/pages/ClientManagement";
 import ProjectDashboard from "@/pages/ProjectDashboard";
 import ProjectSetup from "@/pages/ProjectSetup";

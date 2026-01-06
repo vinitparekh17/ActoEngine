@@ -1,4 +1,6 @@
-namespace ActoEngine.Domain.Entities;
+using ActoEngine.WebApi.Features.Users;
+
+namespace ActoEngine.WebApi.Features.Context;
 
 /// <summary>
 /// Represents context information for database entities (Tables, Columns, SPs)

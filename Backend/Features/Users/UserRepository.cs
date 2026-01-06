@@ -1,9 +1,10 @@
-using ActoEngine.Domain.Entities;
 using ActoEngine.WebApi.Config;
-using ActoEngine.WebApi.Services.Database;
+using ActoEngine.WebApi.Features.Users;
+using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.SqlQueries;
+using ActoEngine.WebApi.Shared;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Features.Users;
 
 public interface IUserRepository
 {
