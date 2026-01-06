@@ -1,5 +1,5 @@
 // components/context/ContextDashboard.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
 import { Link } from "react-router-dom";
@@ -133,6 +133,33 @@ export const ContextDashboard: React.FC = () => {
     },
   );
 
+  // Extract data with defaults (must be before early returns for hooks rules)
+  const coverage = dashboard?.coverage || [];
+  const staleEntities = dashboard?.staleEntities || [];
+  const topDocumented = dashboard?.topDocumented || [];
+  const criticalUndocumented = dashboard?.criticalUndocumented || [];
+
+  // Pagination for gaps (must be before early returns)
+  const gapsTotalPages = Math.ceil(criticalUndocumented.length / pageSize);
+  const paginatedGaps = useMemo(() => {
+    const start = (gapsPage - 1) * pageSize;
+    return criticalUndocumented.slice(start, start + pageSize);
+  }, [criticalUndocumented, gapsPage, pageSize]);
+
+  // Pagination for stale entities (must be before early returns)
+  const staleTotalPages = Math.ceil(staleEntities.length / pageSize);
+  const paginatedStale = useMemo(() => {
+    const start = (stalePage - 1) * pageSize;
+    return staleEntities.slice(start, start + pageSize);
+  }, [staleEntities, stalePage, pageSize]);
+
+  // Pagination for top documented (must be before early returns)
+  const topTotalPages = Math.ceil(topDocumented.length / pageSize);
+  const paginatedTop = useMemo(() => {
+    const start = (topPage - 1) * pageSize;
+    return topDocumented.slice(start, start + pageSize);
+  }, [topDocumented, topPage, pageSize]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -192,32 +219,6 @@ export const ContextDashboard: React.FC = () => {
   // At this point, we know selectedProjectId is defined due to the guard above
   // Create a type-safe variable with proper type assertion
   const projectId: number = selectedProjectId;
-
-  const coverage = dashboard?.coverage || [];
-  const staleEntities = dashboard?.staleEntities || [];
-  const topDocumented = dashboard?.topDocumented || [];
-  const criticalUndocumented = dashboard?.criticalUndocumented || [];
-
-  // Pagination for gaps
-  const gapsTotalPages = Math.ceil(criticalUndocumented.length / pageSize);
-  const paginatedGaps = useMemo(() => {
-    const start = (gapsPage - 1) * pageSize;
-    return criticalUndocumented.slice(start, start + pageSize);
-  }, [criticalUndocumented, gapsPage, pageSize]);
-
-  // Pagination for stale entities
-  const staleTotalPages = Math.ceil(staleEntities.length / pageSize);
-  const paginatedStale = useMemo(() => {
-    const start = (stalePage - 1) * pageSize;
-    return staleEntities.slice(start, start + pageSize);
-  }, [staleEntities, stalePage, pageSize]);
-
-  // Pagination for top documented
-  const topTotalPages = Math.ceil(topDocumented.length / pageSize);
-  const paginatedTop = useMemo(() => {
-    const start = (topPage - 1) * pageSize;
-    return topDocumented.slice(start, start + pageSize);
-  }, [topDocumented, topPage, pageSize]);
   // Calculate overall stats with weighted coverage
   const totalDocumented = coverage.reduce(
     (acc, item) => acc + (item.documented || 0),
@@ -487,7 +488,7 @@ export const ContextDashboard: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedGaps.map((item) => (
+                    {paginatedGaps.map((item: CriticalGapItem) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
                           <Badge variant="outline">{item.entityType}</Badge>
@@ -597,7 +598,7 @@ export const ContextDashboard: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedStale.map((item) => (
+                    {paginatedStale.map((item: StaleItem) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
                           <Badge variant="outline">{item.entityType}</Badge>
@@ -713,7 +714,7 @@ export const ContextDashboard: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedTop.map((item) => (
+                    {paginatedTop.map((item: WellDocumentedItem) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
                           <Badge variant="outline">{item.entityType}</Badge>
