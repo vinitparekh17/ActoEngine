@@ -44,6 +44,8 @@ import {
   FileText,
   Filter,
   Users,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { TableMetadataDto, StoredProcedureMetadataDto } from "@/types/context";
@@ -121,7 +123,7 @@ export default function ContextExperts() {
     `/DatabaseBrowser/projects/${selectedProjectId}/stored-procedures-metadata`,
     {
       enabled: hasProject && !!selectedProjectId,
-      staleTime: 60 * 1000,
+      staleTime: 5 * 60 * 1000, // 5 minutes - stored procedures don't change often
       retry: 2,
     },
   );
@@ -194,6 +196,21 @@ export default function ContextExperts() {
 
     return filtered;
   }, [allEntities, searchQuery, filterType]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredEntities.length / pageSize);
+  const paginatedEntities = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredEntities.slice(start, start + pageSize);
+  }, [filteredEntities, currentPage, pageSize]);
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    const validPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
+    if (validPage !== currentPage) {
+      setCurrentPage(validPage);
+    }
+  }, [searchQuery, filterType, totalPages, currentPage]);
 
   // Helper functions
   const getExpertIcon = (level: string) => {
@@ -309,12 +326,12 @@ export default function ContextExperts() {
           </p>
         </div>
         <div className="flex space-x-2">
-          <Link to={`/projects/${selectedProjectId}/context/dashboard`}>
-            <Button variant="outline">
+          <Button variant="outline" asChild>
+            <Link to="/">
               <ExternalLink className="w-4 h-4 mr-2" />
               Dashboard
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -472,7 +489,7 @@ export default function ContextExperts() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredEntities.map((entity) => (
+                      {paginatedEntities.map((entity) => (
                         <TableRow
                           key={`${entity.entityType}-${entity.entityId}`}
                         >
@@ -503,6 +520,40 @@ export default function ContextExperts() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+
+              {/* Pagination */}
+              {filteredEntities.length > pageSize && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                    {Math.min(currentPage * pageSize, filteredEntities.length)} of{" "}
+                    {filteredEntities.length} entities
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm border rounded px-3 py-1 bg-white dark:bg-zinc-900 flex items-center">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>

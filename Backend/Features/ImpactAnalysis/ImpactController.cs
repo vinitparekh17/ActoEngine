@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Mapping;
 using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
 using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.VerdictBuilder;
 

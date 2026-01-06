@@ -1,5 +1,3 @@
-using ActoEngine.Domain.Entities;
-
 namespace ActoEngine.WebApi.Models.Responses.Role;
 
 public class PermissionGroupDto

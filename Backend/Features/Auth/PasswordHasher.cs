@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Services.Auth;
+namespace ActoEngine.WebApi.Features.Auth;
 public interface IPasswordHasher
 {
     string HashPassword(string password);

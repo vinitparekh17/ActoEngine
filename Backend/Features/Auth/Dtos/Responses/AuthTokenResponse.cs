@@ -1,6 +1,6 @@
-using ActoEngine.Domain.Entities;
+using ActoEngine.WebApi.Features.Users;
 
-namespace ActoEngine.WebApi.Models.Responses.Auth;
+namespace ActoEngine.WebApi.Features.Auth.Dtos.Responses;
 
 /// <summary>
 /// Response returned after successful authentication.

@@ -107,7 +107,7 @@ export default function ContextBrowse() {
         hasProject &&
         !!selectedProjectId &&
         (filterType === "ALL" || filterType === "TABLE"),
-      staleTime: 30 * 1000,
+      staleTime: 5 * 60 * 1000, // 5 minutes - tables don't change often
       retry: 2,
     },
   );
@@ -125,7 +125,7 @@ export default function ContextBrowse() {
         hasProject &&
         !!selectedProjectId &&
         (filterType === "ALL" || filterType === "SP"),
-      staleTime: 30 * 1000,
+      staleTime: 5 * 60 * 1000, // 5 minutes - stored procedures don't change often
       retry: 2,
     },
   );
@@ -466,7 +466,7 @@ export default function ContextBrowse() {
           </Button>
 
           <Button asChild>
-            <Link to={`/projects/${selectedProjectId}/context/dashboard`}>
+            <Link to="/">
               <ExternalLink className="w-4 h-4 mr-2" />
               Dashboard
             </Link>

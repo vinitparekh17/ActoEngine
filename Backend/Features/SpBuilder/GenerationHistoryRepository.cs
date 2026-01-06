@@ -2,7 +2,7 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using System.Data;
 
-namespace ActoEngine.WebApi.Repositories
+namespace ActoEngine.WebApi.Features.SpBuilder
 {
     public interface IGenerationHistoryRepository
     {

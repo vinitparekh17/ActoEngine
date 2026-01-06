@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.Schema;
+using ActoEngine.WebApi.Features.Schema;
 using ActoEngine.WebApi.Repositories;
 using Microsoft.AspNetCore.Authorization;
 

@@ -1,6 +1,7 @@
 using System.Data;
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.Database;
+using ActoEngine.WebApi.Infrastructure.Database;
+using ActoEngine.WebApi.Shared;
 using ActoEngine.WebApi.SqlQueries;
 using Dapper;
 

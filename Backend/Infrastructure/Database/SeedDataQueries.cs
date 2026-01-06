@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.SqlQueries;
+namespace ActoEngine.WebApi.Infrastructure.Database;
 
 public static class SeedDataQueries
 {

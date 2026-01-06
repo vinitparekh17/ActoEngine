@@ -1,10 +1,10 @@
-using ActoEngine.Domain.Entities;
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.Database;
-using ActoEngine.WebApi.SqlQueries;
+using ActoEngine.WebApi.Features.Context.Dtos;
+using ActoEngine.WebApi.Features.Users;
+using ActoEngine.WebApi.Infrastructure.Database;
+using ActoEngine.WebApi.Shared;
 using Dapper;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Features.Context;
 
 /// <summary>
 /// Repository contract for Context operations
@@ -75,7 +75,15 @@ public class ContextRepository(
         // Build parameterized OR clauses to handle multiple entity type-id pairs
         // Example: WHERE ProjectId = @ProjectId AND ((EntityType = @T0 AND EntityId = @I0) OR (EntityType = @T1 AND EntityId = @I1))
 
-        var sql = ContextQueries.GetContextBatchBase;
+        // Get base query without ORDER BY (we'll add it at the end)
+        var sql = ContextQueries.GetContextBatchBase.TrimEnd().TrimEnd(';');
+        // Remove ORDER BY clause if present
+        var orderByIndex = sql.LastIndexOf("ORDER BY", StringComparison.OrdinalIgnoreCase);
+        if (orderByIndex >= 0)
+        {
+            sql = sql.Substring(0, orderByIndex).TrimEnd();
+        }
+        
         var parameters = new DynamicParameters();
         parameters.Add("ProjectId", projectId);
 
@@ -95,6 +103,9 @@ public class ContextRepository(
         {
             sql += " AND (" + string.Join(" OR ", clauses) + ")";
         }
+        
+        // Add ORDER BY at the end
+        sql += " ORDER BY EntityType, EntityId;";
 
         var contexts = await QueryAsync<EntityContext>(
             sql,

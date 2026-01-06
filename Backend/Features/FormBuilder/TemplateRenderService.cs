@@ -1,7 +1,7 @@
-using ActoEngine.WebApi.Repositories;
+using ActoEngine.WebApi.Features.SpBuilder;
 using Scriban;
 
-namespace ActoEngine.WebApi.Services.FormBuilderService
+namespace ActoEngine.WebApi.Features.FormBuilder
 {
     public interface ITemplateRenderService
     {
