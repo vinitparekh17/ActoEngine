@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ActoEngine.WebApi.Models.Requests.Auth;
+namespace ActoEngine.WebApi.Features.Auth.Dtos.Requests;
 
 public class LoginRequest
 {

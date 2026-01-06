@@ -171,7 +171,7 @@ export const ContextCoverageWidget: React.FC = () => {
             Documentation Coverage
           </CardTitle>
           <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-            <Link to="/context/dashboard" aria-label="Open Context Dashboard">
+            <Link to="/" aria-label="Open Context Dashboard">
               <ExternalLink className="w-3 h-3" />
             </Link>
           </Button>
@@ -265,7 +265,7 @@ export const ContextCoverageWidget: React.FC = () => {
 
         {/* Quick Action */}
         <Button variant="outline" size="sm" className="w-full" asChild>
-          <Link to="/context">View Full Dashboard</Link>
+          <Link to="/">View Full Dashboard</Link>
         </Button>
       </CardContent>
     </Card>

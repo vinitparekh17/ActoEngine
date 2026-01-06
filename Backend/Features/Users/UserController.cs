@@ -3,11 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Extensions;
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Models.Requests.Users;
-using ActoEngine.WebApi.Models.Responses.Users;
 using ActoEngine.WebApi.Services.UserManagementService;
-using ActoEngine.WebApi.Services.Auth;
-using System.ComponentModel.DataAnnotations;
+using ActoEngine.WebApi.Features.Users.Dtos.Responses;
+using ActoEngine.WebApi.Features.Users.Dtos.Requests;
+using ActoEngine.WebApi.Features.Auth;
 
 namespace ActoEngine.WebApi.Controllers;
 

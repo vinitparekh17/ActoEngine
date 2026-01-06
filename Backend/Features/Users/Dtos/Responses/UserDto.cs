@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models.Responses.Users;
+namespace ActoEngine.WebApi.Features.Users.Dtos.Responses;
 
 public class UserDto
 {

@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using ActoEngine.Domain.Entities;
 
-namespace ActoEngine.WebApi.Models.DTOs.Context;
+namespace ActoEngine.WebApi.Features.Context.Dtos;
 
 public class SaveContextRequest
 {

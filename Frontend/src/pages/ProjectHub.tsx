@@ -331,13 +331,13 @@ export default function ProjectHub() {
                       </li>
                     ))}
                   </ul>
-                  <Link
-                    to={`/project/${projectId}/activity`}
-                    className="text-sm text-primary hover:underline inline-flex items-center"
+                  <span
+                    className="text-sm text-muted-foreground inline-flex items-center cursor-not-allowed"
+                    title="Activity view coming soon"
                   >
                     View All Activity
                     <ChevronRight className="w-4 h-4 ml-1" />
-                  </Link>
+                  </span>
                 </div>
               )}
             </CardContent>
@@ -356,7 +356,8 @@ export default function ProjectHub() {
                   <Button
                     variant="default"
                     className="h-24 flex-col gap-2"
-                    onClick={() => navigate(`/project/${projectId}/schema`)}
+                    onClick={() => navigate(`/project/${projectId}/context/browse`)}
+                    title="Browse database schema"
                   >
                     <Database className="w-6 h-6" />
                     <span className="text-sm font-medium">Schema</span>
@@ -368,7 +369,8 @@ export default function ProjectHub() {
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
-                    onClick={() => navigate(`/project/${projectId}/forms`)}
+                    onClick={() => navigate("/form-builder")}
+                    title="Form Builder"
                   >
                     <FileText className="w-6 h-6" />
                     <span className="text-sm font-medium">Forms</span>
@@ -380,7 +382,8 @@ export default function ProjectHub() {
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
-                    onClick={() => navigate(`/project/${projectId}/sp-gen`)}
+                    onClick={() => navigate("/sp-builder")}
+                    title="Stored Procedure Builder"
                   >
                     <Code className="w-6 h-6" />
                     <span className="text-sm font-medium">SP Gen</span>
@@ -392,7 +395,8 @@ export default function ProjectHub() {
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
-                    onClick={() => navigate(`/project/${projectId}/clients`)}
+                    onClick={() => navigate("/clients")}
+                    title="Client Management"
                   >
                     <Users className="w-6 h-6" />
                     <span className="text-sm font-medium">Clients</span>

@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Config;
+namespace ActoEngine.WebApi.Features.Context;
 
 /// <summary>
 /// Configuration settings for batch operations

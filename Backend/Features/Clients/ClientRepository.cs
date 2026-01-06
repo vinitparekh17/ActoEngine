@@ -1,8 +1,7 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.Database;
-using ActoEngine.WebApi.SqlQueries;
+using ActoEngine.WebApi.Infrastructure.Database;
+using ActoEngine.WebApi.Shared;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Features.Clients;
 
 public interface IClientRepository
 {

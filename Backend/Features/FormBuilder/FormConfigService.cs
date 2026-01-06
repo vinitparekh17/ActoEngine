@@ -3,7 +3,7 @@ using ActoEngine.WebApi.Repositories;
 using FluentValidation;
 using System.Text.Json;
 
-namespace ActoEngine.WebApi.Services.FormBuilderService
+namespace ActoEngine.WebApi.Features.FormBuilder
 {
     public interface IFormConfigService
     {

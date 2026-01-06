@@ -2,13 +2,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Attributes;
-using ActoEngine.WebApi.Services.ContextService;
 using ActoEngine.WebApi.Config;
 using ActoEngine.WebApi.Extensions;
 using Microsoft.Extensions.Options;
-using ActoEngine.Domain.Entities;
+using ActoEngine.WebApi.Features.Context.Dtos;
 
-namespace ActoEngine.WebApi.Controllers;
+namespace ActoEngine.WebApi.Features.Context;
 
 /// <summary>
 /// API endpoints for managing entity context and documentation
@@ -33,7 +32,7 @@ public class ContextController(
     /// <param name="projectId">Project ID</param>
     /// <param name="entityType">Entity type (TABLE, COLUMN, SP, FUNCTION, VIEW)</param>
     /// <param name="entityId">Entity ID</param>
-    [HttpGet("{entityType}/{entityId}")]
+    [HttpGet("{entityType:regex(^(TABLE|COLUMN|SP|FUNCTION|VIEW)$)}/{entityId:int}")]
     [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(ContextResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -104,7 +103,7 @@ public class ContextController(
     /// <param name="entityType">Entity type</param>
     /// <param name="entityId">Entity ID</param>
     /// <param name="request">Context data</param>
-    [HttpPut("{entityType}/{entityId}")]
+    [HttpPut("{entityType:regex(^(TABLE|COLUMN|SP|FUNCTION|VIEW)$)}/{entityId:int}")]
     [RequirePermission("Contexts:Update")]
     [ProducesResponseType(typeof(EntityContext), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -232,7 +231,7 @@ public class ContextController(
     /// <summary>
     /// Mark context as reviewed (fresh)
     /// </summary>
-    [HttpPost("{entityType}/{entityId}/mark-reviewed")]
+    [HttpPost("{entityType:regex(^(TABLE|COLUMN|SP|FUNCTION|VIEW)$)}/{entityId:int}/mark-reviewed")]
     [RequirePermission("Contexts:Update")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> MarkContextReviewed(
@@ -266,7 +265,7 @@ public class ContextController(
     /// <summary>
     /// Add expert to entity
     /// </summary>
-    [HttpPost("{entityType}/{entityId}/experts")]
+    [HttpPost("{entityType:regex(^(TABLE|COLUMN|SP|FUNCTION|VIEW)$)}/{entityId:int}/experts")]
     [RequirePermission("Contexts:Update")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -314,7 +313,7 @@ public class ContextController(
     /// <summary>
     /// Remove expert from entity
     /// </summary>
-    [HttpDelete("{entityType}/{entityId}/experts/{userId}")]
+    [HttpDelete("{entityType:regex(^(TABLE|COLUMN|SP|FUNCTION|VIEW)$)}/{entityId:int}/experts/{userId:int}")]
     [RequirePermission("Contexts:Update")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> RemoveExpert(
@@ -364,7 +363,7 @@ public class ContextController(
     /// <summary>
     /// Get context suggestions for an entity
     /// </summary>
-    [HttpGet("{entityType}/{entityId}/suggestions")]
+    [HttpGet("{entityType:regex(^(TABLE|COLUMN|SP|FUNCTION|VIEW)$)}/{entityId:int}/suggestions")]
     [RequirePermission("Contexts:Read")]
     [ProducesResponseType(typeof(ContextSuggestions), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSuggestions(
@@ -382,148 +381,6 @@ public class ContextController(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting suggestions");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
-        }
-    }
-
-    #endregion
-
-    #region Statistics & Insights
-
-    /// <summary>
-    /// Get context coverage statistics
-    /// </summary>
-    [HttpGet("statistics/coverage")]
-    [RequirePermission("Contexts:Read")]
-    [ProducesResponseType(typeof(List<ContextCoverageStats>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetContextCoverage(
-        int projectId)
-    {
-        try
-        {
-            var stats = await _contextService.GetContextCoverageAsync(projectId);
-            return Ok(ApiResponse<IEnumerable<ContextCoverageStats>>.Success(stats, "Context coverage retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting context coverage");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
-        }
-    }
-
-    /// <summary>
-    /// Get entities with stale context
-    /// </summary>
-    [HttpGet("statistics/stale")]
-    [RequirePermission("Contexts:Read")]
-    [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetStaleEntities(int projectId)
-    {
-        try
-        {
-            var entities = await _contextService.GetStaleContextEntitiesAsync(projectId);
-            return Ok(ApiResponse<object>.Success(entities, "Stale entities retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting stale entities");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
-        }
-    }
-
-    /// <summary>
-    /// Get top documented entities
-    /// </summary>
-    [HttpGet("statistics/top-documented")]
-    [RequirePermission("Contexts:Read")]
-    [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetTopDocumented(
-        int projectId,
-        [FromQuery] int limit = 10)
-    {
-        try
-        {
-            var entities = await _contextService.GetTopDocumentedEntitiesAsync(projectId, limit);
-            return Ok(ApiResponse<object>.Success(entities, "Top documented entities retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting top documented entities");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
-        }
-    }
-
-    /// <summary>
-    /// Get critical undocumented entities
-    /// </summary>
-    [HttpGet("statistics/critical-undocumented")]
-    [RequirePermission("Contexts:Read")]
-    [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetCriticalUndocumented(int projectId)
-    {
-        try
-        {
-            var entities = await _contextService.GetCriticalUndocumentedAsync(projectId);
-            return Ok(ApiResponse<object>.Success(entities, "Critical undocumented entities retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting critical undocumented entities");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
-        }
-    }
-
-    /// <summary>
-    /// Get entities missing context (prioritized by usage)
-    /// </summary>
-    [HttpGet("gaps")]
-    [RequirePermission("Contexts:Read")]
-    [ProducesResponseType(typeof(List<ContextGap>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetContextGaps(
-        int projectId,
-        [FromQuery] int limit = 10,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var gaps = await _contextService.GetContextGapsAsync(projectId, limit, cancellationToken);
-            return Ok(ApiResponse<IEnumerable<ContextGap>>.Success(gaps, "Context gaps retrieved"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting context gaps");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
-        }
-    }
-
-    /// <summary>
-    /// Get context dashboard data
-    /// </summary>
-    [HttpGet("dashboard")]
-    [RequirePermission("Contexts:Read")]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetDashboard(int projectId)
-    {
-        try
-        {
-            var coverage = await _contextService.GetContextCoverageAsync(projectId);
-            var stale = await _contextService.GetStaleContextEntitiesAsync(projectId);
-            var topDocumented = await _contextService.GetTopDocumentedEntitiesAsync(projectId, 5);
-            var criticalUndocumented = await _contextService.GetCriticalUndocumentedAsync(projectId);
-
-            return Ok(ApiResponse<object>.Success(new
-            {
-                coverage,
-                staleCount = stale.Count,
-                staleEntities = stale.Take(5),
-                topDocumented,
-                criticalUndocumented = criticalUndocumented.Take(5),
-                lastUpdated = DateTime.UtcNow
-            }, "Dashboard data retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting dashboard data");
             return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
@@ -625,6 +482,147 @@ public class ContextController(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting review requests");
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
+        }
+    }
+
+    #endregion
+
+    #region Statistics
+
+    /// <summary>
+    /// Get context coverage statistics
+    /// </summary>
+    [HttpGet("statistics/coverage")]
+    [RequirePermission("Contexts:Read")]
+    [ProducesResponseType(typeof(List<ContextCoverageStats>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetContextCoverage(int projectId)
+    {
+        try
+        {
+            var stats = await _contextService.GetContextCoverageAsync(projectId);
+            return Ok(ApiResponse<IEnumerable<ContextCoverageStats>>.Success(stats, "Context coverage retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting context coverage");
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
+        }
+    }
+
+    /// <summary>
+    /// Get entities with stale context
+    /// </summary>
+    [HttpGet("statistics/stale")]
+    [RequirePermission("Contexts:Read")]
+    [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetStaleEntities(int projectId)
+    {
+        try
+        {
+            var entities = await _contextService.GetStaleContextEntitiesAsync(projectId);
+            return Ok(ApiResponse<object>.Success(entities, "Stale entities retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting stale entities");
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
+        }
+    }
+
+    /// <summary>
+    /// Get top documented entities
+    /// </summary>
+    [HttpGet("statistics/top-documented")]
+    [RequirePermission("Contexts:Read")]
+    [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTopDocumented(
+        int projectId,
+        [FromQuery] int limit = 10)
+    {
+        try
+        {
+            var entities = await _contextService.GetTopDocumentedEntitiesAsync(projectId, limit);
+            return Ok(ApiResponse<object>.Success(entities, "Top documented entities retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting top documented entities");
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
+        }
+    }
+
+    /// <summary>
+    /// Get critical undocumented entities
+    /// </summary>
+    [HttpGet("statistics/critical-undocumented")]
+    [RequirePermission("Contexts:Read")]
+    [ProducesResponseType(typeof(List<dynamic>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCriticalUndocumented(int projectId)
+    {
+        try
+        {
+            var entities = await _contextService.GetCriticalUndocumentedAsync(projectId);
+            return Ok(ApiResponse<object>.Success(entities, "Critical undocumented entities retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting critical undocumented entities");
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
+        }
+    }
+
+    /// <summary>
+    /// Get entities missing context (prioritized by usage)
+    /// </summary>
+    [HttpGet("statistics/gaps")]
+    [RequirePermission("Contexts:Read")]
+    [ProducesResponseType(typeof(List<ContextGap>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetContextGaps(
+        int projectId,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gaps = await _contextService.GetContextGapsAsync(projectId, limit, cancellationToken);
+            return Ok(ApiResponse<IEnumerable<ContextGap>>.Success(gaps, "Context gaps retrieved"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting context gaps");
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
+        }
+    }
+
+    /// <summary>
+    /// Get context dashboard data
+    /// </summary>
+    [HttpGet("statistics/dashboard")]
+    [RequirePermission("Contexts:Read")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDashboard(int projectId)
+    {
+        try
+        {
+            var coverage = await _contextService.GetContextCoverageAsync(projectId);
+            var stale = await _contextService.GetStaleContextEntitiesAsync(projectId);
+            var topDocumented = await _contextService.GetTopDocumentedEntitiesAsync(projectId, 5);
+            var criticalUndocumented = await _contextService.GetCriticalUndocumentedAsync(projectId);
+
+            return Ok(ApiResponse<object>.Success(new
+            {
+                coverage,
+                staleCount = stale.Count,
+                staleEntities = stale.Take(5),
+                topDocumented,
+                criticalUndocumented = criticalUndocumented.Take(5),
+                lastUpdated = DateTime.UtcNow
+            }, "Dashboard data retrieved successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting dashboard data");
             return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }

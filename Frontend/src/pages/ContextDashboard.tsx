@@ -36,6 +36,8 @@ import {
   FileCode,
   Table as TableIcon,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { GridSkeleton, PageHeaderSkeleton } from "@/components/ui/skeletons";
 
@@ -110,6 +112,10 @@ interface DashboardData {
  */
 export const ContextDashboard: React.FC = () => {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
+  const [gapsPage, setGapsPage] = React.useState(1);
+  const [stalePage, setStalePage] = React.useState(1);
+  const [topPage, setTopPage] = React.useState(1);
+  const pageSize = 10;
 
   // Fetch dashboard data
   const {
@@ -118,7 +124,7 @@ export const ContextDashboard: React.FC = () => {
     error,
     refetch,
   } = useApi<DashboardData>(
-    `/projects/${selectedProjectId}/context/dashboard`,
+    `/projects/${selectedProjectId}/context/statistics/dashboard`,
     {
       enabled: hasProject && !!selectedProjectId,
       staleTime: 30 * 1000, // 30 seconds
@@ -191,6 +197,27 @@ export const ContextDashboard: React.FC = () => {
   const staleEntities = dashboard?.staleEntities || [];
   const topDocumented = dashboard?.topDocumented || [];
   const criticalUndocumented = dashboard?.criticalUndocumented || [];
+
+  // Pagination for gaps
+  const gapsTotalPages = Math.ceil(criticalUndocumented.length / pageSize);
+  const paginatedGaps = useMemo(() => {
+    const start = (gapsPage - 1) * pageSize;
+    return criticalUndocumented.slice(start, start + pageSize);
+  }, [criticalUndocumented, gapsPage, pageSize]);
+
+  // Pagination for stale entities
+  const staleTotalPages = Math.ceil(staleEntities.length / pageSize);
+  const paginatedStale = useMemo(() => {
+    const start = (stalePage - 1) * pageSize;
+    return staleEntities.slice(start, start + pageSize);
+  }, [staleEntities, stalePage, pageSize]);
+
+  // Pagination for top documented
+  const topTotalPages = Math.ceil(topDocumented.length / pageSize);
+  const paginatedTop = useMemo(() => {
+    const start = (topPage - 1) * pageSize;
+    return topDocumented.slice(start, start + pageSize);
+  }, [topDocumented, topPage, pageSize]);
   // Calculate overall stats with weighted coverage
   const totalDocumented = coverage.reduce(
     (acc, item) => acc + (item.documented || 0),
@@ -220,14 +247,12 @@ export const ContextDashboard: React.FC = () => {
           )}
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" asChild>
-            <Link to="/context/bulk-import">
-              <FileText className="w-4 h-4 mr-2" />
-              Bulk Import
-            </Link>
+          <Button variant="outline" disabled title="Bulk import feature coming soon">
+            <FileText className="w-4 h-4 mr-2" />
+            Bulk Import
           </Button>
-          <Button asChild>
-            <Link to={`/projects/${projectId}/context/settings`}>Settings</Link>
+          <Button variant="outline" disabled title="Settings feature coming soon">
+            Settings
           </Button>
         </div>
       </div>
@@ -462,7 +487,7 @@ export const ContextDashboard: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {criticalUndocumented.map((item) => (
+                    {paginatedGaps.map((item) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
                           <Badge variant="outline">{item.entityType}</Badge>
@@ -504,6 +529,40 @@ export const ContextDashboard: React.FC = () => {
                   </TableBody>
                 </Table>
               )}
+
+              {/* Pagination for Gaps */}
+              {criticalUndocumented.length > pageSize && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(gapsPage - 1) * pageSize + 1} to{" "}
+                    {Math.min(gapsPage * pageSize, criticalUndocumented.length)} of{" "}
+                    {criticalUndocumented.length} items
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setGapsPage((p) => Math.max(1, p - 1))}
+                      disabled={gapsPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm border rounded px-3 py-1 bg-white dark:bg-zinc-900 flex items-center">
+                      Page {gapsPage} of {gapsTotalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setGapsPage((p) => Math.min(gapsTotalPages, p + 1))
+                      }
+                      disabled={gapsPage === gapsTotalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -538,7 +597,7 @@ export const ContextDashboard: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {staleEntities.map((item) => (
+                    {paginatedStale.map((item) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
                           <Badge variant="outline">{item.entityType}</Badge>
@@ -587,6 +646,40 @@ export const ContextDashboard: React.FC = () => {
                   </TableBody>
                 </Table>
               )}
+
+              {/* Pagination for Stale */}
+              {staleEntities.length > pageSize && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(stalePage - 1) * pageSize + 1} to{" "}
+                    {Math.min(stalePage * pageSize, staleEntities.length)} of{" "}
+                    {staleEntities.length} items
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setStalePage((p) => Math.max(1, p - 1))}
+                      disabled={stalePage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm border rounded px-3 py-1 bg-white dark:bg-zinc-900 flex items-center">
+                      Page {stalePage} of {staleTotalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setStalePage((p) => Math.min(staleTotalPages, p + 1))
+                      }
+                      disabled={stalePage === staleTotalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -620,7 +713,7 @@ export const ContextDashboard: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {topDocumented.map((item) => (
+                    {paginatedTop.map((item) => (
                       <TableRow key={`${item.entityType}-${item.entityId}`}>
                         <TableCell>
                           <Badge variant="outline">{item.entityType}</Badge>
@@ -667,6 +760,40 @@ export const ContextDashboard: React.FC = () => {
                   </TableBody>
                 </Table>
               )}
+
+              {/* Pagination for Top Documented */}
+              {topDocumented.length > pageSize && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(topPage - 1) * pageSize + 1} to{" "}
+                    {Math.min(topPage * pageSize, topDocumented.length)} of{" "}
+                    {topDocumented.length} items
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTopPage((p) => Math.max(1, p - 1))}
+                      disabled={topPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm border rounded px-3 py-1 bg-white dark:bg-zinc-900 flex items-center">
+                      Page {topPage} of {topTotalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setTopPage((p) => Math.min(topTotalPages, p + 1))
+                      }
+                      disabled={topPage === topTotalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -696,11 +823,9 @@ export const ContextDashboard: React.FC = () => {
               View Experts
             </Link>
           </Button>
-          <Button variant="outline" asChild>
-            <Link to={`/project/${projectId}/context/bulk-import`}>
-              <FileText className="w-4 h-4 mr-2" />
-              Bulk Import
-            </Link>
+          <Button variant="outline" disabled title="Bulk import feature coming soon">
+            <FileText className="w-4 h-4 mr-2" />
+            Bulk Import
           </Button>
         </CardContent>
       </Card>

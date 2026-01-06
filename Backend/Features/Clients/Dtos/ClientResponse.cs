@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models.Responses.Client;
+namespace ActoEngine.WebApi.Features.Clients.Dtos;
 
 public class ClientResponse
 {

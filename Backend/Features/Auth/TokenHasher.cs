@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace ActoEngine.WebApi.Services.Auth;
+namespace ActoEngine.WebApi.Features.Auth;
 public interface ITokenHasher
 {
     string HashToken(string token);

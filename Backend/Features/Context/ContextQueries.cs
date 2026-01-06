@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.SqlQueries;
+namespace ActoEngine.WebApi.Features.Context;
 
 /// <summary>
 /// SQL queries for Context operations

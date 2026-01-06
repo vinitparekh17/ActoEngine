@@ -2,13 +2,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Models.Requests.Auth;
-using ActoEngine.WebApi.Models.Responses.Auth;
-using ActoEngine.Application.Contracts.Auth;
-using ActoEngine.WebApi.Services.Auth;
-using ActoEngine.Domain.Entities;
+using ActoEngine.WebApi.Features.Auth.Dtos.Requests;
+using ActoEngine.WebApi.Features.Auth.Dtos.Responses;
+using ActoEngine.WebApi.Features.Users;
 
-namespace ActoEngine.WebApi.Controllers;
+namespace ActoEngine.WebApi.Features.Auth;
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
@@ -191,7 +189,7 @@ public class AuthController(IAuthService authService) : ControllerBase
             Secure = Request.IsHttps,
             SameSite = SameSiteMode.Strict,
             Expires = expiresAt,
-            Path = "/api/Auth", // Restrict refresh token to Auth controller
+            Path = "/",
             IsEssential = true
         });
     }
@@ -214,7 +212,7 @@ public class AuthController(IAuthService authService) : ControllerBase
             HttpOnly = true,
             Secure = Request.IsHttps,
             SameSite = SameSiteMode.Strict,
-            Path = "/api/Auth"
+            Path = "/"
         });
     }
 }

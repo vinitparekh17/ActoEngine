@@ -1,4 +1,4 @@
-using ActoEngine.WebApi.Services.Auth;
+using ActoEngine.WebApi.Features.Auth;
 using ActoEngine.WebApi.Services.PermissionService;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Caching.Distributed;
@@ -7,7 +7,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
-namespace ActoEngine.WebApi.Config;
+namespace ActoEngine.WebApi.Infrastructure.Auth;
 
 public class CustomTokenAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,

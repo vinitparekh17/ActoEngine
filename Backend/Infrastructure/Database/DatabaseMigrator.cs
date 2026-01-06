@@ -4,7 +4,7 @@ using DbUp;
 using Microsoft.Data.SqlClient;
 using Dapper;
 
-namespace ActoEngine.WebApi.Services.Database;
+namespace ActoEngine.WebApi.Infrastructure.Database;
 
 public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigrator> logger)
 {

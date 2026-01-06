@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ActoEngine.WebApi.Models.Requests.Client;
+namespace ActoEngine.WebApi.Features.Clients.Dtos;
 
 public class CreateClientRequest
 {

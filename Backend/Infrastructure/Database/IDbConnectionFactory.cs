@@ -1,7 +1,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 
-namespace ActoEngine.WebApi.Services.Database;
+namespace ActoEngine.WebApi.Infrastructure.Database;
 
 public interface IDbConnectionFactory
 {

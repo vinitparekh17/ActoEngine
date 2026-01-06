@@ -1,9 +1,9 @@
 // Infrastructure/Data/BaseRepository.cs
 using System.Data;
-using ActoEngine.WebApi.Services.Database;
+using ActoEngine.WebApi.Infrastructure.Database;
 using Dapper;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Shared;
 
 public abstract class BaseRepository(IDbConnectionFactory connectionFactory, ILogger logger)
 {

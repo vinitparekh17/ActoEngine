@@ -1,9 +1,9 @@
-using ActoEngine.Domain.Entities;
-using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Features.Context.Dtos;
+using ActoEngine.WebApi.Features.Users;
 using ActoEngine.WebApi.Repositories;
 using System.Text.RegularExpressions;
 
-namespace ActoEngine.WebApi.Services.ContextService;
+namespace ActoEngine.WebApi.Features.Context;
 
 public interface IContextService
 {

@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using ActoEngine.Domain.Entities;
 
-namespace ActoEngine.WebApi.Models;
+namespace ActoEngine.WebApi.Features.Context;
 
 // ==================== DTOs ====================
 
