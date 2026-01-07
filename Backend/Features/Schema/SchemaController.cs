@@ -159,7 +159,7 @@ public class DatabaseBrowserController(
         {
             return NotFound(ApiResponse<TableSchemaResponseWithMetadata>.Failure($"Table schema not found: {ex.Message}"));
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
             _logger.LogError(ex, "Error in {OperationName} for table {SchemaName}.{TableName} in project {ProjectId}", operationName, schemaName, tableName, projectId);
             return StatusCode(500, ApiResponse<TableSchemaResponseWithMetadata>.Failure("An error occurred while retrieving table schema"));
