@@ -1,7 +1,9 @@
 // components/context/ContextDashboard.tsx
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
+import { useBulkImportContext } from "@/hooks/useContext";
+import { useConfirm } from "@/hooks/useConfirm";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -38,8 +40,21 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Upload,
 } from "lucide-react";
 import { GridSkeleton, PageHeaderSkeleton } from "@/components/ui/skeletons";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import type { BulkContextEntry } from "@/types/context";
+import { toast } from "sonner";
 
 // Types
 interface CoverageItem {
@@ -115,6 +130,8 @@ export const ContextDashboard: React.FC = () => {
   const [gapsPage, setGapsPage] = React.useState(1);
   const [stalePage, setStalePage] = React.useState(1);
   const [topPage, setTopPage] = React.useState(1);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [bulkImportJson, setBulkImportJson] = useState("");
   const pageSize = 10;
 
   // Fetch dashboard data
@@ -132,6 +149,34 @@ export const ContextDashboard: React.FC = () => {
       retry: 2,
     },
   );
+
+  // Bulk import
+  const bulkImportMutation = useBulkImportContext((results) => {
+    setIsBulkImportOpen(false);
+    setBulkImportJson("");
+    refetch();
+  });
+
+  const handleBulkImport = () => {
+    try {
+      const entries: BulkContextEntry[] = JSON.parse(bulkImportJson);
+      if (!Array.isArray(entries) || entries.length === 0) {
+        toast.error("Invalid JSON format. Expected an array of entries.");
+        return;
+      }
+
+      const formattedEntries = entries.map((entry) => ({
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        entityName: entry.entityName,
+        context: entry.context,
+      }));
+
+      bulkImportMutation.mutate(formattedEntries);
+    } catch (error: any) {
+      toast.error(`Invalid JSON: ${error.message}`);
+    }
+  };
 
   // Extract data with defaults (must be before early returns for hooks rules)
   const coverage = dashboard?.coverage || [];
@@ -248,8 +293,12 @@ export const ContextDashboard: React.FC = () => {
           )}
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" disabled title="Bulk import feature coming soon">
-            <FileText className="w-4 h-4 mr-2" />
+          <Button
+            variant="outline"
+            onClick={() => setIsBulkImportOpen(true)}
+            title="Bulk import context entries"
+          >
+            <Upload className="w-4 h-4 mr-2" />
             Bulk Import
           </Button>
           <Button variant="outline" disabled title="Settings feature coming soon">
@@ -824,12 +873,62 @@ export const ContextDashboard: React.FC = () => {
               View Experts
             </Link>
           </Button>
-          <Button variant="outline" disabled title="Bulk import feature coming soon">
-            <FileText className="w-4 h-4 mr-2" />
+          <Button
+            variant="outline"
+            onClick={() => setIsBulkImportOpen(true)}
+            title="Bulk import context entries"
+          >
+            <Upload className="w-4 h-4 mr-2" />
             Bulk Import
           </Button>
         </CardContent>
       </Card>
+
+      {/* Bulk Import Dialog */}
+      <Dialog open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk Import Context</DialogTitle>
+            <DialogDescription>
+              Import multiple context entries at once. Paste JSON array of context entries.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulkJson">JSON Array of Context Entries</Label>
+              <Textarea
+                id="bulkJson"
+                value={bulkImportJson}
+                onChange={(e) => setBulkImportJson(e.target.value)}
+                placeholder={`[\n  {\n    "entityType": "TABLE",\n    "entityId": 1,\n    "entityName": "Users",\n    "context": {\n      "businessDomain": "User Management",\n      "description": "Stores user information"\n    }\n  }\n]`}
+                className="font-mono text-sm min-h-[300px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                Format: Array of objects with entityType, entityId, entityName, and context fields
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsBulkImportOpen(false);
+                setBulkImportJson("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkImport}
+              disabled={bulkImportMutation.isPending || !bulkImportJson.trim()}
+            >
+              {bulkImportMutation.isPending ? "Importing..." : "Import"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
 import {
@@ -31,6 +32,8 @@ import {
 import { GridSkeleton, PageHeaderSkeleton } from "@/components/ui/skeletons";
 import { ExpertManagement } from "@/components/context/ExpertManagement";
 import { ContextEditor } from "@/components/context/ContextEditorPanel";
+
+const MonacoEditor = lazy(() => import("@monaco-editor/react"));
 
 // Types
 interface ParameterMetadata {
@@ -68,7 +71,11 @@ export default function StoredProcedureDetail() {
   }>();
   const { selectedProject, hasProject } = useProject();
   const navigate = useNavigate();
-
+  const theme =
+    localStorage.getItem("theme") ||
+    (window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light");
   // Validate and parse route parameters
   if (!projectId || !procedureId) {
     return (
@@ -88,8 +95,8 @@ export default function StoredProcedureDetail() {
     );
   }
 
-  const projectIdNum = parseInt(projectId, 10);
-  const procedureIdNum = parseInt(procedureId, 10);
+  const projectIdNum = Number.parseInt(projectId, 10);
+  const procedureIdNum = Number.parseInt(procedureId, 10);
 
   if (isNaN(projectIdNum) || isNaN(procedureIdNum)) {
     return (
@@ -382,12 +389,26 @@ export default function StoredProcedureDetail() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="relative">
-                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
-                    <code className="text-sm font-mono">
-                      {procedureData.definition}
-                    </code>
-                  </pre>
+                <div className="relative border rounded-lg overflow-hidden" style={{ height: '500px' }}>
+                  <Suspense fallback={
+                    <div className="bg-muted p-4 h-full flex items-center justify-center">
+                      <p className="text-muted-foreground">Loading editor...</p>
+                    </div>
+                  }>
+                    <MonacoEditor
+                      height="100%"
+                      defaultLanguage="sql"
+                      theme={theme === "dark" ? "vs-dark" : "light"}
+                      value={procedureData.definition}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 13,
+                        wordWrap: "on",
+                        scrollBeyondLastLine: false,
+                        readOnly: true,
+                      }}
+                    />
+                  </Suspense>
                 </div>
               </CardContent>
             </Card>

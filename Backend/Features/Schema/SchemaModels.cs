@@ -72,6 +72,17 @@ public class TableSchemaResponse
     public required List<string> PrimaryKeys { get; set; }
 }
 
+/// <summary>
+/// Wrapper for TableSchemaResponse that includes metadata staleness information
+/// </summary>
+public class TableSchemaResponseWithMetadata
+{
+    public required TableSchemaResponse Schema { get; set; }
+    public bool IsStale { get; set; }
+    public DateTime? LastSyncTimestamp { get; set; }
+    public string? Warning { get; set; }
+}
+
 public class ColumnSchema
 {
     public required string SchemaName { get; set; }

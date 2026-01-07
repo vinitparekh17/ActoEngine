@@ -120,12 +120,7 @@ namespace ActoEngine.WebApi.Features.Projects
             try
             {
                 // Verify project exists
-                var project = await _projectRepository.GetByIdAsync(request.ProjectId);
-                if (project == null)
-                {
-                    throw new InvalidOperationException($"Project with ID {request.ProjectId} not found.");
-                }
-
+                var project = await _projectRepository.GetByIdAsync(request.ProjectId) ?? throw new InvalidOperationException($"Project with ID {request.ProjectId} not found.");
                 _logger.LogInformation("Starting re-sync for project {ProjectId}. Connection string provided temporarily.", request.ProjectId);
 
                 // Start background sync using connection string temporarily

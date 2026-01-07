@@ -26,17 +26,38 @@ public class UserManagementController(IUserManagementService userManagementServi
         return Ok(ApiResponse<object>.Success(new { users, totalCount }, "Users retrieved successfully"));
     }
 
+    /// <summary>
+    /// Get user details by user ID
+    /// </summary>
+    /// <param name="userId">The user ID to retrieve</param>
+    /// <returns>User details with role information</returns>
+    /// <remarks>
+    /// <para>
+    /// This endpoint returns user information with role details. The response type was changed from 
+    /// <see cref="UserWithPermissionsDto"/> to <see cref="UserWithRoleDto"/> to better reflect that 
+    /// permissions are managed through roles rather than directly on users.
+    /// </para>
+    /// <para>
+    /// The response includes:
+    /// - User basic information (ID, username, full name, active status, etc.)
+    /// - Role name associated with the user
+    /// </para>
+    /// <para>
+    /// Note: Permissions are not included in the response as they are managed through the user's role.
+    /// To get permissions, query the role's permissions separately.
+    /// </para>
+    /// </remarks>
     [HttpGet("{userId}")]
     [RequirePermission("Users:Read")]
     public async Task<IActionResult> GetUser(int userId)
     {
-        var user = await _userManagementService.GetUserWithPermissionsAsync(userId);
+        var user = await _userManagementService.GetUserWithRoleAsync(userId);
         if (user == null)
         {
             return NotFound(ApiResponse<object>.Failure("User not found"));
         }
 
-        return Ok(ApiResponse<UserWithPermissionsDto>.Success(user, "User retrieved successfully"));
+        return Ok(ApiResponse<UserWithRoleDto>.Success(user, "User retrieved successfully"));
     }
 
     [HttpPost]

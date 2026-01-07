@@ -15,7 +15,7 @@ public interface IUserManagementService
         int page = 1,
         int pageSize = 10,
         CancellationToken cancellationToken = default);
-    Task<UserWithPermissionsDto?> GetUserWithPermissionsAsync(int userId, CancellationToken cancellationToken = default);
+    Task<UserWithRoleDto?> GetUserWithRoleAsync(int userId, CancellationToken cancellationToken = default);
     Task<UserDto> CreateUserAsync(CreateUserRequest request, int createdBy, CancellationToken cancellationToken = default);
     Task UpdateUserAsync(UpdateUserRequest request, int updatedBy, CancellationToken cancellationToken = default);
     Task ChangePasswordAsync(ChangePasswordRequest request, int updatedBy, CancellationToken cancellationToken = default);
@@ -25,7 +25,6 @@ public interface IUserManagementService
 
 public class UserManagementService(
     IUserRepository userRepository,
-    IPermissionRepository permissionRepository,
     IPasswordHasher passwordHasher,
     IPasswordValidator passwordValidator,
     Infrastructure.Database.IDbConnectionFactory connectionFactory,
@@ -48,7 +47,7 @@ public class UserManagementService(
         return (users, totalCount);
     }
 
-    public async Task<UserWithPermissionsDto?> GetUserWithPermissionsAsync(
+    public async Task<UserWithRoleDto?> GetUserWithRoleAsync(
         int userId,
         CancellationToken cancellationToken = default)
     {
@@ -63,12 +62,13 @@ public class UserManagementService(
             return null;
         }
 
-        var permissions = await permissionRepository.GetUserPermissionsAsync(userId, cancellationToken);
-
-        return new UserWithPermissionsDto
+        // Note: Permissions are managed through roles, so we only return the user and role information
+        // The role name is already included in the UserDto from the query
+        
+        return new UserWithRoleDto
         {
             User = user,
-            Permissions = [.. permissions]
+            RoleName = user.RoleName ?? throw new InvalidOperationException("User has no role assigned")
         };
     }
 
@@ -105,13 +105,7 @@ public class UserManagementService(
                 request.RoleId,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = createdBy
-            });
-
-        if (user == null)
-        {
-            throw new InvalidOperationException("Failed to create user");
-        }
-
+            }) ?? throw new InvalidOperationException("Failed to create user");
         logger.LogInformation("Created user {Username} (ID: {UserId})", request.Username, user.UserId);
         return user;
     }
@@ -121,12 +115,7 @@ public class UserManagementService(
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var user = await userRepository.GetByIdAsync(request.UserId, cancellationToken);
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {request.UserId} not found");
-        }
-
+        var user = await userRepository.GetByIdAsync(request.UserId, cancellationToken) ?? throw new InvalidOperationException($"User {request.UserId} not found");
         using var connection = await connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(
@@ -149,11 +138,7 @@ public class UserManagementService(
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var user = await userRepository.GetByIdAsync(request.UserId, cancellationToken);
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {request.UserId} not found");
-        }
+        var user = await userRepository.GetByIdAsync(request.UserId, cancellationToken) ?? throw new InvalidOperationException($"User {request.UserId} not found");
 
         // Validate password strength
         var (isValid, errorMessage) = passwordValidator.ValidatePassword(request.NewPassword);
@@ -175,12 +160,7 @@ public class UserManagementService(
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {userId} not found");
-        }
-
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken) ?? throw new InvalidOperationException($"User {userId} not found");
         user.SetActiveStatus(isActive, updatedBy.ToString());
         await userRepository.UpdateAsync(user, cancellationToken);
 
@@ -193,12 +173,7 @@ public class UserManagementService(
 
     public async Task DeleteUserAsync(int userId, CancellationToken cancellationToken = default)
     {
-        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
-        if (user == null)
-        {
-            throw new InvalidOperationException($"User {userId} not found");
-        }
-
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken) ?? throw new InvalidOperationException($"User {userId} not found");
         await userRepository.DeleteAsync(userId, cancellationToken);
         logger.LogInformation("Deleted user {Username} (ID: {UserId})", user.Username, userId);
     }
