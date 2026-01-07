@@ -1,27 +1,38 @@
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { LogIn } from "lucide-react";
 
+const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
 export default function LoginPage() {
   const { login, isLoggingIn, loginError, clearError } = useAuth();
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: LoginFormValues) => {
     clearError();
-
-    if (!username || !password) {
-      toast.error("Please enter username and password");
-      return;
-    }
-
     try {
-      await login({ username, password });
+      await login(data);
       toast.success("Welcome back!");
       navigate("/");
     } catch (error) {
@@ -47,7 +58,7 @@ export default function LoginPage() {
           </div>
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Username */}
             <div>
               <label
@@ -59,13 +70,19 @@ export default function LoginPage() {
               <input
                 id="username"
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                {...register("username")}
+                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${errors.username
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-gray-300 focus:border-blue-500"
+                  }`}
                 placeholder="Enter your username"
                 disabled={isLoggingIn}
-                required
               />
+              {errors.username && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.username.message}
+                </p>
+              )}
             </div>
 
             {/* Password */}
@@ -79,13 +96,19 @@ export default function LoginPage() {
               <input
                 id="password"
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                {...register("password")}
+                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${errors.password
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-gray-300 focus:border-blue-500"
+                  }`}
                 placeholder="Enter your password"
                 disabled={isLoggingIn}
-                required
               />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.password.message}
+                </p>
+              )}
             </div>
 
             {/* Error Message */}

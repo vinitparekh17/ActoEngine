@@ -3,6 +3,7 @@ using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Features.Schema;
 using ActoEngine.WebApi.Repositories;
 using Microsoft.AspNetCore.Authorization;
+using ActoEngine.WebApi.Extensions;
 
 namespace ActoEngine.WebApi.Controllers;
 
@@ -99,39 +100,59 @@ public class DatabaseBrowserController(
     /// <param name="schemaName">The schema name (default: dbo)</param>
     /// <returns>Table schema with columns and metadata</returns>
     [HttpGet("projects/{projectId}/tables/{tableName}/schema")]
-    [ProducesResponseType(typeof(ApiResponse<TableSchemaResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<TableSchemaResponseWithMetadata>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<TableSchemaResponse>> GetTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
+    public async Task<ActionResult<TableSchemaResponseWithMetadata>> GetTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
     {
+        _logger.LogInformation("Getting schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
+
+        if (string.IsNullOrWhiteSpace(tableName))
+        {
+            return BadRequest(ApiResponse<TableSchemaResponseWithMetadata>.Failure("Table name cannot be empty"));
+        }
+
+        return await GetTableSchemaWithStalenessCheck(projectId, tableName, schemaName, "GetTableSchema");
+    }
+
+    private async Task<ActionResult<TableSchemaResponseWithMetadata>> GetTableSchemaWithStalenessCheck(int projectId, string tableName, string schemaName, string operationName)
+    {
+        var project = await _projectRepository.GetByIdAsync(projectId);
+        if (project == null)
+        {
+            return NotFound(ApiResponse<TableSchemaResponseWithMetadata>.Failure($"Project with ID {projectId} not found"));
+        }
+
+        // Audit log for cross-user access
+        var userId = HttpContext.GetUserId();
+        if (userId.HasValue && project.CreatedBy != userId.Value)
+        {
+            _logger.LogInformation("Audit: User {UserId} accessing schema ({Operation}) for project {ProjectId} owned by {OwnerId}", userId, operationName, projectId, project.CreatedBy);
+        }
+
+        // Check if project is linked and add staleness warning if unlinked
+        var isStale = !project.IsLinked;
+        var warning = isStale
+            ? "Project is not linked to a database. Metadata may be stale or incomplete."
+            : null;
+
         try
         {
-            _logger.LogInformation("Getting schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
-
-            if (string.IsNullOrWhiteSpace(tableName))
-            {
-                return BadRequest("Table name cannot be empty");
-            }
-
-            var project = await _projectRepository.GetByIdAsync(projectId);
-            if (project == null)
-            {
-                return NotFound($"Project with ID {projectId} not found");
-            }
-
-            if (!project.IsLinked)
-            {
-                return BadRequest("Project is not linked to a database. Please link the project first.");
-            }
-
             var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName, schemaName);
-            return Ok(ApiResponse<TableSchemaResponse>.Success(schema));
+
+            var responseWithMetadata = new TableSchemaResponseWithMetadata
+            {
+                Schema = schema,
+                IsStale = isStale,
+                LastSyncTimestamp = project.LastSyncAttempt,
+                Warning = warning
+            };
+            return Ok(ApiResponse<TableSchemaResponseWithMetadata>.Success(responseWithMetadata, isStale ? "Schema retrieved with staleness warning" : "Schema retrieved successfully"));
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
-            _logger.LogError(ex, "Error getting schema for table {TableName} in project {ProjectId}", tableName, projectId);
-            return StatusCode(500, ApiResponse<TableSchemaResponse>.Failure("An error occurred while retrieving table schema"));
+            return NotFound(ApiResponse<TableSchemaResponseWithMetadata>.Failure($"Table schema not found: {ex.Message}"));
         }
     }
 
@@ -281,44 +302,15 @@ public class DatabaseBrowserController(
     /// <param name="schemaName">The schema name (default: dbo)</param>
     /// <returns>Stored table schema with columns and metadata</returns>
     [HttpGet("projects/{projectId}/stored-tables/{tableName}/schema")]
-    [ProducesResponseType(typeof(ApiResponse<TableSchemaResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<TableSchemaResponseWithMetadata>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<TableSchemaResponse>> GetStoredTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
+    public async Task<ActionResult<TableSchemaResponseWithMetadata>> GetStoredTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
     {
-        try
-        {
-            _logger.LogInformation("Getting stored table schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
+        _logger.LogInformation("Getting stored table schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
 
-            if (string.IsNullOrWhiteSpace(tableName))
-            {
-                return BadRequest("Table name cannot be empty");
-            }
-
-            var project = await _projectRepository.GetByIdAsync(projectId);
-            if (project == null)
-            {
-                return NotFound(ApiResponse<TableSchemaResponse>.Failure($"Project with ID {projectId} not found"));
-            }
-
-            if (!project.IsLinked)
-            {
-                return BadRequest(ApiResponse<TableSchemaResponse>.Failure("Project is not linked to a database. Please link the project first."));
-            }
-
-            var schema = await _schemaService.GetStoredTableSchemaAsync(projectId, tableName, schemaName);
-            return Ok(ApiResponse<TableSchemaResponse>.Success(schema));
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
-        {
-            return NotFound(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting stored table schema for table {TableName} in project {ProjectId}", tableName, projectId);
-            return StatusCode(500, ApiResponse<TableSchemaResponse>.Failure("An error occurred while retrieving stored table schema"));
-        }
+        return await GetTableSchemaWithStalenessCheck(projectId, tableName, schemaName, "GetStoredTableSchema");
     }
 
     /// <summary>

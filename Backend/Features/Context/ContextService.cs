@@ -59,20 +59,13 @@ public partial class ContextService(
     /// </summary>
     public async Task<ContextResponse?> GetContextAsync(int projectId, string entityType, int entityId)
     {
-        var context = await _contextRepo.GetContextAsync(projectId, entityType, entityId);
-
-        if (context == null)
-        {
-            // Return empty context with suggestions
-            context = new EntityContext
+        var context = await _contextRepo.GetContextAsync(projectId, entityType, entityId) ?? new EntityContext
             {
                 ProjectId = projectId,
                 EntityType = entityType,
                 EntityId = entityId,
                 EntityName = (await GetEntityNameAsync(projectId, entityType, entityId))?.Trim() ?? "Unknown"
             };
-        }
-
         var experts = await _contextRepo.GetExpertsAsync(projectId, entityType, entityId);
         var suggestions = await GetContextSuggestionsAsync(projectId, entityType, entityId, context);
         var completeness = CalculateCompletenessScore(context);
@@ -165,11 +158,7 @@ public partial class ContextService(
         int userId)
     {
         // Validate entity exists
-        var entityName = await GetEntityNameAsync(projectId, entityType, entityId);
-        if (entityName == null)
-        {
-            throw new ArgumentException($"{entityType} with ID {entityId} not found");
-        }
+        var entityName = await GetEntityNameAsync(projectId, entityType, entityId) ?? throw new ArgumentException($"{entityType} with ID {entityId} not found");
 
         // Get old context for history tracking
         var oldContext = await _contextRepo.GetContextAsync(projectId, entityType, entityId);
@@ -181,7 +170,7 @@ public partial class ContextService(
         // Record changes in history
         if (oldContext != null)
         {
-            await RecordContextChangesAsync(entityType, entityId, oldContext, context, userId);
+            await RecordContextChangesAsync(projectId, entityType, entityId, oldContext, context, userId);
         }
 
         // Update experts if provided
@@ -202,6 +191,7 @@ public partial class ContextService(
     /// Record field-level changes
     /// </summary>
     private async Task RecordContextChangesAsync(
+        int projectId,
         string entityType,
         int entityId,
         EntityContext oldContext,
@@ -247,7 +237,7 @@ public partial class ContextService(
         foreach (var (field, oldValue, newValue) in changes)
         {
             await _contextRepo.RecordContextChangeAsync(
-                entityType, entityId, field, oldValue, newValue, userId);
+                projectId, entityType, entityId, field, oldValue, newValue, userId);
         }
     }
 
@@ -425,11 +415,7 @@ public partial class ContextService(
         int addedBy)
     {
         // Validate user exists
-        var user = await _userRepo.GetByIdAsync(userId);
-        if (user == null)
-        {
-            throw new ArgumentException($"User with ID {userId} not found");
-        }
+        var user = await _userRepo.GetByIdAsync(userId) ?? throw new ArgumentException($"User with ID {userId} not found");
 
         // Validate expertise level
         var validLevels = new[] { "OWNER", "EXPERT", "FAMILIAR", "CONTRIBUTOR" };

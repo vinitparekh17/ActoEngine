@@ -1,0 +1,80 @@
+Docker Setup for ActoEngine
+
+This plan will add Docker support for the ActoEngine full-stack application with separate containers for Backend, Frontend, and SQL Server.
+
+Files to Create
+1. Backend/Dockerfile
+Multi-stage build for .NET 9.0 Web API
+Stage 1: Build using mcr.microsoft.com/dotnet/sdk:9.0
+Stage 2: Runtime using mcr.microsoft.com/dotnet/aspnet:9.0
+Copy project files, restore dependencies, build, and publish
+Expose port 8080 (configurable via ASPNETCORE_URLS)
+Set working directory and entry point
+2. Backend/.dockerignore
+Ignore build artifacts (bin/, obj/)
+Ignore IDE files (.vs/, .vscode/)
+Ignore local configuration files
+3. Frontend/Dockerfile
+Multi-stage build for React + Vite application
+Stage 1: Build using node:20-alpine
+Stage 2: Serve using nginx:alpine for production
+Install dependencies, build production assets, and configure nginx
+Expose port 80
+4. Frontend/.dockerignore
+Ignore node_modules/, dist/, build artifacts
+Ignore IDE and environment files
+5. docker-compose.yml (root directory)
+Define three services:
+sqlserver: SQL Server 2022 container with named volume for data persistence
+backend: Build from Backend/Dockerfile, depends on sqlserver
+frontend: Build from Frontend/Dockerfile, depends on backend
+Configure environment variables for database connection
+Set up networks and volume mappings
+Configure health checks
+6. .env.example (root directory)
+Document required environment variables:
+DB_SERVER, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+DB_TRUST_CERT (for development)
+SEED_ADMIN_PASSWORD
+ASPNETCORE_ENVIRONMENT
+ASPNETCORE_URLS
+Implementation Details
+Backend Dockerfile
+Uses .NET 9.0 SDK for building
+Copies csproj first for better layer caching
+Embeds SQL migrations (already in .csproj)
+Runs migrations and seeding on startup (handled by Program.cs)
+Listens on port 8080 by default
+Frontend Dockerfile
+Uses Node.js 20 Alpine for smaller image
+Builds production assets with npm run build
+Serves with nginx with proper routing for SPA
+Includes nginx configuration for React Router
+Docker Compose Configuration
+SQL Server: Uses mcr.microsoft.com/mssql/server:2022-latest
+Sets ACCEPT_EULA=Y and generates strong SA password
+Backend: Waits for SQL Server to be healthy before starting
+Frontend: Waits for backend to be ready
+Ports exposed:
+Frontend: 5173 (matches Vite dev server port)
+Backend: 5093 (HTTP), 7150 (HTTPS)
+SQL Server: 1433
+Environment Variables
+Backend requires:
+
+DB_SERVER=sqlserver (service name in docker-compose)
+DB_PORT=1433
+DB_NAME=ActoEngine
+DB_USER=sa
+DB_PASSWORD (from docker-compose secrets or environment)
+DB_TRUST_CERT=true (for containerized SQL Server)
+ASPNETCORE_ENVIRONMENT=Production
+ASPNETCORE_URLS=http://+:8080
+Usage
+After implementation, users can:
+
+Create .env file from .env.example with appropriate values
+Run docker-compose up --build to build and start all services
+Access Frontend at http://localhost:5173
+Access Backend API at http://localhost:5093 or https://localhost:7150
+Update readme to instruct users about project, how to run etc... most likely how any oss project do

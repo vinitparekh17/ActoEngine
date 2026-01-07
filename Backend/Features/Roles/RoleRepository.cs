@@ -159,12 +159,7 @@ public class RoleRepository(
             var createdRole = await conn.QueryFirstOrDefaultAsync<Role>(
                 RoleQueries.Insert,
                 new { role.RoleName, role.Description, role.CreatedBy },
-                transaction);
-
-            if (createdRole == null)
-            {
-                throw new InvalidOperationException("Failed to create role");
-            }
+                transaction) ?? throw new InvalidOperationException("Failed to create role");
 
             // 2. Assign Permissions
             foreach (var permissionId in permissionIds)

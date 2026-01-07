@@ -1,0 +1,494 @@
+1. CORE IDENTITY: WHAT IS ACTOENGINE?
+-------------------------------------
+Currently, ActoEngine is a **"Database Knowledge Management System"** with attached **"Scaffolding Tools"**.
+
+It excels at:
+- **Introspection**: Parsing SQL to find hidden dependencies (Tables <-> SPs).
+- **Contextualization**: Allowing teams to annotate the "Why" (Business Domain, Experts, Sensitivity) on top of the "What" (Schema).
+- **Health Monitoring**: Tracking "Stale Documentation" when the underlying schema changes (Drift Detection).
+
+It claims to be a "Semantic Layer" that "simulates change impact" and makes "automation intelligent". 
+**Verdict**: It achieves the "Semantic Layer" part well, but the "Simulation" and "Intelligent Automation" are currently aspirational.
+
+2. WHAT IS PERFECT (THE "WOW" FACTORS)
+--------------------------------------
+The **Context Dashboard** (`ContextDashboard.tsx` + `ContextService.cs`) is the standout feature.
+- **Drift Detection**: The logic to flag documentation as "Stale" when the schema changes (`IsContextStale`) is brilliant. It solves the #1 problem of documentation: keeping it in sync.
+- **Heuristic Intelligence**: The `ContextService` inferring "Business Domain" (e.g., "Order" -> "Sales") and "Sensitivity" (e.g., "SSN" -> "PII") from naming conventions is a great "delighter" feature.
+- **Dependency Extraction**: The use of a real SQL Parser (`TSql160Parser`) instead of Regex for dependency analysis is robust and professional.
+
+3. WHAT IS MISSING (THE STRATEGIC GAPS)
+---------------------------------------
+
+A. The "Simulation" Gap
+-----------------------
+The vision promises to "simulate change impact".
+- **Current State**: You have a list of dependencies. You know *that* `SP_GetOrders` depends on `Orders` table.
+- **The Gap**: You cannot ask "If I rename column `Total` to `GrandTotal`, what exactly breaks?".
+- **The Fix**: Implement a "Virtual Sandbox". Allow users to propose a schema change (DDL), run the parser against dependent objects with the *new* schema, and report compilation errors *without* applying the change to the DB.
+
+B. The "Intelligent Automation" Gap
+-----------------------------------
+The vision says automation becomes intelligent when it understands context.
+- **Current State**: The `FormBuilder` and `SpBuilder` are standard template engines. They look at the *physical type* (INT, VARCHAR) but ignore the *semantic context*.
+- **The Gap**: 
+    - A column marked "PII" (Sensitivity) is treated the same as any other string in the Form/SP.
+    - A table in the "Finance" domain generates the same generic CRUD SPs as a "Logs" table.
+- **The Fix**: 
+    - **Context-Aware Forms**: If `Sensitivity == "PII"`, the Form Builder should automatically generate a masked input field or `type="password"`.
+    - **Context-Aware SPs**: If `BusinessDomain == "Finance"`, the SP Generator should automatically inject Audit Logging code into the `UPDATE` procedure.
+
+C. The "Graph" Experience
+-------------------------
+- **Current State**: Dependencies are shown in lists or grids.
+- **The Gap**: "Mapping relationships" is best experienced visually.
+- **The Fix**: A Node-Link interactive graph (using libraries like React Flow) to visualize the spiderweb of dependencies. This allows users to "walk the graph" to understand the blast radius of a change.
+
+D. The "Role-Based Access Control" Gap
+---------------------------------------
+- **Current State**: Basic token authentication exists, but the User.Role field is not enforced anywhere. EntityExpert records (OWNER, EXPERT, FAMILIAR) are informational only.
+- **The Gap**:
+    - No granular permissions at project level (who can modify context, generate SPs, or link databases).
+    - No concept of "read-only" users vs "contributors" vs "admins".
+    - Multiple users can access the same project without access control.
+    - No enforcement of review assignments (anyone can mark context as fresh, not just assigned reviewers).
+- **Why It's Critical**: Production blocker for enterprise deployment where data governance and compliance matter. Sensitive data marked as "PII" should have restricted access.
+- **The Fix**:
+    - Implement policy-based authorization with project-level permissions (Owner, Editor, Viewer).
+    - Create ProjectPermission table linking Users to Projects with specific roles.
+    - Add `[Authorize(Policy = "ProjectEditor")]` attributes to mutation endpoints.
+    - Enforce that only assigned reviewers can approve ContextReviewRequests.
+    - Add audit trails for who accessed/modified sensitive entities based on Sensitivity level.
+
+E. The "Multi-Database Vendor Support" Gap
+-------------------------------------------
+- **Current State**: Hardcoded for SQL Server only. Uses TSql160Parser, SqlConnection, and SQL Server-specific queries throughout.
+- **The Gap**:
+    - Project.DatabaseType field exists ("SqlServer") but is never used.
+    - README mentions "PostgreSQL or SQL Server" but PostgreSQL is not implemented.
+    - Dependency analysis, SP generation, and schema introspection won't work for PostgreSQL, MySQL, Oracle.
+- **Why It's Critical**: Severely limits market reach. Many enterprises use mixed database environments (SQL Server + PostgreSQL + MySQL).
+- **The Fix**:
+    - Create database provider abstraction (IDbProvider interface).
+    - Implement provider-specific SQL parsers and query builders.
+    - Replace hardcoded queries in SqlQueries folder with provider-specific implementations.
+    - Add factory pattern for selecting parser based on Project.DatabaseType.
+    - Start with PostgreSQL support, then MySQL.
+
+F. The "Change Management & Versioning" Gap
+--------------------------------------------
+- **Current State**: Drift detection works (IsContextStale), but there's no schema version control or change history.
+- **The Gap**:
+    - When a table changes, you know context is stale, but can't see WHAT changed (columns added/removed/modified).
+    - No way to compare "Schema v1 vs Schema v2" to understand evolution over time.
+    - ContextHistory tracks context field changes, but not schema DDL changes.
+    - Cannot answer "What did this table look like 3 months ago?" or "When was this column added?"
+- **Why It's Critical**: Essential for compliance (SOX, GDPR) where audit trails of data structure changes are required.
+- **The Fix**:
+    - Create SchemaVersion table to snapshot table/column definitions on each sync.
+    - Add diff visualization showing schema changes between sync runs.
+    - Track DDL change events (column added, dropped, datatype changed, constraint modified).
+    - Link schema changes to ContextReviewRequests automatically.
+    - Add "Schema Timeline" feature showing entity evolution.
+
+G. The "Rollback & Migration Safety" Gap
+-----------------------------------------
+- **Current State**: SP Generator and Form Builder create code, but GenerationHistory only stores metadata (FieldCount, Warnings), not actual artifacts.
+- **The Gap**:
+    - If generated SP breaks production, there's no "undo" to previous version.
+    - No integration with deployment tools or CI/CD pipelines.
+    - No approval workflow before deploying generated code.
+    - Risk of deploying breaking changes without ability to quickly revert.
+- **Why It's Critical**: Production safety. One bad deployment could take down critical systems with no quick recovery.
+- **The Fix**:
+    - Store full generated code artifacts in GenerationHistory (not just metadata).
+    - Add version numbering to generated SPs (SP_Orders_CUD_v1, _v2, etc.).
+    - Implement "Deploy", "Rollback", "Compare" actions in the UI.
+    - Create pre-deployment validation hooks (syntax check, dependency validation).
+    - Add approval workflow for generated code before deployment.
+
+H. The "Testing Infrastructure" Gap
+------------------------------------
+- **Current State**: Zero test coverage. No unit tests, integration tests, or E2E tests in entire codebase.
+- **The Gap**:
+    - Complex SQL parsing logic (DependencyAnalysisService) has no validation tests.
+    - Business rules (heuristic suggestions, drift detection) are untested.
+    - Authentication/authorization logic is untested.
+    - Refactoring or adding features is high-risk without safety net.
+- **Why It's Critical**: Quality and maintainability risk. Cannot verify that dependency extraction works correctly across different SP patterns.
+- **The Fix**:
+    - Add xUnit test project for Backend with minimum 60% coverage target.
+    - Test critical paths: SQL parsing, dependency extraction, context suggestions, drift detection.
+    - Add integration tests for database operations (using test containers).
+    - Frontend: Add Vitest + React Testing Library for component tests.
+    - Add E2E tests using Playwright for critical user journeys.
+
+I. The "Performance & Scalability" Gap
+---------------------------------------
+- **Current State**: No caching layer, no query optimization, no pagination limits. Every request hits the database.
+- **The Gap**:
+    - ContextService.GetContextSuggestionsAsync runs heuristics on every request (should be cached).
+    - DependencyAnalysisService parses SQL on every sync (expensive for databases with 1000+ SPs).
+    - No Redis or in-memory cache for frequently accessed metadata.
+    - SchemaRepository "GetAllTables" queries have no pagination - could return 10,000 rows.
+    - Rate limiting is global (100 req/min) but doesn't account for expensive vs cheap operations.
+- **Why It's Critical**: Won't scale beyond 50-100 concurrent users. Performance degrades exponentially with database size.
+- **The Fix**:
+    - Add distributed cache (Redis) for schema metadata and context suggestions.
+    - Implement response caching middleware for read-heavy endpoints.
+    - Add pagination to all list endpoints (with configurable page size).
+    - Cache parsed SQL fragments to avoid re-parsing on every request.
+    - Add database query performance monitoring (log slow queries > 1s).
+    - Implement background job queue for expensive operations (schema sync, dependency analysis).
+
+J. The "Real-Time Collaboration" Gap
+-------------------------------------
+- **Current State**: No real-time notifications or collaborative editing support.
+- **The Gap**:
+    - If User A is editing context while User B saves, potential for data loss or conflicts.
+    - No "someone else is editing this" warnings.
+    - No activity feed showing "John updated Context for Orders table 2 minutes ago".
+    - ContextReviewRequests exist but no notification system to alert assigned reviewers.
+    - Stale context detection is passive - users must manually check dashboard.
+- **Why It's Critical**: Team efficiency. Common for multiple experts to work on same entities simultaneously.
+- **The Fix**:
+    - Implement SignalR for real-time notifications.
+    - Add activity feed showing recent context updates, schema syncs, and reviews.
+    - Implement optimistic locking (version numbers) to prevent concurrent update conflicts.
+    - Add "watching" feature so experts get notified when entities they own change.
+    - Push notifications when context becomes stale or review is assigned.
+
+K. The "Integration & Extensibility" Gap
+-----------------------------------------
+- **Current State**: No external API integrations, no webhooks, no import/export capabilities beyond basic functionality.
+- **The Gap**:
+    - Cannot integrate with Jira/Linear to link database changes to tickets.
+    - Cannot export context documentation to Confluence/Notion.
+    - No webhook to trigger on schema drift events (to alert DevOps).
+    - Cannot import existing documentation from Confluence/CSV/Excel.
+    - No REST API versioning strategy (breaking changes will break clients).
+    - No GraphQL endpoint for flexible querying.
+- **Why It's Critical**: Ecosystem integration. ActoEngine needs to fit into existing workflows, not replace them.
+- **The Fix**:
+    - Add webhook system for events (schema_synced, context_stale, review_completed).
+    - Implement full export to Markdown/JSON for documentation portability.
+    - Add bulk import from CSV/Excel for initial context seeding.
+    - Create integration adapters for Jira (link tables to epics), Slack (notifications).
+    - Version the API (/api/v1/projects) and maintain backward compatibility.
+    - Add GraphQL endpoint for flexible frontend queries.
+
+L. The "Observability & Monitoring" Gap
+----------------------------------------
+- **Current State**: Minimal logging, no structured telemetry, HealthController is completely commented out.
+- **The Gap**:
+    - Cannot monitor production health effectively.
+    - No centralized logging (Seq, ELK, Application Insights).
+    - No performance metrics (request duration, database query times).
+    - Cannot answer "Is the system healthy?" or "Why was it slow yesterday?"
+    - ExceptionHandlingMiddleware logs errors but doesn't aggregate or alert.
+    - No dashboard showing sync failures, parser errors, or drift detection results.
+- **Why It's Critical**: Operational blindness. Cannot diagnose production issues or proactively detect failures.
+- **The Fix**:
+    - Enable and enhance HealthController with database, cache, and external service checks.
+    - Add structured logging using Serilog with contextual properties.
+    - Implement distributed tracing (OpenTelemetry) for request flows.
+    - Add performance monitoring (Prometheus metrics or Application Insights).
+    - Create operational dashboard showing: sync status, error rates, slow queries, cache hit rates.
+    - Set up alerting for critical failures (schema sync failed, authentication down).
+
+M. The "Secrets Management" Gap
+--------------------------------
+- **Current State**: Sensitive configuration stored in appsettings.json and .env files with weak protection.
+- **The Gap**:
+    - appsettings.json contains hardcoded connection string and JWT key ("This is a very long key that should be kept secret").
+    - .env file with DB_PASSWORD is excluded from git but lives on disk unencrypted.
+    - No integration with Azure Key Vault, AWS Secrets Manager, or HashiCorp Vault.
+    - JWT key is hardcoded and never rotated.
+    - Database passwords passed in LinkProject requests are held in memory but not encrypted at rest.
+- **Why It's Critical**: Security vulnerability. Compromised secrets could expose all linked databases.
+- **The Fix**:
+    - Integrate Azure Key Vault or AWS Secrets Manager for production secrets.
+    - Use ASP.NET Core Secret Manager for local development.
+    - Remove hardcoded JWT key from appsettings.json.
+    - Implement secret rotation policies.
+    - Encrypt database credentials at rest if they must be stored.
+    - Add startup validation to ensure secrets are properly configured.
+
+N. The "Data Export & Backup" Gap
+----------------------------------
+- **Current State**: No way to export/backup the ActoEngine metadata database itself.
+- **The Gap**:
+    - If ActoEngine database is corrupted, all context annotations are lost (not recoverable from source databases).
+    - ContextHistory, EntityExperts, GenerationHistory are critical business data but not backed up.
+    - No disaster recovery plan.
+    - Cannot migrate ActoEngine data between environments (Dev → Staging → Prod).
+- **Why It's Critical**: Data loss risk. Months of context curation could vanish in one database failure.
+- **The Fix**:
+    - Implement scheduled backup jobs for ActoEngine metadata database.
+    - Add export-to-JSON feature for all context and configuration data.
+    - Create import/restore functionality.
+    - Document backup and recovery procedures.
+    - Add database migration scripts for environment promotion.
+
+O. The "Environment-Specific Configuration" Gap
+------------------------------------------------
+- **Current State**: No clear separation between dev/staging/production configurations.
+- **The Gap**:
+    - CORS_ALLOWED_ORIGINS in .env is hardcoded for localhost.
+    - No appsettings.Production.json or appsettings.Staging.json.
+    - Database seeding runs in all environments (should be dev-only).
+    - Rate limits are the same for all environments (should be stricter in prod).
+    - SSL/HTTPS enforcement is environment-conditional but not clearly documented.
+- **Why It's Critical**: Deployment risk. Production might accidentally run with dev settings or vice versa.
+- **The Fix**:
+    - Create appsettings.{Environment}.json files for each environment.
+    - Move environment-specific settings out of .env into environment variables or config service.
+    - Add deployment guide with environment-specific requirements.
+    - Implement feature flags to control seeding, logging verbosity, etc.
+    - Document required environment variables for production deployment.
+
+4. RECOMMENDATIONS (HOW IT SHOULD BE)
+-------------------------------------
+
+### Short Term (Low Hanging Fruit)
+1.  **Connect Context to Builders**: 
+    - Update `FormBuilderService` to read `EntityContext`.
+    - If `Context.Description` exists, inject it as a tooltip in the generated HTML form.
+    - If `Context.Experts` exist, add a comment in the generated SP header: `-- Maintainer: [Expert Name]`.
+
+### Medium Term (True Vision Alignment)
+2.  **Impact Analysis UI**:
+    - Create a "What-If" analysis page.
+    - User selects a table/column.
+    - System highlights the "Blast Radius" (all downstream SPs/Views).
+    - *Crucial*: Show the *Confidence Score* of these dependencies (which you already calculate!).
+
+3.  **Smart Scaffolding**:
+    - Create "Generation Profiles" based on Business Domains.
+    - "Finance Profile": Enforces transactions, audit logs, and strict error handling in SPs.
+    - "Reporting Profile": Generates `NOLOCK` hints and optimized SELECTs.
+
+6. PRIORITY MATRIX
+------------------
+
+### CRITICAL (Production Blockers)
+These gaps prevent ActoEngine from being deployed in a production enterprise environment:
+
+1. **Role-Based Access Control (Gap D)** - Security risk: No permission system despite multi-user support. Anyone can modify anything.
+2. **Secrets Management (Gap M)** - Security risk: Hardcoded JWT keys and connection strings in config files.
+3. **Testing Infrastructure (Gap H)** - Quality risk: Zero test coverage makes the codebase fragile and risky to modify.
+4. **Observability & Monitoring (Gap L)** - Operational risk: Cannot diagnose production issues or detect failures proactively.
+
+### HIGH PRIORITY (Value Multipliers)
+These gaps significantly impact the product's value proposition and competitive advantage:
+
+5. **Multi-Database Vendor Support (Gap E)** - Market expansion: Locked to SQL Server limits market reach (PostgreSQL mentioned but not implemented).
+6. **Change Management & Versioning (Gap F)** - Core value prop: Detects drift but doesn't track what changed or maintain schema history for compliance.
+7. **Dependency Impact Analysis (Extension of Gap C)** - Vision completion: Need "what-if" simulation with specific error messages, not just visualization.
+8. **Performance & Scalability (Gap I)** - User experience: No caching or pagination won't scale beyond 100 users.
+
+### MEDIUM PRIORITY (Quality of Life)
+These gaps improve team efficiency and reduce operational risk:
+
+9. **Real-Time Collaboration (Gap J)** - Team efficiency: Concurrent editing conflicts, no notifications for stale context or assigned reviews.
+10. **Rollback & Migration Safety (Gap G)** - Risk reduction: Can't undo deployed generated code if it breaks production.
+11. **Integration & Extensibility (Gap K)** - Ecosystem play: No webhooks, API exports, or external tool integrations (Jira, Slack, Confluence).
+
+### LOW PRIORITY (Future Enhancements)
+These gaps are important but can be deferred without blocking core functionality:
+
+12. **Data Export & Backup (Gap N)** - Operational hygiene: ActoEngine metadata not backed up (risk of losing all context annotations).
+13. **Environment-Specific Configuration (Gap O)** - DevOps maturity: No clear dev/staging/prod separation.
+14. **Documentation Quality** - Developer experience: Minimal API docs, architecture guides, or onboarding materials.
+15. **Code Generation Feedback Loop** - Product analytics: No tracking of whether generated code is actually used or helpful.
+
+7. SUMMARY
+----------
+ActoEngine has built a solid "Brain" (The Context & Dependency Services) but its "Hands" (The Builders) are not yet listening to the Brain. The path to the vision lies in bridging this gap—making the code generation *react* to the rich metadata you are already collecting.
+
+**However**, beyond the strategic vision gaps (Simulation, Intelligent Automation, Graph Visualization), there are **critical production-readiness gaps** that must be addressed:
+
+- **Security**: RBAC and secrets management are inadequate for enterprise deployment. Current state poses compliance and data governance risks.
+- **Scalability**: No caching, pagination, or performance optimization. System won't scale beyond 100 concurrent users or large databases with 1000+ objects.
+- **Quality**: Zero test coverage makes evolution risky. Core logic (SQL parsing, dependency extraction, drift detection) is untested.
+- **Operations**: Cannot monitor health, diagnose failures, or recover from disasters. No backup strategy for ActoEngine's own metadata.
+- **Extensibility**: Hardcoded for SQL Server only despite PostgreSQL being mentioned. No integration points for existing workflows (Jira, Confluence, CI/CD).
+
+**The Bottom Line**: ActoEngine has achieved the "Semantic Layer" brilliantly, but to reach the full vision of "Intelligent Database Change Management Platform", it must solve both the strategic gaps (making builders context-aware, adding simulation) AND the foundational gaps (security, testing, scalability, observability). The priority should be: **Fix Critical Blockers → Build Value Multipliers → Polish Quality of Life → Enhance Future Features**.
+
+
+-- Refined -------------------------------------------------------
+
+This analysis is **brilliant and brutally honest**. You've identified the exact gaps between vision and reality. Let me help you craft a focused vision that acknowledges these realities:
+
+## Revised Vision for ActoEngine
+
+### Core Identity (Keep This)
+**ActoEngine is a self-maintaining knowledge layer for relational databases.**
+
+It answers: "What if your database could explain itself?"
+
+### The Three Pillars (Achieved ✓)
+1. **Human Meaning** - Context documentation layer
+2. **Machine Structure** - Dependency extraction via AST parsing  
+3. **Risk Prediction** - Impact analysis and drift detection
+
+### Remove From Vision (Not Core)
+❌ **Form Builder** - Move to separate project/plugin  
+❌ **SP Generator** - Move to separate project/plugin  
+❌ **"Intelligent Automation"** - This was overreach  
+❌ **Multi-vendor support initially** - Focus on SQL Server first
+
+### Immediate Vision (3-Month MVP)
+**"The Database Brain That Never Forgets"**
+
+ActoEngine captures why your database exists, tracks what depends on what, and warns before changes break things. When developers leave, their knowledge stays.
+
+**Core Features:**
+1. **Context Capture** - Document purpose, owners, criticality
+2. **Dependency Mapping** - Automatic extraction from SPs/Views
+3. **Impact Analysis** - "What breaks if I change this?"
+4. **Drift Detection** - Know when docs become stale
+5. **Expert Directory** - Know who to ask
+
+### Production Requirements (Must Have)
+Based on your gap analysis, these are **non-negotiable**:
+
+```yaml
+Security:
+  - RBAC with project-level permissions
+  - Secrets in Azure Key Vault/AWS Secrets Manager
+  - Audit logging for sensitive data access
+
+Quality:
+  - 60% test coverage minimum
+  - Integration tests for SQL parsing
+  - E2E tests for critical paths
+
+Performance:  
+  - Redis caching for metadata
+  - Pagination on all list endpoints
+  - Background jobs for heavy operations
+
+Operations:
+  - Health checks enabled
+  - Structured logging (Serilog)
+  - Application Insights/Prometheus
+
+Data:
+  - Backup strategy for ActoEngine DB
+  - Schema versioning/history
+  - Export/import capabilities
+```
+
+### Phase 1: Production Hardening (Month 1)
+Fix the **CRITICAL blockers** from your analysis:
+
+1. **RBAC Implementation**
+```sql
+CREATE TABLE ProjectPermissions (
+    ProjectId INT,
+    UserId INT,
+    Role NVARCHAR(50), -- Owner, Editor, Viewer
+    PRIMARY KEY (ProjectId, UserId)
+);
+```
+
+2. **Remove Hardcoded Secrets**
+```csharp
+// Replace in appsettings.json
+"JwtKey": "#{KeyVault:JwtKey}#"  // Use Azure Key Vault reference
+```
+
+3. **Add Core Tests**
+```csharp
+[Fact]
+public void ExtractDependencies_ParsesInsertStatement_ReturnsTableDependency()
+{
+    // Test your SQL parser actually works
+}
+```
+
+4. **Enable Monitoring**
+```csharp
+builder.Services.AddApplicationInsightsTelemetry();
+builder.Services.AddHealthChecks()
+    .AddSqlServer(connectionString)
+    .AddRedis(redisConnection);
+```
+
+### Phase 2: Core Value Completion (Month 2)
+Complete the vision's core promise:
+
+5. **What-If Analysis** (The missing simulation)
+```csharp
+public async Task<SimulationResult> SimulateChange(
+    int projectId, 
+    string ddlChange) // "ALTER TABLE Orders DROP COLUMN Total"
+{
+    // Parse the DDL
+    // Apply virtually to schema
+    // Re-parse dependent SPs with new schema
+    // Return compilation errors
+}
+```
+
+6. **Dependency Graph UI** (Visual impact)
+- React Flow or D3.js visualization
+- Interactive exploration
+- Color-coded by impact level
+
+### Phase 3: Scale & Polish (Month 3)
+
+7. **Performance**
+- Add Redis caching
+- Implement pagination
+- Background job queue
+
+8. **Change History**
+- Schema versioning
+- Diff visualization
+- Timeline view
+
+### What NOT to Build (Defer/Remove)
+
+❌ **Multi-database support** - Stick to SQL Server for v1  
+❌ **Real-time collaboration** - Use optimistic locking instead  
+❌ **GraphQL endpoint** - REST is sufficient  
+❌ **AI-powered suggestions** - Heuristics work fine  
+❌ **Complex integrations** - Start with webhooks only
+
+### Simplified Architecture
+
+```
+ActoEngine Core (This Project)
+├── Context Management ✓
+├── Dependency Analysis ✓  
+├── Impact Simulation (Add)
+├── Drift Detection ✓
+└── Schema Versioning (Add)
+
+Future Plugins (Separate Projects)
+├── Code Generators
+├── Form Builders
+├── Database Migrators
+└── External Integrations
+```
+
+### Success Metrics for MVP
+
+1. **Can document 100% of database objects**
+2. **Can detect 100% of SP→Table dependencies**
+3. **Can predict impact with 90% accuracy**
+4. **Can detect drift within 24 hours**
+5. **Scales to 1000 tables, 100 users**
+
+### The Honest Tagline
+
+**"ActoEngine: The database documentation that maintains itself and tells you what breaks before you break it."**
+
+Not trying to be everything. Just solving one problem really well: **preserving database knowledge and preventing breaking changes.**
+
+This focused vision acknowledges your excellent gap analysis while staying achievable. The key is: **Fix production blockers first, then deliver core value, then expand carefully.**
+
+What do you think? Should we adjust this further based on your team size and timeline?
