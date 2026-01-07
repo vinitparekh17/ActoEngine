@@ -5,51 +5,38 @@ import { Button } from "../components/ui/button";
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui/dialog";
 import {
   LoadingContainer,
   TableSkeleton,
   PageHeaderSkeleton,
 } from "../components/ui/skeletons";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import type {
   UserDto,
   CreateUserRequest,
   UpdateUserRequest,
   Role,
+  UserDetailResponse,
 } from "../types/user-management";
+import { UserTableRow } from "./UserManagement/UserTableRow";
+import { UserFormModal } from "./UserManagement/UserFormModal";
+import { UserDetailModal } from "./UserManagement/UserDetailModal";
+import { PasswordChangeModal } from "./UserManagement/PasswordChangeModal";
+
+
 
 export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState<UserDto | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<CreateUserRequest>({
-    username: "",
-    password: "",
-    fullName: "",
-    roleId: 0,
-  });
+  const [viewingUser, setViewingUser] = useState<UserDto | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
   const { confirm } = useConfirm();
 
   // Fetch users with pagination
@@ -67,7 +54,7 @@ export default function UserManagementPage() {
     queryKey: Array.from(queryKeys.roles.all()),
   });
 
-  // Mutations
+  // Mutations (useApiMutation calls remain same...)
   const createMutation = useApiMutation<UserDto, CreateUserRequest>(
     "/UserManagement",
     "POST",
@@ -95,35 +82,50 @@ export default function UserManagementPage() {
     },
   );
 
-  // Handlers
-  const handleCreate = () => {
-    if (!formData.username.trim()) {
-      alert("Username is required");
-      return;
-    }
-    if (!formData.password || formData.password.length < 8) {
-      alert("Password must be at least 8 characters");
-      return;
-    }
-    if (!formData.roleId) {
-      alert("Please select a role");
-      return;
-    }
+  // Fetch user detail
+  const { data: userDetail } = useApi<UserDetailResponse>(
+    viewingUser ? `/UserManagement/${viewingUser.userId}` : "",
+    {
+      queryKey: viewingUser
+        ? Array.from(queryKeys.users.detail(viewingUser.userId))
+        : [],
+      enabled: !!viewingUser && isDetailModalOpen,
+    },
+  );
 
-    createMutation.mutate(formData, {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        setFormData({ username: "", password: "", fullName: "", roleId: 0 });
+  // Password change mutation
+  const changePasswordMutation = useApiMutation<
+    void,
+    { userId: number; newPassword: string }
+  >("/UserManagement/:userId/change-password", "POST", {
+    successMessage: "Password changed successfully",
+    invalidateKeys: [Array.from(queryKeys.users.all())],
+  });
+
+  // Handlers
+  const handleCreate = (data: any) => {
+    // validation is now handled by Zod in the modal
+    createMutation.mutate(
+      {
+        username: data.username,
+        password: data.password,
+        fullName: data.fullName,
+        roleId: data.roleId,
       },
-    });
+      {
+        onSuccess: () => {
+          setIsModalOpen(false);
+        },
+      }
+    );
   };
 
-  const handleUpdate = () => {
-    if (!editingUser || !editingUser.userId) return;
+  const handleUpdate = (data: any) => {
+    if (!editingUser?.userId) return;
     const updateData: UpdateUserRequest = {
       userId: editingUser.userId,
-      fullName: formData.fullName,
-      roleId: formData.roleId,
+      fullName: data.fullName,
+      roleId: data.roleId,
       isActive: editingUser.isActive,
     };
 
@@ -131,7 +133,6 @@ export default function UserManagementPage() {
       onSuccess: () => {
         setIsModalOpen(false);
         setEditingUser(null);
-        setFormData({ username: "", password: "", fullName: "", roleId: 0 });
       },
     });
   };
@@ -153,20 +154,37 @@ export default function UserManagementPage() {
   const openEditModal = (user: UserDto) => {
     setIsEditing(true);
     setEditingUser(user);
-    setFormData({
-      username: user.username,
-      password: "", // Password not shown in edit
-      fullName: user.fullName || "",
-      roleId: user.roleId || 0,
-    });
     setIsModalOpen(true);
   };
 
   const openCreateModal = () => {
     setIsEditing(false);
     setEditingUser(null);
-    setFormData({ username: "", password: "", fullName: "", roleId: 0 });
     setIsModalOpen(true);
+  };
+
+  const openDetailModal = (user: UserDto) => {
+    setViewingUser(user);
+    setIsDetailModalOpen(true);
+  };
+
+  const openPasswordModal = (user: UserDto) => {
+    setViewingUser(user);
+    setIsPasswordModalOpen(true);
+  };
+
+  const handlePasswordChange = (data: any) => {
+    if (!viewingUser) return;
+
+    changePasswordMutation.mutate(
+      { userId: viewingUser.userId, newPassword: data.newPassword },
+      {
+        onSuccess: () => {
+          setIsPasswordModalOpen(false);
+          setViewingUser(null);
+        },
+      },
+    );
   };
 
   const handleModalClose = (open: boolean) => {
@@ -174,11 +192,30 @@ export default function UserManagementPage() {
       setIsModalOpen(false);
       setEditingUser(null);
       setIsEditing(false);
-      setFormData({ username: "", password: "", fullName: "", roleId: 0 });
     }
   };
 
+  const handleDetailModalClose = (open: boolean) => {
+    setIsDetailModalOpen(open);
+    if (!open) {
+      setViewingUser(null);
+    }
+  };
+
+  const handlePasswordModalClose = (open: boolean) => {
+    setIsPasswordModalOpen(open);
+    if (!open) {
+      setViewingUser(null);
+    }
+  };
+
+  const handlePasswordModalChangePassword = (user: UserDto) => {
+    setIsDetailModalOpen(false);
+    openPasswordModal(user);
+  };
+
   const users = usersResponse?.users || [];
+  const isPending = isEditing ? updateMutation.isPending : createMutation.isPending;
 
   return (
     <LoadingContainer
@@ -230,161 +267,55 @@ export default function UserManagementPage() {
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow key={user.userId}>
-                    <TableCell>{user.userId}</TableCell>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>{user.fullName || "-"}</TableCell>
-                    <TableCell>{user.roleName || "-"}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          user.isActive
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        }`}
-                      >
-                        {user.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditModal(user)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(user)}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <UserTableRow
+                    key={user.userId}
+                    user={user}
+                    onEdit={openEditModal}
+                    onDelete={handleDelete}
+                    onViewDetail={openDetailModal}
+                    onChangePassword={openPasswordModal}
+                  />
                 ))}
               </TableBody>
             </Table>
           </div>
 
           {/* Unified Create/Edit Modal */}
-          <Dialog open={isModalOpen} onOpenChange={handleModalClose}>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {isEditing ? "Edit User" : "Create New User"}
-                </DialogTitle>
-                <DialogDescription>
-                  {isEditing
-                    ? 'Update the user details below and click "Update User" to save changes.'
-                    : 'Enter the details below and click "Create User" to add a new user.'}
-                </DialogDescription>
-              </DialogHeader>
+          <UserFormModal
+            isOpen={isModalOpen}
+            isEditing={isEditing}
+            defaultValues={
+              editingUser
+                ? {
+                  username: editingUser.username,
+                  fullName: editingUser.fullName || "",
+                  roleId: editingUser.roleId || 0,
+                }
+                : undefined
+            }
+            roles={roles}
+            isPending={isPending}
+            onClose={handleModalClose}
+            onSubmit={isEditing ? handleUpdate : handleCreate}
+          />
 
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="username" className="text-right">
-                    Username
-                  </Label>
-                  <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) =>
-                      setFormData({ ...formData, username: e.target.value })
-                    }
-                    placeholder="Enter username"
-                    className="col-span-3"
-                    disabled={isEditing}
-                  />
-                </div>
+          {/* User Detail Modal */}
+          <UserDetailModal
+            isOpen={isDetailModalOpen}
+            user={viewingUser}
+            userDetail={userDetail}
+            onClose={handleDetailModalClose}
+            onChangePassword={handlePasswordModalChangePassword}
+          />
 
-                {!isEditing && (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="password" className="text-right">
-                      Password
-                    </Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
-                      placeholder="Min 8 characters"
-                      className="col-span-3"
-                    />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="fullName" className="text-right">
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullName"
-                    value={formData.fullName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, fullName: e.target.value })
-                    }
-                    placeholder="Enter full name"
-                    className="col-span-3"
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="role" className="text-right">
-                    Role
-                  </Label>
-                  <Select
-                    value={formData.roleId.toString()}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, roleId: parseInt(value) })
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles?.map((role) => (
-                        <SelectItem
-                          key={role.roleId}
-                          value={role.roleId.toString()}
-                        >
-                          {role.roleName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  onClick={isEditing ? handleUpdate : handleCreate}
-                  disabled={
-                    isEditing
-                      ? updateMutation.isPending
-                      : createMutation.isPending
-                  }
-                >
-                  {isEditing
-                    ? updateMutation.isPending
-                      ? "Updating..."
-                      : "Update User"
-                    : createMutation.isPending
-                      ? "Creating..."
-                      : "Create User"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          {/* Password Change Modal */}
+          <PasswordChangeModal
+            isOpen={isPasswordModalOpen}
+            user={viewingUser}
+            isPending={changePasswordMutation.isPending}
+            onClose={handlePasswordModalClose}
+            onSubmit={handlePasswordChange}
+          />
         </div>
       )}
     </LoadingContainer>

@@ -63,9 +63,16 @@ export default function ProjectHub() {
     staleTime: 1 * 60 * 1000,
   });
 
+  // Permissions
+  const canReadSchema = useAuthorization("Schema:Read");
+  const canReadForms = useAuthorization("Forms:Read");
+  const canReadSPs = useAuthorization("StoredProcedures:Read");
+  const canReadClients = useAuthorization("Clients:Read");
+  const canUpdateProject = useAuthorization("Projects:Update");
+
   useEffect(() => {
-    if (projectId && selectedProject?.projectId !== parseInt(projectId)) {
-      selectProject(parseInt(projectId));
+    if (projectId && selectedProject?.projectId !== Number.parseInt(projectId)) {
+      selectProject(Number.parseInt(projectId));
     }
   }, [projectId, selectedProject?.projectId]);
 
@@ -151,6 +158,103 @@ export default function ProjectHub() {
     );
   };
 
+  const renderTableCount = () => {
+    if (isLoadingStats) {
+      return <Skeleton className="h-8 w-16" />;
+    }
+
+    if (statsError) {
+      return (
+        <div className="flex items-center text-sm text-destructive">
+          <AlertCircle className="w-4 h-4 mr-1" />
+          Error
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-2xl font-bold">
+        {stats?.tableCount || 0}
+      </div>
+    );
+  };
+
+  const renderSpCount = () => {
+    if (isLoadingStats) {
+      return <Skeleton className="h-8 w-16" />;
+    }
+
+    if (statsError) {
+      return (
+        <div className="flex items-center text-sm text-destructive">
+          <AlertCircle className="w-4 h-4 mr-1" />
+          Error
+        </div>
+      );
+    }
+
+    return <div className="text-2xl font-bold">{stats?.spCount || 0}</div>;
+  };
+
+  const renderRecentActivity = () => {
+    if (isLoadingActivity) {
+      return (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (!activity || activity.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <Ghost className="w-12 h-12 text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">
+            No recent activity
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <ul className="space-y-3">
+          {activity.map((item, index) => (
+            <li key={`${item.timestamp}-${index}`} className="text-sm">
+              <div className="flex items-start gap-2">
+                <div className="mt-0.5">
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <p className="text-foreground leading-tight">
+                    {item.description}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatRelativeTime(item.timestamp, "recently")}
+                    {item.user && ` by ${item.user}`}
+                  </p>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <span
+          className="text-sm text-muted-foreground inline-flex items-center cursor-not-allowed"
+          title="Activity view coming soon"
+        >
+          View All Activity
+          <ChevronRight className="w-4 h-4 ml-1" />
+        </span>
+      </div>
+    );
+  };
+
+
   if (!selectedProject) {
     return (
       <div className="container mx-auto px-4 py-6 space-y-6">
@@ -202,7 +306,7 @@ export default function ProjectHub() {
         </div>
 
         {/* Sync Progress Panel */}
-        {selectedProject.projectId && (
+        {!!(selectedProject.projectId) && (
           <SyncProgressPanel
             projectId={selectedProject.projectId}
             useSSE={isSyncing}
@@ -219,18 +323,7 @@ export default function ProjectHub() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoadingStats ? (
-                <Skeleton className="h-8 w-16" />
-              ) : statsError ? (
-                <div className="flex items-center text-sm text-destructive">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  Error
-                </div>
-              ) : (
-                <div className="text-2xl font-bold">
-                  {stats?.tableCount || 0}
-                </div>
-              )}
+              {renderTableCount()}
               <p className="text-xs text-muted-foreground mt-1">
                 Database tables
               </p>
@@ -246,16 +339,7 @@ export default function ProjectHub() {
               <Code className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoadingStats ? (
-                <Skeleton className="h-8 w-16" />
-              ) : statsError ? (
-                <div className="flex items-center text-sm text-destructive">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  Error
-                </div>
-              ) : (
-                <div className="text-2xl font-bold">{stats?.spCount || 0}</div>
-              )}
+              {renderSpCount()}
               <p className="text-xs text-muted-foreground mt-1">
                 Stored procedures
               </p>
@@ -293,53 +377,7 @@ export default function ProjectHub() {
               <CardDescription>Latest changes and updates</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingActivity ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-3 w-2/3" />
-                    </div>
-                  ))}
-                </div>
-              ) : !activity || activity.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Ghost className="w-12 h-12 text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    No recent activity
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <ul className="space-y-3">
-                    {activity.map((item, index) => (
-                      <li key={index} className="text-sm">
-                        <div className="flex items-start gap-2">
-                          <div className="mt-0.5">
-                            <div className="w-2 h-2 rounded-full bg-primary" />
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <p className="text-foreground leading-tight">
-                              {item.description}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatRelativeTime(item.timestamp, "recently")}
-                              {item.user && ` by ${item.user}`}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  <span
-                    className="text-sm text-muted-foreground inline-flex items-center cursor-not-allowed"
-                    title="Activity view coming soon"
-                  >
-                    View All Activity
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </span>
-                </div>
-              )}
+              {renderRecentActivity()}
             </CardContent>
           </Card>
 
@@ -352,7 +390,7 @@ export default function ProjectHub() {
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
                 {/* Database Schema - Primary */}
-                {useAuthorization("Schema:Read") && (
+                {canReadSchema && (
                   <Button
                     variant="default"
                     className="h-24 flex-col gap-2"
@@ -365,7 +403,7 @@ export default function ProjectHub() {
                 )}
 
                 {/* Form Builder */}
-                {useAuthorization("Forms:Read") && (
+                {canReadForms && (
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
@@ -378,7 +416,7 @@ export default function ProjectHub() {
                 )}
 
                 {/* SP Generator */}
-                {useAuthorization("StoredProcedures:Read") && (
+                {canReadSPs && (
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
@@ -391,7 +429,7 @@ export default function ProjectHub() {
                 )}
 
                 {/* Client Management */}
-                {useAuthorization("Clients:Read") && (
+                {canReadClients && (
                   <Button
                     variant="outline"
                     className="h-24 flex-col gap-2"
@@ -404,7 +442,7 @@ export default function ProjectHub() {
                 )}
 
                 {/* Settings - Spans 2 columns */}
-                {useAuthorization("Projects:Update") && (
+                {canUpdateProject && (
                   <Button
                     variant="outline"
                     className="h-16 col-span-2 flex-row gap-2"

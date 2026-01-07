@@ -1,6 +1,7 @@
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Features.Users;
+using ActoEngine.WebApi.Models.Requests.Role;
 
 namespace ActoEngine.WebApi.Services.RoleService;
 
@@ -9,7 +10,7 @@ public interface IRoleService
     Task<IEnumerable<Role>> GetAllRolesAsync(CancellationToken cancellationToken = default);
     Task<RoleWithPermissions?> GetRoleWithPermissionsAsync(int roleId, CancellationToken cancellationToken = default);
     Task<Role> CreateRoleAsync(CreateRoleRequest request, int createdBy, CancellationToken cancellationToken = default);
-    Task UpdateRoleAsync(UpdateRoleRequest request, int updatedBy, CancellationToken cancellationToken = default);
+    Task UpdateRoleAsync(int roleId, UpdateRoleRequest request, int updatedBy, CancellationToken cancellationToken = default);
     Task DeleteRoleAsync(int roleId, CancellationToken cancellationToken = default);
     Task UpdateRolePermissionsAsync(int roleId, List<int> permissionIds, int updatedBy, CancellationToken cancellationToken = default);
 }
@@ -79,16 +80,12 @@ public class RoleService(
     }
 
     public async Task UpdateRoleAsync(
+        int roleId,
         UpdateRoleRequest request,
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var role = await roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
-        if (role == null)
-        {
-            throw new InvalidOperationException($"Role {request.RoleId} not found");
-        }
-
+        var role = await roleRepository.GetByIdAsync(roleId, cancellationToken) ?? throw new InvalidOperationException($"Role {roleId} not found");
         if (role.IsSystem)
         {
             throw new InvalidOperationException("Cannot modify system roles");
@@ -96,7 +93,7 @@ public class RoleService(
 
         // Check for duplicate role name (excluding current role)
         var existingWithName = await roleRepository.GetByNameAsync(request.RoleName, cancellationToken);
-        if (existingWithName != null && existingWithName.RoleId != request.RoleId)
+        if (existingWithName != null && existingWithName.RoleId != roleId)
         {
             throw new InvalidOperationException($"Role '{request.RoleName}' already exists");
         }
@@ -120,12 +117,7 @@ public class RoleService(
 
     public async Task DeleteRoleAsync(int roleId, CancellationToken cancellationToken = default)
     {
-        var role = await roleRepository.GetByIdAsync(roleId, cancellationToken);
-        if (role == null)
-        {
-            throw new InvalidOperationException($"Role {roleId} not found");
-        }
-
+        var role = await roleRepository.GetByIdAsync(roleId, cancellationToken) ?? throw new InvalidOperationException($"Role {roleId} not found");
         if (role.IsSystem)
         {
             throw new InvalidOperationException("Cannot delete system roles");

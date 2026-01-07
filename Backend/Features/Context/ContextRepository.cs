@@ -26,7 +26,7 @@ public interface IContextRepository
     Task<List<UserExpertiseItem>> GetUserExpertiseAsync(int userId, int projectId, CancellationToken cancellationToken = default);
 
     // Context History
-    Task RecordContextChangeAsync(string entityType, int entityId, string fieldName, string? oldValue, string? newValue, int changedBy, string? changeReason = null, CancellationToken cancellationToken = default);
+    Task RecordContextChangeAsync(int projectId, string entityType, int entityId, string fieldName, string? oldValue, string? newValue, int changedBy, string? changeReason = null, CancellationToken cancellationToken = default);
     Task<List<ContextHistory>> GetContextHistoryAsync(string entityType, int entityId, CancellationToken cancellationToken = default);
 
     // Statistics
@@ -314,12 +314,13 @@ public class ContextRepository(
 
     #region Context History
 
-    public async Task RecordContextChangeAsync(string entityType, int entityId, string fieldName, string? oldValue, string? newValue, int changedBy, string? changeReason = null, CancellationToken cancellationToken = default)
+    public async Task RecordContextChangeAsync(int projectId, string entityType, int entityId, string fieldName, string? oldValue, string? newValue, int changedBy, string? changeReason = null, CancellationToken cancellationToken = default)
     {
         var affected = await ExecuteAsync(
             ContextQueries.RecordContextChange,
             new
             {
+                ProjectId = projectId,
                 EntityType = entityType,
                 EntityId = entityId,
                 FieldName = fieldName,

@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   Columns,
   AlertCircle,
-  Loader2,
   Key,
   Link as LinkIcon,
   Zap,

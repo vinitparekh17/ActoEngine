@@ -4,6 +4,7 @@ using ActoEngine.WebApi.Attributes;
 using ActoEngine.WebApi.Extensions;
 using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Services.RoleService;
+using ActoEngine.WebApi.Models.Requests.Role;
 
 namespace ActoEngine.WebApi.Controllers;
 
@@ -66,11 +67,6 @@ public class RoleController(IRoleService roleService) : ControllerBase
     [RequirePermission("Roles:Update")]
     public async Task<IActionResult> UpdateRole(int roleId, [FromBody] UpdateRoleRequest request)
     {
-        if (roleId != request.RoleId)
-        {
-            return BadRequest(ApiResponse<object>.Failure("Role ID mismatch"));
-        }
-
         if (!ModelState.IsValid)
         {
             return BadRequest(ApiResponse<object>.Failure("Invalid request data",
@@ -83,9 +79,15 @@ public class RoleController(IRoleService roleService) : ControllerBase
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
         }
 
+        if (request.RoleId != 0 && request.RoleId != roleId)
+        {
+            return BadRequest(ApiResponse<object>.Failure("Role ID in body does not match Role ID in URL"));
+        }
+
         try
         {
-            await _roleService.UpdateRoleAsync(request, userId.Value);
+            // Use roleId from URL parameter
+            await _roleService.UpdateRoleAsync(roleId, request, userId.Value);
             return Ok(ApiResponse<object>.Success(new { }, "Role updated successfully"));
         }
         catch (InvalidOperationException ex)

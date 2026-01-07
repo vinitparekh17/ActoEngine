@@ -14,7 +14,9 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import type {
   VerifyConnectionRequest,
   ConnectionResponse,
@@ -24,16 +26,18 @@ import type {
 } from "../types/project";
 import { ScrollArea } from "../components/ui/scroll-area";
 
-interface FormData {
-  server: string;
-  databaseName: string;
-  username: string;
-  password: string;
-  port: number;
-  databaseType: string;
-  projectName: string;
-  description: string;
-}
+const projectSetupSchema = z.object({
+  server: z.string().min(1, "Server address is required"),
+  databaseName: z.string().min(1, "Database name is required"),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+  port: z.coerce.number().min(1, "Port must be greater than 0").max(65535, "Port must be less than 65536"),
+  databaseType: z.string(),
+  projectName: z.string().min(1, "Project name is required"),
+  description: z.string().optional(),
+});
+
+type ProjectSetupValues = z.infer<typeof projectSetupSchema>;
 
 type Step = "connection" | "details";
 
@@ -52,7 +56,8 @@ export default function ProjectSetup() {
     formState: { errors },
     getValues,
     trigger,
-  } = useForm<FormData>({
+  } = useForm<ProjectSetupValues>({
+    resolver: zodResolver(projectSetupSchema) as Resolver<ProjectSetupValues>,
     defaultValues: {
       server: "",
       databaseName: "",
@@ -65,7 +70,7 @@ export default function ProjectSetup() {
     },
   });
 
-  const buildConnectionString = (data: FormData) => {
+  const buildConnectionString = (data: ProjectSetupValues) => {
     return `Server=${data.server},${data.port};Database=${data.databaseName};User Id=${data.username};Password=${data.password};TrustServerCertificate=True;`;
   };
 
@@ -147,12 +152,12 @@ export default function ProjectSetup() {
     });
   };
 
-  const handleCreateProject = (data: FormData) => {
+  const handleCreateProject = (data: ProjectSetupValues) => {
     // Create project first (without connection string)
     // On success, it will automatically trigger link mutation with connection string
     createMutation.mutate({
       projectName: data.projectName,
-      description: data.description,
+      description: data.description || "",
       databaseName: data.databaseName,
       databaseType: data.databaseType,
     });
@@ -181,43 +186,38 @@ export default function ProjectSetup() {
           <div className="flex items-center justify-between max-w-md mx-auto">
             <div className="flex flex-col items-center">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
-                  step === "connection"
-                    ? "bg-primary text-primary-foreground shadow-md scale-110"
-                    : "bg-primary/20 text-primary"
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${step === "connection"
+                  ? "bg-primary text-primary-foreground shadow-md scale-110"
+                  : "bg-primary/20 text-primary"
+                  }`}
               >
                 1
               </div>
               <p
-                className={`mt-1.5 text-xs font-medium transition-colors ${
-                  step === "connection" ? "text-primary" : "text-primary/60"
-                }`}
+                className={`mt-1.5 text-xs font-medium transition-colors ${step === "connection" ? "text-primary" : "text-primary/60"
+                  }`}
               >
                 Connection
               </p>
             </div>
 
             <div
-              className={`flex-1 h-0.5 mx-4 rounded-full transition-all ${
-                step === "details" ? "bg-primary" : "bg-border"
-              }`}
+              className={`flex-1 h-0.5 mx-4 rounded-full transition-all ${step === "details" ? "bg-primary" : "bg-border"
+                }`}
             />
 
             <div className="flex flex-col items-center">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
-                  step === "details"
-                    ? "bg-primary text-primary-foreground shadow-md scale-110"
-                    : "bg-muted text-muted-foreground"
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${step === "details"
+                  ? "bg-primary text-primary-foreground shadow-md scale-110"
+                  : "bg-muted text-muted-foreground"
+                  }`}
               >
                 2
               </div>
               <p
-                className={`mt-1.5 text-xs font-medium transition-colors ${
-                  step === "details" ? "text-primary" : "text-muted-foreground"
-                }`}
+                className={`mt-1.5 text-xs font-medium transition-colors ${step === "details" ? "text-primary" : "text-muted-foreground"
+                  }`}
               >
                 Details
               </p>
@@ -240,9 +240,7 @@ export default function ProjectSetup() {
                   </Label>
                   <Input
                     id="server"
-                    {...register("server", {
-                      required: "Server address is required",
-                    })}
+                    {...register("server")}
                     placeholder="localhost or 192.168.1.100"
                   />
                   {errors.server && (
@@ -262,9 +260,7 @@ export default function ProjectSetup() {
                     </Label>
                     <Input
                       id="databaseName"
-                      {...register("databaseName", {
-                        required: "Database name is required",
-                      })}
+                      {...register("databaseName")}
                       placeholder="MyDatabase"
                     />
                     {errors.databaseName && (
@@ -283,18 +279,7 @@ export default function ProjectSetup() {
                     <Input
                       id="port"
                       type="number"
-                      {...register("port", {
-                        required: "Port is required",
-                        min: {
-                          value: 1,
-                          message: "Port must be greater than 0",
-                        },
-                        max: {
-                          value: 65535,
-                          message: "Port must be less than 65536",
-                        },
-                        valueAsNumber: true,
-                      })}
+                      {...register("port")}
                     />
                     {errors.port && (
                       <p className="mt-1.5 text-sm text-destructive">
@@ -314,9 +299,7 @@ export default function ProjectSetup() {
                     </Label>
                     <Input
                       id="username"
-                      {...register("username", {
-                        required: "Username is required",
-                      })}
+                      {...register("username")}
                       placeholder="sa"
                     />
                     {errors.username && (
@@ -336,9 +319,7 @@ export default function ProjectSetup() {
                     <Input
                       id="password"
                       type="password"
-                      {...register("password", {
-                        required: "Password is required",
-                      })}
+                      {...register("password")}
                       placeholder="••••••••"
                     />
                     {errors.password && (
@@ -351,11 +332,10 @@ export default function ProjectSetup() {
 
                 {verificationResult && (
                   <div
-                    className={`flex items-start gap-3 p-3 rounded-md border transition-all ${
-                      verificationResult.success
-                        ? "bg-primary/5 border-primary/20"
-                        : "bg-destructive/5 border-destructive/20"
-                    }`}
+                    className={`flex items-start gap-3 p-3 rounded-md border transition-all ${verificationResult.success
+                      ? "bg-primary/5 border-primary/20"
+                      : "bg-destructive/5 border-destructive/20"
+                      }`}
                   >
                     {verificationResult.success ? (
                       <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
@@ -363,11 +343,10 @@ export default function ProjectSetup() {
                       <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
                     )}
                     <p
-                      className={`text-sm ${
-                        verificationResult.success
-                          ? "text-primary"
-                          : "text-destructive"
-                      }`}
+                      className={`text-sm ${verificationResult.success
+                        ? "text-primary"
+                        : "text-destructive"
+                        }`}
                     >
                       {verificationResult.message}
                     </p>
@@ -411,7 +390,7 @@ export default function ProjectSetup() {
             {/* Step 2: Project Details */}
             {step === "details" && (
               <form
-                onSubmit={handleSubmit(handleCreateProject)}
+                onSubmit={handleSubmit((data) => handleCreateProject(data))}
                 className="space-y-4"
               >
                 <div>
@@ -423,9 +402,7 @@ export default function ProjectSetup() {
                   </Label>
                   <Input
                     id="projectName"
-                    {...register("projectName", {
-                      required: "Project name is required",
-                    })}
+                    {...register("projectName")}
                     placeholder="My Awesome Project"
                   />
                   {errors.projectName && (
@@ -462,21 +439,21 @@ export default function ProjectSetup() {
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Server:</span>
                       <span className="font-medium text-foreground">
-                        {getValues("server")}:{getValues("port")}
+                        {getValues("server") as string}:{getValues("port") as number}
                       </span>
                     </div>
                     <div className="h-px bg-border" />
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Database:</span>
                       <span className="font-medium text-foreground">
-                        {getValues("databaseName")}
+                        {getValues("databaseName") as string}
                       </span>
                     </div>
                     <div className="h-px bg-border" />
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Username:</span>
                       <span className="font-medium text-foreground">
-                        {getValues("username")}
+                        {getValues("username") as string}
                       </span>
                     </div>
                   </div>

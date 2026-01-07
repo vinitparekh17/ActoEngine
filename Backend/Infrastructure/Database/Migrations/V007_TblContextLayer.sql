@@ -94,6 +94,7 @@ GO
 -- ============================================
 CREATE TABLE ContextHistory (
     HistoryId INT PRIMARY KEY IDENTITY(1,1),
+    ProjectId INT NOT NULL,
     EntityType NVARCHAR(50) NOT NULL,
     EntityId INT NOT NULL,
     FieldName NVARCHAR(100) NOT NULL,
@@ -104,9 +105,11 @@ CREATE TABLE ContextHistory (
     ChangeReason NVARCHAR(500),
     
     -- Foreign Keys
+    FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId) ON DELETE CASCADE,
     FOREIGN KEY (ChangedBy) REFERENCES Users(UserID),
     
     -- Indexes
+    INDEX IX_ContextHistory_ProjectId (ProjectId),
     INDEX IX_ContextHistory_Entity (EntityType, EntityId),
     INDEX IX_ContextHistory_ChangedAt (ChangedAt DESC),
     INDEX IX_ContextHistory_ChangedBy (ChangedBy)
@@ -118,6 +121,7 @@ GO
 -- ============================================
 CREATE TABLE ContextReviewRequests (
     RequestId INT PRIMARY KEY IDENTITY(1,1),
+    ProjectId INT NOT NULL,
     EntityType NVARCHAR(50) NOT NULL,
     EntityId INT NOT NULL,
     RequestedBy INT NOT NULL,
@@ -129,11 +133,13 @@ CREATE TABLE ContextReviewRequests (
     CompletedAt DATETIME2,
     
     -- Foreign Keys
+    FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId) ON DELETE NO ACTION,
     FOREIGN KEY (RequestedBy) REFERENCES Users(UserID),
     FOREIGN KEY (AssignedTo) REFERENCES Users(UserID),
     
     -- Indexes
     INDEX IX_ReviewRequests_Status (Status),
+    INDEX IX_ReviewRequests_ProjectId (ProjectId),
     INDEX IX_ReviewRequests_AssignedTo (AssignedTo, Status),
     INDEX IX_ReviewRequests_Entity (EntityType, EntityId)
 );
