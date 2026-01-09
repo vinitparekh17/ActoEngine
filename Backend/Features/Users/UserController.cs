@@ -33,8 +33,7 @@ public class UserManagementController(IUserManagementService userManagementServi
     /// <returns>User details with role information</returns>
     /// <remarks>
     /// <para>
-    /// This endpoint returns user information with role details. The response type was changed from 
-    /// <see cref="UserWithPermissionsDto"/> to <see cref="UserWithRoleDto"/> to better reflect that 
+    /// This endpoint returns user information with role details via <see cref="UserWithRoleDto"/> to reflect that 
     /// permissions are managed through roles rather than directly on users.
     /// </para>
     /// <para>

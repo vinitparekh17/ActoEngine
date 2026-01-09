@@ -31,14 +31,9 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     clearError();
-    try {
-      await login(data);
-      toast.success("Welcome back!");
-      navigate("/");
-    } catch (error) {
-      // Error already in loginError state
-      toast.error(loginError || "Login failed");
-    }
+    await login(data);
+    toast.success("Welcome back!");
+    navigate("/");
   };
 
   return (
@@ -72,8 +67,8 @@ export default function LoginPage() {
                 type="text"
                 {...register("username")}
                 className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${errors.username
-                    ? "border-red-500 focus:border-red-500"
-                    : "border-gray-300 focus:border-blue-500"
+                  ? "border-red-500 focus:border-red-500"
+                  : "border-gray-300 focus:border-blue-500"
                   }`}
                 placeholder="Enter your username"
                 disabled={isLoggingIn}
@@ -98,8 +93,8 @@ export default function LoginPage() {
                 type="password"
                 {...register("password")}
                 className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${errors.password
-                    ? "border-red-500 focus:border-red-500"
-                    : "border-gray-300 focus:border-blue-500"
+                  ? "border-red-500 focus:border-red-500"
+                  : "border-gray-300 focus:border-blue-500"
                   }`}
                 placeholder="Enter your password"
                 disabled={isLoggingIn}

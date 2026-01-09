@@ -257,6 +257,7 @@ public static class ContextQueries
     public const string GetContextHistory = @"
         SELECT
             ch.HistoryId,
+            ch.ProjectId,
             ch.EntityType,
             ch.EntityId,
             ch.FieldName,

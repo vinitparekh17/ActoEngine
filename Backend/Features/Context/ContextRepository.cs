@@ -27,7 +27,7 @@ public interface IContextRepository
 
     // Context History
     Task RecordContextChangeAsync(int projectId, string entityType, int entityId, string fieldName, string? oldValue, string? newValue, int changedBy, string? changeReason = null, CancellationToken cancellationToken = default);
-    Task<List<ContextHistory>> GetContextHistoryAsync(string entityType, int entityId, CancellationToken cancellationToken = default);
+    Task<List<ContextHistory>> GetContextHistoryAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
 
     // Statistics
     Task<List<ContextGap>> GetContextGapsAsync(int projectId, int limit, CancellationToken cancellationToken = default);
@@ -338,11 +338,11 @@ public class ContextRepository(
         }
     }
 
-    public async Task<List<ContextHistory>> GetContextHistoryAsync(string entityType, int entityId, CancellationToken cancellationToken = default)
+    public async Task<List<ContextHistory>> GetContextHistoryAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default)
     {
         var history = await QueryAsync<ContextHistory>(
             ContextQueries.GetContextHistory,
-            new { EntityType = entityType, EntityId = entityId },
+            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
             cancellationToken);
         return [.. history];
     }

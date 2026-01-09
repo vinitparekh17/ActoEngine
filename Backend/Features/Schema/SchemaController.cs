@@ -154,6 +154,11 @@ public class DatabaseBrowserController(
         {
             return NotFound(ApiResponse<TableSchemaResponseWithMetadata>.Failure($"Table schema not found: {ex.Message}"));
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in {OperationName} for table {SchemaName}.{TableName} in project {ProjectId}", operationName, schemaName, tableName, projectId);
+            return StatusCode(500, ApiResponse<TableSchemaResponseWithMetadata>.Failure("An error occurred while retrieving table schema"));
+        }
     }
 
     /// <summary>
@@ -309,6 +314,11 @@ public class DatabaseBrowserController(
     public async Task<ActionResult<TableSchemaResponseWithMetadata>> GetStoredTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
     {
         _logger.LogInformation("Getting stored table schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
+
+        if (string.IsNullOrWhiteSpace(tableName))
+        {
+            return BadRequest(ApiResponse<TableSchemaResponseWithMetadata>.Failure("Table name cannot be empty"));
+        }
 
         return await GetTableSchemaWithStalenessCheck(projectId, tableName, schemaName, "GetStoredTableSchema");
     }
