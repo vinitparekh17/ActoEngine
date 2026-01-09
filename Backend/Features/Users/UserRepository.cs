@@ -92,7 +92,6 @@ public class UserRepository(
             user.FullName,
             user.Role,
             user.IsActive,
-            user.PasswordHash,
             UpdatedAt = DateTime.UtcNow,
             user.UpdatedBy
         };
