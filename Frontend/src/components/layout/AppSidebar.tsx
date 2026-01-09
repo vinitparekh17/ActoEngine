@@ -13,6 +13,7 @@ import {
   Search,
   GraduationCap,
   Binary,
+  Key,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -240,6 +241,13 @@ export default function AppSidebar() {
                 align="start"
                 side="top"
               >
+                <DropdownMenuItem
+                  onClick={() => navigate(`/admin/users/change-password/${user?.userId}`)}
+                  className="cursor-pointer"
+                >
+                  <Key className="mr-2 h-4 w-4" />
+                  <span>Change Password</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleLogout}
                   disabled={isLoggingOut}

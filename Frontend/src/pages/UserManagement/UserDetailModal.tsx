@@ -11,12 +11,12 @@ import {
 import { Key } from "lucide-react";
 import type { UserDto, UserDetailResponse } from "../../types/user-management";
 import { getActiveBadgeClass, getInactiveBadgeClass } from "./helpers";
+import { safeFormatDate } from "../../lib/utils";
 
 
 
 interface UserDetailModalProps {
     readonly isOpen: boolean;
-    readonly user: UserDto | null;
     readonly userDetail: UserDetailResponse | undefined;
     readonly onClose: (open: boolean) => void;
     readonly onChangePassword: (user: UserDto) => void;
@@ -24,7 +24,6 @@ interface UserDetailModalProps {
 
 export function UserDetailModal({
     isOpen,
-    user,
     userDetail,
     onClose,
     onChangePassword,
@@ -66,17 +65,19 @@ export function UserDetailModal({
                                     {userDetail.user.isActive ? "Active" : "Inactive"}
                                 </span>
                             </div>
-                            <div>
-                                <Label className="text-muted-foreground">Created At</Label>
-                                <p className="font-medium">
-                                    {new Date(userDetail.user.createdAt).toLocaleString()}
-                                </p>
-                            </div>
-                            {userDetail.user.updatedAt && (
+                            {safeFormatDate(userDetail.user.createdAt, "") && (
+                                <div>
+                                    <Label className="text-muted-foreground">Created At</Label>
+                                    <p className="font-medium">
+                                        {safeFormatDate(userDetail.user.createdAt)}
+                                    </p>
+                                </div>
+                            )}
+                            {userDetail.user.updatedAt && safeFormatDate(userDetail.user.updatedAt, "") && (
                                 <div>
                                     <Label className="text-muted-foreground">Updated At</Label>
                                     <p className="font-medium">
-                                        {new Date(userDetail.user.updatedAt).toLocaleString()}
+                                        {safeFormatDate(userDetail.user.updatedAt)}
                                     </p>
                                 </div>
                             )}

@@ -158,7 +158,7 @@ export default function ProjectHub() {
     );
   };
 
-  const renderTableCount = () => {
+  const renderStatCount = (field: 'tableCount' | 'spCount') => {
     if (isLoadingStats) {
       return <Skeleton className="h-8 w-16" />;
     }
@@ -174,26 +174,9 @@ export default function ProjectHub() {
 
     return (
       <div className="text-2xl font-bold">
-        {stats?.tableCount || 0}
+        {stats?.[field] ?? 0}
       </div>
     );
-  };
-
-  const renderSpCount = () => {
-    if (isLoadingStats) {
-      return <Skeleton className="h-8 w-16" />;
-    }
-
-    if (statsError) {
-      return (
-        <div className="flex items-center text-sm text-destructive">
-          <AlertCircle className="w-4 h-4 mr-1" />
-          Error
-        </div>
-      );
-    }
-
-    return <div className="text-2xl font-bold">{stats?.spCount || 0}</div>;
   };
 
   const renderRecentActivity = () => {
@@ -323,7 +306,7 @@ export default function ProjectHub() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {renderTableCount()}
+              {renderStatCount('tableCount')}
               <p className="text-xs text-muted-foreground mt-1">
                 Database tables
               </p>
@@ -339,7 +322,7 @@ export default function ProjectHub() {
               <Code className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {renderSpCount()}
+              {renderStatCount('spCount')}
               <p className="text-xs text-muted-foreground mt-1">
                 Stored procedures
               </p>

@@ -15,7 +15,7 @@ import type {
     PermissionGroupDto,
 } from "../../types/user-management";
 import { filterPermissionGroupsByRole } from "./helpers";
-import { format } from "date-fns";
+import { safeFormatDate } from "../../lib/utils";
 
 interface RoleDetailModalProps {
     isOpen: boolean;
@@ -46,15 +46,6 @@ export function RoleDetailModal({
         }
     };
 
-    const safeFormatDate = (dateString: string | Date) => {
-        try {
-            const date = new Date(dateString);
-            if (Number.isNaN(date.getTime())) return "-";
-            return format(date, "PPpp");
-        } catch {
-            return "-";
-        }
-    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>

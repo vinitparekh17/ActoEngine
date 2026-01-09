@@ -79,10 +79,6 @@ public class RoleController(IRoleService roleService) : ControllerBase
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
         }
 
-        if (request.RoleId != 0 && request.RoleId != roleId)
-        {
-            return BadRequest(ApiResponse<object>.Failure("Role ID in body does not match Role ID in URL"));
-        }
 
         try
         {

@@ -37,7 +37,13 @@ public static class UserSqlQueries
         SET FullName = @FullName,
             Role = @Role,
             IsActive = @IsActive,
-            PasswordHash = @PasswordHash,
+            UpdatedAt = @UpdatedAt,
+            UpdatedBy = @UpdatedBy
+        WHERE UserID = @UserID";
+
+    public const string UpdatePassword = @"
+        UPDATE Users
+        SET PasswordHash = @PasswordHash,
             UpdatedAt = @UpdatedAt,
             UpdatedBy = @UpdatedBy
         WHERE UserID = @UserID";

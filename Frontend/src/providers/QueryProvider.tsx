@@ -85,8 +85,3 @@ export function QueryProvider({ children }: Readonly<QueryProviderProps>) {
     </QueryClientProvider>
   );
 }
-
-// ============================================
-// Export Query Client for imperative use
-// ============================================
-export { getQueryClient };

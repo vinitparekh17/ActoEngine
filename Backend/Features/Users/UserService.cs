@@ -150,7 +150,7 @@ public class UserManagementService(
         var newPasswordHash = passwordHasher.HashPassword(request.NewPassword);
         user.ChangePassword(newPasswordHash, updatedBy.ToString());
 
-        await userRepository.UpdateAsync(user, cancellationToken);
+        await userRepository.UpdatePasswordAsync(user.UserID, user.PasswordHash, updatedBy.ToString(), cancellationToken);
         logger.LogInformation("Changed password for user {Username} (ID: {UserId})", user.Username, request.UserId);
     }
 

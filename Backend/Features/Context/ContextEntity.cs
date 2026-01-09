@@ -65,6 +65,7 @@ public class EntityExpert
 public class ContextHistory
 {
     public int HistoryId { get; set; }
+    public int ProjectId { get; set; }
     public required string EntityType { get; set; }
     public int EntityId { get; set; }
     public required string FieldName { get; set; }

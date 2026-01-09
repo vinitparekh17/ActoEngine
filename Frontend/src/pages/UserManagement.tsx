@@ -302,7 +302,6 @@ export default function UserManagementPage() {
           {/* User Detail Modal */}
           <UserDetailModal
             isOpen={isDetailModalOpen}
-            user={viewingUser}
             userDetail={userDetail}
             onClose={handleDetailModalClose}
             onChangePassword={handlePasswordModalChangePassword}

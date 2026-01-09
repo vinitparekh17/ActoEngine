@@ -1,5 +1,5 @@
 -- ============================================
--- Migration: V006_ContextLayer.sql
+-- Migration: V007_TblContextLayer.sql
 -- Description: Add context and documentation layer
 -- Date: 2025-11-01
 -- ============================================

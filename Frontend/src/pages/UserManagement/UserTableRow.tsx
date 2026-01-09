@@ -3,6 +3,7 @@ import { TableCell, TableRow } from "../../components/ui/table";
 import { Pencil, Trash2, Eye, Key } from "lucide-react";
 import type { UserDto } from "../../types/user-management";
 import { getActiveBadgeClass, getInactiveBadgeClass } from "./helpers";
+import { formatDate } from "../../lib/utils";
 
 interface UserTableRowProps {
     readonly user: UserDto;
@@ -20,7 +21,7 @@ export function UserTableRow({
     onChangePassword,
 }: UserTableRowProps) {
     return (
-        <TableRow key={user.userId}>
+        <TableRow>
             <TableCell>{user.userId}</TableCell>
             <TableCell>{user.username}</TableCell>
             <TableCell>{user.fullName || "-"}</TableCell>
@@ -31,7 +32,7 @@ export function UserTableRow({
                 </span>
             </TableCell>
             <TableCell>
-                {new Date(user.createdAt).toLocaleDateString()}
+                {formatDate(user.createdAt)}
             </TableCell>
             <TableCell>
                 <div className="flex gap-2">
