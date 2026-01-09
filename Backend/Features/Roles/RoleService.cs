@@ -17,7 +17,6 @@ public interface IRoleService
 
 public class RoleService(
     IRoleRepository roleRepository,
-    IPermissionRepository permissionRepository,
     IUserRepository userRepository,
     ILogger<RoleService> logger) : IRoleService
 {

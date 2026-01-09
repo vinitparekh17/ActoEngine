@@ -104,7 +104,7 @@ public class DatabaseBrowserController(
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<TableSchemaResponseWithMetadata>> GetTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
+    public async Task<ActionResult<ApiResponse<TableSchemaResponseWithMetadata>>> GetTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
     {
         _logger.LogInformation("Getting schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
 
@@ -116,7 +116,7 @@ public class DatabaseBrowserController(
         return await GetTableSchemaWithStalenessCheck(projectId, tableName, schemaName, "GetTableSchema");
     }
 
-    private async Task<ActionResult<TableSchemaResponseWithMetadata>> GetTableSchemaWithStalenessCheck(int projectId, string tableName, string schemaName, string operationName)
+    private async Task<ActionResult<ApiResponse<TableSchemaResponseWithMetadata>>> GetTableSchemaWithStalenessCheck(int projectId, string tableName, string schemaName, string operationName)
     {
         var project = await _projectRepository.GetByIdAsync(projectId);
         if (project == null)
@@ -311,7 +311,7 @@ public class DatabaseBrowserController(
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<TableSchemaResponseWithMetadata>> GetStoredTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
+    public async Task<ActionResult<ApiResponse<TableSchemaResponseWithMetadata>>> GetStoredTableSchema(int projectId, string tableName, [FromQuery] string schemaName = "dbo")
     {
         _logger.LogInformation("Getting stored table schema for table {SchemaName}.{TableName} in project {ProjectId}", schemaName, tableName, projectId);
 
