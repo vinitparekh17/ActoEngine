@@ -13,7 +13,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "../../components/ui/dialog";
-import type { UserDto } from "../../types/user-management";
+
 import { getPasswordChangingText, getChangePasswordText } from "./helpers";
 
 const passwordChangeSchema = z
@@ -30,7 +30,7 @@ type PasswordChangeFormValues = z.infer<typeof passwordChangeSchema>;
 
 interface PasswordChangeModalProps {
     readonly isOpen: boolean;
-    readonly user: UserDto | null;
+    readonly user: { userId: number; username: string } | null;
     readonly isPending: boolean;
     readonly onClose: (open: boolean) => void;
     readonly onSubmit: (data: PasswordChangeFormValues) => void;

@@ -82,6 +82,7 @@ public class ContextHistory
 public class ContextReviewRequest
 {
     public int RequestId { get; set; }
+    public int ProjectId { get; set; }
     public required string EntityType { get; set; }
     public int EntityId { get; set; }
     public int RequestedBy { get; set; }

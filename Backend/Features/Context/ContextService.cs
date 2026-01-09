@@ -34,7 +34,7 @@ public interface IContextService
     Task<List<BulkImportResult>> BulkImportContextAsync(int projectId, List<BulkContextEntry> entries, int userId);
 
     // Review Management
-    Task<int> CreateReviewRequestAsync(string entityType, int entityId, int requestedBy, int? assignedTo, string? reason);
+    Task<int> CreateReviewRequestAsync(int projectId, string entityType, int entityId, int requestedBy, int? assignedTo, string? reason);
     Task MarkContextFreshAsync(int projectId, string entityType, int entityId, int userId);
     Task<List<ContextReviewRequest>> GetPendingReviewRequestsAsync(int? userId = null);
 }
@@ -613,6 +613,7 @@ public partial class ContextService(
     /// Create review request for stale context
     /// </summary>
     public async Task<int> CreateReviewRequestAsync(
+        int projectId,
         string entityType,
         int entityId,
         int requestedBy,
@@ -620,7 +621,7 @@ public partial class ContextService(
         string? reason)
     {
         return await _contextRepo.CreateReviewRequestAsync(
-            entityType, entityId, requestedBy, assignedTo, reason);
+            projectId, entityType, entityId, requestedBy, assignedTo, reason);
     }
 
     /// <summary>

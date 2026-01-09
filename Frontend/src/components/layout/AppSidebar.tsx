@@ -37,7 +37,11 @@ import {
 } from "../ui/dropdown-menu";
 import { useProject } from "../../hooks/useProject";
 import { useAuth } from "../../hooks/useAuth";
+
 import { toast } from "sonner";
+import { PasswordChangeModal } from "../../pages/UserManagement/PasswordChangeModal";
+import { useApiMutation, queryKeys } from "../../hooks/useApi";
+import { useState } from "react";
 
 // components/layout/AppSidebar.tsx
 const SIDEBAR_ITEMS = [
@@ -66,6 +70,31 @@ export default function AppSidebar() {
   const { projects, selectedProject, selectProject, isLoadingProjects } =
     useProject();
   const { user, logout, isLoggingOut } = useAuth();
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+  // Password change mutation
+  const changePasswordMutation = useApiMutation<
+    void,
+    { userId: number; newPassword: string }
+  >("/UserManagement/:userId/change-password", "POST", {
+    successMessage: "Password changed successfully",
+    invalidateKeys: [Array.from(queryKeys.users.all())],
+  });
+
+  const handlePasswordChange = (data: { newPassword: string }) => {
+    if (!user?.userId) return;
+
+    changePasswordMutation.mutate(
+      { userId: user.userId, newPassword: data.newPassword },
+      {
+        onSuccess: () => {
+          setIsPasswordModalOpen(false);
+          // Optional: logout user after password change if required by security policy
+          // handleLogout();
+        },
+      },
+    );
+  };
 
   const handleProjectSelect = (projectId: number) => {
     const project = projects?.find((p) => p.projectId === projectId);
@@ -82,13 +111,50 @@ export default function AppSidebar() {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      logout();
       toast.success("Logged out successfully");
       navigate("/login");
     } catch (error) {
       toast.error("Failed to logout. Please try again.");
       console.error("Logout error:", error);
     }
+  };
+
+  const renderProjectDropdownItems = () => {
+    if (isLoadingProjects) {
+      return (
+        <DropdownMenuItem disabled>
+          <span className="text-muted-foreground">
+            <Skeleton className="h-4 w-32" />
+          </span>
+        </DropdownMenuItem>
+      );
+    }
+
+    if (projects?.length === 0) {
+      return (
+        <DropdownMenuItem disabled>
+          <span className="text-muted-foreground">
+            No projects available
+          </span>
+        </DropdownMenuItem>
+      );
+    }
+
+    return projects?.map((project) => (
+      <DropdownMenuItem
+        key={project.projectId}
+        onClick={() => handleProjectSelect(project.projectId)}
+        className="flex flex-col items-start gap-0.5"
+      >
+        <span className="font-medium">{project.projectName}</span>
+        {project.databaseName && (
+          <span className="text-xs text-muted-foreground">
+            {project.databaseName}
+          </span>
+        )}
+      </DropdownMenuItem>
+    ));
   };
 
   return (
@@ -121,34 +187,7 @@ export default function AppSidebar() {
                 className="w-[--radix-popper-anchor-width]"
                 align="start"
               >
-                {isLoadingProjects ? (
-                  <DropdownMenuItem disabled>
-                    <span className="text-muted-foreground">
-                      <Skeleton className="h-4 w-32" />
-                    </span>
-                  </DropdownMenuItem>
-                ) : projects?.length === 0 ? (
-                  <DropdownMenuItem disabled>
-                    <span className="text-muted-foreground">
-                      No projects available
-                    </span>
-                  </DropdownMenuItem>
-                ) : (
-                  projects?.map((project) => (
-                    <DropdownMenuItem
-                      key={project.projectId}
-                      onClick={() => handleProjectSelect(project.projectId)}
-                      className="flex flex-col items-start gap-0.5"
-                    >
-                      <span className="font-medium">{project.projectName}</span>
-                      {project.databaseName && (
-                        <span className="text-xs text-muted-foreground">
-                          {project.databaseName}
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                  ))
-                )}
+                {renderProjectDropdownItems()}
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -242,7 +281,8 @@ export default function AppSidebar() {
                 side="top"
               >
                 <DropdownMenuItem
-                  onClick={() => navigate(`/admin/users/change-password/${user?.userId}`)}
+                  onClick={() => setIsPasswordModalOpen(true)}
+                  disabled={!user?.userId}
                   className="cursor-pointer"
                 >
                   <Key className="mr-2 h-4 w-4" />
@@ -262,6 +302,13 @@ export default function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
+      <PasswordChangeModal
+        isOpen={isPasswordModalOpen}
+        user={user}
+        isPending={changePasswordMutation.isPending}
+        onClose={setIsPasswordModalOpen}
+        onSubmit={handlePasswordChange}
+      />
     </Sidebar>
   );
 }

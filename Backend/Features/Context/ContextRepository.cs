@@ -37,7 +37,7 @@ public interface IContextRepository
     Task<List<CriticalUndocumentedEntity>> GetCriticalUndocumentedAsync(int projectId, CancellationToken cancellationToken = default);
 
     // Review Requests
-    Task<int> CreateReviewRequestAsync(string entityType, int entityId, int requestedBy, int? assignedTo, string? reason, CancellationToken cancellationToken = default);
+    Task<int> CreateReviewRequestAsync(int projectId, string entityType, int entityId, int requestedBy, int? assignedTo, string? reason, CancellationToken cancellationToken = default);
     Task<List<ContextReviewRequest>> GetPendingReviewRequestsAsync(int? userId = null, CancellationToken cancellationToken = default);
     Task CompleteReviewRequestAsync(int requestId, CancellationToken cancellationToken = default);
 
@@ -400,12 +400,13 @@ public class ContextRepository(
 
     #region Review Requests
 
-    public async Task<int> CreateReviewRequestAsync(string entityType, int entityId, int requestedBy, int? assignedTo, string? reason, CancellationToken cancellationToken = default)
+    public async Task<int> CreateReviewRequestAsync(int projectId, string entityType, int entityId, int requestedBy, int? assignedTo, string? reason, CancellationToken cancellationToken = default)
     {
         var requestId = (await ExecuteScalarAsync<int?>(
             ContextQueries.CreateReviewRequest,
             new
             {
+                ProjectId = projectId,
                 EntityType = entityType,
                 EntityId = entityId,
                 RequestedBy = requestedBy,
@@ -416,8 +417,8 @@ public class ContextRepository(
 
         if (requestId == 0)
         {
-            _logger.LogError("CreateReviewRequest failed for {EntityType} {EntityId}", entityType, entityId);
-            throw new InvalidOperationException($"Failed to create review request for {entityType} {entityId}");
+            _logger.LogError("CreateReviewRequest failed for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
+            throw new InvalidOperationException($"Failed to create review request for {entityType} {entityId} in project {projectId}");
         }
 
         return requestId;
