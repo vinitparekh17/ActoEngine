@@ -1,0 +1,166 @@
+File: v-notes/nginx_example.md
+Line: 11 to 12
+Type: potential_issue
+
+Prompt for AI Agent:
+In @v-notes/nginx_example.md around lines 11 - 12, The nginx example only listens on HTTP (listen 80) and hardcodes server_name localhost; update the docs and example to show production-ready TLS: add an HTTPS server block listening on 443 ssl http2 with ssl_certificate and ssl_certificate_key (e.g., paths from Let's Encrypt/Certbot), add a separate HTTP block that redirects port 80 to HTTPS (return 301 https://$server_name$request_uri), replace server_name localhost with a placeholder like your-domain.com or instruct to use actual domain(s), and add a clear note that the provided snippet is for development only and must be replaced/expanded for production security.
+
+
+
+============================================================================
+File: Backend/Features/Users/UserController.cs
+Line: 60
+Type: potential_issue
+
+
+
+
+============================================================================
+File: Backend/Features/Users/UserRepository.cs
+Line: 96
+Type: potential_issue
+
+
+
+
+============================================================================
+File: Backend/Features/FormBuilder/FormConfigQueries.cs
+Line: 8
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Backend/Features/FormBuilder/FormConfigQueries.cs at line 8, Confirm whether the Projects table actually exposes a ProjectId column and whether it differs from the primary Id: inspect the Projects schema and verify if both Id and ProjectId exist and whether their values match; for each modified query in FormConfigQueries (the JOINs using "INNER JOIN Projects p ON fc.ProjectId = p.ProjectId" at the noted locations), if Projects only uses Id as the PK or ProjectId is different, change the join to use p.Id (or the correct canonical key) or map fc.ProjectId to the correct Projects column, then run the existing query tests / sample data queries to ensure results match previous behavior.
+
+
+
+============================================================================
+File: Frontend/src/pages/RoleManagement/RoleDetailModal.tsx
+Line: 35 to 40
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Frontend/src/pages/RoleManagement/RoleDetailModal.tsx around lines 35 - 40, The call to filterPermissionGroupsByRole can receive an undefined permissionGroups (prop on RoleDetailModal), so guard it before calling: replace permissionGroups with permissionGroups ?? [] (or check if permissionGroups is truthy and set filteredGroups = [] if not) when computing filteredGroups; alternatively update filterPermissionGroupsByRole to accept undefined by treating undefined as an empty array—refer to filteredGroups, roleDetail, filterPermissionGroupsByRole, and permissionGroups when applying the change.
+
+
+
+============================================================================
+File: Frontend/src/pages/ProjectSetup.tsx
+Line: 60
+Type: refactor_suggestion
+
+Prompt for AI Agent:
+In @Frontend/src/pages/ProjectSetup.tsx at line 60, The form registration is bypassing TypeScript by using "as any" on the resolver; remove the "as any" cast from the resolver: zodResolver(projectSetupSchema) and, if TypeScript complains, fix the type mismatch by ensuring you import zodResolver from @hookform/resolvers/zod and align the form types with the Zod schema (e.g. use z.infer for the form data type or adjust the generic for useForm) so the resolver and form types match without casting.
+
+
+
+============================================================================
+File: Frontend/src/pages/ContextDashboard.tsx
+Line: 170
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Frontend/src/pages/ContextDashboard.tsx at line 170, The code is using an unsafe cast "(entry as any).entityName" when mapping entries in ContextDashboard; instead, update the BulkContextEntry type to include entityName (or the correct property name) and remove the cast so you can use entry.entityName directly, or if entityName is not appropriate change the mapping to use the existing typed property (e.g., entry.someOtherName) and adjust BulkContextEntry where needed to reflect the actual shape; ensure the type definition and the mapping line referencing entityName are consistent and no "any" cast remains.
+
+
+
+============================================================================
+File: Frontend/src/pages/ContextDashboard.tsx
+Line: 163
+Type: refactor_suggestion
+
+Prompt for AI Agent:
+In @Frontend/src/pages/ContextDashboard.tsx at line 163, The UI currently uses blocking alert() calls in handleBulkImport (referencing bulkImportJson and BulkContextEntry) to report invalid JSON and parse errors; replace both alert("Invalid JSON format. Expected an array of entries.") and alert(Invalid JSON: ${error.message}) with your app's toast/notification API (e.g., toast.error(...)) so the messages are non-blocking and styled consistently with the app—ensure you import/initialize the project's toast provider and use the same toast calls for both the array-validation error and the JSON parse catch block.
+
+
+
+============================================================================
+File: Frontend/src/pages/RoleManagement/RoleDetailModal.tsx
+Line: 98
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Frontend/src/pages/RoleManagement/RoleDetailModal.tsx at line 98, The date formatting call in RoleDetailModal.tsx using format(new Date(roleDetail.role.createdAt), "PPpp") can throw a RangeError for invalid/malformed createdAt values; update the rendering to defensively parse roleDetail.role.createdAt into a Date, check isNaN(parsedDate.getTime()) or wrap format in a try/catch, and render a safe fallback (e.g., "Invalid date" or "-" ) when the value is invalid; ensure you reference the same symbol roleDetail.role.createdAt and keep the formatting call (format(..., "PPpp")) only when the date is valid.
+
+
+
+============================================================================
+File: Backend/Features/Schema/SchemaController.cs
+Line: 119 to 125
+Type: refactor_suggestion
+
+Prompt for AI Agent:
+In @Backend/Features/Schema/SchemaController.cs around lines 119 - 125, Update the private helper GetTableSchemaWithStalenessCheck so its return type is ActionResult (not ActionResult), and change the error response to return ApiResponse.Failure(...). Locate the method declaration GetTableSchemaWithStalenessCheck and replace all uses of TableSchemaResponse in the signature and any ApiResponse error/NotFound/BadRequest returns within that method to TableSchemaResponseWithMetadata to match the public methods' contract.
+
+
+
+============================================================================
+File: Backend/Features/Schema/SchemaController.cs
+Line: 111 to 114
+Type: refactor_suggestion
+
+Prompt for AI Agent:
+In @Backend/Features/Schema/SchemaController.cs around lines 111 - 114, In SchemaController, update the BadRequest response to use the consistent generic type: replace ApiResponse.Failure(...) with ApiResponse.Failure(...) so the returned error type matches the controller method's declared return type; keep the same message and return via BadRequest(...) unchanged.
+
+
+
+============================================================================
+File: Backend/Features/Users/UserService.cs
+Line: 71
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Backend/Features/Users/UserService.cs at line 71, The mapping currently masks a null role by using RoleName = user.RoleName ?? string.Empty; change this to make a null RoleName explicit: in the UserService mapping logic, stop coalescing to string.Empty (use RoleName = user.RoleName) and then either throw an InvalidOperationException (e.g., "User has no role assigned") when user.RoleName is null to surface data integrity issues, or return null for the entire DTO from the mapping method when user.RoleName is null; update the method signature/consumers accordingly so callers handle the thrown exception or nullable DTO.
+
+
+
+============================================================================
+File: Backend/Features/Schema/SchemaController.cs
+Line: 128 to 132
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Backend/Features/Schema/SchemaController.cs around lines 128 - 132, The current block using HttpContext.GetUserId() only logs cross-user access via _logger.LogInformation but does not enforce authorization; decide intent and implement accordingly: if resource-level authorization is required, replace or augment this check by validating userId against project.CreatedBy and return/throw a 403 (or call an authorization service) from the action (keep references to HttpContext.GetUserId(), project.CreatedBy, operationName, projectId and ensure controller still honors [Authorize] for authentication); if only audit logging is intended, update the comment to "Log cross-user access for audit" and ensure the condition also logs when users access their own projects if desired (adjust the HttpContext.GetUserId() condition and _logger.LogInformation message to clearly indicate audit-only behavior).
+
+
+
+============================================================================
+File: Backend/Features/Schema/SchemaController.cs
+Line: 311 to 320
+Type: refactor_suggestion
+
+Prompt for AI Agent:
+In @Backend/Features/Schema/SchemaController.cs around lines 311 - 320, The method GetStoredTableSchema currently returns ActionResult and uses ProducesResponseType attributes for TableSchemaResponseWithMetadata; change the signature and attributes to consistently return the metadata-wrapped type: update the method return type to Task> and update the first ProducesResponseType to typeof(ApiResponse); ensure the call to GetTableSchemaWithStalenessCheck(projectId, tableName, schemaName, "GetStoredTableSchema") matches the updated return type (it should return TableSchemaResponseWithMetadata) so the method can directly return its result.
+
+
+
+============================================================================
+File: Backend/Features/Schema/SchemaController.cs
+Line: 103 to 107
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Backend/Features/Schema/SchemaController.cs around lines 103 - 107, The method signatures and declared ProducesResponseType are inconsistent: change GetTableSchema, GetStoredTableSchema and GetTableSchemaWithStalenessCheck to return ActionResult (matching ProducesResponseType), and update their return sites so both branches return ApiResponse; specifically wrap the existing TableSchemaResponse payload into the TableSchemaResponseWithMetadata wrapper and set IsStale = false for the branch that currently returns the plain TableSchemaResponse (e.g., the linked-project return at the former Line 157), ensuring all paths and documented response types consistently use the metadata wrapper.
+
+
+
+============================================================================
+File: Frontend/src/pages/UserManagement/UserFormModal.tsx
+Line: 92 to 102
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Frontend/src/pages/UserManagement/UserFormModal.tsx around lines 92 - 102, The effect in UserFormModal that resets the form (the useEffect referencing isOpen, defaultValues, reset) can fire whenever the defaultValues reference changes and wipe input; change the logic to only reset when the modal actually opens (i.e., when isOpen transitions from false to true) by tracking the previous isOpen value (use a ref or prev value) and running reset(...) only when isOpen becomes true, merging in defaultValues at that moment; keep reset and defaultValues usage but remove defaultValues from the effect dependency (or perform a deep-compare) so form edits aren't lost on parent re-renders.
+
+
+
+============================================================================
+File: Frontend/src/pages/UserManagement/UserFormModal.tsx
+Line: 45 to 54
+Type: potential_issue
+
+Prompt for AI Agent:
+In @Frontend/src/pages/UserManagement/UserFormModal.tsx around lines 45 - 54, UserFormValues is currently inferred from createUserSchema (password required) but the form switches to updateUserSchema (password optional) when isEditing is true, causing a type mismatch for onSubmit and defaultValues; fix by introducing separate types (e.g., CreateUserValues = z.infer and UpdateUserValues = z.infer) and update UserFormModalProps to accept a union or conditional for editing: change onSubmit to (data: CreateUserValues | UpdateUserValues) => void (or make the props generic over T extends CreateUserValues | UpdateUserValues and set T = UpdateUserValues when isEditing), and adjust defaultValues to Partial so the types align with the active schema (refer to createUserSchema, updateUserSchema, UserFormValues, onSubmit, defaultValues, and isEditing to locate changes).
+
+
+
+Review completed ✔

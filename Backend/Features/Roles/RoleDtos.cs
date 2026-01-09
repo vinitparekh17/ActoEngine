@@ -31,21 +31,9 @@ public class RoleWithPermissions
     public List<Permission> Permissions { get; set; } = [];
 }
 
-public class CreateRoleRequest
-{
-    public string RoleName { get; set; } = default!;
-    public string? Description { get; set; }
-    public List<int> PermissionIds { get; set; } = [];
-}
 
-public class UpdateRoleRequest
-{
-    public int RoleId { get; set; }
-    public string RoleName { get; set; } = default!;
-    public string? Description { get; set; }
-    public bool IsActive { get; set; }
-    public List<int> PermissionIds { get; set; } = [];
-}
+
+
 
 public class PermissionGroupDto
 {

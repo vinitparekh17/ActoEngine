@@ -30,9 +30,14 @@ public static class DatabaseExtensions
 
         builder.Configuration["ConnectionStrings:DefaultConnection"] = connStringBuilder.ConnectionString;
 
-        // Set admin password from environment variables
-        var adminPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD") ?? builder.Configuration["SEED_ADMIN_PASSWORD"]
-            ?? throw new InvalidOperationException("Admin password must be set via SEED_ADMIN_PASSWORD environment variable");
+        // Set admin password from environment variables or user secrets/configuration
+        // Priority: SEED_ADMIN_PASSWORD env var > DatabaseSeeding:DefaultPasswords:AdminUser (user secrets/config) > throw
+        var adminPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD") 
+            ?? builder.Configuration["DatabaseSeeding:DefaultPasswords:AdminUser"]
+            ?? throw new InvalidOperationException(
+                "Admin password must be set via SEED_ADMIN_PASSWORD environment variable or " +
+                "DatabaseSeeding:DefaultPasswords:AdminUser in user secrets/config. " +
+                "For development, use: dotnet user-secrets set \"DatabaseSeeding:DefaultPasswords:AdminUser\" \"your-password\"");
         builder.Configuration["DatabaseSeeding:DefaultPasswords:AdminUser"] = adminPassword;
     }
 }

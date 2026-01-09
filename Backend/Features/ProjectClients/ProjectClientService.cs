@@ -81,18 +81,10 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             try
             {
                 // Validate that project exists
-                var project = await _projectRepository.GetByIdAsync(projectId);
-                if (project == null)
-                {
-                    throw new InvalidOperationException($"Project with ID {projectId} not found");
-                }
+                var project = await _projectRepository.GetByIdAsync(projectId) ?? throw new InvalidOperationException($"Project with ID {projectId} not found");
 
                 // Validate that client exists
-                var client = await _clientRepository.GetByIdAsync(clientId);
-                if (client == null)
-                {
-                    throw new InvalidOperationException($"Client with ID {clientId} not found");
-                }
+                var client = await _clientRepository.GetByIdAsync(clientId) ?? throw new InvalidOperationException($"Client with ID {clientId} not found");
 
                 // Check if already linked
                 var isLinked = await _projectClientRepository.IsLinkedAsync(projectId, clientId);
@@ -113,13 +105,7 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
 
                 // Fetch and return the linked details
                 var linkedClients = await _projectClientRepository.GetClientsByProjectAsync(projectId);
-                var linkedClient = linkedClients.FirstOrDefault(l => l.ClientId == clientId);
-
-                if (linkedClient == null)
-                {
-                    throw new InvalidOperationException($"Failed to retrieve linked client {clientId} for project {projectId}");
-                }
-
+                var linkedClient = linkedClients.FirstOrDefault(l => l.ClientId == clientId) ?? throw new InvalidOperationException($"Failed to retrieve linked client {clientId} for project {projectId}");
                 _logger.LogInformation("Successfully linked client {ClientId} ({ClientName}) to project {ProjectId} ({ProjectName})",
                     clientId, linkedClient.ClientName, projectId, linkedClient.ProjectName);
 
@@ -181,11 +167,7 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             try
             {
                 // Validate that project exists
-                var project = await _projectRepository.GetByIdAsync(request.ProjectId);
-                if (project == null)
-                {
-                    throw new InvalidOperationException($"Project with ID {request.ProjectId} not found");
-                }
+                var project = await _projectRepository.GetByIdAsync(request.ProjectId) ?? throw new InvalidOperationException($"Project with ID {request.ProjectId} not found");
 
                 // Link each client to the project
                 var linkedClients = new List<ProjectClientDetailResponse>();
@@ -224,11 +206,7 @@ namespace ActoEngine.WebApi.Services.ProjectClientService
             try
             {
                 // Validate that client exists
-                var client = await _clientRepository.GetByIdAsync(request.ClientId);
-                if (client == null)
-                {
-                    throw new InvalidOperationException($"Client with ID {request.ClientId} not found");
-                }
+                var client = await _clientRepository.GetByIdAsync(request.ClientId) ?? throw new InvalidOperationException($"Client with ID {request.ClientId} not found");
 
                 // Link the client to each project
                 var linkedProjects = new List<ProjectClientDetailResponse>();

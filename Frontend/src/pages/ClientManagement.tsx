@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   useApi,
   useApiPost,
@@ -36,14 +39,186 @@ import { Pencil, Trash2, Plus, Users } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import type { Client, CreateClientRequest } from "../types/client";
 
+// Zod schema for client form
+const clientSchema = z.object({
+  clientName: z.string().min(1, "Name is required"),
+  projectId: z.number().int().positive("Project ID must be a positive integer"),
+});
+
+type ClientFormValues = z.infer<typeof clientSchema>;
+
+// ClientTableRow Component
+interface ClientTableRowProps {
+  readonly client: Client;
+  readonly canUpdate: boolean;
+  readonly canDelete: boolean;
+  readonly onEdit: (client: Client) => void;
+  readonly onDelete: (client: Client) => void;
+}
+
+function ClientTableRow({
+  client,
+  canUpdate,
+  canDelete,
+  onEdit,
+  onDelete,
+}: ClientTableRowProps) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{client.clientName}</TableCell>
+      <TableCell>
+        <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm">
+          {client.clientId}
+        </code>
+      </TableCell>
+      <TableCell>
+        <Badge variant={client.isActive ? "default" : "secondary"}>
+          {client.isActive ? "Active" : "Inactive"}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        {new Date(client.createdAt).toLocaleDateString()}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-2">
+          {canUpdate && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onEdit(client)}
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              onClick={() => onDelete(client)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ClientModal Component
+interface ClientModalProps {
+  readonly isOpen: boolean;
+  readonly isEditing: boolean;
+  readonly defaultValues?: ClientFormValues;
+  readonly isPending: boolean;
+  readonly onSubmit: (data: ClientFormValues) => void;
+  readonly onClose: (open: boolean) => void;
+}
+
+function ClientModal({
+  isOpen,
+  isEditing,
+  defaultValues,
+  isPending,
+  onSubmit,
+  onClose,
+}: ClientModalProps) {
+  const title = isEditing ? "Edit Client" : "Create New Client";
+  const description = isEditing
+    ? "Update the client details below and click 'Update Client' to save changes."
+    : "Enter the details below and click 'Create Client' to add a new client.";
+
+  let buttonText: string;
+  if (isEditing) {
+    buttonText = isPending ? "Updating..." : "Update Client";
+  } else {
+    buttonText = isPending ? "Creating..." : "Create Client";
+  }
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ClientFormValues>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: { clientName: "", projectId: 1 },
+  });
+
+  // Reset form when modal opens or defaultValues change
+  useEffect(() => {
+    if (isOpen) {
+      reset(defaultValues || { clientName: "", projectId: 1 });
+    }
+  }, [isOpen, defaultValues, reset]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+
+        <form
+          onSubmit={handleSubmit((data) => onSubmit(data))}
+          className="grid gap-4 py-4"
+        >
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="clientName" className="text-right">
+              Name
+            </Label>
+            <div className="col-span-3">
+              <Input
+                id="clientName"
+                placeholder="Enter client name"
+                {...register("clientName")}
+                className={errors.clientName ? "border-destructive" : ""}
+              />
+              {errors.clientName && (
+                <p className="text-destructive text-sm mt-1">
+                  {errors.clientName.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="projectId" className="text-right">
+              Project ID
+            </Label>
+            <div className="col-span-3">
+              <Input
+                id="projectId"
+                type="number"
+                {...register("projectId", { valueAsNumber: true })}
+                className={errors.projectId ? "border-destructive" : ""}
+              />
+              {errors.projectId && (
+                <p className="text-destructive text-sm mt-1">
+                  {errors.projectId.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={isPending}>
+              {buttonText}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ClientManagementPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<CreateClientRequest>({
-    clientName: "",
-    projectId: 1,
-  });
+
   const { confirm } = useConfirm();
 
   // Permission checks
@@ -82,36 +257,32 @@ export default function ClientManagementPage() {
     },
   );
 
-  const handleCreate = () => {
-    if (!formData.clientName.trim()) return;
-    const projectId = Number(formData.projectId);
-    if (!Number.isInteger(projectId) || projectId <= 0) {
-      return;
-    }
-    createClientMutation.mutate(formData, {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        setFormData({ clientName: "", projectId: 1 });
+  const handleCreate = (data: ClientFormValues) => {
+    createClientMutation.mutate(
+      {
+        clientName: data.clientName,
+        projectId: data.projectId,
       },
-    });
+      {
+        onSuccess: () => {
+          setIsModalOpen(false);
+        },
+      }
+    );
   };
 
-  const handleUpdate = () => {
-    if (!editingClient || !formData.clientName.trim()) return;
-    const projectId = Number(formData.projectId);
-    if (!Number.isInteger(projectId) || projectId <= 0) {
-      return;
-    }
+  const handleUpdate = (data: ClientFormValues) => {
+    if (!editingClient) return;
+
     const updatedClient = {
       ...editingClient,
-      clientName: formData.clientName,
-      projectId,
+      clientName: data.clientName,
+      projectId: data.projectId,
     };
     updateClientMutation.mutate(updatedClient, {
       onSuccess: () => {
         setIsModalOpen(false);
         setEditingClient(null);
-        setFormData({ clientName: "", projectId: 1 });
       },
     });
   };
@@ -133,14 +304,12 @@ export default function ClientManagementPage() {
   const openEditModal = (client: Client) => {
     setIsEditing(true);
     setEditingClient(client);
-    setFormData({ clientName: client.clientName, projectId: client.projectId });
     setIsModalOpen(true);
   };
 
   const openCreateModal = () => {
     setIsEditing(false);
     setEditingClient(null);
-    setFormData({ clientName: "", projectId: 1 });
     setIsModalOpen(true);
   };
 
@@ -149,7 +318,6 @@ export default function ClientManagementPage() {
       setIsModalOpen(false);
       setEditingClient(null);
       setIsEditing(false);
-      setFormData({ clientName: "", projectId: 1 });
     }
   };
 
@@ -214,49 +382,14 @@ export default function ClientManagementPage() {
                   </TableRow>
                 ) : (
                   clients.map((client) => (
-                    <TableRow key={client.clientId}>
-                      <TableCell className="font-medium">
-                        {client.clientName}
-                      </TableCell>
-                      <TableCell>
-                        <code className="relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm">
-                          {client.clientName}
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={client.isActive ? "default" : "secondary"}
-                        >
-                          {client.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(client.createdAt).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {canUpdate && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditModal(client)}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                          )}
-                          {canDelete && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(client)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <ClientTableRow
+                      key={client.clientId}
+                      client={client}
+                      canUpdate={canUpdate}
+                      canDelete={canDelete}
+                      onEdit={openEditModal}
+                      onDelete={handleDelete}
+                    />
                   ))
                 )}
               </TableBody>
@@ -264,80 +397,25 @@ export default function ClientManagementPage() {
           </div>
 
           {/* Unified Modal */}
-          <Dialog open={isModalOpen} onOpenChange={handleModalClose}>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {isEditing ? "Edit Client" : "Create New Client"}
-                </DialogTitle>
-                <DialogDescription>
-                  {isEditing
-                    ? "Update the client details below and click “Update Client” to save changes."
-                    : "Enter the details below and click “Create Client” to add a new client."}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="clientName" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="clientName"
-                    value={formData.clientName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, clientName: e.target.value })
-                    }
-                    placeholder="Enter client name"
-                    className="col-span-3"
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="projectId" className="text-right">
-                    Project ID
-                  </Label>
-                  <Input
-                    id="projectId"
-                    type="number"
-                    value={formData.projectId}
-                    onChange={(e) => {
-                      const value = e.target.value.trim();
-                      if (value === "") {
-                        setFormData({ ...formData, projectId: 1 });
-                        return;
-                      }
-                      const parsed = parseInt(value, 10);
-                      setFormData({
-                        ...formData,
-                        projectId: Number.isNaN(parsed) ? 1 : parsed,
-                      });
-                    }}
-                    className="col-span-3"
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  onClick={isEditing ? handleUpdate : handleCreate}
-                  disabled={
-                    isEditing
-                      ? updateClientMutation.isPending
-                      : createClientMutation.isPending
-                  }
-                >
-                  {isEditing
-                    ? updateClientMutation.isPending
-                      ? "Updating..."
-                      : "Update Client"
-                    : createClientMutation.isPending
-                      ? "Creating..."
-                      : "Create Client"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <ClientModal
+            isOpen={isModalOpen}
+            isEditing={isEditing}
+            defaultValues={
+              editingClient
+                ? {
+                  clientName: editingClient.clientName,
+                  projectId: editingClient.projectId,
+                }
+                : undefined
+            }
+            isPending={
+              isEditing
+                ? updateClientMutation.isPending
+                : createClientMutation.isPending
+            }
+            onSubmit={isEditing ? handleUpdate : handleCreate}
+            onClose={handleModalClose}
+          />
         </div>
       )}
     </LoadingContainer>

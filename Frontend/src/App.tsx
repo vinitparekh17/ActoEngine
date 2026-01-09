@@ -30,7 +30,7 @@ import { initializeApiClient } from "./lib/api";
 // ============================================
 // Protected Route Wrapper
 // ============================================
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: Readonly<{ children: React.ReactNode }>) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {

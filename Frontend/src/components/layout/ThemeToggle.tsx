@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Moon, Sun } from "lucide-react";
@@ -13,13 +11,13 @@ export default function ThemeToggle() {
     setMounted(true);
 
     try {
-      if (typeof window === 'undefined') return;
+      if (globalThis.window === undefined) return;
 
       const savedTheme = localStorage.getItem("theme");
       if (savedTheme) {
         setDark(savedTheme === "dark");
       } else {
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const prefersDark = globalThis.window.matchMedia("(prefers-color-scheme: dark)").matches;
         setDark(prefersDark);
       }
     } catch (error) {

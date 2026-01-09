@@ -296,7 +296,7 @@ export function useFormBuilder() {
   const saveConfigMutation = useApiPost<
     { success: boolean; formId: number; config: FormConfig },
     { projectId: number; config: FormConfig; description?: string }
-  >("/formbuilder/save", {
+  >("/FormBuilder/save", {
     onSuccess: () => {
       toast.success("Form configuration saved!");
     },
@@ -310,7 +310,7 @@ export function useFormBuilder() {
       generateStoredProcedures?: boolean;
       preview?: boolean;
     }
-  >("/formbuilder/generate", {
+  >("/FormBuilder/generate", {
     onSuccess: (data) => {
       const { success, message, warnings } = data || {};
       if (success) {
@@ -512,6 +512,7 @@ export function useFormBuilder() {
 
     // Schema
     setTableSchema: store.setTableSchema,
+    setConfig: store.setConfig,
 
     // Reset
     reset: store.reset,

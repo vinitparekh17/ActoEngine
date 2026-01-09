@@ -5,20 +5,20 @@ public static class FormConfigSqlQueries
     public const string GetById = @"
         SELECT fc.ConfigJson
         FROM FormConfigs fc
-        INNER JOIN Projects p ON fc.ProjectId = p.Id
+        INNER JOIN Projects p ON fc.ProjectId = p.ProjectId
         WHERE fc.Id = @Id AND p.CreatedBy = @UserId";
 
     public const string GetByIdOrName = @"
         SELECT fc.ConfigJson
         FROM FormConfigs fc
-        INNER JOIN Projects p ON fc.ProjectId = p.Id
+        INNER JOIN Projects p ON fc.ProjectId = p.ProjectId
         WHERE (fc.Id = @IdOrName OR fc.FormName = @IdOrName)
           AND p.CreatedBy = @UserId";
 
     public const string GetIdByProjectAndFormName = @"
         SELECT fc.Id
         FROM FormConfigs fc
-        INNER JOIN Projects p ON fc.ProjectId = p.Id
+        INNER JOIN Projects p ON fc.ProjectId = p.ProjectId
         WHERE fc.ProjectId = @ProjectId
           AND fc.FormName = @FormName
           AND p.CreatedBy = @UserId";
@@ -27,7 +27,7 @@ public static class FormConfigSqlQueries
         SELECT fc.Id, fc.ProjectId, fc.FormName, fc.TableName, fc.Title,
                fc.CreatedAt, fc.UpdatedAt
         FROM FormConfigs fc
-        INNER JOIN Projects p ON fc.ProjectId = p.Id
+        INNER JOIN Projects p ON fc.ProjectId = p.ProjectId
         WHERE fc.ProjectId = @ProjectId AND p.CreatedBy = @UserId
         ORDER BY fc.UpdatedAt DESC";
 
@@ -75,7 +75,7 @@ public static class FormConfigSqlQueries
 
     public const string Delete = @"
         DELETE fc FROM FormConfigs fc
-        INNER JOIN Projects p ON fc.ProjectId = p.Id
+        INNER JOIN Projects p ON fc.ProjectId = p.ProjectId
         WHERE fc.Id = @Id AND p.CreatedBy = @UserId";
 
     // Denormalized data queries

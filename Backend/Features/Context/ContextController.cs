@@ -434,6 +434,7 @@ public class ContextController(
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateReviewRequest(
+        int projectId,
         [FromBody] CreateReviewRequestModel request)
     {
         try
@@ -450,6 +451,7 @@ public class ContextController(
             }
 
             var requestId = await _contextService.CreateReviewRequestAsync(
+                projectId,
                 request.EntityType,
                 request.EntityId,
                 userId.Value,

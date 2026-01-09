@@ -6,6 +6,9 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+
+export type DateValue = string | Date | null | undefined;
+
 /**
  * Safely formats a date string or Date object as relative time (e.g., "2 hours ago")
  * Returns a fallback string if the date is invalid
@@ -15,7 +18,7 @@ export function cn(...inputs: ClassValue[]) {
  * @returns Formatted relative time string or fallback
  */
 export function formatRelativeTime(
-  dateValue: string | Date | null | undefined,
+  dateValue: DateValue,
   fallback: string = "recently",
 ): string {
   if (!dateValue) return fallback;
@@ -23,7 +26,7 @@ export function formatRelativeTime(
   const date = typeof dateValue === "string" ? new Date(dateValue) : dateValue;
 
   // Check if date is valid
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return fallback;
   }
 
@@ -40,7 +43,7 @@ export function formatRelativeTime(
  * @returns Formatted date string or fallback
  */
 export function formatDate(
-  dateValue: string | Date | null | undefined,
+  dateValue: DateValue,
   formatString: string = "PPP",
   fallback: string = "N/A",
 ): string {
@@ -49,9 +52,20 @@ export function formatDate(
   const date = typeof dateValue === "string" ? new Date(dateValue) : dateValue;
 
   // Check if date is valid
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return fallback;
   }
 
   return format(date, formatString);
+}
+
+/**
+ * Safely formats a date using the standard application format (PPpp).
+ * E.g., "Apr 29, 2023, 5:00 PM"
+ */
+export function safeFormatDate(
+  dateValue: DateValue,
+  fallback: string = "-",
+): string {
+  return formatDate(dateValue, "PPpp", fallback);
 }

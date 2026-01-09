@@ -36,6 +36,7 @@ namespace ActoEngine.WebApi.Extensions
 
             // Configure batch settings from appsettings.json
             services.Configure<BatchSettings>(configuration.GetSection("BatchSettings"));
+            services.Configure<DatabaseSeedingOptions>(configuration.GetSection("DatabaseSeeding"));
 
 
             // Add distributed memory cache for permission caching
