@@ -89,4 +89,8 @@ secrets.json
 !.env.example
 v-notes*
 
+# Secrets directory (keep only .example files)
+secrets/*
+!secrets/*.example
+
 .fake

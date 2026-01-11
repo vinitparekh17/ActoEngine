@@ -65,7 +65,7 @@ export function useSyncStatus(
   const mountedRef = useRef<boolean>(true);
   const maxReconnectAttempts = 5;
 
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5093";
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5093";
 
   /**
    * Fetch sync status via REST API (one-time fetch, no polling)

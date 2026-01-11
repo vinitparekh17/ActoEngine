@@ -9,6 +9,9 @@ using DotNetEnv;
 var builder = WebApplication.CreateBuilder(args);
 
 Env.Load();
+// Support for Docker Secrets (loaded first, can be overridden by env vars)
+builder.Configuration.AddKeyPerFile("/run/secrets", optional: true);
+// Environment variables override secrets
 builder.Configuration.AddEnvironmentVariables();
 
 // 1. Database Configuration

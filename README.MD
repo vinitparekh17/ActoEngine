@@ -66,11 +66,32 @@ context, automation becomes intelligent.
    npm run dev
    ```
 
-## Usage
+### Docker Deployment
 
-1. Start the backend API.
-2. Start the frontend application.
-3. Access the application at `http://localhost:5173`.
+1. Create a `.env` file from the example:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Update the `.env` file with your preferred settings.
+   The `.env.example` file contains the following variables that you should configure:
+
+   | Variable | Description | Example / Default |
+   |----------|-------------|-------------------|
+   | `DB_PASSWORD` | **Required.** Password for the SQL Server `sa` user. Must differ from defaults for security. | `your_secure_password_here` |
+   | `DB_NAME` | Database name. | `ActoEngine` |
+   | `DB_USER` | Database user. | `sa` |
+   | `ASPNETCORE_ENVIRONMENT` | Runtime environment. Use `Development` for local dev. | `Development` |
+   | `VITE_API_BASE_URL` | URL where the frontend can reach the backend API. | `http://localhost:5093/api` |
+
+3. Build and start the services:
+   ```bash
+   docker-compose up --build
+   ```
+
+4. Access the application:
+   - Frontend: `http://localhost:3000`
+   - Backend API: `http://localhost:5093`
 
 ## Contributing
 
