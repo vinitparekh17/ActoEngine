@@ -135,26 +135,17 @@ class ApiClient {
   }
 
   private async parseResponseBody(response: Response): Promise<any> {
-    const text = await response.text();
-
-    // Empty body is valid (not an error)
-    if (!text || !text.trim()) {
-      return null;
-    }
-
     const contentType = response.headers.get("content-type") ?? "";
     const isJson = contentType.includes("application/json");
 
     if (isJson) {
       try {
-        return JSON.parse(text);
+        return await response.json();
       } catch {
-        throw new ApiError("Invalid JSON in response body", response.status);
+        // Invalid JSON - will be handled by caller if needed, or treated as null body
       }
     }
-
-    // Non-JSON content - return raw text
-    return text;
+    return null;
   }
 
   private handleApiErrors(response: Response, body: any): never {
@@ -197,13 +188,13 @@ class ApiClient {
       return body as T;
     }
 
-    // Handle successful empty responses (204 No Content, DELETE, etc.)
-    if (response.ok) {
+    // Handle 204 No Content and other successful empty responses
+    if (response.ok && (response.status === 204 || response.status === 201)) {
       return undefined as T;
     }
 
     throw new ApiError(
-      "Response body is empty or invalid",
+      "Response body is empty or invalid JSON",
       response.status,
     );
   }

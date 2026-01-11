@@ -18,7 +18,7 @@ BEGIN
 END
 GO
 
-USE [$(DB_NAME)];
+USE $(DB_NAME);
 GO
 
 -- Create user if not exists
@@ -60,9 +60,6 @@ GO
 -- These are needed for EF Core migrations if app_user runs them
 -- Note: For production, consider running migrations with a separate migration account
 GRANT CREATE TABLE TO app_user;
-GRANT CREATE PROCEDURE TO app_user;
-GRANT CREATE VIEW TO app_user;
-GRANT CREATE FUNCTION TO app_user;
 GRANT ALTER ON SCHEMA::dbo TO app_user;
 GRANT REFERENCES ON SCHEMA::dbo TO app_user;
 GO
