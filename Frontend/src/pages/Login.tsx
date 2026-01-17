@@ -3,9 +3,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { User, Lock, Eye, EyeOff, Database, Zap, Shield, Code, Code2, Terminal, AlertCircle, ArrowRight } from "lucide-react";
+import { User, Lock, Eye, EyeOff, Database, Zap, Shield, Code2, Terminal, AlertCircle, ArrowRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -144,6 +144,7 @@ export default function LoginPage() {
   const { ref: cardRef, position: mousePos } = useRelativeMouse();
   // Parallax Offset
   const parallax = useParallax();
+
   return (
     <div className="min-h-screen w-full lg:grid lg:grid-cols-2 font-sans bg-neutral-950 selection:bg-emerald-500/30 overflow-x-hidden">
       <CustomStyles />
@@ -308,9 +309,9 @@ export default function LoginPage() {
               <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-xs font-medium text-emerald-500 hover:text-emerald-400 transition-colors hover:underline">
+                  <a href="#" className="text-xs font-medium text-emerald-500 hover:text-emerald-400 transition-colors hover:underline">
                     Forgot password?
-                  </Link>
+                  </a>
                 </div>
                 <div className="relative transform transition-transform duration-200 group-focus-within:scale-[1.01]">
                   <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-neutral-500 group-focus-within:text-emerald-400 transition-colors">
@@ -330,8 +331,8 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-500 hover:text-neutral-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 rounded"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-500 hover:text-neutral-300 transition-colors focus:outline-none"
+                    tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
