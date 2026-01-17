@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Config;
+namespace ActoEngine.WebApi.Shared.Exceptions;
 
 public abstract class DomainException : Exception
 {

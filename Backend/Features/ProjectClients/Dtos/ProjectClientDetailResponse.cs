@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models.Responses.ProjectClient;
+namespace ActoEngine.WebApi.Features.ProjectClients.Dtos;
 
 /// <summary>
 /// Response DTO with detailed project and client information

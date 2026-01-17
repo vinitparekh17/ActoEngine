@@ -1,5 +1,5 @@
 using ActoEngine.WebApi.Features.Auth;
-using ActoEngine.WebApi.Services.PermissionService;
+using ActoEngine.WebApi.Features.Permissions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;

@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.VerdictBuilder;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Contracts;
+using ActoEngine.WebApi.Api.ApiModels;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
 
-namespace ActoEngine.WebApi.Controllers;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis;
 
 /// <summary>
 /// Impact analysis API.

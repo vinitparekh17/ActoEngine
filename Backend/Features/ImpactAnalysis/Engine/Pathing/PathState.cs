@@ -1,6 +1,6 @@
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 
-namespace ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Pathing
+namespace ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Pathing
 {
     /// <summary>
     /// Represents an in-progress traversal path during BFS.

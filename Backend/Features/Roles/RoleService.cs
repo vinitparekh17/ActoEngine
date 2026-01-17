@@ -1,9 +1,7 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Features.Users;
-using ActoEngine.WebApi.Models.Requests.Role;
+using ActoEngine.WebApi.Features.Roles.Dtos;
 
-namespace ActoEngine.WebApi.Services.RoleService;
+namespace ActoEngine.WebApi.Features.Roles;
 
 public interface IRoleService
 {

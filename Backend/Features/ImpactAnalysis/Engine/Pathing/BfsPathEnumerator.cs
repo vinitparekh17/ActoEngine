@@ -1,7 +1,7 @@
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Contracts;
 
-namespace ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Pathing;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Pathing;
 
 /// <summary>
 /// Breadth-first dependency path enumerator.

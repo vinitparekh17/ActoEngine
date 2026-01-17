@@ -1,31 +1,27 @@
-using ActoEngine.WebApi.Shared;
-using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Features.FormBuilder;
-using ActoEngine.WebApi.Services.PermissionService;
-using ActoEngine.WebApi.Services.ProjectClientService;
 using ActoEngine.WebApi.Features.Projects;
-using ActoEngine.WebApi.Services.RoleService;
 using ActoEngine.WebApi.Features.Schema;
-using ActoEngine.WebApi.Services.SpBuilderService;
-using ActoEngine.WebApi.Services.UserManagementService;
 using ActoEngine.WebApi.Services.ValidationService;
-using ActoEngine.WebApi.Services.DependencyService;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Scoring;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Pathing;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Graph;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Approval;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Aggregation;
-using ActoEngine.WebApi.Services.ImpactAnalysis;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.VerdictBuilder;
 using ActoEngine.WebApi.Features.Auth;
 using ActoEngine.WebApi.Features.Clients;
 using ActoEngine.WebApi.Features.Context;
 using ActoEngine.WebApi.Features.Users;
 using ActoEngine.WebApi.Features.SpBuilder;
+using ActoEngine.WebApi.Features.ProjectClients;
+using ActoEngine.WebApi.Shared.Validation;
+using ActoEngine.WebApi.Features.ImpactAnalysis;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Scoring;
+using ActoEngine.WebApi.Features.Permissions;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Contracts;
+using ActoEngine.WebApi.Features.Roles;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Approval;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Graph;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Aggregation;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Pathing;
 
-namespace ActoEngine.WebApi.Extensions
+namespace ActoEngine.WebApi.Shared.Extensions
 {
     public static class ServiceRegistrationExtensions
     {

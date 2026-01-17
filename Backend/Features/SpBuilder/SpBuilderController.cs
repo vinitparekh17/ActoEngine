@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Attributes;
-using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Services.SpBuilderService;
+using ActoEngine.WebApi.Features.Schema;
+using ActoEngine.WebApi.Api.ApiModels;
+using ActoEngine.WebApi.Features.Projects;
+using ActoEngine.WebApi.Api.Attributes;
 
-namespace ActoEngine.WebApi.Controllers;
+namespace ActoEngine.WebApi.Features.SpBuilder;
 
 [ApiController]
 [Authorize]

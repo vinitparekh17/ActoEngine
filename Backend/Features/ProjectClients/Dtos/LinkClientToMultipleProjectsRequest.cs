@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ActoEngine.WebApi.Models.Requests.ProjectClient;
+namespace ActoEngine.WebApi.Features.ProjectClients.Dtos;
 
 /// <summary>
 /// Request DTO for linking a single client to multiple projects

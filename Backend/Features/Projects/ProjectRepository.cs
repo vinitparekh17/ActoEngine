@@ -1,9 +1,8 @@
-using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
-using ActoEngine.WebApi.SqlQueries;
+using ActoEngine.WebApi.Features.Schema;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Features.Projects;
 
 /// <summary>
 /// Public DTO for Project

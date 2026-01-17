@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 /// <summary>
 /// Immutable directed graph optimized for BFS traversal.
 /// </summary>

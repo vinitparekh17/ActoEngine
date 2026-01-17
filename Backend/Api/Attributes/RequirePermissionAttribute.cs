@@ -1,8 +1,8 @@
-using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Api.ApiModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace ActoEngine.WebApi.Attributes;
+namespace ActoEngine.WebApi.Api.Attributes;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class RequirePermissionAttribute(string permissionKey) : Attribute, IAsyncAuthorizationFilter

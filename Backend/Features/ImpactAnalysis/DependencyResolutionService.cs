@@ -1,10 +1,8 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Infrastructure.Database;
 using Dapper;
 using System.Data;
 
-namespace ActoEngine.WebApi.Services.DependencyService;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis;
 
 public interface IDependencyResolutionService
 {

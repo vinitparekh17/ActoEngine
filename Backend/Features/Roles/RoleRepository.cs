@@ -1,12 +1,10 @@
-using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
 using ActoEngine.WebApi.Features.Users;
-using ActoEngine.WebApi.SqlQueries;
 using System.Data;
 using Dapper;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Features.Roles;
 
 public interface IRoleRepository
 {
