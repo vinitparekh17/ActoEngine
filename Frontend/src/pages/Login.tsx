@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -15,6 +16,44 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+
+const useParallax = () => {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      setOffset({
+        x: (e.clientX - window.innerWidth / 2) / 40,
+        y: (e.clientY - window.innerHeight / 2) / 40,
+      });
+    };
+    window.addEventListener('mousemove', handleMove);
+    return () => window.removeEventListener('mousemove', handleMove);
+  }, []);
+  return offset;
+};
+
+const useRelativeMouse = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (ref.current) {
+        const rect = ref.current.getBoundingClientRect();
+        setPosition({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        });
+      }
+    };
+    // Attach to window to ensure smooth tracking even near edges
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
+  return { ref, position };
+};
 
 export default function LoginPage() {
   const { login, isLoggingIn, loginError, clearError } = useAuth();
@@ -41,11 +80,7 @@ export default function LoginPage() {
       navigate("/");
     } catch (error) {
       // Error is handled by the useAuth hook and displayed via loginError state
-      if (error instanceof Error) {
-        toast.error(error.message || "Login failed. Please try again.");
-      } else {
-        toast.error("Login failed. Please try again.");
-      }
+      // Don't have to handle it here
     }
   };
 
@@ -104,46 +139,10 @@ export default function LoginPage() {
   `}</style>
   );
 
-  const useParallax = () => {
-    const [offset, setOffset] = useState({ x: 0, y: 0 });
-    useEffect(() => {
-      const handleMove = (e: MouseEvent) => {
-        setOffset({
-          x: (e.clientX - window.innerWidth / 2) / 40,
-          y: (e.clientY - window.innerHeight / 2) / 40,
-        });
-      };
-      window.addEventListener('mousemove', handleMove);
-      return () => window.removeEventListener('mousemove', handleMove);
-    }, []);
-    return offset;
-  };
-
-  const useRelativeMouse = () => {
-    const ref = useRef<HTMLDivElement>(null);
-    const [position, setPosition] = useState({ x: 0, y: 0 });
-
-    useEffect(() => {
-      const handleMouseMove = (e: MouseEvent) => {
-        if (ref.current) {
-          const rect = ref.current.getBoundingClientRect();
-          setPosition({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-          });
-        }
-      };
-      // Attach to window to ensure smooth tracking even near edges
-      window.addEventListener("mousemove", handleMouseMove);
-      return () => window.removeEventListener("mousemove", handleMouseMove);
-    }, []);
-
-    return { ref, position };
-  };
-
   const { ref: cardRef, position: mousePos } = useRelativeMouse();
   // Parallax Offset
   const parallax = useParallax();
+
   return (
     <div className="min-h-screen w-full lg:grid lg:grid-cols-2 font-sans bg-neutral-950 selection:bg-emerald-500/30 overflow-x-hidden">
       <CustomStyles />
@@ -261,7 +260,7 @@ export default function LoginPage() {
               "--mouse-y": `${mousePos.y}px`,
               // Subtle 3D tilt based on mouse position relative to center of screen (simplified)
               transform: `perspective(1000px) rotateX(${(mousePos.y - 300) / 100}deg) rotateY(${(mousePos.x - 200) / 100}deg)`
-            } as React.CSSProperties}
+            } as CSSProperties}
           >
             <div className="spotlight-border rounded-2xl" />
 
