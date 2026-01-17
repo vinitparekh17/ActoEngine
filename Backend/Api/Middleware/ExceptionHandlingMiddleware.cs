@@ -1,5 +1,5 @@
+using ActoEngine.WebApi.Api.ApiModels;
 using System.Text.Json;
-using ActoEngine.WebApi.Models;
 
 public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
 {

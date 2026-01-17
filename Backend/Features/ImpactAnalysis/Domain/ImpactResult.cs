@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 
 public sealed class ImpactResult
 {

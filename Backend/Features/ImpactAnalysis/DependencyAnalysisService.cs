@@ -1,8 +1,7 @@
-using ActoEngine.WebApi.Models;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System.Text;
 
-namespace ActoEngine.WebApi.Services.DependencyService;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis;
 
 public interface IDependencyAnalysisService
 {

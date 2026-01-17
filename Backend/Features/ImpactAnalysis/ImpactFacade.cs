@@ -1,8 +1,7 @@
-using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Contracts;
 
-namespace ActoEngine.WebApi.Services.ImpactAnalysis;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis;
 /// <summary>
 /// Authoritative orchestrator for Impact Analysis.
 /// This class coordinates graph building, path enumeration,

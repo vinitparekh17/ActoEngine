@@ -1,6 +1,6 @@
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 
-namespace ActoEngine.WebApi.Models;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis;
 
 /// <summary>
 /// Represents an entity affected by a change

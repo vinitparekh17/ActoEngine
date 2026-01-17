@@ -1,13 +1,10 @@
 using ActoEngine.WebApi.Features.Auth;
 using ActoEngine.WebApi.Features.Users.Dtos.Requests;
 using ActoEngine.WebApi.Features.Users.Dtos.Responses;
-using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Features.Users;
-using ActoEngine.WebApi.Services.ValidationService;
-using ActoEngine.WebApi.SqlQueries;
 using Dapper;
+using ActoEngine.WebApi.Shared.Validation;
 
-namespace ActoEngine.WebApi.Services.UserManagementService;
+namespace ActoEngine.WebApi.Features.Users;
 
 public interface IUserManagementService
 {

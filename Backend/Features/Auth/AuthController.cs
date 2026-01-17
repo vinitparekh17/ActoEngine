@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
-using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Features.Auth.Dtos.Requests;
 using ActoEngine.WebApi.Features.Auth.Dtos.Responses;
 using ActoEngine.WebApi.Features.Users;
+using ActoEngine.WebApi.Api.ApiModels;
 
 namespace ActoEngine.WebApi.Features.Auth;
 [ApiController]

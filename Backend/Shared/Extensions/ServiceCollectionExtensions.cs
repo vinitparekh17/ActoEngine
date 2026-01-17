@@ -1,8 +1,8 @@
-using ActoEngine.WebApi.Config;
-using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Api;
+using ActoEngine.WebApi.Api.ApiModels;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ActoEngine.WebApi.Extensions
+namespace ActoEngine.WebApi.Shared.Extensions
 {
     public static class ServiceCollectionExtensions
     {

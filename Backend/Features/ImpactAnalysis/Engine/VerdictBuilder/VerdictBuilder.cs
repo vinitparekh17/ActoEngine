@@ -1,6 +1,6 @@
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 
-namespace ActoEngine.WebApi.Services.ImpactAnalysis.Engine.VerdictBuilder;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
 
 /// <summary>
 /// Represents a grouped summary of entities by type and dependency type.

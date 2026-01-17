@@ -1,8 +1,6 @@
-using ActoEngine.WebApi.Config;
-using ActoEngine.WebApi.Features.Users;
 using ActoEngine.WebApi.Infrastructure.Database;
-using ActoEngine.WebApi.SqlQueries;
 using ActoEngine.WebApi.Shared;
+using ActoEngine.WebApi.Shared.Exceptions;
 
 namespace ActoEngine.WebApi.Features.Users;
 

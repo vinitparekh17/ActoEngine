@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ActoEngine.WebApi.Features.Project.Dtos.Requests;
+namespace ActoEngine.WebApi.Features.Projects.Dtos.Requests;
 
 public class ReSyncProjectRequest
 {

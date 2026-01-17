@@ -241,6 +241,6 @@ export function initializeApiClient(onUnauthorized: OnUnauthorized) {
  * Singleton API client instance
  *
  * Base URL can be configured via VITE_API_BASE_URL environment variable.
- * Defaults to '/api' for same-origin requests.
+ * Defaults to 'https://localhost:7150/api' for same-origin requests.
  */
-export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || "/api");
+export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || "http://localhost:5093/api");

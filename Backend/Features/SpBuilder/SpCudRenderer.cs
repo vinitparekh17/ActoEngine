@@ -1,7 +1,6 @@
-using ActoEngine.WebApi.Models;
 using System.Text;
 
-namespace ActoEngine.WebApi.Services.SpBuilderService;
+namespace ActoEngine.WebApi.Features.SpBuilder;
 
 public class SpCudRenderer
 {

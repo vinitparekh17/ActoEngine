@@ -1,8 +1,7 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Features.Clients;
+using ActoEngine.WebApi.Features.Projects;
 
-namespace ActoEngine.WebApi.Services.ProjectClientService
+namespace ActoEngine.WebApi.Features.ProjectClients
 {
     public interface IProjectClientService
     {

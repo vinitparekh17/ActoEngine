@@ -1,12 +1,10 @@
-using ActoEngine.WebApi.Models;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 using ActoEngine.WebApi.Infrastructure.Database;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
 using ActoEngine.WebApi.Shared;
-using ActoEngine.WebApi.SqlQueries;
 using Dapper;
 using System.Data;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis;
 
 /// <summary>
 /// Repository contract for Dependency operations

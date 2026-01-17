@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ActoEngine.WebApi.Extensions;
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.ProjectClientService;
+using ActoEngine.WebApi.Shared.Extensions;
+using ActoEngine.WebApi.Api.ApiModels;
 
-namespace ActoEngine.WebApi.Controllers
+namespace ActoEngine.WebApi.Features.ProjectClients
 {
     [ApiController]
     [Authorize]

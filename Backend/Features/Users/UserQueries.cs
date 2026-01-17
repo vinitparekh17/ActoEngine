@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.SqlQueries;
+namespace ActoEngine.WebApi.Features.Users;
 public static class UserSqlQueries
 {
     public const string CheckTableExists = @"

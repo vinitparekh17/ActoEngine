@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Features.SpBuilder;
 using Scriban;
+using SpCodeTemplate = ActoEngine.WebApi.Features.SpBuilder.CodeTemplate;
 
 namespace ActoEngine.WebApi.Features.FormBuilder
 {
@@ -29,14 +30,14 @@ namespace ActoEngine.WebApi.Features.FormBuilder
         /// <param name="type"></param>
         /// <param name="framework"></param>
         /// <returns></returns>
-        Task<List<CodeTemplate>> GetAvailableTemplatesAsync(string? type = null, string? framework = null);
+        Task<List<SpCodeTemplate>> GetAvailableTemplatesAsync(string? type = null, string? framework = null);
 
         /// <summary>
         /// Saves or updates a code template.
         /// </summary>
         /// <param name="template"></param>
         /// <returns></returns>
-        Task<CodeTemplate> SaveTemplateAsync(CodeTemplate template);
+        Task<SpCodeTemplate> SaveTemplateAsync(SpCodeTemplate template);
     }
     public class TemplateRenderService(
         ICodeTemplateRepository templateRepository,
@@ -120,12 +121,12 @@ namespace ActoEngine.WebApi.Features.FormBuilder
             }
         }
 
-        public async Task<List<CodeTemplate>> GetAvailableTemplatesAsync(string? type = null, string? framework = null)
+        public async Task<List<SpCodeTemplate>> GetAvailableTemplatesAsync(string? type = null, string? framework = null)
         {
             return await templateRepository.GetTemplatesAsync(type, framework);
         }
 
-        public async Task<CodeTemplate> SaveTemplateAsync(CodeTemplate template)
+        public async Task<SpCodeTemplate> SaveTemplateAsync(SpCodeTemplate template)
         {
             // Clear cache when template is updated
             lock (_cacheLock)

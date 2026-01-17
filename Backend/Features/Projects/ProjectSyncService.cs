@@ -1,15 +1,13 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Features.Schema;
-using ActoEngine.WebApi.Services.DependencyService;
-using ActoEngine.WebApi.SqlQueries;
 using Microsoft.Data.SqlClient;
 using System.Data;
-using ActoEngine.WebApi.Features.Project.Dtos.Requests;
 using ActoEngine.WebApi.Infrastructure.Security;
 using ActoEngine.WebApi.Features.Clients;
-namespace ActoEngine.WebApi.Services.ProjectService
+using ActoEngine.WebApi.Features.ImpactAnalysis;
+using ActoEngine.WebApi.Features.Projects.Dtos.Requests;
+using ActoEngine.WebApi.Features.ProjectClients;
+namespace ActoEngine.WebApi.Features.Projects
 {
     public class ProjectSyncService(
         ProjectRepository projectRepository,
