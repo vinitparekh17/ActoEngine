@@ -27,8 +27,9 @@ elif [ -z "$DB_PASSWORD" ]; then
     exit 1
 fi
 
-# Escape single quotes in password for SQL string literals (' -> '')
-DB_PASSWORD_SQL="${DB_PASSWORD//\'/\'\'}"
+# Escape backslashes in password first (\ -> \\), then single quotes (' -> '') for SQL string literals
+DB_PASSWORD_ESCAPED="${DB_PASSWORD//\\/\\\\}"
+DB_PASSWORD_SQL="${DB_PASSWORD_ESCAPED//\'/\'\'}"
 
 # Create a temporary SQL file with substituted variables
 # This avoids exposing credentials in process listings via -v flag
@@ -39,8 +40,12 @@ chmod 600 "$TEMP_SQL"
 trap 'rm -f "$TEMP_SQL"' EXIT
 
 # Substitute variables in the SQL script using | as delimiter to avoid sed injection
-# Also escape & in replacement strings to prevent sed special character issues
-sed -e "s|\\\$(DB_PASSWORD)|${DB_PASSWORD_SQL//&/\\&}|g" \
+# Also escape \ and & in replacement strings to prevent sed special character issues
+# We must escape backslashes again for sed because sed consumes one level of escaping
+DB_PASS_SED_ESCAPED="${DB_PASSWORD_SQL//\\/\\\\}"
+DB_PASS_SED_ESCAPED="${DB_PASS_SED_ESCAPED//&/\\&}"
+
+sed -e "s|\\\$(DB_PASSWORD)|${DB_PASS_SED_ESCAPED}|g" \
     -e "s|\\\$(DB_NAME)|${DB_NAME//&/\\&}|g" \
     /scripts/setup-user.sql > "$TEMP_SQL"
 
