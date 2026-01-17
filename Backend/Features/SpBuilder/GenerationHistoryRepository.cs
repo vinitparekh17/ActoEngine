@@ -44,7 +44,7 @@ namespace ActoEngine.WebApi.Features.SpBuilder
                          gh.Warnings, gh.GeneratedBy, gh.GeneratedAt
                   FROM GenerationHistory gh
                   INNER JOIN FormConfigs fc ON gh.FormConfigId = fc.Id
-                  INNER JOIN Projects p ON fc.ProjectId = p.Id
+                  INNER JOIN Projects p ON fc.ProjectId = p.ProjectId
                   WHERE gh.FormConfigId = @FormConfigId AND p.CreatedBy = @UserId
                   ORDER BY gh.GeneratedAt DESC",
                 new { FormConfigId = formConfigId, UserId = userId });
@@ -62,7 +62,7 @@ namespace ActoEngine.WebApi.Features.SpBuilder
                            gh.Warnings, gh.GeneratedBy, gh.GeneratedAt
                   FROM GenerationHistory gh
                   INNER JOIN FormConfigs fc ON gh.FormConfigId = fc.Id
-                  INNER JOIN Projects p ON fc.ProjectId = p.Id
+                  INNER JOIN Projects p ON fc.ProjectId = p.ProjectId
                   WHERE gh.FormConfigId = @FormConfigId AND p.CreatedBy = @UserId
                   ORDER BY gh.GeneratedAt DESC",
                 new { FormConfigId = formConfigId, UserId = userId });

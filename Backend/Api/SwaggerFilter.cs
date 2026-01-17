@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace ActoEngine.WebApi.Config
+namespace ActoEngine.WebApi.Api
 {
     /// <summary>
     /// Operation filter to handle authorization requirements in Swagger documentation

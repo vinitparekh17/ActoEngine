@@ -1,15 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Features.Projects;
-using ActoEngine.WebApi.Repositories;
-using ActoEngine.WebApi.Attributes;
-using ActoEngine.WebApi.Extensions;
 using System.Text;
 using System.Text.Json;
-using ActoEngine.WebApi.Features.Project.Dtos.Requests;
 using ActoEngine.WebApi.Infrastructure.Security;
-namespace ActoEngine.WebApi.Controllers
+using ActoEngine.WebApi.Features.Schema;
+using ActoEngine.WebApi.Shared.Extensions;
+using ActoEngine.WebApi.Api.ApiModels;
+using ActoEngine.WebApi.Features.Projects.Dtos.Requests;
+using ActoEngine.WebApi.Api.Attributes;
+namespace ActoEngine.WebApi.Features.Projects
 {
     [ApiController]
     [Authorize]
@@ -288,7 +287,7 @@ namespace ActoEngine.WebApi.Controllers
         [HttpPut("{projectId}")]
         [RequirePermission("Projects:Update")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> UpdateProject(int projectId, [FromBody] ActoEngine.WebApi.Models.Project project)
+        public async Task<IActionResult> UpdateProject(int projectId, [FromBody] Project project)
         {
             if (!ModelState.IsValid)
             {

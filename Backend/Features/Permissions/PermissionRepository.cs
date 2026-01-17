@@ -1,16 +1,15 @@
-using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
-using ActoEngine.WebApi.SqlQueries;
+using ActoEngine.WebApi.Features.Roles;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Features.Permissions;
 
 public interface IPermissionRepository
 {
     Task<IEnumerable<Permission>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<Permission?> GetByIdAsync(int permissionId, CancellationToken cancellationToken = default);
     Task<Permission?> GetByKeyAsync(string permissionKey, CancellationToken cancellationToken = default);
-    Task<IEnumerable<PermissionGroupDto>> GetGroupedByCategoryAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<Roles.PermissionGroupDto>> GetGroupedByCategoryAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<string>> GetUserPermissionsAsync(int userId, CancellationToken cancellationToken = default);
 }
 
@@ -39,7 +38,7 @@ public class PermissionRepository(
             cancellationToken);
     }
 
-    public async Task<IEnumerable<PermissionGroupDto>> GetGroupedByCategoryAsync(
+    public async Task<IEnumerable<Roles.PermissionGroupDto>> GetGroupedByCategoryAsync(
         CancellationToken cancellationToken = default)
     {
         var permissions = await QueryAsync<Permission>(
@@ -48,10 +47,20 @@ public class PermissionRepository(
 
         return permissions
             .GroupBy(p => p.Category ?? "General")
-            .Select(g => new PermissionGroupDto
+            .Select(g => new Roles.PermissionGroupDto
             {
                 Category = g.Key,
-                Permissions = [.. g]
+                Permissions = g.Select(p => new Roles.Permission
+                {
+                    PermissionId = p.PermissionId,
+                    PermissionKey = p.PermissionKey,
+                    Resource = p.Resource,
+                    Action = p.Action,
+                    Description = p.Description,
+                    Category = p.Category,
+                    IsActive = p.IsActive,
+                    CreatedAt = p.CreatedAt
+                }).ToList()
             });
     }
 

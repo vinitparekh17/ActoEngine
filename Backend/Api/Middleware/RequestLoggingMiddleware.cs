@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 
-namespace ActoEngine.WebApi.Middleware;
+namespace ActoEngine.WebApi.Api.Middleware;
 
 public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggingMiddleware> logger, IConfiguration config)
 {

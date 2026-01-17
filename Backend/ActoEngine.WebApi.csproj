@@ -7,10 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Migrations\*.sql" />
-      <Content Include="Sql\StoredProcedures\*.sql">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
+    <EmbeddedResource Include="Infrastructure\Database\Migrations\*.sql" />
+    <!-- Keeping this commented out for now for future use , currently unused
+    <Content Include="Infrastructure\Database\StoredProcedures\*.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content> -->
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />

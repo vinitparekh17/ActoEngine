@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Features.Project.Dtos.Responses;
+namespace ActoEngine.WebApi.Features.Projects.Dtos.Responses;
 
 public class ActivityItem
 {

@@ -1,7 +1,6 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Repositories;
+using ActoEngine.WebApi.Features.Roles;
 
-namespace ActoEngine.WebApi.Services.PermissionService;
+namespace ActoEngine.WebApi.Features.Permissions;
 
 public interface IPermissionService
 {

@@ -1,5 +1,6 @@
+using ActoEngine.WebApi.Features.Schema;
 
-namespace ActoEngine.WebApi.Models
+namespace ActoEngine.WebApi.Features.FormBuilder
 {
     // ============================================
     // Request/Response Models

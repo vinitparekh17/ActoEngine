@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ActoEngine.WebApi.Controllers
+namespace ActoEngine.WebApi.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

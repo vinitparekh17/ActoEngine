@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace ActoEngine.WebApi.Models;
+namespace ActoEngine.WebApi.Features.ProjectClients;
 
 /// <summary>
 /// Junction table entity representing the many-to-many relationship between Projects and Clients

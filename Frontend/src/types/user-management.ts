@@ -63,9 +63,14 @@ export interface CreateRoleRequest {
 }
 
 export interface UpdateRoleRequest {
-  roleId: number;
   roleName: string;
   description?: string;
   isActive: boolean;
   permissionIds: number[];
 }
+
+export interface UserDetailResponse {
+  user: UserDto;
+  permissions: string[];
+}
+

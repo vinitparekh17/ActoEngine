@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Attributes;
-using ActoEngine.WebApi.Config;
-using ActoEngine.WebApi.Extensions;
 using Microsoft.Extensions.Options;
 using ActoEngine.WebApi.Features.Context.Dtos;
+using ActoEngine.WebApi.Shared.Exceptions;
+using ActoEngine.WebApi.Shared.Extensions;
+using ActoEngine.WebApi.Api.ApiModels;
+using ActoEngine.WebApi.Api.Attributes;
 
 namespace ActoEngine.WebApi.Features.Context;
 
@@ -434,6 +434,7 @@ public class ContextController(
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateReviewRequest(
+        int projectId,
         [FromBody] CreateReviewRequestModel request)
     {
         try
@@ -450,6 +451,7 @@ public class ContextController(
             }
 
             var requestId = await _contextService.CreateReviewRequestAsync(
+                projectId,
                 request.EntityType,
                 request.EntityId,
                 userId.Value,

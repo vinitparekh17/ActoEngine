@@ -1,7 +1,7 @@
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Contracts;
 
-namespace ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Aggregation;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Aggregation;
 
 /// <summary>
 /// Aggregates scored dependency paths into entity-level and overall impact.

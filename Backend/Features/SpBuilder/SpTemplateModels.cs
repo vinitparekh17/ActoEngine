@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models;
+namespace ActoEngine.WebApi.Features.SpBuilder;
 
 public enum SpType
 {

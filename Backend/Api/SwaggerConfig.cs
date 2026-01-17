@@ -2,7 +2,7 @@ using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Reflection;
 
-namespace ActoEngine.WebApi.Config
+namespace ActoEngine.WebApi.Api
 {
     public static class SwaggerConfiguration
     {

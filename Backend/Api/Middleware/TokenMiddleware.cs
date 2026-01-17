@@ -1,8 +1,8 @@
 using System.Text.Json;
+using ActoEngine.WebApi.Api.ApiModels;
 using ActoEngine.WebApi.Features.Auth;
-using ActoEngine.WebApi.Models;
 
-namespace ActoEngine.WebApi.Middleware
+namespace ActoEngine.WebApi.Api.Middleware
 {
     public class TokenMiddleware(RequestDelegate next, ILogger<TokenMiddleware> logger, IServiceScopeFactory scopeFactory)
     {

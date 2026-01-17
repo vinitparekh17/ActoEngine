@@ -1,4 +1,4 @@
-namespace ActoEngine.Domain.Entities;
+namespace ActoEngine.WebApi.Features.Schema;
 
 public class DBTableMeta
 {

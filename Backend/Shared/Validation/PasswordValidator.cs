@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Services.ValidationService;
+namespace ActoEngine.WebApi.Shared.Validation;
 
 public interface IPasswordValidator
 {

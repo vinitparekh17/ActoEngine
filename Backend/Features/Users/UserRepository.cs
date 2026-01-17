@@ -1,8 +1,6 @@
-using ActoEngine.WebApi.Config;
-using ActoEngine.WebApi.Features.Users;
 using ActoEngine.WebApi.Infrastructure.Database;
-using ActoEngine.WebApi.SqlQueries;
 using ActoEngine.WebApi.Shared;
+using ActoEngine.WebApi.Shared.Exceptions;
 
 namespace ActoEngine.WebApi.Features.Users;
 
@@ -13,6 +11,7 @@ public interface IUserRepository
     Task<User?> GetByUserNameAsync(string userName, CancellationToken cancellationToken = default);
     Task<User> AddAsync(User user, CancellationToken cancellationToken = default);
     Task UpdateAsync(User user, CancellationToken cancellationToken = default);
+    Task UpdatePasswordAsync(int userId, string passwordHash, string? updatedBy, CancellationToken cancellationToken = default);
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
     Task RemoveRoleFromUsersAsync(int roleId, CancellationToken cancellationToken = default);
 }
@@ -105,6 +104,27 @@ public class UserRepository(
         if (rowsAffected == 0)
         {
             throw new NotFoundException($"User with ID {user.UserID} not found");
+        }
+    }
+
+    public async Task UpdatePasswordAsync(int userId, string passwordHash, string? updatedBy, CancellationToken cancellationToken = default)
+    {
+        var parameters = new
+        {
+            UserID = userId,
+            PasswordHash = passwordHash,
+            UpdatedAt = DateTime.UtcNow,
+            UpdatedBy = updatedBy
+        };
+
+        var rowsAffected = await ExecuteAsync(
+            UserSqlQueries.UpdatePassword,
+            parameters,
+            cancellationToken);
+
+        if (rowsAffected == 0)
+        {
+            throw new NotFoundException($"User with ID {userId} not found");
         }
     }
 

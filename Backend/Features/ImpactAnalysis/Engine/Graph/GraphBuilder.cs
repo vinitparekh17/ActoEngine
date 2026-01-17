@@ -1,7 +1,7 @@
-using ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Contracts;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Contracts;
 
-namespace ActoEngine.WebApi.Services.ImpactAnalysis.Engine.Graph;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Graph;
 
 
 /// <summary>
@@ -13,7 +13,7 @@ public sealed class GraphBuilder : IGraphBuilder
     public ImpactGraph Build(IReadOnlyList<DependencyGraphRow> rows)
     {
         var nodes = new Dictionary<EntityRef, GraphNode>();
-        var adjacency = new Dictionary<EntityRef, List<GraphEdge>>();
+        var adjacency = new Dictionary<EntityRef, List<Domain.GraphEdge>>();
 
         foreach (var row in rows)
         {
@@ -68,7 +68,7 @@ public sealed class GraphBuilder : IGraphBuilder
 
             var dependencyType = ParseDependencyType(row.DependencyType);
 
-            var edge = new GraphEdge
+            var edge = new Domain.GraphEdge
             {
                 From = targetEntity, // dependency
                 To = sourceEntity,   // dependent

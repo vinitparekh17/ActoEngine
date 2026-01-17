@@ -1,10 +1,8 @@
-using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
-using ActoEngine.WebApi.SqlQueries;
 using Dapper;
 
-namespace ActoEngine.WebApi.Repositories
+namespace ActoEngine.WebApi.Features.FormBuilder
 {
     public interface IFormConfigRepository
     {

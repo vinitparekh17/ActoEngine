@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ActoEngine.WebApi.Attributes;
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.PermissionService;
+using ActoEngine.WebApi.Features.Roles;
+using ActoEngine.WebApi.Api.ApiModels;
+using ActoEngine.WebApi.Api.Attributes;
 
-namespace ActoEngine.WebApi.Controllers;
+namespace ActoEngine.WebApi.Features.Permissions;
 
 [ApiController]
 [Authorize]

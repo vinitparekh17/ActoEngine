@@ -1,6 +1,3 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Shared;
-using ActoEngine.WebApi.Repositories;
 using ActoEngine.WebApi.Features.SpBuilder;
 using System.Text.Json;
 
@@ -83,13 +80,7 @@ namespace ActoEngine.WebApi.Features.FormBuilder
         {
             try
             {
-                var config = await _formConfigRepo.GetByIdOrNameAsync(request.FormId, request.UserId);
-
-                if (config == null)
-                {
-                    throw new Exception($"Form configuration not found: {request.FormId}");
-                }
-
+                var config = await _formConfigRepo.GetByIdOrNameAsync(request.FormId, request.UserId) ?? throw new Exception($"Form configuration not found: {request.FormId}");
                 return config;
             }
             catch (Exception ex)

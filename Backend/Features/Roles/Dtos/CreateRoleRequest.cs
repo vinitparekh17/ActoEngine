@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models.Requests.Role;
+namespace ActoEngine.WebApi.Features.Roles.Dtos;
 
 public class CreateRoleRequest
 {

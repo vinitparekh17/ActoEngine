@@ -1,3 +1,3 @@
-namespace ActoEngine.WebApi.Models;
+namespace ActoEngine.WebApi.Shared.CommonDtos;
 
 

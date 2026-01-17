@@ -1,12 +1,10 @@
-using ActoEngine.WebApi.Models;
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
 using ActoEngine.WebApi.Features.Users;
-using ActoEngine.WebApi.SqlQueries;
 using System.Data;
 using Dapper;
 
-namespace ActoEngine.WebApi.Repositories;
+namespace ActoEngine.WebApi.Features.Roles;
 
 public interface IRoleRepository
 {
@@ -159,12 +157,7 @@ public class RoleRepository(
             var createdRole = await conn.QueryFirstOrDefaultAsync<Role>(
                 RoleQueries.Insert,
                 new { role.RoleName, role.Description, role.CreatedBy },
-                transaction);
-
-            if (createdRole == null)
-            {
-                throw new InvalidOperationException("Failed to create role");
-            }
+                transaction) ?? throw new InvalidOperationException("Failed to create role");
 
             // 2. Assign Permissions
             foreach (var permissionId in permissionIds)

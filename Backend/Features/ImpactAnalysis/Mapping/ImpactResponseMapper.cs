@@ -1,7 +1,6 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Services.ImpactAnalysis.Domain;
+using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 
-namespace ActoEngine.WebApi.Services.ImpactAnalysis.Mapping;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis.Mapping;
 
 /// <summary>
 /// Maps ImpactResult domain model to API response DTO.

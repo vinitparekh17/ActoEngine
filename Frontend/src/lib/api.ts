@@ -73,7 +73,7 @@ function getCookie(name: string): string | null {
 type OnUnauthorized = () => void;
 
 class ApiClient {
-  private baseUrl: string;
+  private readonly baseUrl: string;
   private onUnauthorized?: OnUnauthorized;
 
   constructor(baseUrl = "/api") {
@@ -107,6 +107,18 @@ class ApiClient {
       credentials: "include",
     });
 
+    this.handleAuthErrors(response);
+
+    const body = await this.parseResponseBody(response);
+
+    if (!response.ok) {
+      this.handleApiErrors(response, body);
+    }
+
+    return this.unwrapResponse<T>(body, response);
+  }
+
+  private handleAuthErrors(response: Response): void {
     // Handle 401 - Token expired
     if (response.status === 401) {
       this.onUnauthorized?.();
@@ -120,43 +132,54 @@ class ApiClient {
         403,
       );
     }
+  }
 
-    // Parse response body once
+  private async parseResponseBody(response: Response): Promise<any> {
+    const text = await response.text();
+
+    // Empty body is valid (not an error)
+    if (!text || !text.trim()) {
+      return null;
+    }
+
     const contentType = response.headers.get("content-type") ?? "";
     const isJson = contentType.includes("application/json");
 
-    let body: any = null;
     if (isJson) {
       try {
-        body = await response.json();
+        return JSON.parse(text);
       } catch {
-        // Invalid JSON - will be handled below
+        throw new ApiError("Invalid JSON in response body", response.status);
       }
     }
 
-    // Handle error responses
-    if (!response.ok) {
-      if (body && isApiResponse<any>(body)) {
-        throw new ApiError(
-          body.message || "Request failed",
-          response.status,
-          body.errors,
-        );
-      }
+    // Non-JSON content - return raw text
+    return text;
+  }
 
-      if (body && isErrorResponse(body)) {
-        throw new ApiError(
-          body.message || body.error || "Request failed",
-          response.status,
-        );
-      }
-
+  private handleApiErrors(response: Response, body: any): never {
+    if (body && isApiResponse<any>(body)) {
       throw new ApiError(
-        `Request failed: ${response.status} ${response.statusText}`,
+        body.message || "Request failed",
+        response.status,
+        body.errors,
+      );
+    }
+
+    if (body && isErrorResponse(body)) {
+      throw new ApiError(
+        body.message || body.error || "Request failed",
         response.status,
       );
     }
 
+    throw new ApiError(
+      `Request failed: ${response.status} ${response.statusText}`,
+      response.status,
+    );
+  }
+
+  private unwrapResponse<T>(body: any, response: Response): T {
     // Unwrap ApiResponse<T>
     if (body && isApiResponse<T>(body)) {
       if (!body.status) {
@@ -169,8 +192,20 @@ class ApiClient {
       return body.data as T;
     }
 
-    // Return parsed JSON or raw response
-    return (body ?? response) as T;
+    // Return parsed JSON or handle empty responses
+    if (body !== null && body !== undefined) {
+      return body as T;
+    }
+
+    // Handle successful empty responses (204 No Content, DELETE, etc.)
+    if (response.ok) {
+      return undefined as T;
+    }
+
+    throw new ApiError(
+      "Response body is empty or invalid",
+      response.status,
+    );
   }
 
   async get<T>(endpoint: string): Promise<T> {
@@ -215,6 +250,6 @@ export function initializeApiClient(onUnauthorized: OnUnauthorized) {
  * Singleton API client instance
  *
  * Base URL can be configured via VITE_API_BASE_URL environment variable.
- * Defaults to '/api' for same-origin requests.
+ * Defaults to 'https://localhost:7150/api' for same-origin requests.
  */
-export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || "/api");
+export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || "http://localhost:5093/api");

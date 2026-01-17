@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.Models;
+namespace ActoEngine.WebApi.Features.Schema;
 
 public class ColumnMetadata
 {
@@ -70,6 +70,17 @@ public class TableSchemaResponse
     public required string SchemaName { get; set; }
     public required List<ColumnSchema> Columns { get; set; }
     public required List<string> PrimaryKeys { get; set; }
+}
+
+/// <summary>
+/// Wrapper for TableSchemaResponse that includes metadata staleness information
+/// </summary>
+public class TableSchemaResponseWithMetadata
+{
+    public required TableSchemaResponse Schema { get; set; }
+    public bool IsStale { get; set; }
+    public DateTime? LastSyncTimestamp { get; set; }
+    public string? Warning { get; set; }
 }
 
 public class ColumnSchema

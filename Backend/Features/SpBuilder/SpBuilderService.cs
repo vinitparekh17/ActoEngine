@@ -1,7 +1,7 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Repositories;
+using ActoEngine.WebApi.Features.Projects;
+using ActoEngine.WebApi.Features.Schema;
 
-namespace ActoEngine.WebApi.Services.SpBuilderService;
+namespace ActoEngine.WebApi.Features.SpBuilder;
 
 public interface ISpBuilderService
 {

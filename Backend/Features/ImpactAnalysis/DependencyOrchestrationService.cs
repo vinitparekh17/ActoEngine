@@ -1,7 +1,6 @@
-using ActoEngine.WebApi.Models;
-using ActoEngine.WebApi.Repositories;
+using ActoEngine.WebApi.Features.Schema;
 
-namespace ActoEngine.WebApi.Services.DependencyService;
+namespace ActoEngine.WebApi.Features.ImpactAnalysis;
 
 public interface IDependencyOrchestrationService
 {

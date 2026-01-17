@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 
-namespace ActoEngine.WebApi.Features.Project.Dtos.Requests;
+namespace ActoEngine.WebApi.Features.Projects.Dtos.Requests;
 
 public class VerifyConnectionRequest
 {
@@ -22,7 +21,6 @@ public class VerifyConnectionRequest
     /// </summary>
     [Required(ErrorMessage = "Password is required")]
     [StringLength(100, ErrorMessage = "Password cannot exceed 100 characters")]
-    [JsonIgnore] // SECURITY: Prevent password from being serialized in logs/responses
     public string Password { get; set; } = default!;
 
     public int Port { get; set; } = 1433; // Default SQL Server port

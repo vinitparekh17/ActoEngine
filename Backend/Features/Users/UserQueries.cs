@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.SqlQueries;
+namespace ActoEngine.WebApi.Features.Users;
 public static class UserSqlQueries
 {
     public const string CheckTableExists = @"
@@ -37,6 +37,13 @@ public static class UserSqlQueries
         SET FullName = @FullName,
             Role = @Role,
             IsActive = @IsActive,
+            UpdatedAt = @UpdatedAt,
+            UpdatedBy = @UpdatedBy
+        WHERE UserID = @UserID";
+
+    public const string UpdatePassword = @"
+        UPDATE Users
+        SET PasswordHash = @PasswordHash,
             UpdatedAt = @UpdatedAt,
             UpdatedBy = @UpdatedBy
         WHERE UserID = @UserID";

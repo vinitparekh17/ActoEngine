@@ -1,4 +1,4 @@
-namespace ActoEngine.WebApi.SqlQueries;
+namespace ActoEngine.WebApi.Features.Roles;
 
 public static class RoleQueries
 {

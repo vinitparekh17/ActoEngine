@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace ActoEngine.WebApi.Extensions
+namespace ActoEngine.WebApi.Shared.Extensions
 {
     /// <summary>
     /// Reusable helpers for extracting common values from HttpContext.
