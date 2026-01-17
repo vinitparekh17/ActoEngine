@@ -89,8 +89,7 @@ export default function AppSidebar() {
       {
         onSuccess: () => {
           setIsPasswordModalOpen(false);
-          // Optional: logout user after password change if required by security policy
-          // handleLogout();
+          handleLogout();
         },
       },
     );

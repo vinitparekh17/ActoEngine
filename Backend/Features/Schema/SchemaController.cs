@@ -125,7 +125,13 @@ public class DatabaseBrowserController(
 
         // Audit log for cross-user access
         var userId = HttpContext.GetUserId();
-        if (userId.HasValue && project.CreatedBy != userId.Value)
+        if (!userId.HasValue)
+        {
+            _logger.LogWarning("User ID missing from token during schema access ({Operation}) for project {ProjectId}", operationName, projectId);
+            return Unauthorized(ApiResponse<TableSchemaResponseWithMetadata>.Failure("User not authenticated"));
+        }
+
+        if (project.CreatedBy != userId.Value)
         {
             _logger.LogInformation("Audit: User {UserId} accessing schema ({Operation}) for project {ProjectId} owned by {OwnerId}", userId, operationName, projectId, project.CreatedBy);
         }
