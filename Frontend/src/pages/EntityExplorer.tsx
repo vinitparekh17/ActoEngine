@@ -54,15 +54,31 @@ export default function EntityExplorer() {
         tab?: EntityTab;
     }>();
     const navigate = useNavigate();
-    const { selectedProject, selectedProjectId, hasProject } = useProject();
+    const { selectedProject, selectedProjectId, hasProject, selectProject } = useProject();
 
     // View mode state
     const [viewMode, setViewMode] = useState<"tree" | "list">("list");
 
+    // Sync route projectId with app state
+    useEffect(() => {
+        if (projectId && hasProject) {
+            const projectIdNum = parseInt(projectId, 10);
+            if (!isNaN(projectIdNum) && projectIdNum !== selectedProjectId) {
+                // URL has a different project than currently selected, sync it
+                selectProject(projectIdNum);
+            }
+        }
+    }, [projectId, selectedProjectId, hasProject, selectProject]);
+
     // Parse URL params to state
     const selectedEntityType = entityTypeSlug ? slugToType[entityTypeSlug] : undefined;
     const selectedEntityId = entityIdParam ? parseInt(entityIdParam, 10) : undefined;
-    const activeTab: EntityTab = tab || "overview";
+
+    // Validate activeTab against allowed EntityTab values
+    const validTabs: EntityTab[] = ["overview", "experts", "documentation"];
+    const activeTab: EntityTab = tab && validTabs.includes(tab as EntityTab)
+        ? (tab as EntityTab)
+        : "overview";
 
     // Selected entity (will be populated when list loads and matches URL)
     const [selectedEntity, setSelectedEntity] = useState<UnifiedEntity | null>(null);

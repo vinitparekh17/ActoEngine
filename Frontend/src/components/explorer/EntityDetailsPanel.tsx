@@ -152,13 +152,24 @@ export function EntityDetailsPanel({
                         </TabsContent>
 
                         <TabsContent value="documentation" className="mt-0 h-full">
-                            {selectedProjectId && (
+                            {selectedProjectId ? (
                                 <ContextEditor
                                     projectId={selectedProjectId}
                                     entityType={entity.entityType}
                                     entityId={entity.entityId}
                                     entityName={entity.entityName}
                                 />
+                            ) : (
+                                <div className="flex items-center justify-center h-full text-center p-8">
+                                    <div className="space-y-2">
+                                        <p className="text-muted-foreground">
+                                            No project selected
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                            Select a project to view and edit documentation
+                                        </p>
+                                    </div>
+                                </div>
                             )}
                         </TabsContent>
                     </div>

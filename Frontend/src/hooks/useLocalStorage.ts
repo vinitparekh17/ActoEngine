@@ -3,8 +3,11 @@ import { useState, useEffect } from "react";
 /**
  * Hook to persist state in localStorage
  * @param key LocalStorage key
- * @param initialValue Initial value if nothing in storage
+ * @param initialValue Initial value if nothing in storage (should be a stable reference to avoid re-initialization)
  * @returns [storedValue, setValue]
+ * 
+ * Note: Callers should provide stable initialValue references (e.g., constants, useMemo, or useRef)
+ * to avoid unnecessary re-initialization when the initialValue reference changes.
  */
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
     // Get from local storage then parse stored json or return initialValue
@@ -41,6 +44,10 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
         }
     };
 
+    // Sync with localStorage when key changes
+    // Note: initialValue is intentionally NOT in dependencies to avoid infinite loops
+    // when non-primitive initialValue references change. The initialValue is already
+    // captured in the state initializer above.
     useEffect(() => {
         setStoredValue(() => {
             try {
@@ -50,7 +57,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
                 return initialValue;
             }
         });
-    }, [key, initialValue]);
+    }, [key]);
 
     return [storedValue, setValue];
 }
