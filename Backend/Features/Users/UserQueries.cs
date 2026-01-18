@@ -48,13 +48,6 @@ public static class UserSqlQueries
             UpdatedBy = @UpdatedBy
         WHERE UserID = @UserID";
 
-    public const string UpdatePassword = @"
-        UPDATE Users
-        SET PasswordHash = @PasswordHash,
-            UpdatedAt = @UpdatedAt,
-            UpdatedBy = @UpdatedBy
-        WHERE UserID = @UserID";
-
     public const string HardDelete = @"
         DELETE FROM Users
         WHERE UserID = @UserID";
