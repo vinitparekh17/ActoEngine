@@ -131,7 +131,11 @@ export default function TreeView({
 
     setExpandedNodes((prev: Record<string, boolean>) => {
       const next = { ...prev, [id]: !prev[id] };
-      window.localStorage.setItem(persistenceKey, JSON.stringify(next));
+      try {
+        window.localStorage.setItem(persistenceKey, JSON.stringify(next));
+      } catch (error) {
+        console.warn(`Failed to persist tree state for key "${persistenceKey}":`, error);
+      }
       return next;
     });
   };
@@ -177,15 +181,46 @@ export default function TreeView({
     if (treeRef.current && searchQuery) {
       // Open all nodes when there's a search query
       treeRef.current.openAll();
-    } else if (treeRef.current && !searchQuery) {
-      // Close all nodes when search is cleared
-      // Optional: Restore previous state? For now, let's keep it simple
+
+      // Sync programmatic expansions to expandedNodes state for persistence
+      // Note: openAll() is programmatic and doesn't trigger handleToggle,
+      // so we manually update expandedNodes to reflect the actual open state
       if (persistenceKey) {
-        // Re-apply persisted state is tricky with react-arborist purely via props
-        // We rely on initialOpenState which works on mount.
-        // For dynamic updates, we might need to manually close/open.
-        // Actually, react-arborist manages internal state.
+        const collectAllIds = (nodes: TreeNode[]): string[] => {
+          const ids: string[] = [];
+          nodes.forEach(node => {
+            ids.push(node.id);
+            if (node.children) {
+              ids.push(...collectAllIds(node.children));
+            }
+          });
+          return ids;
+        };
+
+        const allIds = collectAllIds(filteredTreeData);
+        const allOpen = allIds.reduce((acc, id) => ({ ...acc, [id]: true }), {});
+        setExpandedNodes(allOpen);
+
+        try {
+          window.localStorage.setItem(persistenceKey, JSON.stringify(allOpen));
+        } catch (error) {
+          console.warn(`Failed to persist expanded state during search:`, error);
+        }
       }
+    } else if (treeRef.current && !searchQuery && persistenceKey) {
+      // When search is cleared, restore persisted state
+      // Close all first, then re-apply persisted state
+      treeRef.current.closeAll();
+
+      // Re-open nodes that were persisted as open
+      Object.entries(expandedNodes).forEach(([id, isOpen]) => {
+        if (isOpen) {
+          const node = treeRef.current?.get(id);
+          if (node && !node.isOpen) {
+            node.open();
+          }
+        }
+      });
     }
   }, [searchQuery, filteredTreeData, persistenceKey]);
 

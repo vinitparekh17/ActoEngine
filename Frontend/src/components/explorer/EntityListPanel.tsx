@@ -95,6 +95,9 @@ export function EntityListPanel({
     const [currentPage, setCurrentPage] = React.useState(1);
     const pageSize = 50;
 
+    // Ref for search input to support Ctrl+K shortcut
+    const searchInputRef = React.useRef<HTMLInputElement>(null);
+
     // Fetch tree data for tree view
     const {
         data: treeDataResponse,
@@ -203,11 +206,12 @@ export function EntityListPanel({
                         );
                     }
                     break;
-                case "modified":
+                case "modified": {
                     const aRaw = a.modifiedDate ? Date.parse(a.modifiedDate) : 0;
                     const bRaw = b.modifiedDate ? Date.parse(b.modifiedDate) : 0;
                     comparison = (isNaN(aRaw) ? 0 : aRaw) - (isNaN(bRaw) ? 0 : bRaw);
                     break;
+                }
             }
             return sortOrder === "asc" ? comparison : -comparison;
         });
@@ -281,6 +285,19 @@ export function EntityListPanel({
         setFocusedIndex(-1);
     }, [paginatedEntities]);
 
+    // Global keyboard shortcut for Ctrl+K to focus search
+    React.useEffect(() => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+                e.preventDefault();
+                searchInputRef.current?.focus();
+            }
+        };
+
+        window.addEventListener("keydown", handleGlobalKeyDown);
+        return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+    }, []);
+
     // Handle keyboard navigation
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -351,6 +368,7 @@ export function EntityListPanel({
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
+                        ref={searchInputRef}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search entities... (Ctrl+K)"
