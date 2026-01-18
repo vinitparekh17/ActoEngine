@@ -16,11 +16,7 @@ import ProjectSetup from "@/pages/ProjectSetup";
 import ProjectHub from "@/pages/ProjectHub";
 import ProjectSettings from "@/pages/ProjectSetting";
 import { ContextDashboard } from "@/pages/ContextDashboard";
-import ContextExperts from "@/pages/ContextExpert";
-import ContextBrowse from "@/pages/ContextBrowser";
-import TableDetail from "@/pages/TableDetail";
-import StoredProcedureDetail from "@/pages/StoredProcedureDetail";
-import ColumnDetail from "@/pages/ColumnDetail";
+import EntityExplorer from "@/pages/EntityExplorer";
 import ImpactAnalysisPage from "@/pages/ImpactAnalysis";
 import UserManagementPage from "@/pages/UserManagement";
 import RoleManagementPage from "@/pages/RoleManagement";
@@ -152,40 +148,35 @@ function AppRoutes() {
             </PermissionRoute>
           }
         />
+
+        {/* New Entity Explorer routes */}
         <Route
-          path="project/:projectId/context/experts"
+          path="project/:projectId/entities"
           element={
             <PermissionRoute permission="Contexts:Read">
-              <ContextExperts />
+              <EntityExplorer />
             </PermissionRoute>
           }
         />
         <Route
-          path="project/:projectId/context/browse"
+          path="project/:projectId/entities/:entityType/:entityId"
           element={
             <PermissionRoute permission="Contexts:Read">
-              <ContextBrowse />
+              <EntityExplorer />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="project/:projectId/entities/:entityType/:entityId/:tab"
+          element={
+            <PermissionRoute permission="Contexts:Read">
+              <EntityExplorer />
             </PermissionRoute>
           }
         />
 
         {/* Entity detail routes */}
-        <Route
-          path="project/:projectId/tables/:tableId"
-          element={
-            <PermissionRoute permission="Schema:Read">
-              <TableDetail />
-            </PermissionRoute>
-          }
-        />
-        <Route
-          path="project/:projectId/stored-procedures/:procedureId"
-          element={
-            <PermissionRoute permission="StoredProcedures:Read">
-              <StoredProcedureDetail />
-            </PermissionRoute>
-          }
-        />
+
         {/* Impact Analysis route */}
         <Route
           path="project/:projectId/impact/:entityType/:entityId"
@@ -197,27 +188,7 @@ function AppRoutes() {
         />
         <Route path="access-denied" element={<AccessDenied />} />
         {/* Standalone column route for direct navigation from context dialogs */}
-        <Route
-          path="project/:projectId/columns/:columnId"
-          element={
-            <PermissionRoute permission="Schema:Read">
-              <ApiErrorBoundary>
-                <ColumnDetail />
-              </ApiErrorBoundary>
-            </PermissionRoute>
-          }
-        />
-        {/* Nested column route for navigation from table detail pages */}
-        <Route
-          path="project/:projectId/tables/:tableId/columns/:columnId"
-          element={
-            <PermissionRoute permission="Schema:Read">
-              <ApiErrorBoundary>
-                <ColumnDetail />
-              </ApiErrorBoundary>
-            </PermissionRoute>
-          }
-        />
+
       </Route>
     </Routes>
   );

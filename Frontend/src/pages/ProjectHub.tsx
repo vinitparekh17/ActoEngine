@@ -377,7 +377,7 @@ export default function ProjectHub() {
                   <Button
                     variant="default"
                     className="h-24 flex-col gap-2"
-                    onClick={() => navigate(`/project/${projectId}/context/browse`)}
+                    onClick={() => navigate(`/project/${projectId}/entities`)}
                     title="Browse database schema"
                   >
                     <Database className="w-6 h-6" />

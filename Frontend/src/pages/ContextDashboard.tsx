@@ -41,7 +41,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Upload,
+  Mail,
+  Crown,
+  Star,
+  GitCommit,
+  User as UserIcon,
 } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ExpertSummary, TableMetadataDto, StoredProcedureMetadataDto } from "@/types/context";
 import { GridSkeleton, PageHeaderSkeleton } from "@/components/ui/skeletons";
 import {
   Dialog,
@@ -148,6 +155,17 @@ export const ContextDashboard: React.FC = () => {
       refetchInterval: 30 * 1000, // Refresh every 30 seconds
       retry: 2,
     },
+  );
+
+  // Fetch expert summary
+  const { data: expertSummary, isLoading: isLoadingExperts } = useApi<ExpertSummary[]>(
+    `/projects/${selectedProjectId}/context/experts/summary`,
+    {
+      enabled: hasProject && !!selectedProjectId,
+      staleTime: 2 * 60 * 1000,
+      retry: 1,
+      showErrorToast: false,
+    }
   );
 
   // Bulk import
@@ -450,6 +468,9 @@ export const ContextDashboard: React.FC = () => {
             )}
           </TabsTrigger>
           <TabsTrigger value="top">Top Documented</TabsTrigger>
+          {expertSummary && expertSummary.length > 0 && (
+            <TabsTrigger value="experts">Experts</TabsTrigger>
+          )}
         </TabsList>
 
         {/* Coverage Tab */}
@@ -847,6 +868,142 @@ export const ContextDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Experts Tab */}
+        {expertSummary && expertSummary.length > 0 && (
+          <TabsContent value="experts" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Experts</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{expertSummary.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Owners</CardTitle>
+                  <Crown className="h-4 w-4 text-yellow-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {expertSummary.reduce(
+                      (acc, expert) => acc + (expert.expertiseBreakdown.OWNER || 0),
+                      0,
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Experts</CardTitle>
+                  <Star className="h-4 w-4 text-blue-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {expertSummary.reduce(
+                      (acc, expert) => acc + (expert.expertiseBreakdown.EXPERT || 0),
+                      0,
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Contributors</CardTitle>
+                  <GitCommit className="h-4 w-4 text-green-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {expertSummary.reduce(
+                      (acc, expert) => acc + (expert.expertiseBreakdown.CONTRIBUTOR || 0),
+                      0,
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Expert Directory</CardTitle>
+                <CardDescription>
+                  People with expertise across different entities
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Expert</TableHead>
+                      <TableHead>Entities</TableHead>
+                      <TableHead>Expertise Distribution</TableHead>
+                      <TableHead>Contact</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expertSummary.map((expert) => (
+                      <TableRow key={expert.userId}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>
+                                {(() => {
+                                  const name = expert.user.fullName || expert.user.username || "";
+                                  return name.substring(0, 2).toUpperCase();
+                                })()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">
+                                {expert.user.fullName || expert.user.username}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                @{expert.user.username}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {expert.entityCount} entities
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(expert.expertiseBreakdown).map(
+                              ([level, count]) =>
+                                count > 0 && (
+                                  <Badge
+                                    key={level}
+                                    variant="outline"
+                                    className="text-xs"
+                                  >
+                                    {level}: {count}
+                                  </Badge>
+                                ),
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <a
+                            href={`mailto:${expert.user.email}`}
+                            className="flex items-center text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            <Mail className="h-3 w-3 mr-1" />
+                            {expert.user.email}
+                          </a>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Quick Actions */}
@@ -856,21 +1013,9 @@ export const ContextDashboard: React.FC = () => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link to={`/project/${projectId}/tables`}>
+            <Link to={`/project/${projectId}/entities`}>
               <Database className="w-4 h-4 mr-2" />
-              Browse Tables
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to={`/project/${projectId}/stored-procedures`}>
-              <FileCode className="w-4 h-4 mr-2" />
-              Browse SPs
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to={`/project/${projectId}/context/experts`}>
-              <Users className="w-4 h-4 mr-2" />
-              View Experts
+              Entity Explorer
             </Link>
           </Button>
           <Button
@@ -965,16 +1110,10 @@ function getEntityRoute(
   entityId: number,
   projectId: number,
 ): string {
-  switch (entityType) {
-    case "TABLE":
-      return `/project/${projectId}/tables/${entityId}`;
-    case "SP":
-      return `/project/${projectId}/stored-procedures/${entityId}`;
-    case "COLUMN":
-      return `/project/${projectId}/columns/${entityId}`;
-    default:
-      return `/project/${projectId}`;
-  }
+  const typeSlug = entityType.toLowerCase();
+  // Map specific types if needed, otherwise default to lowercased type
+  // e.g. "TABLE" -> "table", "SP" -> "sp"
+  return `/project/${projectId}/entities/${typeSlug}/${entityId}/overview`;
 }
 
 function formatDate(dateString: string): string {

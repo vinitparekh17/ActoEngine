@@ -12,7 +12,7 @@ import {
   FunctionSquare,
   Table2,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type TreeNode = {
   id: string;
@@ -97,13 +97,45 @@ export default function TreeView({
   searchQuery,
   onSearchChange,
   isLoading = false,
+  persistenceKey,
+  hideSearch = false,
 }: {
   treeData: TreeNode[];
   onSelectNode: (node: TreeNode) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   isLoading?: boolean;
+  persistenceKey?: string;
+  hideSearch?: boolean;
 }) {
+  // Persistence for expanded nodes
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
+  // Load initial state from local storage once on mount
+  useEffect(() => {
+    if (persistenceKey) {
+      try {
+        const stored = window.localStorage.getItem(persistenceKey);
+        if (stored) {
+          setExpandedNodes(JSON.parse(stored));
+        }
+      } catch (e) {
+        console.warn("Failed to load tree state", e);
+      }
+    }
+  }, [persistenceKey]);
+
+  // Save state when nodes are toggled
+  const handleToggle = (id: string) => {
+    if (!persistenceKey) return;
+
+    setExpandedNodes((prev: Record<string, boolean>) => {
+      const next = { ...prev, [id]: !prev[id] };
+      window.localStorage.setItem(persistenceKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
   // Recursive filter function that preserves parent nodes if any descendant matches
   function filterTree(nodes: TreeNode[]): TreeNode[] {
     return nodes
@@ -147,9 +179,15 @@ export default function TreeView({
       treeRef.current.openAll();
     } else if (treeRef.current && !searchQuery) {
       // Close all nodes when search is cleared
-      treeRef.current.closeAll();
+      // Optional: Restore previous state? For now, let's keep it simple
+      if (persistenceKey) {
+        // Re-apply persisted state is tricky with react-arborist purely via props
+        // We rely on initialOpenState which works on mount.
+        // For dynamic updates, we might need to manually close/open.
+        // Actually, react-arborist manages internal state.
+      }
     }
-  }, [searchQuery, filteredTreeData]);
+  }, [searchQuery, filteredTreeData, persistenceKey]);
 
   function getChildCount(node: TreeNode): number {
     if (!node.children) return 0;
@@ -181,16 +219,18 @@ export default function TreeView({
   }
 
   return (
-    <div className="border rounded-xl p-2 bg-card">
-      <div className="relative mb-2">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search database objects..."
-          className="pl-8 rounded-lg"
-        />
-      </div>
+    <div className="border rounded-xl w-full p-2 bg-card">
+      {!hideSearch && (
+        <div className="relative mb-2">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search database objects..."
+            className="pl-8 rounded-lg"
+          />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-2 p-2">
@@ -203,7 +243,10 @@ export default function TreeView({
           ref={treeRef}
           data={filteredTreeData}
           openByDefault={false}
+          initialOpenState={expandedNodes}
+          onToggle={handleToggle}
           rowHeight={28}
+          width={"100%"}
           indent={24}
           className="text-sm"
           selectionFollowsFocus
