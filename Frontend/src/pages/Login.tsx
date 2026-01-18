@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { User, Lock, Eye, EyeOff, Database, Zap, Shield, Code, Code2, Terminal, AlertCircle, ArrowRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,6 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
-
 
 const useParallax = () => {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -308,9 +307,6 @@ export default function LoginPage() {
               <div className="space-y-2 group">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-xs font-medium text-emerald-500 hover:text-emerald-400 transition-colors hover:underline">
-                    Forgot password?
-                  </Link>
                 </div>
                 <div className="relative transform transition-transform duration-200 group-focus-within:scale-[1.01]">
                   <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-neutral-500 group-focus-within:text-emerald-400 transition-colors">
