@@ -299,8 +299,15 @@ export default function LoginPage() {
                       }`}
                     placeholder="Enter your username"
                     disabled={isLoggingIn}
+                    aria-invalid={errors.username ? "true" : "false"}
+                    aria-describedby={errors.username ? "username-error" : undefined}
                   />
                 </div>
+                {errors.username && (
+                  <p id="username-error" className="text-xs text-red-400 mt-1">
+                    {errors.username.message}
+                  </p>
+                )}
               </div>
 
               {/* Password */}
@@ -322,6 +329,8 @@ export default function LoginPage() {
                       }`}
                     placeholder="Enter your password"
                     disabled={isLoggingIn}
+                    aria-invalid={errors.password ? "true" : "false"}
+                    aria-describedby={errors.password ? "password-error" : undefined}
                   />
                   <button
                     type="button"
@@ -332,6 +341,11 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {errors.password && (
+                  <p id="password-error" className="text-xs text-red-400 mt-1">
+                    {errors.password.message}
+                  </p>
+                )}
               </div>
 
               {/* Error Message */}
