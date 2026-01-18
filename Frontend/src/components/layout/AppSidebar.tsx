@@ -11,7 +11,6 @@ import {
   Shield,
   UserCog,
   Search,
-  GraduationCap,
   Binary,
   Key,
 } from "lucide-react";
@@ -61,7 +60,7 @@ const SIDEBAR_ITEMS = [
     label: "Role Management",
     href: "/admin/roles",
     requiresRole: "Admin",
-  },
+  }
 ];
 
 export default function AppSidebar() {
@@ -221,29 +220,14 @@ export default function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={location.pathname.includes("/context/browse")}
-                      tooltip="Context Browser"
+                      isActive={location.pathname.includes("/entities")}
+                      tooltip="Entity Explorer"
                     >
                       <NavLink
-                        to={`/project/${selectedProject.projectId}/context/browse`}
+                        to={`/project/${selectedProject.projectId}/entities`}
                       >
                         <Search />
-                        <span>Context Browser</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location.pathname.includes("/context/experts")}
-                      tooltip="Context Experts"
-                    >
-                      <NavLink
-                        to={`/project/${selectedProject.projectId}/context/experts`}
-                      >
-                        <GraduationCap />
-                        <span>Context Experts</span>
+                        <span>Entity Explorer</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

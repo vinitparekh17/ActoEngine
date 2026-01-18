@@ -278,6 +278,18 @@ export interface UndocumentedEntity {
   versionCount?: number;
 }
 
+export interface ExpertSummary {
+  userId: number;
+  user: {
+    fullName?: string;
+    username: string;
+    email: string;
+  };
+  entityCount: number;
+  expertiseBreakdown: Record<string, number>;
+  lastActivity?: string;
+}
+
 // UI Component Props
 
 export interface ContextEditorPanelProps {
