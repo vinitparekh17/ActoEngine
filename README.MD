@@ -7,99 +7,54 @@ ActoEngine captures what documentation can't: the "why" behind your database.
 > What if your database could explain itself?
 
 ActoEngine builds a semantic layer that answers the questions your documentation 
-doesn’t: “What breaks if I change this?” “Why does this exist?” “Which clients 
-depend on this version?”
+doesn’t: “What breaks if I change this?” “Why does this exist?”
 
 It maps hidden relationships, detects drift between reality and documentation, 
 and simulates change impact before you deploy. The Form Builder and SP Generator 
 aren’t just code tools — they’re proof that when systems understand their own 
 context, automation becomes intelligent.
 
-## Features
+## Key Features
 
-- Database browsing and profiling
-- Code generation for stored procedures
-- Form builder
-- Project management
+- **Semantic Context**: Document the "why" behind database entities with drift detection.
+- **Impact Analysis**: Visualize dependencies and simulate change impact before deployment.
+- **Smart Automation**: Generate Stored Procedures and Forms using schema context.
+- **Entity Explorer**: Unified browsing for tables, SPs, views, and functions.
+- **RBAC & Security**: Fine-grained permissions, audit logging, and secure authentication.
 
-## Installation
+## Tech Stack
 
-### Prerequisites
+**Backend:** .NET 8.0, ASP.NET Core, Dapper, SQL Server/Postgres  
+**Frontend:** React 18, TypeScript, Vite, TanStack Query, Shadcn UI  
+**Infrastructure:** Docker, Nginx, JWT
 
-- .NET 8.0 or later
-- Node.js 18 or later
-- PostgreSQL or SQL Server
+## Quick Start (Docker)
 
-### Backend
+The fastest way to get ActoEngine running is using Docker Compose.
 
-1. Navigate to the Backend directory:
-   ```
-   cd Backend
-   ```
-
-2. Restore dependencies:
-   ```
-   dotnet restore
-   ```
-
-3. Update the connection string in `appsettings.json`.
-
-4. Run the application:
-   ```
-   dotnet run
+1. **Configure Environment**: Create a `.env` file in the root:
+   ```env
+   SA_PASSWORD=YourStrong@Passw0rd
+   DB_NAME=ActoEngine
+   SEED_ADMIN_PASSWORD=Admin@123
+   CORS_ALLOWED_ORIGINS=http://localhost:3000
+   VITE_API_BASE_URL=http://localhost:5093/api
    ```
 
-### Frontend
-
-1. Navigate to the Frontend directory:
-   ```
-   cd Frontend
-   ```
-
-2. Install dependencies:
-   ```
-   npm install
-   ```
-
-3. Start the development server:
-   ```
-   npm run dev
-   ```
-
-### Docker Deployment
-
-1. Create a `.env` file from the example:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Update the `.env` file with your preferred settings.
-   The `.env.example` file contains the following variables that you should configure:
-
-   | Variable | Description | Example / Default |
-   |----------|-------------|-------------------|
-   | `DB_PASSWORD` | **Required.** Password for the SQL Server `sa` user. Must differ from defaults for security. | `your_secure_password_here` |
-   | `DB_NAME` | Database name. | `ActoEngine` |
-   | `DB_USER` | Database user. | `sa` |
-   | `ASPNETCORE_ENVIRONMENT` | Runtime environment. Use `Development` for local dev. | `Development` |
-   | `VITE_API_BASE_URL` | URL where the frontend can reach the backend API. | `http://localhost:5093/api` |
-
-3. Build and start the services:
+2. **Launch**:
    ```bash
    docker-compose up --build
    ```
 
-4. Access the application:
-   - Frontend: `http://localhost:3000`
-   - Backend API: `http://localhost:5093`
+3. **Access**:
+   - Web UI: `http://localhost:3000`
+   - API Docs: `http://localhost:5093/swagger`
+   - **Default Login**: `admin` / (value of `SEED_ADMIN_PASSWORD`)
 
-## Contributing
+---
 
-1. Fork the repository.
-2. Create a feature branch.
-3. Make your changes.
-4. Submit a pull request.
+### Manual Setup & Development
+For local development without Docker, please refer to the [Development Guide](./DEVELOPMENT.md).
 
-## License
-
-This project is licensed under the MIT License.
+## Contributing & License
+Contributions are welcome! This project is licensed under the MIT License.
