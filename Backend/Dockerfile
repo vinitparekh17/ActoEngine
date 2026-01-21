@@ -20,11 +20,11 @@ RUN dotnet publish "ActoEngine.WebApi.csproj" -c Release -o /app/publish /p:UseA
 # Runtime Stage
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
-# Expose port 8080 (default for .NET 8/9 containers)
-EXPOSE 8080
+# Expose port 5093 (matching docker-compose and .env)
+EXPOSE 5093
 
 # Environment variables
-ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_URLS=http://+:5093
 
 # Create a non-root user
 RUN useradd -m -u 1000 appuser

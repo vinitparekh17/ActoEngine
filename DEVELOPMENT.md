@@ -47,9 +47,13 @@ This guide provides instructions for manually setting up the ActoEngine developm
 
 ## Environment Variables
 
-For manual setup, ensure you have the following environment variables configured (or provided via a local `.env` file in the root):
+For manual setup, configure `Backend/.env` with:
 
-- `SA_PASSWORD`
-- `DB_NAME`
-- `SEED_ADMIN_PASSWORD`
-- `VITE_API_BASE_URL`
+- `DB_SERVER` - Database host (default: `127.0.0.1`)
+- `DB_PORT` - Database port (default: `1433`)
+- `DB_NAME` - Database name (default: `ActoEngine`)
+- `DB_USER` - Database user
+- `DB_PASSWORD` - Database password (or use `secrets/DB_PASSWORD` for Docker)
+- `SEED_ADMIN_PASSWORD` - Initial admin password
+- `ASPNETCORE_URLS` - API listen URL (use `http://+:5093` for Docker)
+- `VITE_API_BASE_URL` - Frontend API base URL
