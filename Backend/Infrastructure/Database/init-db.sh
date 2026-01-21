@@ -19,7 +19,7 @@ elif [ -z "$MSSQL_SA_PASSWORD" ]; then
 fi
 
 # Wait for SQL Server to be available
-until /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -t 1 > /dev/null 2>&1; do
+until sqlcmd -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -t 1 > /dev/null 2>&1; do
   echo "SQL Server is unavailable - sleeping"
   sleep 2
 done
@@ -60,6 +60,6 @@ sed -e "s|\\\$(DB_PASSWORD)|${DB_PASS_SED_ESCAPED}|g" \
     /scripts/setup-user.sql > "$TEMP_SQL"
 
 # Run the setup script with -b flag to fail on SQL errors
-/opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -d master -b -i "$TEMP_SQL"
+sqlcmd -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -d master -b -i "$TEMP_SQL"
 
 echo "Database user setup completed."
