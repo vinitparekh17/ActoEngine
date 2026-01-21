@@ -18,6 +18,18 @@ BEGIN
 END
 GO
 
+-- Create database if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '$(DB_NAME)')
+BEGIN
+    CREATE DATABASE [$(DB_NAME)];
+    PRINT 'Created database $(DB_NAME)';
+END
+ELSE
+BEGIN
+    PRINT 'Database $(DB_NAME) already exists';
+END
+GO
+
 USE [$(DB_NAME)];
 GO
 

@@ -8,44 +8,70 @@ services:
     # SQL Server 2022's mssql user cannot write to the volume without this.
     # This is a known issue: https://github.com/microsoft/mssql-docker/issues/868
     user: root
+    env_file:
+      - ./Backend/.env
     environment:
       - ACCEPT_EULA=Y
-      - SA_PASSWORD=${SA_PASSWORD}
-      - MSSQL_SA_PASSWORD=${SA_PASSWORD}
+    secrets:
+      - SA_PASSWORD
     ports:
       - "${DB_PORT}:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql/data
     networks:
       - actoengine-network
+    # Use entrypoint to read password from secret file before starting SQL Server
+    entrypoint: ["/bin/bash", "-c", "export SA_PASSWORD=$(cat /run/secrets/SA_PASSWORD) && export MSSQL_SA_PASSWORD=$(cat /run/secrets/SA_PASSWORD) && /opt/mssql/bin/sqlservr"]
     healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$SA_PASSWORD" -C -Q "SELECT 1" || exit 1
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$(cat /run/secrets/SA_PASSWORD)" -C -Q "SELECT 1" || exit 1
       interval: 10s
       retries: 10
       start_period: 30s
       timeout: 3s
+
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: actoengine-db-init
+    env_file:
+      - ./Backend/.env
+    environment:
+      - MSSQL_SA_PASSWORD_FILE=/run/secrets/SA_PASSWORD
+    secrets:
+      - SA_PASSWORD
+      - DB_PASSWORD
+    volumes:
+      - ./Backend/Infrastructure/Database/init-db.sh:/scripts/init-db.sh:ro
+      - ./Backend/Infrastructure/Database/setup-user.sql:/scripts/setup-user.sql:ro
+    networks:
+      - actoengine-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "/scripts/init-db.sh"]
 
   backend:
     build:
       context: ./Backend
       dockerfile: Dockerfile
     container_name: actoengine-backend
+    env_file:
+      - ./Backend/.env
     environment:
+      # Override only Docker-specific values
       - DB_SERVER=sqlserver
       - DB_PORT=1433
-      - DB_NAME=${DB_NAME}
-      - DB_USER=sa
-      - DB_PASSWORD=${SA_PASSWORD}
-      - DB_TRUST_CERT=${DB_TRUST_CERT}
-      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
-      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
-      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - DB_USER=app_user
+    secrets:
+      - source: DB_PASSWORD
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
     ports:
       - "5093:5093"
     depends_on:
-      sqlserver:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     networks:
       - actoengine-network
 
@@ -56,6 +82,8 @@ services:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
       dockerfile: Dockerfile
     container_name: actoengine-frontend
+    env_file:
+      - ./Backend/.env
     ports:
       - "3000:80"
     depends_on:
@@ -69,3 +97,9 @@ volumes:
 networks:
   actoengine-network:
     driver: bridge
+
+secrets:
+  SA_PASSWORD:
+    file: ./secrets/SA_PASSWORD
+  DB_PASSWORD:
+    file: ./secrets/DB_PASSWORD

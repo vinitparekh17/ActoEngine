@@ -32,21 +32,28 @@ context, automation becomes intelligent.
 
 The fastest way to get ActoEngine running is using Docker Compose.
 
-1. **Configure Environment**: Create a `.env` file in the root:
-   ```env
-   SA_PASSWORD=YourStrong@Passw0rd
-   DB_NAME=ActoEngine
-   SEED_ADMIN_PASSWORD=Admin@123
-   CORS_ALLOWED_ORIGINS=http://localhost:3000
-   VITE_API_BASE_URL=http://localhost:5093/api
+1. **Create Secret Files** (passwords stored securely):
+   ```bash
+   # Create secrets directory if not exists
+   mkdir -p secrets
+   
+   # Create password files (no trailing newline)
+   echo -n "YourStrong@Passw0rd" > secrets/SA_PASSWORD
+   echo -n "YourAppPassword123!" > secrets/DB_PASSWORD
    ```
 
-2. **Launch**:
+2. **Configure Environment**: Edit `Backend/.env`:
+   ```env
+   DB_NAME=ActoEngine
+   SEED_ADMIN_PASSWORD=Admin@123
+   ```
+
+3. **Launch**:
    ```bash
    docker-compose up --build
    ```
 
-3. **Access**:
+4. **Access**:
    - Web UI: `http://localhost:3000`
    - API Docs: `http://localhost:5093/swagger`
    - **Default Login**: `admin` / (value of `SEED_ADMIN_PASSWORD`)

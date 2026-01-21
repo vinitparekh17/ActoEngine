@@ -9,13 +9,23 @@ if [ -z "$DB_NAME" ]; then
     exit 1
 fi
 
+# Read SA password from secret file or environment variable
+if [ -f /run/secrets/SA_PASSWORD ]; then
+    MSSQL_SA_PASSWORD=$(cat /run/secrets/SA_PASSWORD)
+    export MSSQL_SA_PASSWORD
+elif [ -z "$MSSQL_SA_PASSWORD" ]; then
+    echo "ERROR: MSSQL_SA_PASSWORD not set and /run/secrets/SA_PASSWORD not found"
+    exit 1
+fi
+
 # Wait for SQL Server to be available
-until /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -t 1 > /dev/null 2>&1; do
+until /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -t 1 > /dev/null 2>&1; do
   echo "SQL Server is unavailable - sleeping"
   sleep 2
 done
 
 echo "SQL Server is up - executing setup script"
+
 
 # Read DB_PASSWORD from environment variable or secret file
 # Split assignment and export to avoid SC2155
@@ -50,6 +60,6 @@ sed -e "s|\\\$(DB_PASSWORD)|${DB_PASS_SED_ESCAPED}|g" \
     /scripts/setup-user.sql > "$TEMP_SQL"
 
 # Run the setup script with -b flag to fail on SQL errors
-/opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -d master -b -i "$TEMP_SQL"
+/opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -d master -b -i "$TEMP_SQL"
 
 echo "Database user setup completed."
