@@ -72,7 +72,7 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
 
     // Fetch SP details
     const { data: spDetails, isLoading: isLoadingSP } = useApi<SPDetails>(
-        `/DatabaseBrowser/projects/${selectedProjectId}/sp-metadata/${entity.entityId}`,
+        `/DatabaseBrowser/projects/${selectedProjectId}/stored-procedures/${entity.entityId}`,
         {
             enabled: hasProject && !!selectedProjectId && entity.entityType === "SP",
             staleTime: 60 * 1000,

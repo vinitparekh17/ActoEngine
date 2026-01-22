@@ -20,6 +20,7 @@ import EntityExplorer from "@/pages/EntityExplorer";
 import ImpactAnalysisPage from "@/pages/ImpactAnalysis";
 import UserManagementPage from "@/pages/UserManagement";
 import RoleManagementPage from "@/pages/RoleManagement";
+import EntityDetailPage from "@/pages/EntityDetailPage";
 import { AccessDenied } from "./components/feedback/AccessDenied";
 import { initializeApiClient } from "./lib/api";
 
@@ -176,6 +177,22 @@ function AppRoutes() {
         />
 
         {/* Entity detail routes */}
+        <Route
+          path="project/:projectId/tables/:entityId"
+          element={
+            <PermissionRoute permission="Contexts:Read">
+              <EntityDetailPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="project/:projectId/stored-procedures/:entityId"
+          element={
+            <PermissionRoute permission="Contexts:Read">
+              <EntityDetailPage />
+            </PermissionRoute>
+          }
+        />
 
         {/* Impact Analysis route */}
         <Route

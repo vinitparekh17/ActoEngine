@@ -80,6 +80,11 @@ interface ExpertSuggestions {
   basedOn: string;
 }
 
+interface UserManagementResponse {
+  users: ProjectUser[];
+  totalCount: number;
+}
+
 interface ExpertManagementProps {
   entityType: "TABLE" | "COLUMN" | "SP";
   entityId: number;
@@ -152,13 +157,15 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   );
 
   // Fetch all users (for dropdown) - only when dialog is open
-  const { data: allUsers, isLoading: isLoadingUsers } = useApi<ProjectUser[]>(
-    `/projects/${selectedProjectId}/users`,
+  const { data: userResponse, isLoading: isLoadingUsers } = useApi<UserManagementResponse>(
+    `/UserManagement`,
     {
       enabled: hasProject && !!selectedProjectId && isAddDialogOpen,
       staleTime: 10 * 60 * 1000, // 10 minutes
     },
   );
+
+  const allUsers = userResponse?.users || [];
 
   // Add expert mutation
   const { mutate: addExpert, isPending: isAddingExpert } = useApiPost<
