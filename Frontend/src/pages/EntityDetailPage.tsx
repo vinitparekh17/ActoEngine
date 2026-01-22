@@ -1,5 +1,5 @@
 import React from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { useApi } from "@/hooks/useApi";
 import { formatRelativeTime } from "@/lib/utils";
 import {
@@ -248,49 +248,61 @@ const ExpertCard: React.FC<{ expert: Expert }> = ({ expert }) => {
     );
 };
 
-const EmptyExpertsState: React.FC<{ entityName: string }> = ({ entityName }) => (
-    <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Users className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground mb-2">
-                No Experts Assigned
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-sm mb-4">
-                Help your team by identifying who knows about{" "}
-                <span className="font-medium">{entityName}</span>.
-            </p>
-            <Button variant="outline" size="sm">
-                <UserIcon className="h-4 w-4 mr-2" />
-                Assign Expert
-            </Button>
-        </CardContent>
-    </Card>
-);
+const EmptyExpertsState: React.FC<{ entityName: string }> = ({ entityName }) => {
+    const handleAssignExpert = () => {
+        toast.info("Expert assignment feature - please use the Context Editor to add experts");
+    };
+
+    return (
+        <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Users className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="text-base font-semibold text-foreground mb-2">
+                    No Experts Assigned
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-sm mb-4">
+                    Help your team by identifying who knows about{" "}
+                    <span className="font-medium">{entityName}</span>.
+                </p>
+                <Button variant="outline" size="sm" onClick={handleAssignExpert}>
+                    <UserIcon className="h-4 w-4 mr-2" />
+                    Assign Expert
+                </Button>
+            </CardContent>
+        </Card>
+    );
+};
 
 const DocumentationEmptyState: React.FC<{ entityName: string }> = ({
     entityName,
-}) => (
-    <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <BookOpen className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground mb-2">
-                No Documentation Yet
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-sm mb-4">
-                Document the business purpose and usage patterns for{" "}
-                <span className="font-medium">{entityName}</span>.
-            </p>
-            <Button size="sm">
-                <FileText className="h-4 w-4 mr-2" />
-                Add Documentation
-            </Button>
-        </CardContent>
-    </Card>
-);
+}) => {
+    const handleAddDocumentation = () => {
+        toast.info("Documentation feature - please use the Context Editor to add documentation");
+    };
+
+    return (
+        <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <BookOpen className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="text-base font-semibold text-foreground mb-2">
+                    No Documentation Yet
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-sm mb-4">
+                    Document the business purpose and usage patterns for{" "}
+                    <span className="font-medium">{entityName}</span>.
+                </p>
+                <Button size="sm" onClick={handleAddDocumentation}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Add Documentation
+                </Button>
+            </CardContent>
+        </Card>
+    );
+};
 
 // ============================================================================
 // MAIN COMPONENT
@@ -301,7 +313,7 @@ const EntityDetailPage: React.FC = () => {
         projectId: string;
         entityId: string;
     }>();
-    const { pathname } = window.location;
+    const { pathname } = useLocation();
     const isTable = pathname.includes("/tables/");
     const entityType = isTable ? "TABLE" : "SP";
 
