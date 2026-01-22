@@ -439,8 +439,8 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                                 : "outline"
                             }
                             className={`cursor-pointer px-3 py-1 ${level === localContext?.criticalityLevel && level >= 4
-                                ? "bg-destructive hover:bg-destructive/90"
-                                : ""
+                              ? "bg-destructive hover:bg-destructive/90"
+                              : ""
                               }`}
                             onClick={() => handleCriticalityClick(level)}
                           >
@@ -469,7 +469,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{CRITICALITY_LEVELS.find(l => l.level === (localContext?.criticalityLevel || 3))?.description}</p>
+                      <p>{CRITICALITY_LEVELS.find(l => l.level === (localContext?.criticalityLevel || 3))?.description || CRITICALITY_LEVELS.find(l => l.level === 3)?.description || "Standard criticality level"}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}

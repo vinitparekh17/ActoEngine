@@ -157,6 +157,9 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   );
 
   // Fetch all users (for dropdown) - only when dialog is open
+  // NOTE: Backend currently returns all system users. Ideally, the backend endpoint
+  // /UserManagement should accept a projectId parameter and return only users
+  // with membership/permission for that project. For now, we filter client-side.
   const { data: userResponse, isLoading: isLoadingUsers } = useApi<UserManagementResponse>(
     `/UserManagement`,
     {
@@ -165,7 +168,18 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     },
   );
 
-  const allUsers = userResponse?.users || [];
+  // Fetch project users to filter the dropdown to only project members
+  const { data: projectUsersResponse } = useApi<{ users: ProjectUser[] }>(
+    `/projects/${selectedProjectId}/users`,
+    {
+      enabled: hasProject && !!selectedProjectId && isAddDialogOpen,
+      staleTime: 10 * 60 * 1000, // 10 minutes
+    },
+  );
+
+  // Filter to only users who are members of the selected project
+  const projectUserIds = new Set(projectUsersResponse?.users?.map(u => u.userId) || []);
+  const allUsers = (userResponse?.users || []).filter(user => projectUserIds.has(user.userId));
 
   // Add expert mutation
   const { mutate: addExpert, isPending: isAddingExpert } = useApiPost<
