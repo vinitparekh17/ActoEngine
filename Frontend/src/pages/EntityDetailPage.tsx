@@ -1,5 +1,9 @@
 import React from "react";
+<<<<<<< HEAD
 import { useParams, Link, useLocation } from "react-router-dom";
+=======
+import { useParams, Link } from "react-router-dom";
+>>>>>>> 09ebb4a (feat: added / modified EntityDetail page in frontend)
 import { useApi } from "@/hooks/useApi";
 import { formatRelativeTime } from "@/lib/utils";
 import {
@@ -248,6 +252,7 @@ const ExpertCard: React.FC<{ expert: Expert }> = ({ expert }) => {
     );
 };
 
+<<<<<<< HEAD
 const EmptyExpertsState: React.FC<{ entityName: string }> = ({ entityName }) => {
     const handleAssignExpert = () => {
         toast.info("Expert assignment feature - please use the Context Editor to add experts");
@@ -303,6 +308,51 @@ const DocumentationEmptyState: React.FC<{ entityName: string }> = ({
         </Card>
     );
 };
+=======
+const EmptyExpertsState: React.FC<{ entityName: string }> = ({ entityName }) => (
+    <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Users className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground mb-2">
+                No Experts Assigned
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm mb-4">
+                Help your team by identifying who knows about{" "}
+                <span className="font-medium">{entityName}</span>.
+            </p>
+            <Button variant="outline" size="sm">
+                <UserIcon className="h-4 w-4 mr-2" />
+                Assign Expert
+            </Button>
+        </CardContent>
+    </Card>
+);
+
+const DocumentationEmptyState: React.FC<{ entityName: string }> = ({
+    entityName,
+}) => (
+    <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <BookOpen className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground mb-2">
+                No Documentation Yet
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm mb-4">
+                Document the business purpose and usage patterns for{" "}
+                <span className="font-medium">{entityName}</span>.
+            </p>
+            <Button size="sm">
+                <FileText className="h-4 w-4 mr-2" />
+                Add Documentation
+            </Button>
+        </CardContent>
+    </Card>
+);
+>>>>>>> 09ebb4a (feat: added / modified EntityDetail page in frontend)
 
 // ============================================================================
 // MAIN COMPONENT
@@ -313,7 +363,11 @@ const EntityDetailPage: React.FC = () => {
         projectId: string;
         entityId: string;
     }>();
+<<<<<<< HEAD
     const { pathname } = useLocation();
+=======
+    const { pathname } = window.location;
+>>>>>>> 09ebb4a (feat: added / modified EntityDetail page in frontend)
     const isTable = pathname.includes("/tables/");
     const entityType = isTable ? "TABLE" : "SP";
 

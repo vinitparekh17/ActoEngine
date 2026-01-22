@@ -469,7 +469,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{CRITICALITY_LEVELS.find(l => l.level === (localContext?.criticalityLevel || 3))?.description || CRITICALITY_LEVELS.find(l => l.level === 3)?.description || "Standard criticality level"}</p>
+                      <p>{CRITICALITY_LEVELS.find(l => l.level === (localContext?.criticalityLevel || 3))?.description}</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
