@@ -39,6 +39,14 @@ import { toast } from "sonner";
 import { useApi, useApiPut } from "@/hooks/useApi";
 import { useAuthorization } from "../../hooks/useAuth";
 
+const CRITICALITY_LEVELS = [
+  { level: 1, label: "Low", description: "Minimal operational impact if changed or lost." },
+  { level: 2, label: "Moderate", description: "Minor impact on non-critical business processes." },
+  { level: 3, label: "Standard", description: "Important for day-to-day operations and reporting." },
+  { level: 4, label: "High", description: "Significant impact on core business functions." },
+  { level: 5, label: "Critical", description: "Essential data. Immediate financial or legal impact if lost." },
+];
+
 // Types
 interface ContextData {
   context: {
@@ -109,10 +117,10 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
     showSuccessToast: false, // We'll handle this manually
     showErrorToast: true,
     onSuccess: (savedData) => {
-      toast.success("Context saved");
+      toast.success("Context saved", { duration: 2000 });
       setLastSavedContext(savedData.context);
       hasUnsavedChanges.current = false;
-      setIsEditing(false);
+      // Removed setIsEditing(false) - user stays in edit mode until 'Done'
     },
   });
 
@@ -126,7 +134,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
     debounce((data: ContextData["context"]) => {
       // call the latest saveContext from ref
       saveContextRef.current(data);
-    }, 1000),
+    }, 3000), // Increased from 1s to 3s for better "Google Forms" style UX
   );
 
   // Initialize local context and handle updates intelligently
@@ -421,36 +429,49 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 <Label className="text-sm">Criticality</Label>
                 {isEditing ? (
                   <div className="flex space-x-2">
-                    {[1, 2, 3, 4, 5].map((level) => (
-                      <Badge
-                        key={level}
-                        variant={
-                          level === localContext?.criticalityLevel
-                            ? "default"
-                            : "outline"
-                        }
-                        className={`cursor-pointer px-3 py-1 ${level === localContext?.criticalityLevel && level >= 4
-                          ? "bg-destructive hover:bg-destructive/90"
-                          : ""
-                          }`}
-                        onClick={() => handleCriticalityClick(level)}
-                      >
-                        {level}
-                      </Badge>
+                    {CRITICALITY_LEVELS.map(({ level, label, description }) => (
+                      <Tooltip key={level}>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant={
+                              level === localContext?.criticalityLevel
+                                ? "default"
+                                : "outline"
+                            }
+                            className={`cursor-pointer px-3 py-1 ${level === localContext?.criticalityLevel && level >= 4
+                                ? "bg-destructive hover:bg-destructive/90"
+                                : ""
+                              }`}
+                            onClick={() => handleCriticalityClick(level)}
+                          >
+                            {label}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{description}</p>
+                        </TooltipContent>
+                      </Tooltip>
                     ))}
                   </div>
                 ) : (
-                  <Badge
-                    variant={
-                      (localContext?.criticalityLevel ?? 0) >= 4
-                        ? "destructive"
-                        : (localContext?.criticalityLevel ?? 0) >= 3
-                          ? "secondary"
-                          : "outline"
-                    }
-                  >
-                    {localContext?.criticalityLevel || 3}/5
-                  </Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant={
+                          (localContext?.criticalityLevel ?? 0) >= 4
+                            ? "destructive"
+                            : (localContext?.criticalityLevel ?? 0) >= 3
+                              ? "secondary"
+                              : "outline"
+                        }
+                      >
+                        {CRITICALITY_LEVELS.find(l => l.level === (localContext?.criticalityLevel || 3))?.label || "Standard"}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{CRITICALITY_LEVELS.find(l => l.level === (localContext?.criticalityLevel || 3))?.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
 
@@ -580,5 +601,3 @@ function getInitials(name?: string): string {
     initials.length === 1 ? initials[0] : `${initials[0]}${initials[1]}`;
   return result.toUpperCase();
 }
-
-// Removed local time formatter; using date-fns formatDistanceToNow
