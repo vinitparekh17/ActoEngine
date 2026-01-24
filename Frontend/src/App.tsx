@@ -23,6 +23,7 @@ import RoleManagementPage from "@/pages/RoleManagement";
 import EntityDetailPage from "@/pages/EntityDetailPage";
 import { AccessDenied } from "./components/feedback/AccessDenied";
 import { initializeApiClient } from "./lib/api";
+import NotFoundPage from "./pages/NotFoundPage";
 
 // ============================================
 // Protected Route Wrapper
@@ -206,6 +207,7 @@ function AppRoutes() {
         <Route path="access-denied" element={<AccessDenied />} />
         {/* Standalone column route for direct navigation from context dialogs */}
 
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );
