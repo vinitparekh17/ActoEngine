@@ -16,7 +16,7 @@ public static class ContextQueries
             EntityName,
             Purpose,
             BusinessImpact,
-            DataOwner,
+
             CriticalityLevel,
             BusinessDomain,
             Sensitivity,
@@ -48,7 +48,7 @@ public static class ContextQueries
             EntityName,
             Purpose,
             BusinessImpact,
-            DataOwner,
+
             CriticalityLevel,
             BusinessDomain,
             Sensitivity,
@@ -79,7 +79,7 @@ public static class ContextQueries
     public const string InsertContext = @"
         INSERT INTO EntityContext (
             ProjectId, EntityType, EntityId, EntityName,
-            Purpose, BusinessImpact, DataOwner, CriticalityLevel,
+            Purpose, BusinessImpact, CriticalityLevel,
             BusinessDomain, Sensitivity, DataSource, ValidationRules,
             RetentionPolicy, DataFlow, Frequency, IsDeprecated,
             DeprecationReason, ReplacedBy, LastContextUpdate,
@@ -87,7 +87,7 @@ public static class ContextQueries
         )
         VALUES (
             @ProjectId, @EntityType, @EntityId, @EntityName,
-            @Purpose, @BusinessImpact, @DataOwner, @CriticalityLevel,
+            @Purpose, @BusinessImpact, @CriticalityLevel,
             @BusinessDomain, @Sensitivity, @DataSource, @ValidationRules,
             @RetentionPolicy, @DataFlow, @Frequency, @IsDeprecated,
             @DeprecationReason, @ReplacedBy, GETUTCDATE(),
@@ -103,7 +103,6 @@ public static class ContextQueries
         UPDATE EntityContext
         SET Purpose = @Purpose,
             BusinessImpact = @BusinessImpact,
-            DataOwner = @DataOwner,
             CriticalityLevel = @CriticalityLevel,
             BusinessDomain = @BusinessDomain,
             Sensitivity = @Sensitivity,
@@ -303,8 +302,7 @@ public static class ContextQueries
                 SUM(CASE WHEN ec.Purpose IS NOT NULL THEN 1 ELSE 0 END) as Documented,
                 AVG(CASE 
                     WHEN ec.Purpose IS NOT NULL 
-                        AND ec.BusinessDomain IS NOT NULL 
-                        AND ec.DataOwner IS NOT NULL THEN 100.0
+                        AND ec.BusinessDomain IS NOT NULL THEN 100.0
                     WHEN ec.Purpose IS NOT NULL THEN 60.0
                     ELSE 0.0
                 END) as AvgCompleteness
@@ -378,12 +376,10 @@ public static class ContextQueries
             ec.EntityName,
             ec.Purpose,
             ec.BusinessDomain,
-            ec.DataOwner,
             ec.CriticalityLevel,
             CASE 
                 WHEN ec.Purpose IS NOT NULL 
-                    AND ec.BusinessDomain IS NOT NULL 
-                    AND ec.DataOwner IS NOT NULL THEN 100
+                    AND ec.BusinessDomain IS NOT NULL THEN 100
                 WHEN ec.Purpose IS NOT NULL THEN 60
                 ELSE 0
             END as CompletenessScore,
@@ -401,7 +397,6 @@ public static class ContextQueries
             ec.EntityName,
             ec.Purpose,
             ec.BusinessDomain,
-            ec.DataOwner,
             ec.CriticalityLevel
         ORDER BY CompletenessScore DESC, CriticalityLevel DESC;";
 

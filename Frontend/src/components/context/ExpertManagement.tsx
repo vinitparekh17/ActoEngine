@@ -51,7 +51,7 @@ interface Expert {
   userId: number;
   expertiseLevel: "OWNER" | "EXPERT" | "FAMILIAR" | "CONTRIBUTOR";
   notes?: string;
-  assignedAt: string;
+  addedAt: string;
   user: {
     userId: number;
     fullName?: string;
@@ -67,18 +67,7 @@ interface ContextResponse {
   isStale: boolean;
 }
 
-interface SuggestedExpert {
-  userId: number;
-  name: string;
-  email: string;
-  reason: string;
-  confidence: number;
-}
 
-interface ExpertSuggestions {
-  potentialExperts: SuggestedExpert[];
-  basedOn: string;
-}
 
 interface UserManagementResponse {
   users: ProjectUser[];
@@ -114,7 +103,6 @@ function getInitials(name?: string): string {
  * - GET /projects/{projectId}/context/{type}/{id} - Get current experts
  * - POST /projects/{projectId}/context/{type}/{id}/experts - Add expert
  * - DELETE /projects/{projectId}/context/{type}/{id}/experts/{userId} - Remove expert
- * - GET /projects/{projectId}/context/{type}/{id}/expert-suggestions - Get suggested experts
  * - GET /projects/{projectId}/users - Get all project users
  */
 export const ExpertManagement: React.FC<ExpertManagementProps> = ({
@@ -145,31 +133,11 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     },
   );
 
-  // Fetch expert suggestions
-  const { data: suggestions } = useApi<ExpertSuggestions>(
-    `/projects/${selectedProjectId}/context/${entityType}/${entityId}/expert-suggestions`,
-    {
-      enabled: hasProject && !!selectedProjectId && !!entityId,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1, // Don't retry suggestions aggressively
-      showErrorToast: false, // Silent fail for suggestions
-    },
-  );
 
-  // Fetch all users (for dropdown) - only when dialog is open
-  // NOTE: Backend currently returns all system users. Ideally, the backend endpoint
-  // /UserManagement should accept a projectId parameter and return only users
-  // with membership/permission for that project. For now, we filter client-side.
-  const { data: userResponse, isLoading: isLoadingUsers } = useApi<UserManagementResponse>(
-    `/UserManagement`,
-    {
-      enabled: hasProject && !!selectedProjectId && isAddDialogOpen,
-      staleTime: 10 * 60 * 1000, // 10 minutes
-    },
-  );
 
-  // Fetch project users to filter the dropdown to only project members
-  const { data: projectUsersResponse } = useApi<{ users: ProjectUser[] }>(
+  // Fetch project members (for dropdown) - only when dialog is open
+  // Uses the /projects/{projectId}/users endpoint that returns only project members
+  const { data: projectMembers, isLoading: isLoadingUsers } = useApi<ProjectUser[]>(
     `/projects/${selectedProjectId}/users`,
     {
       enabled: hasProject && !!selectedProjectId && isAddDialogOpen,
@@ -177,9 +145,8 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     },
   );
 
-  // Filter to only users who are members of the selected project
-  const projectUserIds = new Set(projectUsersResponse?.users?.map(u => u.userId) || []);
-  const allUsers = (userResponse?.users || []).filter(user => projectUserIds.has(user.userId));
+  // Use project members directly (no filtering needed)
+  const allUsers = projectMembers || [];
 
   // Add expert mutation
   const { mutate: addExpert, isPending: isAddingExpert } = useApiPost<
@@ -245,7 +212,6 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   };
 
   const experts = contextResponse?.experts || [];
-  const suggestedExperts = suggestions?.potentialExperts || [];
 
   const handleAddExpert = () => {
     if (selectedUserId == null) {
@@ -281,11 +247,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     }
   };
 
-  const handleSuggestedExpertClick = (expert: SuggestedExpert) => {
-    setSelectedUserId(expert.userId);
-    setSelectedLevel("EXPERT"); // Default for suggestions
-    setNotes(`Suggested based on: ${expert.reason}`);
-  };
+
 
   const resetForm = () => {
     setSelectedUserId(null);
@@ -392,44 +354,6 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
-                  {/* Suggested Experts */}
-                  {suggestedExperts.length > 0 && (
-                    <Alert>
-                      <Lightbulb className="h-4 w-4" />
-                      <AlertDescription>
-                        <p className="text-sm font-medium mb-2">
-                          Suggested based on recent activity:
-                        </p>
-                        <div className="space-y-1">
-                          {suggestedExperts.slice(0, 3).map((expert) => (
-                            <Button
-                              key={expert.userId}
-                              variant="ghost"
-                              size="sm"
-                              className="w-full justify-start text-xs h-auto py-2"
-                              onClick={() => handleSuggestedExpertClick(expert)}
-                            >
-                              <Avatar className="w-5 h-5 mr-2">
-                                <AvatarFallback className="text-xs">
-                                  {getInitials(expert.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 text-left">
-                                <div className="font-medium">{expert.name}</div>
-                                <div className="text-muted-foreground">
-                                  {expert.reason}
-                                </div>
-                              </div>
-                              <Badge variant="outline" className="text-xs">
-                                {Math.round(expert.confidence * 100)}%
-                              </Badge>
-                            </Button>
-                          ))}
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
                   {/* User Selection */}
                   <div className="space-y-2">
                     <Label>User</Label>
@@ -636,7 +560,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
                         Added{" "}
-                        {formatRelativeTime(expert.assignedAt, "recently")}
+                        {formatRelativeTime(expert.addedAt, "recently")}
                       </p>
                     </div>
                   </div>
@@ -707,44 +631,6 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                {/* Suggested Experts */}
-                {suggestedExperts.length > 0 && (
-                  <Alert>
-                    <Lightbulb className="h-4 w-4" />
-                    <AlertDescription>
-                      <p className="text-sm font-medium mb-2">
-                        Suggested based on recent activity:
-                      </p>
-                      <div className="space-y-1">
-                        {suggestedExperts.slice(0, 3).map((expert) => (
-                          <Button
-                            key={expert.userId}
-                            variant="ghost"
-                            size="sm"
-                            className="w-full justify-start text-xs h-auto py-2"
-                            onClick={() => handleSuggestedExpertClick(expert)}
-                          >
-                            <Avatar className="w-5 h-5 mr-2">
-                              <AvatarFallback className="text-xs">
-                                {getInitials(expert.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 text-left">
-                              <div className="font-medium">{expert.name}</div>
-                              <div className="text-muted-foreground">
-                                {expert.reason}
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                              {Math.round(expert.confidence * 100)}%
-                            </Badge>
-                          </Button>
-                        ))}
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
                 {/* User Selection */}
                 <div className="space-y-2">
                   <Label>User</Label>
@@ -942,7 +828,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
-                      Added {formatRelativeTime(expert.assignedAt, "recently")}
+                      Added {formatRelativeTime(expert.addedAt, "recently")}
                     </p>
                   </div>
                 </div>

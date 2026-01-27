@@ -36,7 +36,7 @@ interface ContextSummary {
     purpose?: string;
     businessImpact?: string;
     businessDomain?: string;
-    dataOwner?: string;
+
     criticalityLevel?: number;
     sensitivity?: string;
     reviewedBy?: string;
@@ -372,14 +372,7 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
                 </div>
               )}
 
-              {context.dataOwner && (
-                <div>
-                  <span className="text-muted-foreground">Owner:</span>
-                  <span className="ml-1 font-medium">
-                    {context.dataOwner}
-                  </span>
-                </div>
-              )}
+
 
               <div>
                 <span className="text-muted-foreground">Completeness:</span>

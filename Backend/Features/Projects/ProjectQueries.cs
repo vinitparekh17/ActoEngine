@@ -81,4 +81,44 @@ public static class ProjectSqlQueries
 
     public const string TestConnection = @"
         SELECT @@VERSION as ServerVersion";
+
+    // ============================================
+    // Project Members Queries
+    // ============================================
+
+    /// <summary>
+    /// Get all members of a project for dropdown binding.
+    /// </summary>
+    public const string GetProjectMembers = @"
+        SELECT u.UserID as UserId, u.FullName, u.Username
+        FROM ProjectMembers pm
+        INNER JOIN Users u ON pm.UserId = u.UserID
+        WHERE pm.ProjectId = @ProjectId AND u.IsActive = 1
+        ORDER BY u.FullName, u.Username";
+
+    /// <summary>
+    /// Add a user as a member of a project (idempotent).
+    /// </summary>
+    public const string AddProjectMember = @"
+        IF NOT EXISTS (SELECT 1 FROM ProjectMembers WHERE ProjectId = @ProjectId AND UserId = @UserId)
+        BEGIN
+            INSERT INTO ProjectMembers (ProjectId, UserId, AddedBy, AddedAt)
+            VALUES (@ProjectId, @UserId, @AddedBy, GETUTCDATE());
+        END";
+
+    /// <summary>
+    /// Remove a user from a project.
+    /// </summary>
+    public const string RemoveProjectMember = @"
+        DELETE FROM ProjectMembers 
+        WHERE ProjectId = @ProjectId AND UserId = @UserId";
+
+    /// <summary>
+    /// Get all projects a user is a member of.
+    /// </summary>
+    public const string GetUserProjectMemberships = @"
+        SELECT pm.ProjectId
+        FROM ProjectMembers pm
+        INNER JOIN Projects p ON pm.ProjectId = p.ProjectId
+        WHERE pm.UserId = @UserId AND p.IsActive = 1";
 }

@@ -1,6 +1,7 @@
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
 using ActoEngine.WebApi.Features.Schema;
+using ActoEngine.WebApi.Features.Projects.Dtos.Responses;
 
 namespace ActoEngine.WebApi.Features.Projects;
 
@@ -39,6 +40,11 @@ public interface IProjectRepository
     Task<SyncStatus?> GetSyncStatusAsync(int projectId, CancellationToken cancellationToken = default);
     Task SyncSchemaMetadataAsync(int projectId, string connectionString, int userId, CancellationToken cancellationToken = default);
     Task UpdateIsLinkedAsync(int projectId, bool isLinked, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ProjectMemberDto>> GetProjectMembersAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default);
+    Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default);
+    Task RemoveProjectMemberAsync(int projectId, int userId, CancellationToken cancellationToken = default);
+    Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId, CancellationToken cancellationToken = default);
 }
 
 public class ProjectRepository(
@@ -255,5 +261,65 @@ public class ProjectRepository(
             cancellationToken);
 
         _logger.LogInformation("Updated IsLinked status for project {ProjectId} to {IsLinked}", projectId, isLinked);
+    }
+
+    public async Task<IEnumerable<ProjectMemberDto>> GetProjectMembersAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        return await QueryAsync<ProjectMemberDto>(
+            ProjectSqlQueries.GetProjectMembers,
+            new { ProjectId = projectId },
+            cancellationToken);
+    }
+
+    public async Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await QueryAsync<int>(
+            ProjectSqlQueries.GetUserProjectMemberships,
+            new { UserId = userId },
+            cancellationToken);
+    }
+
+    public async Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default)
+    {
+        await ExecuteAsync(
+            ProjectSqlQueries.AddProjectMember,
+            new { ProjectId = projectId, UserId = userId, AddedBy = addedBy },
+            cancellationToken);
+
+        _logger.LogInformation("Added user {UserId} to project {ProjectId} by admin {AdminId}", userId, projectId, addedBy);
+    }
+
+    public async Task RemoveProjectMemberAsync(int projectId, int userId, CancellationToken cancellationToken = default)
+    {
+        await ExecuteAsync(
+            ProjectSqlQueries.RemoveProjectMember,
+            new { ProjectId = projectId, UserId = userId },
+            cancellationToken);
+
+        _logger.LogInformation("Removed user {UserId} from project {ProjectId}", userId, projectId);
+    }
+
+    public async Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        // Count tables
+        var tableCount = await ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM TablesMetadata WHERE ProjectId = @ProjectId",
+            new { ProjectId = projectId },
+            cancellationToken);
+
+        // Count stored procedures (distinct by name)
+        var spCount = await ExecuteScalarAsync<int>(
+            "SELECT COUNT(DISTINCT ProcedureName) FROM SpMetadata WHERE ProjectId = @ProjectId",
+            new { ProjectId = projectId },
+            cancellationToken);
+
+        var syncStatus = await GetSyncStatusAsync(projectId, cancellationToken);
+
+        return new ProjectStatsResponse
+        {
+            TableCount = tableCount,
+            SpCount = spCount,
+            LastSync = syncStatus?.LastSyncAttempt
+        };
     }
 }

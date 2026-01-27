@@ -26,6 +26,7 @@ import { UserTableRow } from "./UserManagement/UserTableRow";
 import { UserFormModal } from "./UserManagement/UserFormModal";
 import { UserDetailModal } from "./UserManagement/UserDetailModal";
 import { PasswordChangeModal } from "./UserManagement/PasswordChangeModal";
+import { ProjectMembershipModal } from "./UserManagement/ProjectMembershipModal";
 
 
 
@@ -36,6 +37,7 @@ export default function UserManagementPage() {
   const [viewingUser, setViewingUser] = useState<UserDto | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   const { confirm } = useConfirm();
 
@@ -173,6 +175,11 @@ export default function UserManagementPage() {
     setIsPasswordModalOpen(true);
   };
 
+  const openProjectModal = (user: UserDto) => {
+    setViewingUser(user);
+    setIsProjectModalOpen(true);
+  };
+
   const handlePasswordChange = (data: any) => {
     if (!viewingUser) return;
 
@@ -204,6 +211,13 @@ export default function UserManagementPage() {
 
   const handlePasswordModalClose = (open: boolean) => {
     setIsPasswordModalOpen(open);
+    if (!open) {
+      setViewingUser(null);
+    }
+  };
+
+  const handleProjectModalClose = (open: boolean) => {
+    setIsProjectModalOpen(open);
     if (!open) {
       setViewingUser(null);
     }
@@ -274,6 +288,7 @@ export default function UserManagementPage() {
                     onDelete={handleDelete}
                     onViewDetail={openDetailModal}
                     onChangePassword={openPasswordModal}
+                    onManageProjects={openProjectModal}
                   />
                 ))}
               </TableBody>
@@ -314,6 +329,13 @@ export default function UserManagementPage() {
             isPending={changePasswordMutation.isPending}
             onClose={handlePasswordModalClose}
             onSubmit={handlePasswordChange}
+          />
+
+          {/* Project Membership Modal */}
+          <ProjectMembershipModal
+            isOpen={isProjectModalOpen}
+            user={viewingUser}
+            onClose={handleProjectModalClose}
           />
         </div>
       )}

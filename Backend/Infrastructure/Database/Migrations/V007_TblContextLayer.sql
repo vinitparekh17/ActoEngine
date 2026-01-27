@@ -17,7 +17,7 @@ CREATE TABLE EntityContext (
     -- Core Context Fields (Universal)
     Purpose NVARCHAR(MAX),
     BusinessImpact NVARCHAR(MAX),
-    DataOwner NVARCHAR(100),
+
     CriticalityLevel INT DEFAULT 3 CHECK (CriticalityLevel BETWEEN 1 AND 5),
     BusinessDomain NVARCHAR(100),
     

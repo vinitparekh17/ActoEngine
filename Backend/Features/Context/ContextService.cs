@@ -211,10 +211,7 @@ public partial class ContextService(
             changes.Add(("BusinessImpact", oldContext.BusinessImpact, newContext.BusinessImpact));
         }
 
-        if (oldContext.DataOwner != newContext.DataOwner)
-        {
-            changes.Add(("DataOwner", oldContext.DataOwner, newContext.DataOwner));
-        }
+
 
         if (oldContext.CriticalityLevel != newContext.CriticalityLevel)
         {
@@ -500,25 +497,18 @@ public partial class ContextService(
         var score = 0;
         var maxScore = 0;
 
-        // Purpose (30 points)
-        maxScore += 30;
+        // Purpose (35 points)
+        maxScore += 35;
         if (!string.IsNullOrWhiteSpace(context.Purpose))
         {
-            score += 30;
+            score += 35;
         }
 
-        // Data Owner (20 points)
+        // Business Domain (20 points)
         maxScore += 20;
-        if (!string.IsNullOrWhiteSpace(context.DataOwner))
-        {
-            score += 20;
-        }
-
-        // Business Domain (15 points)
-        maxScore += 15;
         if (!string.IsNullOrWhiteSpace(context.BusinessDomain))
         {
-            score += 15;
+            score += 20;
         }
 
         // Business Impact (20 points - important for "what breaks")

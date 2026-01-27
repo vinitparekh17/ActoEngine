@@ -9,7 +9,7 @@ import { EntityContext, SaveContextRequest } from "../types/context";
 export interface ContextData {
   purpose?: string;
   businessImpact?: string;
-  dataOwner?: string;
+
   criticalityLevel?: number;
   businessDomain?: string;
   sensitivity?: string;
@@ -40,7 +40,7 @@ export interface ContextResponse {
   suggestions: {
     purpose?: string;
     businessImpact?: string;
-    dataOwner?: string;
+
   };
   completenessScore: number;
   isStale: boolean;
@@ -84,7 +84,7 @@ export interface DashboardData {
     entityId: number;
     entityName: string;
     businessDomain?: string;
-    dataOwner?: string;
+
     completenessScore: number;
     expertCount: number;
   }>;
@@ -116,7 +116,7 @@ export interface SuggestionsResponse {
   suggestions: {
     purpose?: string;
     businessImpact?: string;
-    dataOwner?: string;
+
   };
   // optional metadata
   confidence?: number;
@@ -248,7 +248,6 @@ function calculateCompleteness(context: EntityContext): number {
   const fields = [
     context.purpose,
     context.businessImpact,
-    context.dataOwner,
     context.businessDomain,
   ];
   const filled = fields.filter((f) => f && f.trim().length > 0).length;

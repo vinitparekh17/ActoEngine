@@ -29,6 +29,11 @@ export interface VerifyConnectionRequest {
   password: string;
   port: number;
   databaseType: string;
+  // Advanced connection options
+  encrypt?: boolean;
+  trustServerCertificate?: boolean;
+  connectionTimeout?: number;
+  applicationName?: string;
 }
 
 export interface ConnectionResponse {
@@ -37,6 +42,10 @@ export interface ConnectionResponse {
   serverVersion?: string;
   testedAt?: string;
   errors?: string[];
+  /** Error code for programmatic handling (e.g., "TLS_HANDSHAKE_FAILED", "AUTH_FAILED") */
+  errorCode?: string;
+  /** Help link for troubleshooting the specific error */
+  helpLink?: string;
 }
 
 export interface CreateProjectRequest {

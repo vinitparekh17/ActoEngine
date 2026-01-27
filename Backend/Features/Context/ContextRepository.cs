@@ -156,7 +156,6 @@ public class ContextRepository(
             EntityName = entityName,
             request.Purpose,
             request.BusinessImpact,
-            request.DataOwner,
             CriticalityLevel = request.CriticalityLevel ?? 3,
             request.BusinessDomain,
             request.Sensitivity,

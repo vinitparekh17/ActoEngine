@@ -12,7 +12,7 @@ public class SaveContextRequest
 {
     public string? Purpose { get; set; }
     public string? BusinessImpact { get; set; }
-    public string? DataOwner { get; set; }
+
 
     [Range(1, 5)]
     public int? CriticalityLevel { get; set; }
@@ -217,7 +217,7 @@ public class TopDocumentedEntity
     public required string EntityName { get; set; }
     public string? Purpose { get; set; }
     public string? BusinessDomain { get; set; }
-    public string? DataOwner { get; set; }
+
     public int CriticalityLevel { get; set; }
     public int CompletenessScore { get; set; }
     public int ExpertCount { get; set; }

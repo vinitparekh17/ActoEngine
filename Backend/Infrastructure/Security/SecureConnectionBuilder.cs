@@ -17,13 +17,21 @@ public static class SecureConnectionBuilder
     /// <param name="server">Server hostname or IP address.</param>
     /// <param name="port">SQL Server port (default 1433).</param>
     /// <param name="database">Database name.</param>
-    /// <param name="environment">Optional host environment for production-specific settings.</param>
+    /// <param name="encrypt">Whether to encrypt the connection (default: true).</param>
+    /// <param name="trustServerCertificate">Whether to trust the server certificate (default: false).</param>
+    /// <param name="connectionTimeout">Connection timeout in seconds (default: 30).</param>
+    /// <param name="applicationName">Application name for tracking (optional).</param>
+    /// <param name="environment">Optional host environment for environment-specific defaults.</param>
     /// <returns>A SqlConnectionStringBuilder with configured connection properties.</returns>
     /// <exception cref="ArgumentException">Thrown when required parameters are null or empty.</exception>
     public static SqlConnectionStringBuilder BuildConnectionString(
         string server,
         int port,
         string database,
+        bool encrypt = true,
+        bool trustServerCertificate = false,
+        int connectionTimeout = 30,
+        string? applicationName = null,
         IHostEnvironment? environment = null)
     {
         if (string.IsNullOrWhiteSpace(server))
@@ -33,23 +41,24 @@ public static class SecureConnectionBuilder
         if (port <= 0 || port > 65535)
             throw new ArgumentException("Port must be between 1 and 65535.", nameof(port));
 
+        // Use user-provided trustServerCertificate, but in development mode default to true if not explicitly set
+        var effectiveTrustCert = trustServerCertificate || (environment?.IsDevelopment() ?? false);
+
         var builder = new SqlConnectionStringBuilder
         {
             DataSource = port == 1433 ? server : $"{server},{port}",
             InitialCatalog = database,
             IntegratedSecurity = false,
-            Encrypt = true,
-            // SECURITY: TrustServerCertificate is disabled in production by default.
-            // In development, it's enabled for convenience with self-signed certs.
-            // For production, ensure SQL Server has a valid certificate configured.
-            TrustServerCertificate = environment?.IsDevelopment() ?? false,
+            Encrypt = encrypt,
+            TrustServerCertificate = effectiveTrustCert,
             // Connection pooling settings for credential management
             Pooling = true,
             MinPoolSize = 1,
             MaxPoolSize = 100,
-            ConnectTimeout = 30,
+            ConnectTimeout = Math.Clamp(connectionTimeout, 5, 120),
             // Prevent connection string from being read after creation (security feature)
-            PersistSecurityInfo = false
+            PersistSecurityInfo = false,
+            ApplicationName = applicationName ?? "ActoEngine"
         };
 
         return builder;
@@ -116,7 +125,7 @@ public static class SecureConnectionBuilder
         string database,
         IHostEnvironment? environment = null)
     {
-        var builder = BuildConnectionString(server, port, database, environment);
+        var builder = BuildConnectionString(server, port, database, environment: environment);
         builder.IntegratedSecurity = true;
         return builder;
     }

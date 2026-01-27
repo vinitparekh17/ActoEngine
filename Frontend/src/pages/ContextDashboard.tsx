@@ -110,7 +110,7 @@ interface WellDocumentedItem {
   entityId: number;
   entityName: string;
   businessDomain?: string;
-  dataOwner?: string;
+
   completenessScore: number;
   expertCount: number;
 }
@@ -806,9 +806,7 @@ export const ContextDashboard: React.FC = () => {
                             {item.businessDomain || "N/A"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm">
-                          {item.dataOwner || "Unassigned"}
-                        </TableCell>
+
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Progress

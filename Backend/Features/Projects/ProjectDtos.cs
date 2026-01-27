@@ -35,15 +35,6 @@ public class ProjectResponse
     public int SyncJobId { get; internal set; }
 }
 
-public class ConnectionResponse
-{
-    public bool IsValid { get; set; }
-    public string Message { get; set; } = string.Empty;
-    public string? ServerVersion { get; set; }
-    public DateTime TestedAt { get; set; } = DateTime.UtcNow;
-    public List<string> Errors { get; set; } = [];
-}
-
 public class ProjectStatsResponse
 {
     public int TableCount { get; set; }
