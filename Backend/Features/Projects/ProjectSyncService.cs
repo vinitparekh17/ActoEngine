@@ -47,6 +47,10 @@ namespace ActoEngine.WebApi.Features.Projects
                     request.Server,
                     request.Port,
                     request.DatabaseName,
+                    request.Encrypt,
+                    request.TrustServerCertificate,
+                    request.ConnectionTimeout,
+                    request.ApplicationName,
                     _environment);
 
                 // SECURITY: Use SqlCredential to separate credentials from connection string

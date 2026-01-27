@@ -18,14 +18,13 @@ CREATE TABLE TablesMetadata (
     -- Context Layer
     Purpose NVARCHAR(MAX),
     BusinessDomain NVARCHAR(100),
-    DataOwner NVARCHAR(100),
     CriticalityLevel INT DEFAULT 3 CHECK (CriticalityLevel BETWEEN 1 AND 5),
     RetentionPolicy NVARCHAR(255),
     LastReviewedAt DATETIME2,
     ReviewedBy INT REFERENCES Users(UserID),
     ContextCompleteness AS (
         CASE 
-            WHEN Purpose IS NOT NULL AND BusinessDomain IS NOT NULL AND DataOwner IS NOT NULL THEN 100
+            WHEN Purpose IS NOT NULL AND BusinessDomain IS NOT NULL THEN 100
             WHEN Purpose IS NOT NULL THEN 60
             ELSE 0
         END

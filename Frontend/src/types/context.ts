@@ -93,7 +93,7 @@ export interface EntityContext {
   // Core context fields
   purpose?: string;
   businessImpact?: string;
-  dataOwner?: string;
+
   criticalityLevel: CriticalityLevel;
   businessDomain?: BusinessDomain;
 
@@ -172,7 +172,7 @@ export interface ContextReviewRequest {
 export interface SaveContextRequest {
   purpose?: string;
   businessImpact?: string;
-  dataOwner?: string;
+
   criticalityLevel?: CriticalityLevel;
   businessDomain?: BusinessDomain;
   sensitivity?: SensitivityLevel;
@@ -263,7 +263,7 @@ export interface DocumentedEntity {
   entityName: string;
   purpose?: string;
   businessDomain?: string;
-  dataOwner?: string;
+
   criticalityLevel: CriticalityLevel;
   completenessScore: number;
   expertCount: number;

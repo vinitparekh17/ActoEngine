@@ -16,7 +16,7 @@ public class EntityContext
     // Core Context Fields
     public string? Purpose { get; set; }
     public string? BusinessImpact { get; set; }
-    public string? DataOwner { get; set; }
+
     public int CriticalityLevel { get; set; } = 3;
     public string? BusinessDomain { get; set; }
     public string? Sensitivity { get; set; }

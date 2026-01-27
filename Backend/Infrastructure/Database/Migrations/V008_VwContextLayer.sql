@@ -18,7 +18,7 @@ SELECT
     tm.ProjectId,
     tm.Purpose,
     tm.BusinessDomain,
-    tm.DataOwner,
+
     tm.CriticalityLevel,
     NULL as DataFlow,
     NULL as Frequency,
@@ -44,7 +44,7 @@ SELECT
     tm.ProjectId,
     cm.Purpose,
     NULL as BusinessDomain,
-    NULL as DataOwner,
+
     NULL as CriticalityLevel,
     NULL as DataFlow,
     NULL as Frequency,
@@ -75,7 +75,7 @@ SELECT
     sm.ProjectId,
     sm.Purpose,
     NULL as BusinessDomain,
-    NULL as DataOwner,
+
     NULL as CriticalityLevel,
     sm.DataFlow,
     sm.Frequency,
@@ -105,7 +105,7 @@ SELECT
     fm.ProjectId,
     fm.Purpose,
     NULL as BusinessDomain,
-    NULL as DataOwner,
+
     NULL as CriticalityLevel,
     fm.DataFlow,
     NULL as Frequency,

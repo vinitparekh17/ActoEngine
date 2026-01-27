@@ -1,18 +1,20 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Text;
+using System.Collections.Generic;
 using System.Text.Json;
 using ActoEngine.WebApi.Infrastructure.Security;
 using ActoEngine.WebApi.Features.Schema;
 using ActoEngine.WebApi.Shared.Extensions;
 using ActoEngine.WebApi.Api.ApiModels;
 using ActoEngine.WebApi.Features.Projects.Dtos.Requests;
+using ActoEngine.WebApi.Features.Projects.Dtos.Responses;
 using ActoEngine.WebApi.Api.Attributes;
 namespace ActoEngine.WebApi.Features.Projects
 {
     [ApiController]
     [Authorize]
-    [Route("api/[controller]")]
+    [Route("api/projects")]
     public class ProjectController(IProjectService projectService, ILogger<ProjectController> logger) : ControllerBase
     {
         private readonly IProjectService _projectService = projectService;
@@ -30,14 +32,15 @@ namespace ActoEngine.WebApi.Features.Projects
 
             var connectionResponse = await _projectService.VerifyConnectionAsync(request);
 
-            if (connectionResponse)
+            if (connectionResponse.IsValid)
             {
-                var successResponse = new ConnectionResponse { Message = "Connection successful", IsValid = true };
-                return Ok(ApiResponse<ConnectionResponse>.Success(successResponse, "Database connection verified"));
+                return Ok(ApiResponse<ConnectionResponse>.Success(connectionResponse, "Database connection verified"));
             }
 
-            var failureResponse = new ConnectionResponse { Message = "Connection failed" };
-            return BadRequest(ApiResponse<ConnectionResponse>.Failure("Database connection failed"));
+            // Return the detailed error response from the service
+            return BadRequest(ApiResponse<ConnectionResponse>.Failure(
+                connectionResponse.Message, 
+                connectionResponse.Errors));
         }
 
         [HttpPost("link")]
@@ -282,6 +285,42 @@ namespace ActoEngine.WebApi.Features.Projects
             }
 
             return Ok(ApiResponse<ProjectStatsResponse>.Success(stats, "Project stats retrieved successfully"));
+        }
+
+        [HttpGet("{projectId}/users")]
+        [RequirePermission("Projects:Read")]
+        [ProducesResponseType(typeof(ApiResponse<IEnumerable<ProjectMemberDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetProjectUsers(int projectId, CancellationToken cancellationToken)
+        {
+            var members = await _projectService.GetProjectMembersAsync(projectId, cancellationToken);
+            return Ok(ApiResponse<IEnumerable<ProjectMemberDto>>.Success(members, "Project members retrieved successfully"));
+        }
+        [HttpPost("{projectId}/members")]
+        [RequirePermission("Projects:Update")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> AddProjectMember(int projectId, [FromBody] int userId)
+        {
+            var adminId = HttpContext.GetUserId() ?? throw new UnauthorizedAccessException();
+            await _projectService.AddProjectMemberAsync(projectId, userId, adminId);
+            return Ok(ApiResponse<object>.Success(new { }, "Member added successfully"));
+        }
+
+        [HttpDelete("{projectId}/members/{userId}")]
+        [RequirePermission("Projects:Update")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> RemoveProjectMember(int projectId, int userId)
+        {
+            await _projectService.RemoveProjectMemberAsync(projectId, userId);
+            return Ok(ApiResponse<object>.Success(new { }, "Member removed successfully"));
+        }
+
+        [HttpGet("user/{userId}")]
+        [RequirePermission("Projects:Read")]
+        [ProducesResponseType(typeof(ApiResponse<IEnumerable<int>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetUserProjectMemberships(int userId)
+        {
+            var projectIds = await _projectService.GetUserProjectMembershipsAsync(userId);
+            return Ok(ApiResponse<IEnumerable<int>>.Success(projectIds, "User project memberships retrieved successfully"));
         }
 
         [HttpPut("{projectId}")]

@@ -50,7 +50,7 @@ export default function ProjectHub() {
     data: stats,
     isLoading: isLoadingStats,
     error: statsError,
-  } = useApi<ProjectStatsResponse>(`/Project/${projectId}/stats`, {
+  } = useApi<ProjectStatsResponse>(`/projects/${projectId}/stats`, {
     enabled: !!projectId,
     staleTime: 2 * 60 * 1000,
   });
@@ -58,7 +58,7 @@ export default function ProjectHub() {
   // Fetch recent activity
   const { data: activity, isLoading: isLoadingActivity } = useApi<
     ActivityItem[]
-  >(`/Project/${projectId}/activity?limit=5`, {
+  >(`/projects/${projectId}/activity?limit=5`, {
     enabled: !!projectId,
     staleTime: 1 * 60 * 1000,
   });

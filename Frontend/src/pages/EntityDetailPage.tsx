@@ -112,7 +112,7 @@ interface Expert {
     userId: number;
     expertiseLevel: "OWNER" | "EXPERT" | "FAMILIAR" | "CONTRIBUTOR";
     notes?: string;
-    assignedAt: string;
+    addedAt: string;
     user: {
         userId: number;
         fullName?: string;
@@ -125,7 +125,6 @@ interface ContextResponse {
     context: {
         purpose?: string;
         businessImpact?: string;
-        dataOwner?: string;
         criticalityLevel?: number;
         businessDomain?: string;
     };
@@ -148,7 +147,7 @@ function getInitials(name?: string): string {
 }
 
 function formatRowCount(count?: number): string {
-    if (!count) return "—";
+    if (count == null) return "—";
     if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
     if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
     return count.toLocaleString();
@@ -240,7 +239,7 @@ const ExpertCard: React.FC<{ expert: Expert }> = ({ expert }) => {
                         )}
                         <div className="flex items-center justify-between pt-2 mt-2 border-t">
                             <span className="text-xs text-muted-foreground">
-                                {formatRelativeTime(expert.assignedAt, "recently")}
+                                {formatRelativeTime(expert.addedAt, "recently")}
                             </span>
                             <Button variant="ghost" size="sm" className="h-6 text-xs px-2" asChild>
                                 <a href={`mailto:${expert.user.email}`}>
@@ -453,9 +452,13 @@ const EntityDetailPage: React.FC = () => {
     const context = contextData?.context;
     const criticalityConfig = CRITICALITY_CONFIG[context?.criticalityLevel || 3];
 
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        toast.success("Copied to clipboard", { duration: 1500 });
+    const copyToClipboard = async (text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            toast.success("Copied to clipboard", { duration: 1500 });
+        } catch (error) {
+            toast.error("Failed to copy to clipboard");
+        }
     };
 
     // Loading State

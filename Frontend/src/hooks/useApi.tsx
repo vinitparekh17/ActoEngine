@@ -56,7 +56,7 @@ function generateQueryKey(endpoint: string): string[] {
 
 // Example:
 // '/CodeGen/schema/tables/5' → ['CodeGen', 'schema', 'tables', '5']
-// '/Project' → ['Project']
+// '/projects' → ['projects']
 
 // ============================================
 // useApiMutation - Mutation Hook

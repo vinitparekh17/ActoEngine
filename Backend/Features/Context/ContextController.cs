@@ -222,7 +222,6 @@ public class ContextController(
         {
         context.Purpose,
         context.BusinessImpact,
-        context.DataOwner,
         context.BusinessDomain
     };
         var filled = fields.Count(f => !string.IsNullOrWhiteSpace(f));

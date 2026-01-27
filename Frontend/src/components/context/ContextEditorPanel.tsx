@@ -53,7 +53,7 @@ interface ContextData {
     purpose?: string;
     businessImpact?: string;
     businessDomain?: string;
-    dataOwner?: string;
+
     criticalityLevel?: number;
     sensitivity?: string;
     reviewedBy?: string;
@@ -408,21 +408,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 </div>
               )}
 
-              {/* Data Owner */}
-              <div className="space-y-2">
-                <Label className="text-sm">Data Owner</Label>
-                {isEditing ? (
-                  <Input
-                    placeholder="Team or person name"
-                    value={localContext?.dataOwner || ""}
-                    onChange={(e) => handleChange("dataOwner", e.target.value)}
-                  />
-                ) : (
-                  <p className="text-sm">
-                    {localContext?.dataOwner || "Unassigned"}
-                  </p>
-                )}
-              </div>
+
 
               {/* Criticality */}
               <div className="space-y-2">

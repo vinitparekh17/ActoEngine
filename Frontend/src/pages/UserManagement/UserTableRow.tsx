@@ -1,6 +1,6 @@
 import { Button } from "../../components/ui/button";
 import { TableCell, TableRow } from "../../components/ui/table";
-import { Pencil, Trash2, Eye, Key } from "lucide-react";
+import { Pencil, Trash2, Eye, Key, FolderKanban } from "lucide-react";
 import type { UserDto } from "../../types/user-management";
 import { getActiveBadgeClass, getInactiveBadgeClass } from "./helpers";
 import { formatDate } from "../../lib/utils";
@@ -11,6 +11,7 @@ interface UserTableRowProps {
     readonly onDelete: (user: UserDto) => void;
     readonly onViewDetail: (user: UserDto) => void;
     readonly onChangePassword: (user: UserDto) => void;
+    readonly onManageProjects: (user: UserDto) => void;
 }
 
 export function UserTableRow({
@@ -19,6 +20,7 @@ export function UserTableRow({
     onDelete,
     onViewDetail,
     onChangePassword,
+    onManageProjects,
 }: UserTableRowProps) {
     return (
         <TableRow>
@@ -59,6 +61,14 @@ export function UserTableRow({
                         title="Change Password"
                     >
                         <Key className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onManageProjects(user)}
+                        title="Manage Projects"
+                    >
+                        <FolderKanban className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="ghost"

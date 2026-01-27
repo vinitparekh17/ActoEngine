@@ -79,7 +79,7 @@ export function useSyncStatus(
 
       // Use authenticated API client
       const result = await api.get<SyncStatusResponse>(
-        `/Project/${projectId}/sync-status`,
+        `/projects/${projectId}/sync-status`,
       );
 
       const data: SyncStatusData = {
@@ -131,7 +131,7 @@ export function useSyncStatus(
     // Get auth token for SSE connection
     const token = useAuthStore.getState().token;
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
-    const sseUrl = `${apiUrl}/api/Project/${projectId}/sync-status/stream${tokenParam}`;
+    const sseUrl = `${apiUrl}/api/projects/${projectId}/sync-status/stream${tokenParam}`;
 
     try {
       const eventSource = new EventSource(sseUrl, { withCredentials: true });

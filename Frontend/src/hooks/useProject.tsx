@@ -96,7 +96,7 @@ export function useProject() {
     isLoading: isLoadingProjects,
     error: projectsError,
     refetch: refetchProjects,
-  } = useApi<Project[]>("/Project", {
+  } = useApi<Project[]>("/projects", {
     queryKey: [...projectQueryKeys.all()],
     staleTime: 5 * 60 * 1000,
     retry: 2,
@@ -120,7 +120,7 @@ export function useProject() {
     data: projectDetails,
     isLoading: isLoadingDetails,
     error: projectDetailsError,
-  } = useApi<Project>(`/Project/${store.selectedProjectId}`, {
+  } = useApi<Project>(`/projects/${store.selectedProjectId}`, {
     queryKey: [...projectQueryKeys.detail(store.selectedProjectId!)],
     enabled: !!store.selectedProjectId,
     staleTime: 10 * 60 * 1000,

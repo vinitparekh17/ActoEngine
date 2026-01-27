@@ -118,7 +118,7 @@ export default function ProjectSettings() {
 
   // Update mutation - Remove refetchProjects call
   const updateMutation = useApiPut<UpdateProjectResponse, UpdateProjectRequest>(
-    `/Project/${projectId}`,
+    `/projects/${projectId}`,
     {
       successMessage: "Project updated successfully",
       invalidateKeys: [["projects"], ["projects", projectId!]],
@@ -129,7 +129,7 @@ export default function ProjectSettings() {
   const deleteMutation = useApiDelete<
     DeleteProjectResponse,
     { projectId: string }
-  >(`/Project/:projectId`, {
+  >(`/projects/:projectId`, {
     successMessage: "Project deleted successfully",
     invalidateKeys: [["projects"]],
     onSuccess: () => {
@@ -141,14 +141,14 @@ export default function ProjectSettings() {
   const verifyMutation = useApiPost<
     ConnectionResponse,
     VerifyConnectionRequest
-  >("/Project/verify", {
+  >("/projects/verify", {
     showSuccessToast: false,
     showErrorToast: true,
   });
 
   // Link mutation
   const linkMutation = useApiPost<ProjectResponse, LinkProjectRequest>(
-    "/Project/link",
+    "/projects/link",
     {
       successMessage: "Database linked successfully! Sync in progress...",
       invalidateKeys: [["projects", projectId!]],
@@ -157,7 +157,7 @@ export default function ProjectSettings() {
 
   // Re-sync mutation
   const resyncMutation = useApiPost<ProjectResponse, ReSyncProjectRequest>(
-    "/Project/resync",
+    "/projects/resync",
     {
       successMessage: "Re-sync started successfully!",
       invalidateKeys: [["projects", projectId!]],

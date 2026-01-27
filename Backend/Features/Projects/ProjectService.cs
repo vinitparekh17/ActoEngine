@@ -6,13 +6,16 @@ using ActoEngine.WebApi.Infrastructure.Security;
 using ActoEngine.WebApi.Features.Clients;
 using ActoEngine.WebApi.Features.ImpactAnalysis;
 using ActoEngine.WebApi.Features.Projects.Dtos.Requests;
+using ActoEngine.WebApi.Features.Projects.Dtos.Responses;
 using ActoEngine.WebApi.Features.ProjectClients;
+using System.Threading;
+using System.Collections.Generic;
 namespace ActoEngine.WebApi.Features.Projects
 {
     public interface IProjectService
     {
         Task<SyncStatus?> GetSyncStatusAsync(int projectId);
-        Task<bool> VerifyConnectionAsync(VerifyConnectionRequest request);
+        Task<ConnectionResponse> VerifyConnectionAsync(VerifyConnectionRequest request);
         Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId);
         Task<ProjectResponse> ReSyncProjectAsync(ReSyncProjectRequest request, int userId);
         Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId);
@@ -21,6 +24,10 @@ namespace ActoEngine.WebApi.Features.Projects
         Task<bool> UpdateProjectAsync(int projectId, Project project, int userId);
         Task<bool> DeleteProjectAsync(int projectId, int userId);
         Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId);
+        Task<IEnumerable<ProjectMemberDto>> GetProjectMembersAsync(int projectId, CancellationToken cancellationToken = default);
+        Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default);
+        Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default);
+        Task RemoveProjectMemberAsync(int projectId, int userId, CancellationToken cancellationToken = default);
     }
 
     public class ProjectService(
@@ -50,9 +57,12 @@ namespace ActoEngine.WebApi.Features.Projects
         /// Verifies a database connection using secure credential handling.
         /// Uses SqlConnectionStringBuilder to avoid string concatenation vulnerabilities
         /// and SqlCredential for credential separation from connection string.
+        /// Returns detailed connection result with server version or actionable error information.
         /// </summary>
-        public async Task<bool> VerifyConnectionAsync(VerifyConnectionRequest request)
+        public async Task<ConnectionResponse> VerifyConnectionAsync(VerifyConnectionRequest request)
         {
+            var response = new ConnectionResponse { TestedAt = DateTime.UtcNow };
+            
             try
             {
                 // SECURITY: Use SqlConnectionStringBuilder instead of string concatenation
@@ -61,6 +71,10 @@ namespace ActoEngine.WebApi.Features.Projects
                     request.Server,
                     request.Port,
                     request.DatabaseName,
+                    request.Encrypt,
+                    request.TrustServerCertificate,
+                    request.ConnectionTimeout,
+                    request.ApplicationName,
                     _environment);
 
                 // SECURITY: Use SqlCredential to separate credentials from connection string
@@ -71,16 +85,113 @@ namespace ActoEngine.WebApi.Features.Projects
 
                 using var conn = new SqlConnection(builder.ConnectionString, credential);
                 await conn.OpenAsync();
-                return true;
+                
+                // Get server version for compatibility info
+                response.ServerVersion = conn.ServerVersion;
+                response.IsValid = true;
+                response.Message = "Connection successful";
+                
+                return response;
+            }
+            catch (SqlException ex)
+            {
+                // SECURITY: Do not log credentials - only log server and database
+                _logger.LogWarning(ex, "Failed to verify connection to database {DatabaseName} on server {Server}:{Port}. SQL Error: {ErrorNumber}",
+                    request.DatabaseName, request.Server, request.Port, ex.Number);
+                
+                return MapSqlExceptionToResponse(ex, response);
             }
             catch (Exception ex)
             {
-                // SECURITY: Do not log credentials - only log server and database
                 _logger.LogWarning(ex, "Failed to verify connection to database {DatabaseName} on server {Server}:{Port}",
                     request.DatabaseName, request.Server, request.Port);
-                return false;
+                
+                response.IsValid = false;
+                response.Message = "Connection failed. Please check your connection details.";
+                response.ErrorCode = "UNKNOWN_ERROR";
+                response.Errors.Add(ex.Message);
+                
+                return response;
             }
         }
+        
+        /// <summary>
+        /// Maps SQL exceptions to user-friendly error codes and messages.
+        /// </summary>
+        private static ConnectionResponse MapSqlExceptionToResponse(SqlException ex, ConnectionResponse response)
+        {
+            response.IsValid = false;
+            
+            // Map SQL error numbers to user-friendly messages
+            // Reference: https://docs.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors
+            switch (ex.Number)
+            {
+                // Login failed errors
+                case 18456:
+                    response.Message = "Authentication failed. Please check your username and password.";
+                    response.ErrorCode = "AUTH_FAILED";
+                    response.Errors.Add("Login failed for the specified user.");
+                    break;
+                    
+                // Network/connectivity errors
+                case -1:
+                case 53:
+                    response.Message = "Cannot reach server. Please verify the server address and port are correct.";
+                    response.ErrorCode = "NETWORK_UNREACHABLE";
+                    response.Errors.Add("A network-related or instance-specific error occurred.");
+                    break;
+                    
+                // SQL Server not found / named instance issues
+                case -2:
+                case 2:
+                    response.Message = "Server not found or connection timed out. Verify the server name and ensure SQL Server is running.";
+                    response.ErrorCode = "SERVER_NOT_FOUND";
+                    response.Errors.Add("Timeout or server instance not found.");
+                    break;
+                    
+                // Database does not exist
+                case 4060:
+                    response.Message = "Database not found. Please verify the database name.";
+                    response.ErrorCode = "DATABASE_NOT_FOUND";
+                    response.Errors.Add($"Cannot open database. The database may not exist.");
+                    break;
+                    
+                // Access denied / permission issues
+                case 916:
+                case 229:
+                    response.Message = "Access denied. The user does not have permission to access this database.";
+                    response.ErrorCode = "ACCESS_DENIED";
+                    response.Errors.Add("Insufficient permissions to access the database.");
+                    break;
+                    
+                // TLS/SSL handshake errors - common with SQL Server 2012 without TLS 1.2 patches
+                case 20:
+                case 10054:
+                case 10060:
+                    response.Message = "Connection security error. If using SQL Server 2012, ensure TLS 1.2 updates are installed.";
+                    response.ErrorCode = "TLS_HANDSHAKE_FAILED";
+                    response.HelpLink = "https://support.microsoft.com/en-us/topic/kb3135244-tls-1-2-support-for-microsoft-sql-server-e4472ef8-90a9-13c1-e4d8-44aad198cdbe";
+                    response.Errors.Add("SSL/TLS handshake failed. SQL Server 2012 requires SP4 + cumulative update for TLS 1.2.");
+                    break;
+                    
+                // Encryption-related errors
+                case 10:
+                case 42:
+                    response.Message = "Encryption configuration error. Check if SQL Server is configured for SSL/TLS.";
+                    response.ErrorCode = "ENCRYPTION_ERROR";
+                    response.Errors.Add("Connection encryption negotiation failed.");
+                    break;
+                    
+                default:
+                    response.Message = $"Connection failed (Error {ex.Number}). Please check your connection details.";
+                    response.ErrorCode = "SQL_ERROR";
+                    response.Errors.Add(ex.Message);
+                    break;
+            }
+            
+            return response;
+        }
+
 
         public async Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId)
         {
@@ -453,6 +564,10 @@ namespace ActoEngine.WebApi.Features.Projects
                 };
 
                 var projectId = await _projectRepository.CreateAsync(project);
+
+                // Auto-add creator as project member
+                await _projectRepository.AddProjectMemberAsync(projectId, userId, userId);
+
                 _logger.LogInformation("Created new project {ProjectName} with ID {ProjectId} for user {UserId}. Project not linked to database yet.", request.ProjectName, projectId, userId);
                 return new ProjectResponse { ProjectId = projectId, Message = "Project created successfully. Use Link endpoint to connect to a database." };
             }
@@ -528,40 +643,35 @@ namespace ActoEngine.WebApi.Features.Projects
                     return null;
                 }
 
-                using var conn = await _connectionFactory.CreateConnectionAsync();
-
-                // Count tables
-                int tableCount;
-                using (var cmd = conn.CreateCommand() as SqlCommand ?? throw new InvalidOperationException("Failed to create SqlCommand."))
-                {
-                    cmd.CommandText = "SELECT COUNT(*) FROM TablesMetadata WHERE ProjectId = @ProjectId";
-                    cmd.Parameters.AddWithValue("@ProjectId", projectId);
-                    tableCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
-                }
-
-                // Count stored procedures (distinct by name)
-                int spCount;
-                using (var cmd = conn.CreateCommand() as SqlCommand ?? throw new InvalidOperationException("Failed to create SqlCommand."))
-                {
-                    cmd.CommandText = "SELECT COUNT(DISTINCT ProcedureName) FROM SpMetadata WHERE ProjectId = @ProjectId";
-                    cmd.Parameters.AddWithValue("@ProjectId", projectId);
-                    spCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
-                }
-
-                var syncStatus = await _projectRepository.GetSyncStatusAsync(projectId);
-
-                return new ProjectStatsResponse
-                {
-                    TableCount = tableCount,
-                    SpCount = spCount,
-                    LastSync = syncStatus?.LastSyncAttempt
-                };
+                return await _projectRepository.GetProjectStatsAsync(projectId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving stats for project {ProjectId}", projectId);
                 throw;
             }
+        }
+
+        public async Task<IEnumerable<ProjectMemberDto>> GetProjectMembersAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            return await _projectRepository.GetProjectMembersAsync(projectId, cancellationToken);
+        }
+
+        public async Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            return await _projectRepository.GetUserProjectMembershipsAsync(userId, cancellationToken);
+        }
+
+        public async Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default)
+        {
+            await _projectRepository.AddProjectMemberAsync(projectId, userId, addedBy, cancellationToken);
+            _logger.LogInformation("Added user {UserId} to project {ProjectId} by admin {AdminId}", userId, projectId, addedBy);
+        }
+
+        public async Task RemoveProjectMemberAsync(int projectId, int userId, CancellationToken cancellationToken = default)
+        {
+            await _projectRepository.RemoveProjectMemberAsync(projectId, userId, cancellationToken);
+            _logger.LogInformation("Removed user {UserId} from project {ProjectId}", userId, projectId);
         }
     }
 }

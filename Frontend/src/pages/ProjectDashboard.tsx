@@ -106,7 +106,7 @@ export default function ProjectsDashboard() {
   const { confirm } = useConfirm();
 
   const deleteMutation = useApiMutation<void, { projectId: number }>(
-    "/Project/:projectId",
+    "/projects/:projectId",
     "DELETE",
     {
       onSuccess: () => refetchProjects(),
