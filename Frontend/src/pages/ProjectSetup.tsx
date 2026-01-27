@@ -92,7 +92,23 @@ export default function ProjectSetup() {
   });
 
   const buildConnectionString = (data: ProjectSetupValues) => {
-    return `Server=${data.server},${data.port};Database=${data.databaseName};User Id=${data.username};Password=${data.password};TrustServerCertificate=True;`;
+    // Build connection string parts
+    const parts = [
+      `Server=${data.server},${data.port}`,
+      `Database=${data.databaseName}`,
+      `User Id=${data.username}`,
+      `Password=${data.password}`,
+      `Encrypt=${data.encrypt}`,
+      `TrustServerCertificate=${data.trustServerCertificate}`,
+      `Connection Timeout=${data.connectionTimeout}`
+    ];
+
+    // Add optional Application Name if provided
+    if (data.applicationName && data.applicationName.trim()) {
+      parts.push(`Application Name=${data.applicationName}`);
+    }
+
+    return parts.join(';') + ';';
   };
 
   /**

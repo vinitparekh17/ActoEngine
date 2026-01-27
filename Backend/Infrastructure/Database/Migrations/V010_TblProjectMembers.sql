@@ -13,7 +13,7 @@ CREATE TABLE ProjectMembers (
     ProjectId INT NOT NULL,
     UserId INT NOT NULL,
     AddedAt DATETIME2 DEFAULT GETUTCDATE(),
-    AddedBy INT,
+    AddedBy INT NULL,
     
     -- Foreign Keys
     CONSTRAINT FK_ProjectMembers_Projects FOREIGN KEY (ProjectId) 
@@ -21,7 +21,7 @@ CREATE TABLE ProjectMembers (
     CONSTRAINT FK_ProjectMembers_Users FOREIGN KEY (UserId) 
         REFERENCES Users(UserID) ON DELETE CASCADE,
     CONSTRAINT FK_ProjectMembers_AddedBy FOREIGN KEY (AddedBy) 
-        REFERENCES Users(UserID),
+        REFERENCES Users(UserID) ON DELETE SET NULL,
     
     -- Unique constraint: one membership record per user-project pair
     CONSTRAINT UQ_ProjectMembers_ProjectUser UNIQUE (ProjectId, UserId)

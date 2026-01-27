@@ -37,10 +37,12 @@ namespace ActoEngine.WebApi.Features.Projects
                 return Ok(ApiResponse<ConnectionResponse>.Success(connectionResponse, "Database connection verified"));
             }
 
-            // Return the detailed error response from the service
+            // Return the detailed error response from the service with full ConnectionResponse data
+            // This includes ErrorCode and HelpLink properties for the client
             return BadRequest(ApiResponse<ConnectionResponse>.Failure(
                 connectionResponse.Message, 
-                connectionResponse.Errors));
+                connectionResponse.Errors,
+                connectionResponse));
         }
 
         [HttpPost("link")]
@@ -300,8 +302,13 @@ namespace ActoEngine.WebApi.Features.Projects
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         public async Task<IActionResult> AddProjectMember(int projectId, [FromBody] int userId)
         {
-            var adminId = HttpContext.GetUserId() ?? throw new UnauthorizedAccessException();
-            await _projectService.AddProjectMemberAsync(projectId, userId, adminId);
+            var adminId = HttpContext.GetUserId();
+            if (adminId == null)
+            {
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
+            await _projectService.AddProjectMemberAsync(projectId, userId, adminId.Value);
             return Ok(ApiResponse<object>.Success(new { }, "Member added successfully"));
         }
 
@@ -319,6 +326,23 @@ namespace ActoEngine.WebApi.Features.Projects
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<int>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetUserProjectMemberships(int userId)
         {
+            // IDOR Prevention: Only allow users to query their own memberships
+            // unless they have elevated permissions
+            var callerId = HttpContext.GetUserId();
+            if (callerId == null)
+            {
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
+            // If caller is not querying their own memberships, they need Projects:ReadAll permission
+            if (callerId.Value != userId)
+            {
+                // Check if user has elevated permission to read all project memberships
+                // For now, we simply forbid cross-user queries unless you're querying yourself
+                // TODO: Add "Projects:ReadAll" permission check here if needed for admin users
+                return Forbid();
+            }
+
             var projectIds = await _projectService.GetUserProjectMembershipsAsync(userId);
             return Ok(ApiResponse<IEnumerable<int>>.Success(projectIds, "User project memberships retrieved successfully"));
         }

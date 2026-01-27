@@ -563,12 +563,9 @@ namespace ActoEngine.WebApi.Features.Projects
                     IsLinked = false // New projects start unlinked
                 };
 
-                var projectId = await _projectRepository.CreateAsync(project);
+                var projectId = await _projectRepository.CreateProjectWithOwnerAsync(project);
 
-                // Auto-add creator as project member
-                await _projectRepository.AddProjectMemberAsync(projectId, userId, userId);
-
-                _logger.LogInformation("Created new project {ProjectName} with ID {ProjectId} for user {UserId}. Project not linked to database yet.", request.ProjectName, projectId, userId);
+                _logger.LogInformation("Created new project {ProjectName} with ID {ProjectId} for user {UserId}. Project not linked to database yet. Owner added atomically.", request.ProjectName, projectId, userId);
                 return new ProjectResponse { ProjectId = projectId, Message = "Project created successfully. Use Link endpoint to connect to a database." };
             }
             catch (Exception ex)
