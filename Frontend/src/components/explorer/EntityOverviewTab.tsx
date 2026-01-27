@@ -44,13 +44,18 @@ interface TableDetails {
 }
 
 interface SPDetails {
-    spId: number;
+    storedProcedureId: number;
     procedureName: string;
     schemaName?: string;
+    definition?: string;
+    createdDate?: string;
+    modifiedDate?: string;
+    description?: string;
     parameters?: Array<{
         name: string;
         dataType: string;
         direction: string;
+        defaultValue?: string;
     }>;
 }
 
