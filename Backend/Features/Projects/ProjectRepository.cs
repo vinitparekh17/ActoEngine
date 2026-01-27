@@ -2,6 +2,7 @@ using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
 using ActoEngine.WebApi.Features.Schema;
 using ActoEngine.WebApi.Features.Projects.Dtos.Responses;
+using Dapper;
 
 namespace ActoEngine.WebApi.Features.Projects;
 
@@ -34,6 +35,7 @@ public interface IProjectRepository
     Task<int> AddOrUpdateProjectAsync(Project project, int userId);
     Task<int> GetCountAsync(int userId, CancellationToken cancellationToken = default);
     Task<int> CreateAsync(Project project, CancellationToken cancellationToken = default);
+    Task<int> CreateProjectWithOwnerAsync(Project project, CancellationToken cancellationToken = default);
     Task<bool> UpdateAsync(Project project, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(int projectId, int userId, CancellationToken cancellationToken = default);
     Task UpdateSyncStatusAsync(int projectId, string status, int progress, CancellationToken cancellationToken = default);
@@ -137,6 +139,52 @@ public class ProjectRepository(
 
         _logger.LogInformation("Created new project with ID {ProjectId} for user {UserId}", newProjectId, project.CreatedBy);
         return newProjectId;
+    }
+
+    public async Task<int> CreateProjectWithOwnerAsync(Project project, CancellationToken cancellationToken = default)
+    {
+        // Begin a transaction to ensure both project creation and member addition are atomic
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            var parameters = new
+            {
+                project.ProjectName,
+                project.Description,
+                project.DatabaseName,
+                project.IsLinked,
+                IsActive = true,
+                project.CreatedAt,
+                project.CreatedBy
+            };
+
+            // Create the project using Dapper directly with transaction
+            var newProjectId = await connection.QuerySingleAsync<int>(
+                ProjectSqlQueries.Insert,
+                parameters,
+                transaction);
+
+            _logger.LogInformation("Created new project with ID {ProjectId} for user {UserId}", newProjectId, project.CreatedBy);
+
+            // Auto-add creator as project member
+            await connection.ExecuteAsync(
+                ProjectSqlQueries.AddProjectMember,
+                new { ProjectId = newProjectId, UserId = project.CreatedBy, AddedBy = project.CreatedBy },
+                transaction);
+
+            _logger.LogInformation("Added creator {UserId} as member of project {ProjectId}", project.CreatedBy, newProjectId);
+
+            transaction.Commit();
+            return newProjectId;
+        }
+        catch (Exception ex)
+        {
+            transaction.Rollback();
+            _logger.LogError(ex, "Failed to create project {ProjectName} with owner {UserId}. Transaction rolled back.", project.ProjectName, project.CreatedBy);
+            throw;
+        }
     }
 
     public async Task<bool> UpdateAsync(Project project, CancellationToken cancellationToken = default)
@@ -307,9 +355,9 @@ public class ProjectRepository(
             new { ProjectId = projectId },
             cancellationToken);
 
-        // Count stored procedures (distinct by name)
+        // Count stored procedures by unique SpId (not by name, as names can duplicate across schemas)
         var spCount = await ExecuteScalarAsync<int>(
-            "SELECT COUNT(DISTINCT ProcedureName) FROM SpMetadata WHERE ProjectId = @ProjectId",
+            "SELECT COUNT(DISTINCT SpId) FROM SpMetadata WHERE ProjectId = @ProjectId",
             new { ProjectId = projectId },
             cancellationToken);
 

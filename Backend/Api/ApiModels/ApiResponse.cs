@@ -27,5 +27,16 @@ public class ApiResponse<T>
             Errors = errors ?? []
         };
     }
+
+    public static ApiResponse<T> Failure(string message, List<string>? errors, T data)
+    {
+        return new ApiResponse<T>
+        {
+            Status = false,
+            Message = message,
+            Errors = errors ?? [],
+            Data = data
+        };
+    }
 }
 
