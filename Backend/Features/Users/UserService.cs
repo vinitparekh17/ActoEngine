@@ -1,6 +1,7 @@
 using ActoEngine.WebApi.Features.Auth;
 using ActoEngine.WebApi.Features.Users.Dtos.Requests;
 using ActoEngine.WebApi.Features.Users.Dtos.Responses;
+using ActoEngine.WebApi.Features.Projects;
 using Dapper;
 using ActoEngine.WebApi.Shared.Validation;
 
@@ -25,6 +26,7 @@ public class UserManagementService(
     IPasswordHasher passwordHasher,
     IPasswordValidator passwordValidator,
     Infrastructure.Database.IDbConnectionFactory connectionFactory,
+    IProjectRepository projectRepository,
     ILogger<UserManagementService> logger) : IUserManagementService
 {
     public async Task<(IEnumerable<UserDto> Users, int TotalCount)> GetAllUsersAsync(
@@ -171,6 +173,22 @@ public class UserManagementService(
     public async Task DeleteUserAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken) ?? throw new InvalidOperationException($"User {userId} not found");
+        
+        // Auto-cleanup: Remove all project memberships before deleting user
+        // This prevents FK_ProjectMembers_Users constraint violations (ON DELETE NO ACTION)
+        var projectMemberships = await projectRepository.GetUserProjectMembershipsAsync(userId, cancellationToken);
+        var membershipsList = projectMemberships.ToList();
+        
+        if (membershipsList.Any())
+        {
+            logger.LogInformation("Removing {Count} project membership(s) for user {UserId} before deletion", membershipsList.Count, userId);
+            
+            foreach (var projectId in membershipsList)
+            {
+                await projectRepository.RemoveProjectMemberAsync(projectId, userId, cancellationToken);
+            }
+        }
+        
         await userRepository.DeleteAsync(userId, cancellationToken);
         logger.LogInformation("Deleted user {Username} (ID: {UserId})", user.Username, userId);
     }
