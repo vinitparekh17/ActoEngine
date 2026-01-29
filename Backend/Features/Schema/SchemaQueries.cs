@@ -98,6 +98,8 @@ public static class SchemaSyncQueries
             OBJECT_DEFINITION(p.object_id) AS Definition
         FROM sys.procedures p
         WHERE p.type = 'P'
+            AND p.is_ms_shipped = 0
+            AND OBJECT_DEFINITION(p.object_id) IS NOT NULL
         ORDER BY p.name";
 
     public const string InsertSpMetadata = @"
