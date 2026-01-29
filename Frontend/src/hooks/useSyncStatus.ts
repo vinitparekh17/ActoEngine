@@ -57,8 +57,23 @@ export function useSyncStatus(
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [projectIdRef, setProjectIdRef] = useState<number | undefined>(projectId);
+
+  // Reset state when projectId changes
+  if (projectId !== projectIdRef) {
+    setProjectIdRef(projectId);
+    setStatus(null);
+    setProgress(0);
+    setLastSyncAttempt(undefined);
+    setIsConnected(false);
+    setError(null);
+  }
+
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const finalStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const reconnectAttemptsRef = useRef<number>(0);
@@ -186,12 +201,11 @@ export function useSyncStatus(
             // Fetch final status via REST to ensure we have the absolute latest
             // This is critical because there might be a race between the SSE message
             // and the final database update
-            setTimeout(async () => {
-              console.log("[SSE] Fetching final status via REST after completion");
-              await fetchSyncStatus();
-              // Call onComplete after we've fetched the final status
-              onComplete?.(data);
-            }, 500); // Small delay to ensure DB has been updated
+
+            // Note: We don't need to force a REST fetch here if the SSE data is terminal and complete.
+            // The useEffect will handle switching to REST mode, but we want to prevent
+            // an unnecessary fetch if we already have the data.
+            onComplete?.(data);
           }
         } catch (err) {
           console.error("[SSE] Failed to parse message:", err);
@@ -278,7 +292,11 @@ export function useSyncStatus(
     if (useSSE) {
       connectSSE();
     } else {
-      fetchSyncStatus();
+      // Prevent unnecessary fetch if we already have a terminal status for this project
+      // and we are just switching from SSE to REST mode
+      if (status !== "Completed" && !status?.startsWith("Failed")) {
+        fetchSyncStatus();
+      }
     }
 
     return () => {
@@ -291,6 +309,10 @@ export function useSyncStatus(
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
+      }
+      if (finalStatusTimeoutRef.current) {
+        clearTimeout(finalStatusTimeoutRef.current);
+        finalStatusTimeoutRef.current = null;
       }
     };
   }, [enabled, projectId, useSSE, connectSSE, fetchSyncStatus]);
