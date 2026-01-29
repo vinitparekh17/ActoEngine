@@ -1,5 +1,3 @@
-
-
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -15,7 +13,7 @@ services:
     secrets:
       - SA_PASSWORD
     ports:
-      - "${DB_PORT}:1433"
+      - "1433:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql/data
     networks:
@@ -28,7 +26,6 @@ services:
       retries: 10
       start_period: 30s
       timeout: 3s
-
 
   db-init:
     image: mcr.microsoft.com/mssql-tools:latest
@@ -79,7 +76,7 @@ services:
     build:
       context: ./Frontend
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_API_BASE_URL: http://localhost:5093
       dockerfile: Dockerfile
     container_name: actoengine-frontend
     env_file:

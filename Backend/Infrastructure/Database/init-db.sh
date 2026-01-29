@@ -37,7 +37,7 @@ elif [ -z "$DB_PASSWORD" ]; then
     exit 1
 fi
 
-# Escape backslashes in password first (\ -> \\), then single quotes (' -> '') for SQL string literals
+# Escape backslashes in password first (\\ -> \\\\), then single quotes (' -> '') for SQL string literals
 DB_PASSWORD_ESCAPED="${DB_PASSWORD//\\/\\\\}"
 DB_PASSWORD_SQL="${DB_PASSWORD_ESCAPED//\'/\'\'}"
 
@@ -50,7 +50,7 @@ chmod 600 "$TEMP_SQL"
 trap 'rm -f "$TEMP_SQL"' EXIT
 
 # Substitute variables in the SQL script using | as delimiter to avoid sed injection
-# Also escape \ and & in replacement strings to prevent sed special character issues
+# Also escape \\ and & in replacement strings to prevent sed special character issues
 # We must escape backslashes again for sed because sed consumes one level of escaping
 DB_PASS_SED_ESCAPED="${DB_PASSWORD_SQL//\\/\\\\}"
 DB_PASS_SED_ESCAPED="${DB_PASS_SED_ESCAPED//&/\\&}"

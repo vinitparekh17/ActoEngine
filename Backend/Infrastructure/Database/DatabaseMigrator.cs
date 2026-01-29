@@ -15,6 +15,7 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
         logger.LogInformation("Starting database migration...");
         try 
         {
+            logger.LogInformation("Ensuring database exists. ConnectionString: {ConnectionString}", _connectionString);
             EnsureDatabase.For.SqlDatabase(_connectionString);
         }
         catch (Exception ex)
@@ -37,9 +38,8 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
 
         if (!result.Successful)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(result.Error);
-            Console.ResetColor();
+            logger.LogError(result.Error, "Database migration failed");
+            throw new InvalidOperationException("Database migration failed. See logs for details.", result.Error);
         }
 
         logger.LogInformation("Database migration completed successfully.");

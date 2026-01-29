@@ -19,7 +19,7 @@ CREATE TABLE ProjectMembers (
     CONSTRAINT FK_ProjectMembers_Projects FOREIGN KEY (ProjectId) 
         REFERENCES Projects(ProjectId) ON DELETE CASCADE,
     CONSTRAINT FK_ProjectMembers_Users FOREIGN KEY (UserId) 
-        REFERENCES Users(UserID) ON DELETE CASCADE,
+        REFERENCES Users(UserID) ON DELETE NO ACTION,
     CONSTRAINT FK_ProjectMembers_AddedBy FOREIGN KEY (AddedBy) 
         REFERENCES Users(UserID) ON DELETE SET NULL,
     
