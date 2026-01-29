@@ -28,7 +28,7 @@ export function SyncProgressPanel({
 
   const { status, progress, lastSyncAttempt, isConnected, error, refresh } =
     useSyncStatus(projectId, {
-      enabled: true,
+      enabled: true, // Always enabled to track status changes
       useSSE,
     });
 
@@ -36,7 +36,8 @@ export function SyncProgressPanel({
     return null;
   }
 
-  if (!status) {
+  // Don't show panel if there's no status and no active sync
+  if (!status && !useSSE) {
     return null;
   }
 

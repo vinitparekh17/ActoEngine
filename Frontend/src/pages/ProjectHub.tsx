@@ -87,6 +87,10 @@ export default function ProjectHub() {
       enabled: isSyncing,
       onComplete: () => {
         console.log("Sync completed for project", selectedProject?.projectId);
+        // Refresh project data to get the latest sync status
+        if (selectedProject?.projectId) {
+          selectProject(selectedProject.projectId);
+        }
       },
     },
   );

@@ -177,15 +177,21 @@ export function useSyncStatus(
             data.status === "Completed" ||
             data.status?.startsWith("Failed")
           ) {
-            console.log(`[SSE] Sync finished: ${data.status}`);
-            onComplete?.(data);
+            console.log(`[SSE] Sync finished: ${data.status} at ${data.progress}%`);
 
-            // Close SSE connection and fetch final status via REST
+            // Close SSE connection first
             eventSource.close();
             setIsConnected(false);
 
-            // Fetch once to ensure we have the latest status
-            fetchSyncStatus();
+            // Fetch final status via REST to ensure we have the absolute latest
+            // This is critical because there might be a race between the SSE message
+            // and the final database update
+            setTimeout(async () => {
+              console.log("[SSE] Fetching final status via REST after completion");
+              await fetchSyncStatus();
+              // Call onComplete after we've fetched the final status
+              onComplete?.(data);
+            }, 500); // Small delay to ensure DB has been updated
           }
         } catch (err) {
           console.error("[SSE] Failed to parse message:", err);
