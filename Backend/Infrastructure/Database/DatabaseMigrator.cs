@@ -15,7 +15,6 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
         logger.LogInformation("Starting database migration...");
         try 
         {
-            logger.LogInformation("Ensuring database exists. ConnectionString: {ConnectionString}", _connectionString);
             EnsureDatabase.For.SqlDatabase(_connectionString);
         }
         catch (Exception ex)
