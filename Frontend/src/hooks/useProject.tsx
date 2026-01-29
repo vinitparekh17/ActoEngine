@@ -143,10 +143,13 @@ export function useProject() {
       databaseType: selectedProject.databaseType,
       databaseName: selectedProject.databaseName,
       serverName: selectedProject.serverName,
+      syncStatus: selectedProject.syncStatus,
+      syncProgress: selectedProject.syncProgress,
+      lastSyncAttempt: selectedProject.lastSyncAttempt,
       createdAt: selectedProject.createdAt,
       updatedAt: selectedProject.updatedAt,
     };
-  }, [selectedProject?.projectId]);
+  }, [selectedProject?.projectId, selectedProject?.syncStatus, selectedProject?.syncProgress]);
 
   // Select project and invalidate dependent queries
   const selectProject = useCallback(
