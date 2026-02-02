@@ -1,15 +1,13 @@
 // pages/EntityExplorer.tsx
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useProject } from "@/hooks/useProject";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
     AlertCircle,
-    RefreshCw,
     ExternalLink,
 } from "lucide-react";
-import { PageHeaderSkeleton } from "@/components/ui/skeletons";
 import {
     EntityListPanel,
     EntityDetailsPanel,

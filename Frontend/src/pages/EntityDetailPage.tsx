@@ -3,22 +3,22 @@ import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbS
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table";
 import { useApi } from "@/hooks/useApi";
 import { formatRelativeTime } from "@/lib/utils";
 import { Editor } from "@monaco-editor/react";
-import { Avatar, AvatarFallback } from "@radix-ui/react-avatar";
-import { Separator } from "@radix-ui/react-dropdown-menu";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@radix-ui/react-tabs";
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@radix-ui/react-tooltip";
-import { AlertCircle, ArrowLeft, BookOpen, Calendar, Code2, Copy, Database, FileText, Info, Layers, Mail, Network, Shield, Sparkles, Table, TableIcon, UserIcon, Users } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { AlertCircle, ArrowLeft, BookOpen, Calendar, Code2, Copy, Database, FileText, Info, Layers, Mail, Network, Shield, Sparkles, Table as TableIcon, UserIcon, Users, Clock } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import React from "react";
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
 interface TableDetails {
     tableId: number;
     tableName: string;
@@ -42,7 +42,7 @@ interface TableDetails {
 }
 
 interface SPDetails {
-    storedProcedureId: number; // Changed from spId to match backend response
+    storedProcedureId: number;
     procedureName: string;
     schemaName?: string;
     definition?: string;
@@ -85,7 +85,6 @@ interface ContextResponse {
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
-
 function getInitials(name?: string): string {
     if (!name) return "?";
     const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -103,32 +102,13 @@ function formatRowCount(count?: number): string {
 }
 
 const EXPERTISE_CONFIG = {
-    OWNER: {
-        label: "Owner",
-        variant: "default" as const,
-        icon: Shield,
-    },
-    EXPERT: {
-        label: "Expert",
-        variant: "secondary" as const,
-        icon: Sparkles,
-    },
-    FAMILIAR: {
-        label: "Familiar",
-        variant: "outline" as const,
-        icon: UserIcon,
-    },
-    CONTRIBUTOR: {
-        label: "Contributor",
-        variant: "outline" as const,
-        icon: Code2,
-    },
+    OWNER: { label: "Owner", variant: "default" as const, icon: Shield },
+    EXPERT: { label: "Expert", variant: "secondary" as const, icon: Sparkles },
+    FAMILIAR: { label: "Familiar", variant: "outline" as const, icon: UserIcon },
+    CONTRIBUTOR: { label: "Contributor", variant: "outline" as const, icon: Code2 },
 };
 
-const CRITICALITY_CONFIG: Record<
-    number,
-    { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
-> = {
+const CRITICALITY_CONFIG: Record<number, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
     1: { label: "Low", variant: "outline" },
     2: { label: "Moderate", variant: "outline" },
     3: { label: "Standard", variant: "secondary" },
@@ -139,18 +119,13 @@ const CRITICALITY_CONFIG: Record<
 // ============================================================================
 // SUB-COMPONENTS
 // ============================================================================
-
-const StatItem: React.FC<{
-    label: string;
-    value: string | number;
-    icon?: React.ReactNode;
-}> = ({ label, value, icon }) => (
-    <div className="flex flex-col items-center px-6 py-3">
-        <span className="text-xs text-muted-foreground uppercase font-medium tracking-wide mb-1 flex items-center gap-1.5">
+const StatItem: React.FC<{ label: string; value: string | number; icon?: React.ReactNode }> = ({ label, value, icon }) => (
+    <div className="flex flex-col gap-1">
+        <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider flex items-center gap-1.5">
             {icon}
             {label}
         </span>
-        <span className="text-xl font-semibold text-foreground">{value}</span>
+        <span className="text-lg font-semibold text-foreground tracking-tight">{value}</span>
     </div>
 );
 
@@ -160,37 +135,36 @@ const ExpertCard: React.FC<{ expert: Expert }> = ({ expert }) => {
     const displayName = expert.user.fullName || expert.user.username;
 
     return (
-        <Card className="hover:shadow-md transition-shadow">
+        <Card className="group hover:shadow-md transition-all duration-200 border-border/60">
             <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                    <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-muted text-muted-foreground font-medium text-sm">
+                    <Avatar className="h-10 w-10 border">
+                        <AvatarFallback className="bg-muted text-muted-foreground font-medium text-xs">
                             {getInitials(displayName)}
                         </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-medium text-foreground truncate text-sm">
-                                {displayName}
-                            </h4>
-                            <Badge variant={config.variant} className="text-xs shrink-0">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                            <h4 className="font-medium text-foreground truncate text-sm">{displayName}</h4>
+                            <Badge variant={config.variant} className="text-[10px] h-5 px-1.5">
                                 <Icon className="h-3 w-3 mr-1" />
                                 {config.label}
                             </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                            {expert.user.email}
-                        </p>
+                        <p className="text-xs text-muted-foreground truncate mb-2">{expert.user.email}</p>
+
                         {expert.notes && (
-                            <p className="text-xs text-muted-foreground italic line-clamp-2 pt-1">
+                            <div className="bg-muted/50 p-2 rounded text-xs text-muted-foreground italic mb-3 line-clamp-2">
                                 "{expert.notes}"
-                            </p>
+                            </div>
                         )}
-                        <div className="flex items-center justify-between pt-2 mt-2 border-t">
-                            <span className="text-xs text-muted-foreground">
+
+                        <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
                                 {formatRelativeTime(expert.addedAt, "recently")}
                             </span>
-                            <Button variant="ghost" size="sm" className="h-6 text-xs px-2" asChild>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs px-2 opacity-0 group-hover:opacity-100 transition-opacity" asChild>
                                 <a href={`mailto:${expert.user.email}`}>
                                     <Mail className="h-3 w-3 mr-1" />
                                     Contact
@@ -204,60 +178,43 @@ const ExpertCard: React.FC<{ expert: Expert }> = ({ expert }) => {
     );
 };
 
-
 export const EmptyExpertsState: React.FC<{ entityName: string }> = ({ entityName }) => (
-    <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Users className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground mb-2">
-                No Experts Assigned
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-sm mb-4">
-                Help your team by identifying who knows about{" "}
-                <span className="font-medium">{entityName}</span>.
-            </p>
-            <Button variant="outline" size="sm">
-                <UserIcon className="h-4 w-4 mr-2" />
-                Assign Expert
-            </Button>
-        </CardContent>
-    </Card>
+    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg bg-muted/10">
+        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+            <Users className="h-6 w-6 text-muted-foreground/50" />
+        </div>
+        <h3 className="text-base font-medium text-foreground mb-1">No Experts Assigned</h3>
+        <p className="text-sm text-muted-foreground max-w-sm mb-4">
+            Help your team by identifying who knows about <span className="font-medium text-foreground">{entityName}</span>.
+        </p>
+        <Button variant="outline" size="sm">
+            <UserIcon className="h-4 w-4 mr-2" />
+            Assign Expert
+        </Button>
+    </div>
 );
 
-const DocumentationEmptyState: React.FC<{ entityName: string }> = ({
-    entityName,
-}) => (
-    <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <BookOpen className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground mb-2">
-                No Documentation Yet
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-sm mb-4">
-                Document the business purpose and usage patterns for{" "}
-                <span className="font-medium">{entityName}</span>.
-            </p>
-            <Button size="sm">
-                <FileText className="h-4 w-4 mr-2" />
-                Add Documentation
-            </Button>
-        </CardContent>
-    </Card>
+const DocumentationEmptyState: React.FC<{ entityName: string }> = ({ entityName }) => (
+    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg bg-muted/10">
+        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+            <BookOpen className="h-6 w-6 text-muted-foreground/50" />
+        </div>
+        <h3 className="text-base font-medium text-foreground mb-1">No Documentation Yet</h3>
+        <p className="text-sm text-muted-foreground max-w-sm mb-4">
+            Document the business purpose and usage patterns for <span className="font-medium text-foreground">{entityName}</span>.
+        </p>
+        <Button size="sm">
+            <FileText className="h-4 w-4 mr-2" />
+            Add Documentation
+        </Button>
+    </div>
 );
 
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
-
 const EntityDetailPage: React.FC = () => {
-    const { projectId, entityId } = useParams<{
-        projectId: string;
-        entityId: string;
-    }>();
+    const { projectId, entityId } = useParams<{ projectId: string; entityId: string }>();
     const { pathname } = useLocation();
     const isTable = pathname.includes("/tables/");
     const entityType = isTable ? "TABLE" : "SP";
@@ -267,36 +224,23 @@ const EntityDetailPage: React.FC = () => {
         ? `/DatabaseBrowser/projects/${projectId}/tables/${entityId}`
         : `/DatabaseBrowser/projects/${projectId}/stored-procedures/${entityId}`;
 
-    const {
-        data: entityData,
-        isLoading: isLoadingStructure,
-        error: structureError,
-    } = useApi<TableDetails | SPDetails>(structureEndpoint);
+    const { data: entityData, isLoading: isLoadingStructure, error: structureError } = useApi<TableDetails | SPDetails>(structureEndpoint);
 
     // Fetch Context & Experts
-    const { data: contextData, isLoading: isLoadingContext } =
-        useApi<ContextResponse>(
-            `/projects/${projectId}/context/${entityType}/${entityId}`,
-            { staleTime: 30 * 1000, retry: 1 }
-        );
+    const { data: contextData, isLoading: isLoadingContext } = useApi<ContextResponse>(
+        `/projects/${projectId}/context/${entityType}/${entityId}`,
+        { staleTime: 30 * 1000, retry: 1 }
+    );
 
     // Derived values
-    const name = isTable
-        ? (entityData as TableDetails)?.tableName
-        : (entityData as SPDetails)?.procedureName;
+    const name = isTable ? (entityData as TableDetails)?.tableName : (entityData as SPDetails)?.procedureName;
     const schema = entityData?.schemaName || "dbo";
     const fullName = name ? `${schema}.${name}` : "Loading...";
-
     const columns = isTable ? (entityData as TableDetails)?.columns : undefined;
-    const parameters = !isTable
-        ? (entityData as SPDetails)?.parameters
-        : undefined;
-    const definition = !isTable
-        ? (entityData as SPDetails)?.definition
-        : undefined;
+    const parameters = !isTable ? (entityData as SPDetails)?.parameters : undefined;
+    const definition = !isTable ? (entityData as SPDetails)?.definition : undefined;
     const ddl = isTable ? (entityData as TableDetails)?.ddl : undefined;
     const rowCount = isTable ? (entityData as TableDetails)?.rowCount : undefined;
-
     const experts = contextData?.experts || [];
     const context = contextData?.context;
     const criticalityConfig = CRITICALITY_CONFIG[context?.criticalityLevel || 3];
@@ -313,23 +257,22 @@ const EntityDetailPage: React.FC = () => {
     // Loading State
     if (isLoadingStructure) {
         return (
-            <div className="flex flex-col h-full bg-background">
-                <div className="px-6 py-3 border-b">
-                    <Skeleton className="h-5 w-48" />
+            <div className="flex flex-col h-screen bg-background animate-pulse">
+                <div className="px-6 py-4 border-b space-y-2">
+                    <Skeleton className="h-4 w-32" />
                 </div>
-                <div className="px-6 py-6 border-b">
-                    <div className="flex items-center gap-4 mb-6">
-                        <Skeleton className="h-12 w-12 rounded-lg" />
+                <div className="px-8 py-8 border-b space-y-6">
+                    <div className="flex items-center gap-4">
+                        <Skeleton className="h-16 w-16 rounded-xl" />
                         <div className="space-y-2">
-                            <Skeleton className="h-7 w-56" />
-                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-8 w-64" />
+                            <Skeleton className="h-4 w-40" />
                         </div>
                     </div>
-                    <Skeleton className="h-14 w-full rounded-lg" />
                 </div>
-                <div className="flex-1 p-6">
-                    <Skeleton className="h-10 w-80 mb-6" />
-                    <Skeleton className="h-96 w-full rounded-lg" />
+                <div className="p-8 space-y-6">
+                    <Skeleton className="h-10 w-96 rounded-lg" />
+                    <Skeleton className="h-[400px] w-full rounded-xl" />
                 </div>
             </div>
         );
@@ -338,18 +281,15 @@ const EntityDetailPage: React.FC = () => {
     // Error State
     if (structureError || !entityData) {
         return (
-            <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+            <div className="flex flex-col items-center justify-center h-screen p-6 text-center bg-background">
+                <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
                     <AlertCircle className="h-8 w-8 text-destructive" />
                 </div>
-                <h2 className="text-xl font-semibold text-foreground mb-2">
-                    Failed to Load Entity
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4 max-w-md">
-                    {structureError?.message ||
-                        "The requested entity could not be found."}
+                <h2 className="text-2xl font-semibold text-foreground mb-2">Failed to Load Entity</h2>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                    {structureError?.message || "The requested entity could not be found or you don't have permission to view it."}
                 </p>
-                <Button asChild variant="outline" size="sm">
+                <Button asChild variant="outline">
                     <Link to={`/project/${projectId}/entities`}>
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back to Explorer
@@ -361,9 +301,9 @@ const EntityDetailPage: React.FC = () => {
 
     return (
         <TooltipProvider>
-            <div className="flex flex-col h-full bg-background">
-                {/* Breadcrumb Bar */}
-                <div className="px-6 py-3 border-b flex items-center justify-between bg-background sticky top-0 z-20">
+            <div className="flex flex-col h-screen bg-background overflow-hidden">
+                {/* 1. Sticky Top Bar */}
+                <div className="px-6 py-3 border-b flex items-center justify-between bg-background/95 backdrop-blur z-30 sticky top-0 supports-[backdrop-filter]:bg-background/60">
                     <Breadcrumb>
                         <BreadcrumbList>
                             <BreadcrumbItem>
@@ -371,311 +311,260 @@ const EntityDetailPage: React.FC = () => {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator />
                             <BreadcrumbItem>
-                                <BreadcrumbPage>{fullName}</BreadcrumbPage>
+                                <BreadcrumbPage className="font-medium">{fullName}</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
                     <div className="flex items-center gap-2">
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => copyToClipboard(fullName)}
-                                >
-                                    <Copy className="h-4 w-4" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyToClipboard(fullName)}>
+                                    <Copy className="h-4 w-4 text-muted-foreground" />
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>Copy name</TooltipContent>
                         </Tooltip>
-                        <Button size="sm" asChild>
+                        <Separator orientation="vertical" className="h-4 mx-1" />
+                        <Button size="sm" variant="default" asChild className="h-8">
                             <Link to={`/project/${projectId}/impact/${entityType}/${entityId}`}>
-                                <Network className="h-4 w-4 mr-1.5" />
+                                <Network className="h-3.5 w-3.5 mr-2" />
                                 Impact Analysis
                             </Link>
                         </Button>
                     </div>
                 </div>
 
+                {/* Scrollable Content Area */}
+                <div className="flex-1 overflow-y-auto">
+                    {/* 2. Hero Header */}
+                    <header className="px-8 py-8 border-b bg-gradient-to-b from-muted/20 to-background">
+                        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-8">
 
-                {/* Hero Section */}
-                <header className="px-6 py-6 border-b bg-muted/30">
-                    <div className="flex items-start justify-between gap-6">
-                        {/* Identity */}
-                        <div className="flex items-start gap-4">
-                            <div
-                                className={`p-3 rounded-lg border ${isTable
-                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                    : "bg-violet-50 text-violet-600 border-violet-200"
-                                    }`}
-                            >
-                                {isTable ? (
-                                    <TableIcon className="h-6 w-6" />
-                                ) : (
-                                    <Code2 className="h-6 w-6" />
-                                )}
-                            </div>
-                            <div>
-                                <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-                                    {name}
-                                </h1>
-                                <div className="flex items-center gap-2 mt-2">
-                                    <Badge variant="outline" className="font-mono text-xs">
-                                        {schema}
-                                    </Badge>
-                                    <Badge variant="secondary" className="text-xs">
-                                        {isTable ? "Table" : "Stored Procedure"}
-                                    </Badge>
-                                    {criticalityConfig && (
-                                        <Badge variant={criticalityConfig.variant} className="text-xs">
-                                            {criticalityConfig.label}
+                            {/* Identity Section */}
+                            <div className="flex items-start gap-5">
+                                <div className={`p-4 rounded-xl border shadow-sm ${isTable
+                                    ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900"
+                                    : "bg-violet-50 text-violet-600 border-violet-100 dark:bg-violet-950/30 dark:border-violet-900"
+                                    }`}>
+                                    {isTable ? <TableIcon className="h-8 w-8" /> : <Code2 className="h-8 w-8" />}
+                                </div>
+                                <div className="space-y-1.5">
+                                    <h1 className="text-2xl font-bold text-foreground tracking-tight">{name}</h1>
+                                    <div className="flex items-center flex-wrap gap-2">
+                                        <Badge variant="outline" className="font-mono text-xs bg-background">
+                                            {schema}
                                         </Badge>
-                                    )}
+                                        <Badge variant="secondary" className="text-xs">
+                                            {isTable ? "Table" : "Stored Procedure"}
+                                        </Badge>
+                                        {criticalityConfig && (
+                                            <Badge variant={criticalityConfig.variant} className="text-xs">
+                                                {criticalityConfig.label} Impact
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Stats Section - De-carded for cleaner look */}
+                            <div className="flex items-center divide-x border rounded-lg bg-background shadow-sm overflow-hidden">
+                                <div className="px-6 py-3 hover:bg-muted/50 transition-colors">
+                                    <StatItem
+                                        label={isTable ? "Columns" : "Params"}
+                                        value={isTable ? (columns?.length ?? 0) : (parameters?.length ?? 0)}
+                                        icon={<Layers className="h-3 w-3" />}
+                                    />
+                                </div>
+                                {isTable && (
+                                    <div className="px-6 py-3 hover:bg-muted/50 transition-colors">
+                                        <StatItem
+                                            label="Rows"
+                                            value={formatRowCount(rowCount)}
+                                            icon={<Database className="h-3 w-3" />}
+                                        />
+                                    </div>
+                                )}
+                                <div className="px-6 py-3 hover:bg-muted/50 transition-colors">
+                                    <StatItem
+                                        label="Experts"
+                                        value={experts.length}
+                                        icon={<Users className="h-3 w-3" />}
+                                    />
+                                </div>
+                                <div className="px-6 py-3 hover:bg-muted/50 transition-colors">
+                                    <StatItem
+                                        label="Docs"
+                                        value={`${contextData?.completenessScore ?? 0}%`}
+                                        icon={<Sparkles className="h-3 w-3" />}
+                                    />
                                 </div>
                             </div>
                         </div>
+                    </header>
 
-                        {/* Stats Bar */}
-                        <Card className="mt-6">
-                            <CardContent className="p-0 flex divide-x">
-                                <StatItem
-                                    label={isTable ? "Columns" : "Parameters"}
-                                    value={isTable ? (columns?.length ?? 0) : (parameters?.length ?? 0)}
-                                    icon={<Layers className="h-3 w-3" />}
-                                />
-                                {isTable && (
-                                    <StatItem
-                                        label="Est. Rows"
-                                        value={formatRowCount(rowCount)}
-                                        icon={<Database className="h-3 w-3" />}
-                                    />
-                                )}
-                                <StatItem
-                                    label="Experts"
-                                    value={experts.length}
-                                    icon={<Users className="h-3 w-3" />}
-                                />
-                                <StatItem
-                                    label="Context"
-                                    value={`${contextData?.completenessScore ?? 0}%`}
-                                    icon={<Sparkles className="h-3 w-3" />}
-                                />
-                                <StatItem
-                                    label="Created Date"
-                                    value={formatRelativeTime(entityData.createdDate || "", "Unknown")}
-                                    icon={<Calendar className="h-3 w-3" />}
-                                />
-                            </CardContent>
-                        </Card>
-                    </div>
-
-
-                </header>
-
-                {/* Tabs */}
-                <div className="flex-1 overflow-hidden flex flex-col mt-6">
-                    <Tabs defaultValue="structure" className="flex-1 flex flex-col">
-                        <div className="px-6 border-b bg-background">
-                            <TabsList className="h-11 bg-transparent p-0 gap-0">
-                                {[
-                                    { value: "structure", icon: Layers, label: "Structure" },
-                                    {
-                                        value: "experts",
-                                        icon: Users,
-                                        label: `Experts (${experts.length})`,
-                                    },
-                                    { value: "documentation", icon: FileText, label: "Documentation" },
-                                ].map((tab) => (
-                                    <TabsTrigger
-                                        key={tab.value}
-                                        value={tab.value}
-                                        className="h-full border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 gap-2"
-                                    >
-                                        <tab.icon className="h-4 w-4" />
-                                        {tab.label}
+                    {/* 3. Main Content & Tabs */}
+                    <div className="p-8 max-w-[1920px] mx-auto">
+                        <Tabs defaultValue="structure" className="w-full space-y-6">
+                            <div className="flex items-center justify-between">
+                                <TabsList className="h-10 bg-muted/50 p-1">
+                                    <TabsTrigger value="structure" className="gap-2 text-xs">
+                                        <Layers className="h-3.5 w-3.5" /> Structure
                                     </TabsTrigger>
-                                ))}
-                            </TabsList>
-                        </div>
+                                    <TabsTrigger value="experts" className="gap-2 text-xs">
+                                        <Users className="h-3.5 w-3.5" /> Experts
+                                        <Badge variant="secondary" className="ml-1 h-5 px-1.5 min-w-[1.25rem]">{experts.length}</Badge>
+                                    </TabsTrigger>
+                                    <TabsTrigger value="documentation" className="gap-2 text-xs">
+                                        <FileText className="h-3.5 w-3.5" /> Documentation
+                                    </TabsTrigger>
+                                </TabsList>
+                                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                    <Calendar className="h-3.5 w-3.5" />
+                                    Created {formatRelativeTime(entityData.createdDate || "", "Unknown")}
+                                </span>
+                            </div>
 
-                        <div className="flex-1 overflow-auto">
                             {/* Structure Tab */}
-                            <TabsContent value="structure" className="m-0 p-6">
-                                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                                    <div className="xl:col-span-2 space-y-6">
+                            <TabsContent value="structure" className="mt-0 focus-visible:outline-none">
+                                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                                    {/* Left Column: Schema & Code (3 spans) */}
+                                    <div className="xl:col-span-3 space-y-6">
                                         {/* Schema Table */}
-                                        <Card>
-                                            <CardHeader className="pb-3">
-                                                <CardTitle className="text-base">
-                                                    {isTable ? "Column Schema" : "Parameters"}
-                                                </CardTitle>
-                                                <CardDescription>
-                                                    {isTable
-                                                        ? `${columns?.length ?? 0} columns`
-                                                        : `${parameters?.length ?? 0} parameters`}
-                                                </CardDescription>
+                                        <Card className="overflow-hidden border-border/60 shadow-sm">
+                                            <CardHeader className="bg-muted/30 pb-3 border-b">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="space-y-0.5">
+                                                        <CardTitle className="text-sm font-semibold">
+                                                            {isTable ? "Column Schema" : "Input Parameters"}
+                                                        </CardTitle>
+                                                        <CardDescription className="text-xs">
+                                                            {isTable
+                                                                ? `Defines structure for ${columns?.length ?? 0} columns`
+                                                                : `Inputs required for execution`}
+                                                        </CardDescription>
+                                                    </div>
+                                                </div>
                                             </CardHeader>
-                                            <CardContent className="p-0">
+                                            <div className="p-0">
                                                 <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead className="w-[200px]">Name</TableHead>
-                                                            <TableHead>Type</TableHead>
-                                                            <TableHead>
-                                                                {isTable ? "Nullable" : "Direction"}
-                                                            </TableHead>
-                                                            {isTable && <TableHead>Constraints</TableHead>}
+                                                    <TableHeader className="bg-muted/10">
+                                                        <TableRow className="hover:bg-transparent">
+                                                            <TableHead className="w-[250px] text-xs uppercase h-9">Name</TableHead>
+                                                            <TableHead className="text-xs uppercase h-9">Type</TableHead>
+                                                            <TableHead className="text-xs uppercase h-9">{isTable ? "Nullable" : "Direction"}</TableHead>
+                                                            {isTable && <TableHead className="text-xs uppercase h-9">Attributes</TableHead>}
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
-                                                        {(isTable ? columns : parameters)?.map(
-                                                            (item: any, idx: number) => (
-                                                                <TableRow key={item.name || idx}>
-                                                                    <TableCell className="font-mono font-medium">
-                                                                        {item.name}
-                                                                    </TableCell>
-                                                                    <TableCell>
-                                                                        <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                                                            {item.dataType}
-                                                                        </code>
-                                                                    </TableCell>
-                                                                    <TableCell>
-                                                                        {isTable ? (
-                                                                            <span
-                                                                                className={
-                                                                                    item.isNullable
-                                                                                        ? "text-muted-foreground"
-                                                                                        : "font-medium"
-                                                                                }
-                                                                            >
-                                                                                {item.isNullable ? "NULL" : "NOT NULL"}
-                                                                            </span>
-                                                                        ) : (
-                                                                            <Badge variant="outline" className="text-xs">
-                                                                                {item.direction}
-                                                                            </Badge>
-                                                                        )}
-                                                                    </TableCell>
-                                                                    {isTable && (
-                                                                        <TableCell>
-                                                                            <div className="flex gap-1">
-                                                                                {item.isPrimaryKey && (
-                                                                                    <Badge
-                                                                                        variant="secondary"
-                                                                                        className="text-xs"
-                                                                                    >
-                                                                                        PK
-                                                                                    </Badge>
-                                                                                )}
-                                                                                {item.isForeignKey && (
-                                                                                    <Badge variant="outline" className="text-xs">
-                                                                                        FK
-                                                                                    </Badge>
-                                                                                )}
-                                                                            </div>
-                                                                        </TableCell>
+                                                        {(isTable ? columns : parameters)?.map((item: any, idx: number) => (
+                                                            <TableRow key={item.name || idx} className="h-10">
+                                                                <TableCell className="font-mono text-sm font-medium text-foreground py-2">
+                                                                    {item.name}
+                                                                </TableCell>
+                                                                <TableCell className="py-2">
+                                                                    <code className="text-[11px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900">
+                                                                        {item.dataType}
+                                                                        {item.maxLength ? `(${item.maxLength})` : ''}
+                                                                    </code>
+                                                                </TableCell>
+                                                                <TableCell className="py-2">
+                                                                    {isTable ? (
+                                                                        <span className={`text-xs ${item.isNullable ? "text-muted-foreground" : "font-medium text-foreground"}`}>
+                                                                            {item.isNullable ? "NULL" : "NOT NULL"}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <Badge variant="outline" className="text-[10px] font-normal">{item.direction}</Badge>
                                                                     )}
-                                                                </TableRow>
-                                                            )
-                                                        )}
+                                                                </TableCell>
+                                                                {isTable && (
+                                                                    <TableCell className="py-2">
+                                                                        <div className="flex gap-1.5">
+                                                                            {item.isPrimaryKey && <Badge variant="default" className="text-[10px] h-5 px-1.5">PK</Badge>}
+                                                                            {item.isForeignKey && <Badge variant="secondary" className="text-[10px] h-5 px-1.5 text-muted-foreground border">FK</Badge>}
+                                                                            {item.defaultValue && <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono text-muted-foreground">def: {item.defaultValue}</Badge>}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                )}
+                                                            </TableRow>
+                                                        ))}
                                                     </TableBody>
                                                 </Table>
-                                            </CardContent>
+                                            </div>
                                         </Card>
 
                                         {/* SQL Definition */}
-                                        <Card>
-                                            <CardHeader className="flex flex-row items-center justify-between pb-3">
-                                                <div>
-                                                    <CardTitle className="text-base">
-                                                        {isTable ? "DDL" : "Definition"}
-                                                    </CardTitle>
-                                                    <CardDescription>SQL source code</CardDescription>
+                                        <Card className="overflow-hidden border-border/60 shadow-sm flex flex-col">
+                                            <CardHeader className="bg-muted/30 pb-3 border-b flex flex-row items-center justify-between space-y-0">
+                                                <div className="space-y-0.5">
+                                                    <CardTitle className="text-sm font-semibold">{isTable ? "DDL Script" : "Source Definition"}</CardTitle>
+                                                    <CardDescription className="text-xs">SQL used to create this entity</CardDescription>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        copyToClipboard(isTable ? (ddl || "") : (definition || ""))
-                                                    }
-                                                >
-                                                    <Copy className="h-4 w-4 mr-1.5" />
-                                                    Copy
+                                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copyToClipboard(isTable ? (ddl || "") : (definition || ""))}>
+                                                    <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy SQL
                                                 </Button>
                                             </CardHeader>
-                                            <div className="border-t">
-                                                <div className="h-[400px]">
-                                                    <Editor
-                                                        height="100%"
-                                                        defaultLanguage="sql"
-                                                        theme="vs-dark"
-                                                        value={
-                                                            isTable
-                                                                ? ddl || "-- DDL not available"
-                                                                : definition || "-- Definition not available"
-                                                        }
-                                                        options={{
-                                                            readOnly: true,
-                                                            minimap: { enabled: false },
-                                                            fontSize: 13,
-                                                            fontFamily: "'JetBrains Mono', monospace",
-                                                            scrollBeyondLastLine: false,
-                                                            automaticLayout: true,
-                                                            padding: { top: 16, bottom: 16 },
-                                                            lineNumbers: "on",
-                                                            folding: true,
-                                                            renderLineHighlight: "none",
-                                                        }}
-                                                    />
-                                                </div>
+                                            <div className="bg-[#1e1e1e] flex-1 min-h-[500px]">
+                                                <Editor
+                                                    height="500px"
+                                                    defaultLanguage="sql"
+                                                    theme="vs-dark"
+                                                    value={isTable ? ddl || "-- DDL not available" : definition || "-- Definition not available"}
+                                                    options={{
+                                                        readOnly: true,
+                                                        minimap: { enabled: false },
+                                                        fontSize: 13,
+                                                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                                        scrollBeyondLastLine: false,
+                                                        automaticLayout: true,
+                                                        padding: { top: 20, bottom: 20 },
+                                                        lineNumbers: "on",
+                                                        renderLineHighlight: "none",
+                                                        overviewRulerBorder: false,
+                                                    }}
+                                                />
                                             </div>
                                         </Card>
                                     </div>
 
-                                    {/* Sidebar */}
+                                    {/* Right Column: Meta Info (1 span) */}
                                     <div className="space-y-6">
-                                        <Card>
-                                            <CardHeader className="pb-3">
+                                        <Card className="shadow-sm border-border/60">
+                                            <CardHeader className="pb-3 border-b bg-muted/10">
                                                 <CardTitle className="text-sm flex items-center gap-2">
-                                                    <Info className="h-4 w-4 text-muted-foreground" />
-                                                    Quick Info
+                                                    <Info className="h-4 w-4 text-primary" />
+                                                    Metadata
                                                 </CardTitle>
                                             </CardHeader>
-                                            <CardContent className="space-y-4">
+                                            <CardContent className="space-y-5 pt-5">
                                                 <div>
-                                                    <p className="text-xs text-muted-foreground uppercase font-medium">
-                                                        Last Modified
-                                                    </p>
-                                                    <p className="text-sm mt-0.5">
-                                                        {entityData.modifiedDate
-                                                            ? new Date(entityData.modifiedDate).toLocaleDateString()
-                                                            : "Never"}
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider mb-1">Last Modified</p>
+                                                    <div className="flex items-center gap-2 text-sm text-foreground">
+                                                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                                                        {entityData.modifiedDate ? new Date(entityData.modifiedDate).toLocaleDateString() : "Never"}
+                                                    </div>
+                                                </div>
+
+                                                <Separator />
+
+                                                <div>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider mb-1">Domain</p>
+                                                    {context?.businessDomain ? (
+                                                        <Badge variant="secondary" className="rounded-sm font-normal">
+                                                            {context.businessDomain}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground italic">Unassigned</span>
+                                                    )}
+                                                </div>
+
+                                                <Separator />
+
+                                                <div>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider mb-1">Purpose Summary</p>
+                                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                                        {context?.purpose || "No summary available."}
                                                     </p>
                                                 </div>
-                                                {context?.purpose && (
-                                                    <>
-                                                        <Separator />
-                                                        <div>
-                                                            <p className="text-xs text-muted-foreground uppercase font-medium">
-                                                                Purpose
-                                                            </p>
-                                                            <p className="text-sm mt-0.5">{context.purpose}</p>
-                                                        </div>
-                                                    </>
-                                                )}
-                                                {context?.businessDomain && (
-                                                    <>
-                                                        <Separator />
-                                                        <div className="flex items-center justify-between">
-                                                            <p className="text-xs text-muted-foreground uppercase font-medium">
-                                                                Domain
-                                                            </p>
-                                                            <Badge variant="secondary" className="text-xs">
-                                                                {context.businessDomain}
-                                                            </Badge>
-                                                        </div>
-                                                    </>
-                                                )}
                                             </CardContent>
                                         </Card>
                                     </div>
@@ -683,28 +572,16 @@ const EntityDetailPage: React.FC = () => {
                             </TabsContent>
 
                             {/* Experts Tab */}
-                            <TabsContent value="experts" className="m-0 p-6">
+                            <TabsContent value="experts" className="mt-0 focus-visible:outline-none">
                                 {isLoadingContext ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {[1, 2, 3].map((i) => (
-                                            <Card key={i}>
-                                                <CardContent className="p-4">
-                                                    <div className="flex items-start gap-3">
-                                                        <Skeleton className="h-10 w-10 rounded-full" />
-                                                        <div className="flex-1 space-y-2">
-                                                            <Skeleton className="h-4 w-28" />
-                                                            <Skeleton className="h-3 w-40" />
-                                                        </div>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
+                                            <Card key={i}><CardContent className="p-4"><Skeleton className="h-20 w-full" /></CardContent></Card>
                                         ))}
                                     </div>
                                 ) : experts.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {experts.map((expert) => (
-                                            <ExpertCard key={expert.userId} expert={expert} />
-                                        ))}
+                                        {experts.map((expert) => <ExpertCard key={expert.userId} expert={expert} />)}
                                     </div>
                                 ) : (
                                     <EmptyExpertsState entityName={name || "this entity"} />
@@ -712,36 +589,30 @@ const EntityDetailPage: React.FC = () => {
                             </TabsContent>
 
                             {/* Documentation Tab */}
-                            <TabsContent value="documentation" className="m-0 p-6">
+                            <TabsContent value="documentation" className="mt-0 focus-visible:outline-none">
                                 {context?.purpose || context?.businessImpact ? (
-                                    <div className="max-w-2xl space-y-6">
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                         {context.purpose && (
-                                            <Card>
-                                                <CardHeader className="pb-2">
+                                            <Card className="h-full border-l-4 border-l-primary shadow-sm">
+                                                <CardHeader>
                                                     <CardTitle className="text-base flex items-center gap-2">
-                                                        <Sparkles className="h-4 w-4 text-primary" />
-                                                        Purpose
+                                                        <Sparkles className="h-4 w-4 text-primary" /> Business Purpose
                                                     </CardTitle>
                                                 </CardHeader>
                                                 <CardContent>
-                                                    <p className="text-sm text-foreground leading-relaxed">
-                                                        {context.purpose}
-                                                    </p>
+                                                    <p className="text-sm text-muted-foreground leading-7">{context.purpose}</p>
                                                 </CardContent>
                                             </Card>
                                         )}
                                         {context.businessImpact && (
-                                            <Card>
-                                                <CardHeader className="pb-2">
+                                            <Card className="h-full border-l-4 border-l-orange-500 shadow-sm">
+                                                <CardHeader>
                                                     <CardTitle className="text-base flex items-center gap-2">
-                                                        <AlertCircle className="h-4 w-4 text-orange-500" />
-                                                        Business Impact
+                                                        <AlertCircle className="h-4 w-4 text-orange-500" /> Operational Impact
                                                     </CardTitle>
                                                 </CardHeader>
                                                 <CardContent>
-                                                    <p className="text-sm text-foreground leading-relaxed">
-                                                        {context.businessImpact}
-                                                    </p>
+                                                    <p className="text-sm text-muted-foreground leading-7">{context.businessImpact}</p>
                                                 </CardContent>
                                             </Card>
                                         )}
@@ -750,8 +621,8 @@ const EntityDetailPage: React.FC = () => {
                                     <DocumentationEmptyState entityName={name || "this entity"} />
                                 )}
                             </TabsContent>
-                        </div>
-                    </Tabs>
+                        </Tabs>
+                    </div>
                 </div>
             </div>
         </TooltipProvider>
