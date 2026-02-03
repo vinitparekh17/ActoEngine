@@ -256,7 +256,7 @@ export default function ImpactReportPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-screen bg-background animate-pulse">
+      <div className="flex flex-col h-[calc(100vh-114px)] bg-background animate-pulse">
         <div className="h-14 border-b bg-muted/20" />
         <div className="h-48 bg-muted/10 m-6 rounded-xl" />
         <div className="flex-1 p-6 space-y-4">
@@ -269,7 +269,7 @@ export default function ImpactReportPage() {
 
   if (error || !response) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-6">
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-114px)] p-6">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
           <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
@@ -285,7 +285,7 @@ export default function ImpactReportPage() {
   const isWhatIf = summary.analysisType === "What-If analysis";
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="flex flex-col h-auto bg-background overflow-hidden">
       {/* 1. Sticky Header */}
       <div className="px-6 py-3 border-b flex items-center justify-between bg-background/95 backdrop-blur z-30 sticky top-0 supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center gap-4">
@@ -469,8 +469,8 @@ export default function ImpactReportPage() {
                           <TableCell className="py-3">
                             <div className="flex items-center gap-3">
                               <ImpactMeter level={item.worstCaseImpactLevel} />
-                              <span className={cn("text-xs font-medium", IMPACT_LEVEL_CONFIG[item.worstCaseImpactLevel]?.bg.split(' ')[0])}>
-                                {IMPACT_LEVEL_CONFIG[item.worstCaseImpactLevel]?.label}
+                              <span className={cn("text-xs font-medium", (IMPACT_LEVEL_CONFIG[item.worstCaseImpactLevel]?.bg || "text-slate-600 bg-slate-100").split(' ')[0])}>
+                                {IMPACT_LEVEL_CONFIG[item.worstCaseImpactLevel]?.label || "Unknown"}
                               </span>
                             </div>
                           </TableCell>

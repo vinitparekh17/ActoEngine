@@ -76,15 +76,15 @@ services:
     build:
       context: ./Frontend
       args:
-        VITE_API_BASE_URL: http://localhost:5093
+        VITE_API_BASE_URL: http://localhost:5093/api
       dockerfile: Dockerfile
     container_name: actoengine-frontend
-    env_file:
-      - ./Backend/.env
+    # env_file:
+    #   - ./Backend/.env
     ports:
       - "3000:80"
-    depends_on:
-      - backend
+    # depends_on:
+    #   - backend
     networks:
       - actoengine-network
 

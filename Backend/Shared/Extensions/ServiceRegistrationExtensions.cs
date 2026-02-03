@@ -98,6 +98,9 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddSingleton<IPasswordValidator, PasswordValidator>();
             services.AddSingleton<IDatabaseIdentifierValidator, DatabaseIdentifierValidator>();
 
+            // SSE Connection Management
+            services.AddSingleton<SseConnectionManager>();
+
             services.AddTransient<DatabaseMigrator>();
         }
     }

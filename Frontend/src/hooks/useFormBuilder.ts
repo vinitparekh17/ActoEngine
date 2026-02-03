@@ -365,7 +365,7 @@ export function useFormBuilder() {
     };
 
     // Auto-map columns to fields
-    const fields: FormField[] = schema.columns
+    const fields: FormField[] = (schema.columns || [])
       .filter((col) => !col.isIdentity)
       .map((col, index) => ({
         id: `field-${nanoid(6)}`,

@@ -164,10 +164,10 @@ const DashboardMetric = ({
           {/* Trend Badge */}
           {trend !== undefined && (
             <span className={cn(
-              "text-[10px] font-medium flex items-center px-1.5 py-0.5 rounded-full bg-opacity-20",
+              "text-[10px] font-medium flex items-center px-1.5 py-0.5 rounded-full",
               trend > 0
-                ? "text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/40"
-                : "text-rose-700 bg-rose-100 dark:text-rose-400 dark:bg-rose-900/40"
+                ? "text-emerald-700 bg-emerald-100/20 dark:text-emerald-400 dark:bg-emerald-900/40"
+                : "text-rose-700 bg-rose-100/20 dark:text-rose-400 dark:bg-rose-900/40"
             )}>
               {trend > 0 ? "+" : ""}{trend}%
               <TrendingUp className={cn("w-3 h-3 ml-0.5", trend < 0 && "rotate-180")} />

@@ -456,9 +456,8 @@ namespace ActoEngine.WebApi.Features.Projects
             IDbConnection actoxConn,
             IDbTransaction transaction)
         {
-            var builder = new SqlConnectionStringBuilder(targetConnectionString);
-            var databaseName = builder.InitialCatalog;
-
+            // Same-server sync uses 3-part naming (DbName.schema.table), 
+            // so we don't need the connection string - the SP gets DatabaseName from Projects table
             using var cmd = actoxConn.CreateCommand() as SqlCommand ?? throw new InvalidOperationException("Failed to create SqlCommand.");
             cmd.Transaction = transaction as SqlTransaction;
             if (cmd.Transaction == null)
@@ -473,11 +472,6 @@ namespace ActoEngine.WebApi.Features.Projects
             projectIdParam.ParameterName = "@ProjectId";
             projectIdParam.Value = projectId;
             cmd.Parameters.Add(projectIdParam);
-
-            var dbNameParam = cmd.CreateParameter();
-            dbNameParam.ParameterName = "@DatabaseName";
-            dbNameParam.Value = databaseName;
-            cmd.Parameters.Add(dbNameParam);
 
             var userIdParam = cmd.CreateParameter();
             userIdParam.ParameterName = "@UserId";

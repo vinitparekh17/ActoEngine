@@ -301,7 +301,7 @@ const EntityDetailPage: React.FC = () => {
 
     return (
         <TooltipProvider>
-            <div className="flex flex-col h-screen bg-background overflow-hidden">
+            <div className="flex flex-col h-[calc(100vh-114px)] bg-background overflow-hidden">
                 {/* 1. Sticky Top Bar */}
                 <div className="px-6 py-3 border-b flex items-center justify-between bg-background/95 backdrop-blur z-30 sticky top-0 supports-[backdrop-filter]:bg-background/60">
                     <Breadcrumb>
