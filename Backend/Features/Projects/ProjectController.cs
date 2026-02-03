@@ -15,10 +15,14 @@ namespace ActoEngine.WebApi.Features.Projects
     [ApiController]
     [Authorize]
     [Route("api/projects")]
-    public class ProjectController(IProjectService projectService, ILogger<ProjectController> logger) : ControllerBase
+    public class ProjectController(
+        IProjectService projectService, 
+        ILogger<ProjectController> logger,
+        SseConnectionManager sseConnectionManager) : ControllerBase
     {
         private readonly IProjectService _projectService = projectService;
         private readonly ILogger<ProjectController> _logger = logger;
+        private readonly SseConnectionManager _sseConnectionManager = sseConnectionManager;
 
         [HttpPost("verify")]
         [RequirePermission("Projects:Link")]
@@ -164,7 +168,18 @@ namespace ActoEngine.WebApi.Features.Projects
         [Produces("text/event-stream")]
         public async Task StreamSyncStatus(int projectId, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Starting SSE stream for project {ProjectId}", projectId);
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+            {
+                Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            _logger.LogInformation("Starting SSE stream for project {ProjectId}, user {UserId}", projectId, userId);
+
+            // Register this connection and get a linked cancellation token
+            // This will cancel any existing connection for the same user/project (handles multiple tabs)
+            var managedToken = _sseConnectionManager.RegisterConnection(userId.Value, projectId, cancellationToken);
 
             // Set SSE headers
             Response.Headers.Append("Content-Type", "text/event-stream");
@@ -177,7 +192,7 @@ namespace ActoEngine.WebApi.Features.Projects
                 string? lastStatus = null;
                 int? lastProgress = null;
 
-                while (!cancellationToken.IsCancellationRequested)
+                while (!managedToken.IsCancellationRequested)
                 {
                     // Fetch current sync status
                     var syncStatus = await _projectService.GetSyncStatusAsync(projectId);
@@ -207,8 +222,8 @@ namespace ActoEngine.WebApi.Features.Projects
 
                             // Send SSE formatted message
                             var sseMessage = $"data: {jsonData}\n\n";
-                            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(sseMessage), cancellationToken);
-                            await Response.Body.FlushAsync(cancellationToken);
+                            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(sseMessage), managedToken);
+                            await Response.Body.FlushAsync(managedToken);
 
                             _logger.LogDebug("Sent SSE update for project {ProjectId}: {Status} ({Progress}%)",
                                 projectId, syncStatus.Status, syncStatus.SyncProgress);
@@ -225,16 +240,16 @@ namespace ActoEngine.WebApi.Features.Projects
                     }
 
                     // Wait 1 second before next check
-                    await Task.Delay(1000, cancellationToken);
+                    await Task.Delay(1000, managedToken);
                 }
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("SSE stream cancelled for project {ProjectId}", projectId);
+                _logger.LogInformation("SSE stream cancelled for project {ProjectId}, user {UserId}", projectId, userId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in SSE stream for project {ProjectId}", projectId);
+                _logger.LogError(ex, "Error in SSE stream for project {ProjectId}, user {UserId}", projectId, userId);
 
                 // Send error message
                 var errorData = new { error = "Stream error", message = ex.Message };
@@ -243,13 +258,18 @@ namespace ActoEngine.WebApi.Features.Projects
 
                 try
                 {
-                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(sseError), cancellationToken);
-                    await Response.Body.FlushAsync(cancellationToken);
+                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(sseError), CancellationToken.None);
+                    await Response.Body.FlushAsync(CancellationToken.None);
                 }
                 catch
                 {
                     // Ignore errors during error reporting
                 }
+            }
+            finally
+            {
+                // Unregister connection when it closes
+                _sseConnectionManager.UnregisterConnection(userId.Value, projectId);
             }
         }
 

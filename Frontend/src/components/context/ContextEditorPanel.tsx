@@ -33,7 +33,7 @@ import {
   Edit,
   X,
   AlertTriangle,
-  Plus,
+
 } from "lucide-react";
 import { toast } from "sonner";
 import { useApi, useApiPut } from "@/hooks/useApi";
@@ -529,12 +529,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                     )}
                   </div>
                 ))}
-                {isEditing && (
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Expert
-                  </Button>
-                )}
+
               </div>
             </div>
 

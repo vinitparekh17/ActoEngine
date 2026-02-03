@@ -220,7 +220,7 @@ export default function EntityExplorer() {
     }
 
     return (
-        <div className="h-[calc(100vh-4rem)] flex flex-col p-6">
+        <div className="h-[calc(100vh-114px)] flex flex-col p-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 shrink-0">
                 <div>

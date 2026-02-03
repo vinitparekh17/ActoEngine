@@ -21,6 +21,13 @@ public static class RateLimitingExtensions
             // Global limiter
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
             {
+                // Exempt SSE streaming endpoints from rate limiting
+                // SSE connections are long-lived single requests, not multiple requests
+                if (context.Request.Path.Value?.EndsWith("/stream", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    return RateLimitPartition.GetNoLimiter<string>("sse");
+                }
+
                 // Use the trusted RemoteIpAddress after ForwardedHeadersMiddleware
                 var remoteIp = context.Connection?.RemoteIpAddress?.ToString();
 

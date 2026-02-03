@@ -2,7 +2,6 @@ USE ActoEngine
 GO;
 CREATE OR ALTER PROCEDURE SyncSchemaMetadata
     @ProjectId INT,
-    @ConnectionString NVARCHAR(500),
     @UserId INT
 AS
 BEGIN

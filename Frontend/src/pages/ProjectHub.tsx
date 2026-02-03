@@ -77,9 +77,15 @@ export default function ProjectHub() {
   }, [projectId, selectedProject?.projectId]);
 
   // Real-time sync status hook
-  const isSyncing =
-    selectedProject?.syncStatus?.toLowerCase().includes("sync") ||
-    selectedProject?.syncStatus?.toLowerCase() === "started";
+  // Check if sync is active (any non-terminal status)
+  const isTerminalStatus = (status: string | null | undefined) => {
+    if (!status) return true; // No status = not syncing
+    return status === "Completed" || status.startsWith("Failed") || status === "never";
+  };
+
+  const isSyncing = selectedProject?.syncStatus
+    ? !isTerminalStatus(selectedProject.syncStatus)
+    : false;
 
   const { status: realtimeStatus, progress: realtimeProgress } = useSyncStatus(
     selectedProject?.projectId,

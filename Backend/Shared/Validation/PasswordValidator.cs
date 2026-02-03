@@ -14,9 +14,9 @@ public class PasswordValidator : IPasswordValidator
             return (false, "Password is required");
         }
 
-        if (password.Length < 12)
+        if (password.Length < 8)
         {
-            return (false, "Password must be at least 12 characters long");
+            return (false, "Password must be at least 8 characters long");
         }
 
         if (password.Length > 100)

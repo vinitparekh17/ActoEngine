@@ -43,6 +43,13 @@ import PreviewTab from "../components/formgen/Preview";
 import CodeTab from "../components/formgen/Code";
 import BuilderTab from "../components/formgen/Builder";
 
+interface SchemaResponse {
+  schema: TableSchema;
+  isStale: boolean;
+  lastSyncTimestamp: string;
+  warning: string | null;
+}
+
 interface FormConfigListItem {
   id: number;
   projectId: number;
@@ -106,7 +113,7 @@ export default function FormBuilder() {
       ? `/DatabaseBrowser/projects/${selectedProject.projectId}/tables/${encodeURIComponent(selectedTableName)}/schema?schemaName=${encodeURIComponent(selectedSchemaName)}`
       : "";
   const { data: schemaData, isLoading: loadingSchema } =
-    useApi<TableSchema>(schemaUrl);
+    useApi<SchemaResponse>(schemaUrl);
 
   // Fetch saved form configs
   const { data: savedConfigs, refetch: refetchConfigs } = useApi<
@@ -135,6 +142,7 @@ export default function FormBuilder() {
     if (
       schemaUrl &&
       schemaData &&
+      schemaData.schema &&
       selectedTable &&
       selectedProject &&
       !config &&
@@ -144,9 +152,9 @@ export default function FormBuilder() {
         typeof selectedTable === "string"
           ? Number(selectedTable)
           : selectedTable;
-      initializeFromTable(tableId, selectedProject.projectId, schemaData);
+      initializeFromTable(tableId, selectedProject.projectId, schemaData.schema);
       toast.success(
-        `Loaded ${schemaData.columns.length} fields from ${schemaData.tableName || selectedTable}`,
+        `Loaded ${schemaData.schema.columns?.length || 0} fields from ${schemaData.schema.tableName || selectedTable}`,
       );
     }
   }, [
