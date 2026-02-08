@@ -65,21 +65,41 @@ function normalizeApiBaseUrl(rawUrl: string): string {
 }
 
 /**
+ * Fetches a short-lived one-time ticket for SSE authentication
+ */
+async function fetchSseTicket(projectId: number, apiUrl: string): Promise<string | null> {
+  try {
+    const response = await api.post<{ ticket: string; expiresIn: number }>(
+      `/projects/${projectId}/sync-status/ticket`
+    );
+    return response.ticket;
+  } catch (error) {
+    console.error("[SSE] Failed to fetch ticket:", error);
+    return null;
+  }
+}
+
+/**
  * Creates or retrieves an existing SSE connection for a project.
  */
-function getOrCreateSseConnection(
+async function getOrCreateSseConnection(
   projectId: number,
   apiUrl: string,
-  token: string | null,
   onError: (error: string) => void
-): SseConnection {
+): Promise<SseConnection | null> {
   if (sseConnections.has(projectId)) {
     return sseConnections.get(projectId)!;
   }
 
-  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
+  // Fetch one-time ticket for SSE authentication
+  const ticket = await fetchSseTicket(projectId, apiUrl);
+  if (!ticket) {
+    onError("Failed to obtain SSE ticket");
+    return null;
+  }
+
   const baseUrl = normalizeApiBaseUrl(apiUrl);
-  const sseUrl = `${baseUrl}/api/projects/${projectId}/sync-status/stream${tokenParam}`;
+  const sseUrl = `${baseUrl}/api/projects/${projectId}/sync-status/stream?ticket=${encodeURIComponent(ticket)}`;
 
   console.log(`[SSE] Creating new connection for project ${projectId}`);
   const eventSource = new EventSource(sseUrl, { withCredentials: true });
@@ -131,7 +151,11 @@ function getOrCreateSseConnection(
       }
     } catch (err) {
       console.error("[SSE] Failed to parse message:", err);
-      onError("Failed to parse sync status");
+      // Propagate parse errors to ALL subscribers, not just the captured onError
+      const parseError = { error: "Parse error", message: "Failed to parse sync status" };
+      subscribers.forEach((callback) => {
+        callback(parseError);
+      });
     }
   };
 
@@ -149,14 +173,17 @@ function getOrCreateSseConnection(
   return connection;
 }
 
-function subscribeToSse(
+async function subscribeToSse(
   projectId: number,
   apiUrl: string,
-  token: string | null,
   callback: (data: SyncStatusData | { error: string; message: string }) => void,
   onError: (error: string) => void
-): () => void {
-  const connection = getOrCreateSseConnection(projectId, apiUrl, token, onError);
+): Promise<(() => void) | null> {
+  const connection = await getOrCreateSseConnection(projectId, apiUrl, onError);
+  if (!connection) {
+    onError("Failed to create SSE connection");
+    return null;
+  }
   connection.subscribers.add(callback);
 
   if (connection.currentStatus) {
@@ -309,12 +336,10 @@ export function useSyncStatus(
       // Only connect SSE if status is non-terminal
       if (useSSE && currentStatus && !isTerminalStatus(currentStatus.status)) {
         console.log(`[SSE] Status is ${currentStatus.status}, subscribing`);
-        const token = useAuthStore.getState().token;
 
-        unsubscribeRef.current = subscribeToSse(
+        unsubscribeRef.current = await subscribeToSse(
           projectId,
           apiUrl,
-          token,
           (data) => {
             if (!mountedRef.current) return;
 
