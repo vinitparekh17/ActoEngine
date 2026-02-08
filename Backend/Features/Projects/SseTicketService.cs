@@ -126,6 +126,11 @@ public class SseTicketService(IDistributedCache cache, ILogger<SseTicketService>
                 ticketLock.Release();
             }
         }
+        catch (OperationCanceledException)
+        {
+            // Propagate cancellation - don't swallow it
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating SSE ticket");
