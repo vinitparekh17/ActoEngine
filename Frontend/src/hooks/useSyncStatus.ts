@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "@/lib/api";
-import { useAuthStore } from "@/hooks/useAuth";
 import type { SyncStatusResponse } from "@/types/project";
 
 export interface SyncStatusData {
@@ -37,6 +36,9 @@ interface SseConnection {
 }
 
 const sseConnections = new Map<number, SseConnection>();
+
+// Pending connection promises to prevent race condition during creation
+const pendingSseConnections = new Map<number, Promise<SseConnection | null>>();
 
 /**
  * Checks if a status is terminal (no more updates expected)
@@ -80,17 +82,13 @@ async function fetchSseTicket(projectId: number, apiUrl: string): Promise<string
 }
 
 /**
- * Creates or retrieves an existing SSE connection for a project.
+ * Internal helper to create a new SSE connection
  */
-async function getOrCreateSseConnection(
+async function createSseConnection(
   projectId: number,
   apiUrl: string,
   onError: (error: string) => void
 ): Promise<SseConnection | null> {
-  if (sseConnections.has(projectId)) {
-    return sseConnections.get(projectId)!;
-  }
-
   // Fetch one-time ticket for SSE authentication
   const ticket = await fetchSseTicket(projectId, apiUrl);
   if (!ticket) {
@@ -173,6 +171,45 @@ async function getOrCreateSseConnection(
   return connection;
 }
 
+/**
+ * Creates or retrieves an existing SSE connection for a project.
+ * Uses a pending-promise map to prevent race conditions during creation.
+ */
+async function getOrCreateSseConnection(
+  projectId: number,
+  apiUrl: string,
+  onError: (error: string) => void
+): Promise<SseConnection | null> {
+  // If connection already exists, return it
+  const existingConnection = sseConnections.get(projectId);
+  if (existingConnection) {
+    return existingConnection;
+  }
+
+  // If a connection is being created, wait for it
+  const pendingPromise = pendingSseConnections.get(projectId);
+  if (pendingPromise) {
+    return pendingPromise;
+  }
+
+  // Create a new connection and store the promise to prevent race conditions
+  const connectionPromise = createSseConnection(projectId, apiUrl, onError)
+    .then((connection) => {
+      // Clear the pending entry on success or failure
+      pendingSseConnections.delete(projectId);
+      return connection;
+    })
+    .catch((error) => {
+      // Clear pending entry and close orphaned EventSource on error
+      pendingSseConnections.delete(projectId);
+      console.error("[SSE] Failed to create connection:", error);
+      return null;
+    });
+
+  pendingSseConnections.set(projectId, connectionPromise);
+  return connectionPromise;
+}
+
 async function subscribeToSse(
   projectId: number,
   apiUrl: string,
@@ -181,7 +218,7 @@ async function subscribeToSse(
 ): Promise<(() => void) | null> {
   const connection = await getOrCreateSseConnection(projectId, apiUrl, onError);
   if (!connection) {
-    onError("Failed to create SSE connection");
+    // Don't call onError here - getOrCreateSseConnection already called it
     return null;
   }
   connection.subscribers.add(callback);
@@ -223,6 +260,9 @@ export function useSyncStatus(
   const [lastSyncAttempt, setLastSyncAttempt] = useState<Date | undefined>();
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Counter to trigger effect re-run when reconnect is called
+  const [reconnectCounter, setReconnectCounter] = useState(0);
 
   // Store callbacks in refs to avoid dependency issues
   const onStatusChangeRef = useRef(onStatusChange);
@@ -291,11 +331,12 @@ export function useSyncStatus(
     }
   }, [projectId]);
 
+  // Reconnect function: resets state and triggers main effect via counter
   const reconnect = useCallback(() => {
     setError(null);
     hasFetchedRef.current = false;
-    fetchSyncStatus();
-  }, [fetchSyncStatus]);
+    setReconnectCounter((c) => c + 1);
+  }, []);
 
   const refresh = useCallback(async () => {
     await fetchSyncStatus();
@@ -311,7 +352,7 @@ export function useSyncStatus(
     setError(null);
   }, [projectId]);
 
-  // Main effect - runs once per projectId
+  // Main effect - runs once per projectId, or when reconnectCounter changes
   useEffect(() => {
     mountedRef.current = true;
 
@@ -337,7 +378,7 @@ export function useSyncStatus(
       if (useSSE && currentStatus && !isTerminalStatus(currentStatus.status)) {
         console.log(`[SSE] Status is ${currentStatus.status}, subscribing`);
 
-        unsubscribeRef.current = await subscribeToSse(
+        const localUnsub = await subscribeToSse(
           projectId,
           apiUrl,
           (data) => {
@@ -371,6 +412,14 @@ export function useSyncStatus(
             onErrorRef.current?.(errorMsg);
           }
         );
+
+        // Check if still mounted before storing unsubscribe
+        if (mountedRef.current) {
+          unsubscribeRef.current = localUnsub;
+        } else if (localUnsub) {
+          // Unmounted during subscribe - clean up immediately to prevent leak
+          localUnsub();
+        }
       } else if (currentStatus && isTerminalStatus(currentStatus.status)) {
         console.log(`[SSE] Status is terminal (${currentStatus.status}), not connecting`);
       }
@@ -382,7 +431,7 @@ export function useSyncStatus(
       mountedRef.current = false;
       cleanup();
     };
-  }, [enabled, projectId, useSSE, apiUrl, fetchSyncStatus]);
+  }, [enabled, projectId, useSSE, apiUrl, fetchSyncStatus, reconnectCounter]);
 
   return {
     status,

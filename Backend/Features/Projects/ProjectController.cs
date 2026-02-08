@@ -166,6 +166,7 @@ namespace ActoEngine.WebApi.Features.Projects
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>SSE stream of sync status updates</returns>
         [HttpGet("{projectId}/sync-status/stream")]
+        [AllowAnonymous] // Bypass class-level [Authorize] - method handles its own auth via cookie or ticket
         [Produces("text/event-stream")]
         public async Task StreamSyncStatus(
             int projectId, 
@@ -319,6 +320,15 @@ namespace ActoEngine.WebApi.Features.Projects
             if (project == null)
             {
                 return NotFound(ApiResponse<object>.Failure("Project not found"));
+            }
+
+            // Verify user is a member of this project before issuing ticket
+            var userMemberships = await _projectService.GetUserProjectMembershipsAsync(userId.Value);
+            if (!userMemberships.Contains(projectId))
+            {
+                _logger.LogWarning("User {UserId} attempted to get SSE ticket for project {ProjectId} without membership", 
+                    userId.Value, projectId);
+                return Forbid();
             }
 
             // Generate one-time ticket

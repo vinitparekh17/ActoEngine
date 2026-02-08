@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Distributed;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 
 namespace ActoEngine.WebApi.Features.Projects;
@@ -38,6 +39,10 @@ public class SseTicketService(IDistributedCache cache, ILogger<SseTicketService>
     private readonly ILogger<SseTicketService> _logger = logger;
     private const int TicketTtlSeconds = 30;
     private const string CacheKeyPrefix = "sse_ticket:";
+    
+    // Per-ticket locks to prevent TOCTOU race conditions during consumption
+    // Using ConcurrentDictionary to avoid blocking unrelated tickets
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _ticketLocks = new();
 
     public async Task<string> GenerateTicketAsync(int userId, int projectId)
     {
@@ -79,38 +84,61 @@ public class SseTicketService(IDistributedCache cache, ILogger<SseTicketService>
         }
 
         var cacheKey = $"{CacheKeyPrefix}{ticket}";
+        
+        // Get or create a lock for this specific ticket to ensure atomic get-and-delete
+        var ticketLock = _ticketLocks.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));
 
         try
         {
-            // Retrieve ticket metadata from cache
-            var serializedMetadata = await _cache.GetStringAsync(cacheKey);
+            // Wait for the lock - only one caller can consume this ticket
+            await ticketLock.WaitAsync();
 
-            if (serializedMetadata == null)
+            try
             {
-                _logger.LogWarning("SSE ticket validation failed: ticket not found or expired");
-                return null;
+                // Retrieve ticket metadata from cache
+                var serializedMetadata = await _cache.GetStringAsync(cacheKey);
+
+                if (serializedMetadata == null)
+                {
+                    _logger.LogWarning("SSE ticket validation failed: ticket not found or expired");
+                    return null;
+                }
+
+                // Immediately delete the ticket to ensure one-time use
+                // This is now atomic because we hold the lock
+                await _cache.RemoveAsync(cacheKey);
+
+                var metadata = System.Text.Json.JsonSerializer.Deserialize<SseTicketMetadata>(serializedMetadata);
+
+                if (metadata == null)
+                {
+                    _logger.LogError("SSE ticket deserialization failed");
+                    return null;
+                }
+
+                _logger.LogInformation("SSE ticket validated and consumed for user {UserId}, project {ProjectId}",
+                    metadata.UserId, metadata.ProjectId);
+
+                return metadata;
             }
-
-            // Immediately delete the ticket to ensure one-time use
-            await _cache.RemoveAsync(cacheKey);
-
-            var metadata = System.Text.Json.JsonSerializer.Deserialize<SseTicketMetadata>(serializedMetadata);
-
-            if (metadata == null)
+            finally
             {
-                _logger.LogError("SSE ticket deserialization failed");
-                return null;
+                ticketLock.Release();
             }
-
-            _logger.LogInformation("SSE ticket validated and consumed for user {UserId}, project {ProjectId}",
-                metadata.UserId, metadata.ProjectId);
-
-            return metadata;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating SSE ticket");
             return null;
+        }
+        finally
+        {
+            // Clean up the lock entry after a short delay to avoid memory leaks
+            // The ticket is expired/consumed, so no new requests will need this lock
+            _ = Task.Delay(TimeSpan.FromSeconds(TicketTtlSeconds + 5)).ContinueWith(t =>
+            {
+                _ticketLocks.TryRemove(cacheKey, out var _);
+            });
         }
     }
 }
