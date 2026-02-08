@@ -161,17 +161,40 @@ namespace ActoEngine.WebApi.Features.Projects
         /// Server-Sent Events endpoint for real-time sync status updates
         /// </summary>
         /// <param name="projectId">The project ID to stream sync status for</param>
+        /// <param name="ticket">Optional one-time ticket for authentication (alternative to cookie)</param>
+        /// <param name="sseTicketService">SSE ticket service (injected)</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>SSE stream of sync status updates</returns>
         [HttpGet("{projectId}/sync-status/stream")]
-        [RequirePermission("Projects:Read")]
         [Produces("text/event-stream")]
-        public async Task StreamSyncStatus(int projectId, CancellationToken cancellationToken)
+        public async Task StreamSyncStatus(
+            int projectId, 
+            [FromQuery] string? ticket,
+            [FromServices] ISseTicketService sseTicketService,
+            CancellationToken cancellationToken)
         {
-            var userId = HttpContext.GetUserId();
+            int? userId = HttpContext.GetUserId();
+
+            // If no cookie authentication, try ticket authentication
+            if (userId == null && !string.IsNullOrWhiteSpace(ticket))
+            {
+                var ticketMetadata = await sseTicketService.ValidateAndConsumeTicketAsync(ticket);
+                if (ticketMetadata != null && ticketMetadata.ProjectId == projectId)
+                {
+                    userId = ticketMetadata.UserId;
+                    _logger.LogInformation("SSE stream authenticated via ticket for user {UserId}, project {ProjectId}", 
+                        userId, projectId);
+                }
+                else
+                {
+                    _logger.LogWarning("SSE stream ticket validation failed for project {ProjectId}", projectId);
+                }
+            }
+
             if (userId == null)
             {
                 Response.StatusCode = StatusCodes.Status401Unauthorized;
+                _logger.LogWarning("SSE stream authentication failed for project {ProjectId} - no valid cookie or ticket", projectId);
                 return;
             }
 
@@ -272,6 +295,42 @@ namespace ActoEngine.WebApi.Features.Projects
                 // Unregister connection when it closes
                 _sseConnectionManager.UnregisterConnection(connectionHandle);
             }
+        }
+
+        /// <summary>
+        /// Exchange a valid session token for a short-lived one-time SSE ticket
+        /// </summary>
+        /// <param name="projectId">The project ID for the SSE stream</param>
+        /// <param name="sseTicketService">SSE ticket service (injected)</param>
+        /// <returns>Ticket and expiry information</returns>
+        [HttpPost("{projectId}/sync-status/ticket")]
+        [RequirePermission("Projects:Read")]
+        [ProducesResponseType(typeof(ApiResponse<SseTicketResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetSseTicket(int projectId, [FromServices] ISseTicketService sseTicketService)
+        {
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
+            // Verify user has access to this project
+            var project = await _projectService.GetProjectByIdAsync(projectId);
+            if (project == null)
+            {
+                return NotFound(ApiResponse<object>.Failure("Project not found"));
+            }
+
+            // Generate one-time ticket
+            var ticket = await sseTicketService.GenerateTicketAsync(userId.Value, projectId);
+
+            var response = new SseTicketResponse
+            {
+                Ticket = ticket,
+                ExpiresIn = 30 // seconds
+            };
+
+            return Ok(ApiResponse<SseTicketResponse>.Success(response, "SSE ticket generated"));
         }
 
         [HttpGet("{projectId}")]

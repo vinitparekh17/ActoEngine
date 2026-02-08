@@ -41,15 +41,6 @@ public class CustomTokenAuthenticationHandler(
             }
         }
 
-        // 3. Fallback to query parameter (only for SSE endpoints where cookies might not be sent or for specific use cases)
-        if (string.IsNullOrEmpty(token) &&
-            Request.Query.ContainsKey("token") &&
-            Request.Path.Value?.EndsWith("/stream", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            token = Request.Query["token"].FirstOrDefault();
-            _logger.LogDebug("Using token from query parameter for SSE endpoint: {Path}", Request.Path);
-        }
-
         if (string.IsNullOrEmpty(token))
         {
             _logger.LogDebug("No access token found in cookie, header, or query parameter for path: {Path}", Request.Path);

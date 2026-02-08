@@ -100,6 +100,7 @@ namespace ActoEngine.WebApi.Shared.Extensions
 
             // SSE Connection Management
             services.AddSingleton<SseConnectionManager>();
+            services.AddScoped<ISseTicketService, SseTicketService>();
 
             services.AddTransient<DatabaseMigrator>();
         }

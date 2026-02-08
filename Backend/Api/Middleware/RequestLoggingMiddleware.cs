@@ -26,8 +26,9 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
                 }
 
                 var request = context.Request;
+                var safeQueryString = GetSafeQueryString(request);
                 _logger.LogInformation("[Request] {Method} {Path}{QueryString}",
-                    request.Method, request.Path, request.QueryString.HasValue ? request.QueryString.Value : string.Empty);
+                    request.Method, request.Path, safeQueryString);
 
                 if (_logHeaders)
                 {
@@ -97,6 +98,29 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
         return string.Join("; ", request.Headers
             .Where(h => !sensitiveHeaders.Contains(h.Key, StringComparer.OrdinalIgnoreCase))
             .Select(h => $"{h.Key}: {h.Value}"));
+    }
+
+    private static string GetSafeQueryString(HttpRequest request)
+    {
+        if (!request.QueryString.HasValue)
+        {
+            return string.Empty;
+        }
+
+        var sensitiveParams = new[] { "token", "ticket", "password", "secret" };
+        var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(request.QueryString.Value);
+        
+        var safeParams = queryParams
+            .Select(kvp =>
+            {
+                var key = kvp.Key;
+                var value = sensitiveParams.Contains(key, StringComparer.OrdinalIgnoreCase)
+                    ? "[Redacted]"
+                    : kvp.Value.ToString();
+                return $"{key}={value}";
+            });
+
+        return safeParams.Any() ? "?" + string.Join("&", safeParams) : string.Empty;
     }
 
     private static async Task<string> ReadRequestBodyAsync(HttpRequest request, int maxLength = 1024)
