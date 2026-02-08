@@ -42,8 +42,26 @@ const sseConnections = new Map<number, SseConnection>();
  * Checks if a status is terminal (no more updates expected)
  */
 function isTerminalStatus(status: string | null | undefined): boolean {
-  if (!status) return false;
+  if (!status || status === "never") return true;
   return status === "Completed" || status.startsWith("Failed");
+}
+
+function normalizeApiBaseUrl(rawUrl: string): string {
+  let normalized = rawUrl;
+
+  if (!normalized) {
+    return normalized;
+  }
+
+  while (normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+
+  if (normalized.endsWith("/api")) {
+    normalized = normalized.slice(0, -4);
+  }
+
+  return normalized;
 }
 
 /**
@@ -60,7 +78,8 @@ function getOrCreateSseConnection(
   }
 
   const tokenParam = token ? `?token=${encodeURIComponent(token)}` : "";
-  const sseUrl = `${apiUrl}/api/projects/${projectId}/sync-status/stream${tokenParam}`;
+  const baseUrl = normalizeApiBaseUrl(apiUrl);
+  const sseUrl = `${baseUrl}/api/projects/${projectId}/sync-status/stream${tokenParam}`;
 
   console.log(`[SSE] Creating new connection for project ${projectId}`);
   const eventSource = new EventSource(sseUrl, { withCredentials: true });
@@ -82,7 +101,9 @@ function getOrCreateSseConnection(
 
       if ("error" in data) {
         console.log(`[SSE] Error from server: ${data.message}`);
-        subscribers.forEach((callback) => callback(data));
+        subscribers.forEach((callback) => {
+          callback(data);
+        });
         eventSource.close();
         sseConnections.delete(projectId);
         return;
@@ -97,7 +118,9 @@ function getOrCreateSseConnection(
       };
 
       connection.currentStatus = statusData;
-      subscribers.forEach((callback) => callback(statusData));
+      subscribers.forEach((callback) => {
+        callback(statusData);
+      });
 
       console.log(`[SSE] Status update: ${data.status} (${data.progress}%)`);
 
@@ -117,7 +140,9 @@ function getOrCreateSseConnection(
     eventSource.close();
     sseConnections.delete(projectId);
     const errorData = { error: "Connection error", message: "SSE connection lost" };
-    subscribers.forEach((callback) => callback(errorData));
+    subscribers.forEach((callback) => {
+      callback(errorData);
+    });
   };
 
   sseConnections.set(projectId, connection);
@@ -187,7 +212,9 @@ export function useSyncStatus(
   const mountedRef = useRef<boolean>(true);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const hasFetchedRef = useRef<boolean>(false);
-  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5093";
+  const apiUrl = normalizeApiBaseUrl(
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:5093"
+  );
 
   /**
    * Fetch sync status via REST API (one-time)

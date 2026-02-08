@@ -179,7 +179,8 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Register this connection and get a linked cancellation token
             // This will cancel any existing connection for the same user/project (handles multiple tabs)
-            var managedToken = _sseConnectionManager.RegisterConnection(userId.Value, projectId, cancellationToken);
+            var connectionHandle = _sseConnectionManager.RegisterConnection(userId.Value, projectId, cancellationToken);
+            var managedToken = connectionHandle.Token;
 
             // Set SSE headers
             Response.Headers.Append("Content-Type", "text/event-stream");
@@ -269,7 +270,7 @@ namespace ActoEngine.WebApi.Features.Projects
             finally
             {
                 // Unregister connection when it closes
-                _sseConnectionManager.UnregisterConnection(userId.Value, projectId);
+                _sseConnectionManager.UnregisterConnection(connectionHandle);
             }
         }
 
