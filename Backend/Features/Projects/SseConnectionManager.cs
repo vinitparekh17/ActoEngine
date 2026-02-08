@@ -2,6 +2,27 @@ using System.Collections.Concurrent;
 
 namespace ActoEngine.WebApi.Features.Projects;
 
+public sealed class SseConnectionHandle
+{
+    public SseConnectionHandle(int userId, int projectId, string connectionKey, CancellationTokenSource cancellationTokenSource)
+    {
+        UserId = userId;
+        ProjectId = projectId;
+        ConnectionKey = connectionKey;
+        CancellationTokenSource = cancellationTokenSource;
+    }
+
+    public int UserId { get; }
+
+    public int ProjectId { get; }
+
+    public string ConnectionKey { get; }
+
+    public CancellationTokenSource CancellationTokenSource { get; }
+
+    public CancellationToken Token => CancellationTokenSource.Token;
+}
+
 /// <summary>
 /// Manages active SSE connections to prevent duplicate connections per user/project.
 /// When a user opens multiple tabs, only the most recent connection stays active.
@@ -22,8 +43,8 @@ public class SseConnectionManager
     /// <param name="userId">User ID</param>
     /// <param name="projectId">Project ID</param>
     /// <param name="cancellationToken">Cancellation token for the new connection</param>
-    /// <returns>A linked cancellation token that will be cancelled if a newer connection is opened</returns>
-    public CancellationToken RegisterConnection(int userId, int projectId, CancellationToken cancellationToken)
+    /// <returns>A handle that tracks the registered connection and its cancellation token source.</returns>
+    public SseConnectionHandle RegisterConnection(int userId, int projectId, CancellationToken cancellationToken)
     {
         var key = GetConnectionKey(userId, projectId);
         
@@ -46,22 +67,38 @@ public class SseConnectionManager
             "Registered new SSE connection for user {UserId}, project {ProjectId}",
             userId, projectId);
 
-        return cts.Token;
+        return new SseConnectionHandle(userId, projectId, key, cts);
     }
 
     /// <summary>
     /// Unregisters a connection when it closes normally.
     /// </summary>
-    public void UnregisterConnection(int userId, int projectId)
+    public void UnregisterConnection(SseConnectionHandle? handle)
     {
-        var key = GetConnectionKey(userId, projectId);
-        
-        if (_activeConnections.TryRemove(key, out var cts))
+        if (handle == null)
         {
-            cts.Dispose();
-            _logger.LogInformation(
-                "Unregistered SSE connection for user {UserId}, project {ProjectId}",
-                userId, projectId);
+            return;
+        }
+
+        if (!_activeConnections.TryGetValue(handle.ConnectionKey, out var currentCts) ||
+            !ReferenceEquals(currentCts, handle.CancellationTokenSource))
+        {
+            return;
+        }
+
+        if (_activeConnections.TryRemove(handle.ConnectionKey, out var removedCts))
+        {
+            if (ReferenceEquals(removedCts, handle.CancellationTokenSource))
+            {
+                removedCts.Dispose();
+                _logger.LogInformation(
+                    "Unregistered SSE connection for user {UserId}, project {ProjectId}",
+                    handle.UserId, handle.ProjectId);
+            }
+            else
+            {
+                _activeConnections[handle.ConnectionKey] = removedCts;
+            }
         }
     }
 
