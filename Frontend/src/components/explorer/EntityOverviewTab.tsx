@@ -69,7 +69,6 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
 
 
 
-
   // Fetch table details
   const { data: tableDetails, isLoading: isLoadingTable } =
     useApi<TableDetails>(
