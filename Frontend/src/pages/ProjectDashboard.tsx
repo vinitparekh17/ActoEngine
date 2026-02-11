@@ -228,8 +228,8 @@ export default function ProjectsDashboard() {
                       </span>
                       <span
                         className={`font-medium ${project.isActive
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-neutral-400"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-neutral-400"
                           }`}
                       >
                         {project.isActive ? "Active" : "Inactive"}
