@@ -62,14 +62,14 @@ export default function EntityExplorer() {
 
   // Sync route projectId with app state
   useEffect(() => {
-    if (projectId && hasProject) {
+    if (projectId) {
       const projectIdNum = parseInt(projectId, 10);
       if (!isNaN(projectIdNum) && projectIdNum !== selectedProjectId) {
         // URL has a different project than currently selected, sync it
         selectProject(projectIdNum);
       }
     }
-  }, [projectId, selectedProjectId, hasProject, selectProject]);
+  }, [projectId, selectedProjectId, selectProject]);
 
   // Parse URL params to state
   const selectedEntityType = entityTypeSlug

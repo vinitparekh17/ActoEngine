@@ -58,6 +58,8 @@ import {
 import { Link, useLocation, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import React, { lazy } from "react";
+import { useProject } from "@/hooks/useProject";
+
 const Editor = lazy(() => import("@monaco-editor/react"));
 
 // ============================================================================
@@ -323,11 +325,21 @@ const EntityDetailPage: React.FC = () => {
       { staleTime: 30 * 1000, retry: 1 },
     );
 
+  const { selectedProject } = useProject();
+
   // Derived values
   const name = isTable
     ? (entityData as TableDetails)?.tableName
     : (entityData as SPDetails)?.procedureName;
-  const schema = entityData?.schemaName || "dbo";
+
+  const getDefaultSchema = (dbType?: string) => {
+    const t = (dbType || "").toLowerCase();
+    if (t.includes("postgres")) return "public";
+    if (t.includes("sql") || t.includes("mssql")) return "dbo";
+    return "";
+  };
+
+  const schema = entityData?.schemaName || getDefaultSchema(selectedProject?.databaseType);
   const fullName = name ? `${schema}.${name}` : "Loading...";
   const columns = isTable ? (entityData as TableDetails)?.columns : undefined;
   const parameters = !isTable
@@ -453,11 +465,10 @@ const EntityDetailPage: React.FC = () => {
               {/* Identity Section */}
               <div className="flex items-start gap-5">
                 <div
-                  className={`p-4 rounded-xl border shadow-sm ${
-                    isTable
+                  className={`p-4 rounded-xl border shadow-sm ${isTable
                       ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900"
                       : "bg-violet-50 text-violet-600 border-violet-100 dark:bg-violet-950/30 dark:border-violet-900"
-                  }`}
+                    }`}
                 >
                   {isTable ? (
                     <TableIcon className="h-8 w-8" />
@@ -745,8 +756,8 @@ const EntityDetailPage: React.FC = () => {
                             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                             {entityData.modifiedDate
                               ? new Date(
-                                  entityData.modifiedDate,
-                                ).toLocaleDateString()
+                                entityData.modifiedDate,
+                              ).toLocaleDateString()
                               : "Never"}
                           </div>
                         </div>

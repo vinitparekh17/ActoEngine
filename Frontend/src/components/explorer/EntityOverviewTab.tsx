@@ -64,7 +64,15 @@ interface EntityOverviewTabProps {
 }
 
 export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
-  const { selectedProjectId, hasProject } = useProject();
+  const { selectedProject, selectedProjectId, hasProject } = useProject();
+
+  const getDefaultSchema = (dbType?: string) => {
+    const t = (dbType || "").toLowerCase();
+    if (t.includes("postgres")) return "public";
+    if (t.includes("sql") || t.includes("mssql")) return "dbo";
+    return "";
+  };
+
 
   // Fetch table details
   const { data: tableDetails, isLoading: isLoadingTable } =
@@ -87,7 +95,11 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
   );
 
   const isLoading =
-    entity.entityType === "TABLE" ? isLoadingTable : isLoadingSP;
+    entity.entityType === "TABLE"
+      ? isLoadingTable
+      : entity.entityType === "SP"
+        ? isLoadingSP
+        : false;
 
   const getEntityIcon = () => {
     switch (entity.entityType) {
@@ -95,6 +107,8 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
         return <TableIcon className="h-5 w-5 text-green-600" />;
       case "SP":
         return <Code2 className="h-5 w-5 text-indigo-600" />;
+      case "COLUMN":
+        return <Database className="h-5 w-5 text-blue-600" />;
       default:
         return <Database className="h-5 w-5" />;
     }
@@ -135,7 +149,13 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
             <div className="flex items-center gap-2">
               {getEntityIcon()}
               <span className="font-semibold">
-                {entity.entityType === "TABLE" ? "Table" : "Stored Procedure"}
+                {entity.entityType === "TABLE"
+                  ? "Table"
+                  : entity.entityType === "SP"
+                    ? "Stored Procedure"
+                    : entity.entityType === "COLUMN"
+                      ? "Column"
+                      : "Entity"}
               </span>
             </div>
           </CardContent>
@@ -147,7 +167,7 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
           </CardHeader>
           <CardContent>
             <span className="font-semibold font-mono">
-              {entity.schemaName || "dbo"}
+              {entity.schemaName || getDefaultSchema(selectedProject?.databaseType)}
             </span>
           </CardContent>
         </Card>

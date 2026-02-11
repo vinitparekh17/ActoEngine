@@ -54,8 +54,12 @@ export function ProjectMembershipModal({
   // Compute effective membership from server state + optimistic updates
   const effectiveMemberships = useMemo(() => {
     const set = new Set(memberProjectIds);
-    optimisticAdds.forEach((id) => set.add(id));
-    optimisticRemoves.forEach((id) => set.delete(id));
+    optimisticAdds.forEach((id) => {
+      set.add(id);
+    });
+    optimisticRemoves.forEach((id) => {
+      set.delete(id);
+    });
     return set;
   }, [memberProjectIds, optimisticAdds, optimisticRemoves]);
 

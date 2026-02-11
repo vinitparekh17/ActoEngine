@@ -102,9 +102,13 @@ export function RoleFormModal({
   ) => {
     const currentIds = new Set(selectedPermissionIds);
     if (checked) {
-      categoryPermissions.forEach((id) => currentIds.add(id));
+      categoryPermissions.forEach((id) => {
+        currentIds.add(id);
+      });
     } else {
-      categoryPermissions.forEach((id) => currentIds.delete(id));
+      categoryPermissions.forEach((id) => {
+        currentIds.delete(id);
+      });
     }
     setValue("permissionIds", Array.from(currentIds), { shouldValidate: true });
   };

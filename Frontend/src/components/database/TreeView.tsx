@@ -18,18 +18,19 @@ export type TreeNode = {
   id: string;
   name: string;
   children?: TreeNode[];
+  entityId?: number;
   type?:
-    | "database"
-    | "tables-folder"
-    | "programmability-folder"
-    | "table"
-    | "column"
-    | "index"
-    | "stored-procedures-folder"
-    | "functions-folder"
-    | "stored-procedure"
-    | "scalar-function"
-    | "table-function";
+  | "database"
+  | "tables-folder"
+  | "programmability-folder"
+  | "table"
+  | "column"
+  | "index"
+  | "stored-procedures-folder"
+  | "functions-folder"
+  | "stored-procedure"
+  | "scalar-function"
+  | "table-function";
 };
 
 function highlight(text: string, query: string) {
