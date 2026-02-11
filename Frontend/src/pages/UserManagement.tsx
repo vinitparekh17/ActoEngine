@@ -28,8 +28,6 @@ import { UserDetailModal } from "./UserManagement/UserDetailModal";
 import { PasswordChangeModal } from "./UserManagement/PasswordChangeModal";
 import { ProjectMembershipModal } from "./UserManagement/ProjectMembershipModal";
 
-
-
 export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState<UserDto | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -118,7 +116,7 @@ export default function UserManagementPage() {
         onSuccess: () => {
           setIsModalOpen(false);
         },
-      }
+      },
     );
   };
 
@@ -229,7 +227,9 @@ export default function UserManagementPage() {
   };
 
   const users = usersResponse?.users || [];
-  const isPending = isEditing ? updateMutation.isPending : createMutation.isPending;
+  const isPending = isEditing
+    ? updateMutation.isPending
+    : createMutation.isPending;
 
   return (
     <LoadingContainer
@@ -302,10 +302,10 @@ export default function UserManagementPage() {
             defaultValues={
               editingUser
                 ? {
-                  username: editingUser.username,
-                  fullName: editingUser.fullName || "",
-                  roleId: editingUser.roleId || 0,
-                }
+                    username: editingUser.username,
+                    fullName: editingUser.fullName || "",
+                    roleId: editingUser.roleId || 0,
+                  }
                 : undefined
             }
             roles={roles}

@@ -17,7 +17,9 @@ export default function ThemeToggle() {
       if (savedTheme) {
         setDark(savedTheme === "dark");
       } else {
-        const prefersDark = globalThis.window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const prefersDark = globalThis.window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
         setDark(prefersDark);
       }
     } catch (error) {

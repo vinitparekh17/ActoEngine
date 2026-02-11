@@ -31,7 +31,9 @@ interface UseSyncStatusOptions {
 // Singleton SSE connection manager
 interface SseConnection {
   eventSource: EventSource;
-  subscribers: Set<(data: SyncStatusData | { error: string; message: string }) => void>;
+  subscribers: Set<
+    (data: SyncStatusData | { error: string; message: string }) => void
+  >;
   currentStatus: SyncStatusData | null;
 }
 
@@ -69,10 +71,13 @@ function normalizeApiBaseUrl(rawUrl: string): string {
 /**
  * Fetches a short-lived one-time ticket for SSE authentication
  */
-async function fetchSseTicket(projectId: number, apiUrl: string): Promise<string | null> {
+async function fetchSseTicket(
+  projectId: number,
+  apiUrl: string,
+): Promise<string | null> {
   try {
     const response = await api.post<{ ticket: string; expiresIn: number }>(
-      `/projects/${projectId}/sync-status/ticket`
+      `/projects/${projectId}/sync-status/ticket`,
     );
     return response.ticket;
   } catch (error) {
@@ -87,7 +92,7 @@ async function fetchSseTicket(projectId: number, apiUrl: string): Promise<string
 async function createSseConnection(
   projectId: number,
   apiUrl: string,
-  onError: (error: string) => void
+  onError: (error: string) => void,
 ): Promise<SseConnection | null> {
   // Fetch one-time ticket for SSE authentication
   const ticket = await fetchSseTicket(projectId, apiUrl);
@@ -101,7 +106,9 @@ async function createSseConnection(
 
   console.log(`[SSE] Creating new connection for project ${projectId}`);
   const eventSource = new EventSource(sseUrl, { withCredentials: true });
-  const subscribers = new Set<(data: SyncStatusData | { error: string; message: string }) => void>();
+  const subscribers = new Set<
+    (data: SyncStatusData | { error: string; message: string }) => void
+  >();
 
   const connection: SseConnection = {
     eventSource,
@@ -110,7 +117,9 @@ async function createSseConnection(
   };
 
   eventSource.onopen = () => {
-    console.log(`[SSE] Connected to sync status stream for project ${projectId}`);
+    console.log(
+      `[SSE] Connected to sync status stream for project ${projectId}`,
+    );
   };
 
   eventSource.onmessage = (event) => {
@@ -131,7 +140,9 @@ async function createSseConnection(
         projectId: data.projectId,
         status: data.status,
         progress: data.progress,
-        lastSyncAttempt: data.lastSyncAttempt ? new Date(data.lastSyncAttempt) : undefined,
+        lastSyncAttempt: data.lastSyncAttempt
+          ? new Date(data.lastSyncAttempt)
+          : undefined,
         timestamp: data.timestamp ? new Date(data.timestamp) : undefined,
       };
 
@@ -150,7 +161,10 @@ async function createSseConnection(
     } catch (err) {
       console.error("[SSE] Failed to parse message:", err);
       // Propagate parse errors to ALL subscribers, not just the captured onError
-      const parseError = { error: "Parse error", message: "Failed to parse sync status" };
+      const parseError = {
+        error: "Parse error",
+        message: "Failed to parse sync status",
+      };
       subscribers.forEach((callback) => {
         callback(parseError);
       });
@@ -161,7 +175,10 @@ async function createSseConnection(
     console.error("[SSE] Connection error");
     eventSource.close();
     sseConnections.delete(projectId);
-    const errorData = { error: "Connection error", message: "SSE connection lost" };
+    const errorData = {
+      error: "Connection error",
+      message: "SSE connection lost",
+    };
     subscribers.forEach((callback) => {
       callback(errorData);
     });
@@ -178,7 +195,7 @@ async function createSseConnection(
 async function getOrCreateSseConnection(
   projectId: number,
   apiUrl: string,
-  onError: (error: string) => void
+  onError: (error: string) => void,
 ): Promise<SseConnection | null> {
   // If connection already exists, return it
   const existingConnection = sseConnections.get(projectId);
@@ -214,7 +231,7 @@ async function subscribeToSse(
   projectId: number,
   apiUrl: string,
   callback: (data: SyncStatusData | { error: string; message: string }) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
 ): Promise<(() => void) | null> {
   const connection = await getOrCreateSseConnection(projectId, apiUrl, onError);
   if (!connection) {
@@ -245,7 +262,7 @@ async function subscribeToSse(
  */
 export function useSyncStatus(
   projectId: number | undefined,
-  options: UseSyncStatusOptions = {}
+  options: UseSyncStatusOptions = {},
 ): UseSyncStatusReturn {
   const {
     enabled = true,
@@ -280,56 +297,58 @@ export function useSyncStatus(
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const hasFetchedRef = useRef<boolean>(false);
   const apiUrl = normalizeApiBaseUrl(
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:5093"
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:5093",
   );
 
   /**
    * Fetch sync status via REST API (one-time)
    */
-  const fetchSyncStatus = useCallback(async (): Promise<SyncStatusData | null> => {
-    if (!projectId) return null;
+  const fetchSyncStatus =
+    useCallback(async (): Promise<SyncStatusData | null> => {
+      if (!projectId) return null;
 
-    try {
-      console.log(`[REST] Fetching sync status for project ${projectId}`);
+      try {
+        console.log(`[REST] Fetching sync status for project ${projectId}`);
 
-      const result = await api.get<SyncStatusResponse>(
-        `/projects/${projectId}/sync-status`
-      );
+        const result = await api.get<SyncStatusResponse>(
+          `/projects/${projectId}/sync-status`,
+        );
 
-      const data: SyncStatusData = {
-        projectId: result.projectId,
-        status: result.status,
-        progress: result.syncProgress,
-        lastSyncAttempt: result.lastSyncAttempt
-          ? new Date(result.lastSyncAttempt)
-          : undefined,
-      };
+        const data: SyncStatusData = {
+          projectId: result.projectId,
+          status: result.status,
+          progress: result.syncProgress,
+          lastSyncAttempt: result.lastSyncAttempt
+            ? new Date(result.lastSyncAttempt)
+            : undefined,
+        };
 
-      if (!mountedRef.current) return null;
+        if (!mountedRef.current) return null;
 
-      setStatus(data.status);
-      setProgress(data.progress);
-      setLastSyncAttempt(data.lastSyncAttempt);
-      setError(null);
+        setStatus(data.status);
+        setProgress(data.progress);
+        setLastSyncAttempt(data.lastSyncAttempt);
+        setError(null);
 
-      onStatusChangeRef.current?.(data);
+        onStatusChangeRef.current?.(data);
 
-      if (isTerminalStatus(data.status)) {
-        console.log(`[REST] Status is terminal: ${data.status}`);
-        onCompleteRef.current?.(data);
+        if (isTerminalStatus(data.status)) {
+          console.log(`[REST] Status is terminal: ${data.status}`);
+          onCompleteRef.current?.(data);
+        }
+
+        return data;
+      } catch (err) {
+        const errorMsg =
+          err instanceof Error ? err.message : "Failed to fetch sync status";
+        console.error("[REST] Fetch error:", errorMsg);
+        if (mountedRef.current) {
+          setError(errorMsg);
+          onErrorRef.current?.(errorMsg);
+        }
+        return null;
       }
-
-      return data;
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to fetch sync status";
-      console.error("[REST] Fetch error:", errorMsg);
-      if (mountedRef.current) {
-        setError(errorMsg);
-        onErrorRef.current?.(errorMsg);
-      }
-      return null;
-    }
-  }, [projectId]);
+    }, [projectId]);
 
   // Reconnect function: resets state and triggers main effect via counter
   const reconnect = useCallback(() => {
@@ -410,7 +429,7 @@ export function useSyncStatus(
             if (!mountedRef.current) return;
             setError(errorMsg);
             onErrorRef.current?.(errorMsg);
-          }
+          },
         );
 
         // Check if still mounted before storing unsubscribe
@@ -421,7 +440,9 @@ export function useSyncStatus(
           localUnsub();
         }
       } else if (currentStatus && isTerminalStatus(currentStatus.status)) {
-        console.log(`[SSE] Status is terminal (${currentStatus.status}), not connecting`);
+        console.log(
+          `[SSE] Status is terminal (${currentStatus.status}), not connecting`,
+        );
       }
     };
 

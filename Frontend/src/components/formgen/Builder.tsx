@@ -76,9 +76,10 @@ export default function BuilderTab() {
                     aria-pressed={selectedGroup?.id === group.id}
                     className={`
                       cursor-pointer rounded-md border p-2 mb-2
-                      ${selectedGroup?.id === group.id
-                        ? "bg-neutral-200 dark:bg-neutral-900"
-                        : "bg-white dark:bg-neutral-900"
+                      ${
+                        selectedGroup?.id === group.id
+                          ? "bg-neutral-200 dark:bg-neutral-900"
+                          : "bg-white dark:bg-neutral-900"
                       }
                     `}
                   >
@@ -112,9 +113,10 @@ export default function BuilderTab() {
                       aria-selected={selectedField?.id === field.id}
                       className={`
                         group cursor-pointer rounded-md border p-3 mb-2
-                        ${selectedField?.id === field.id
-                          ? "border-neutral-400 bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-800 shadow-sm"
-                          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 dark:hover:bg-neutral-800 hover:shadow-sm"
+                        ${
+                          selectedField?.id === field.id
+                            ? "border-neutral-400 bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-800 shadow-sm"
+                            : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700 dark:hover:bg-neutral-800 hover:shadow-sm"
                         }
                       `}
                     >

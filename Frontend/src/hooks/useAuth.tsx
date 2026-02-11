@@ -136,7 +136,7 @@ export function useAuth() {
   const [, setRefreshingState] = useState<boolean>(false); // used to trigger rerenders when dedupe toggles
 
   // keep latest performRefresh for focus listener
-  const performRefreshLatestRef = useRef<() => Promise<void>>(async () => { });
+  const performRefreshLatestRef = useRef<() => Promise<void>>(async () => {});
 
   // ----------------------------
   // Mutations - Called at top level (Rules of Hooks)
@@ -235,7 +235,7 @@ export function useAuth() {
 
     // If already expired, refresh immediately
     if (timeUntilExpiry <= 0) {
-      performRefreshLatestRef.current().catch(() => { });
+      performRefreshLatestRef.current().catch(() => {});
       return;
     }
 
@@ -244,13 +244,13 @@ export function useAuth() {
 
     // If we need to refresh within the buffer period, do it now
     if (delay === 0) {
-      performRefreshLatestRef.current().catch(() => { });
+      performRefreshLatestRef.current().catch(() => {});
       return;
     }
 
     // Schedule the refresh
     refreshTimerRef.current = setTimeout(() => {
-      performRefreshLatestRef.current().catch(() => { });
+      performRefreshLatestRef.current().catch(() => {});
     }, delay);
   }, [clearRefreshTimer]);
 
@@ -270,7 +270,7 @@ export function useAuth() {
     const onFocus = () => {
       const s = useAuthStore.getState();
       if (s.user && s.isTokenExpired()) {
-        performRefreshLatestRef.current().catch(() => { });
+        performRefreshLatestRef.current().catch(() => {});
       }
     };
     window.addEventListener("focus", onFocus);

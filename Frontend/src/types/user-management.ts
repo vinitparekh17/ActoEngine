@@ -73,4 +73,3 @@ export interface UserDetailResponse {
   user: UserDto;
   permissions: string[];
 }
-

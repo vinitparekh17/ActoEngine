@@ -60,7 +60,7 @@ const SIDEBAR_ITEMS = [
     label: "Role Management",
     href: "/admin/roles",
     requiresRole: "Admin",
-  }
+  },
 ];
 
 export default function AppSidebar() {
@@ -132,9 +132,7 @@ export default function AppSidebar() {
     if (projects?.length === 0) {
       return (
         <DropdownMenuItem disabled>
-          <span className="text-muted-foreground">
-            No projects available
-          </span>
+          <span className="text-muted-foreground">No projects available</span>
         </DropdownMenuItem>
       );
     }

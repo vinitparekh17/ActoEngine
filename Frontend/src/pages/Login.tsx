@@ -5,7 +5,17 @@ import * as z from "zod";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Database, Zap, Shield, Code2, AlertCircle, CheckCircle2, ArrowRight, Eye, EyeOff } from "lucide-react";
+import {
+  Database,
+  Zap,
+  Shield,
+  Code2,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -47,16 +57,14 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen w-full lg:grid lg:grid-cols-2 font-sans text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
-
       {/* --- LEFT PANEL: Brand & Features --- */}
       <div className="hidden lg:flex relative flex-col justify-between p-12 xl:p-16 overflow-hidden bg-zinc-100 dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 transition-colors duration-300">
-
         {/* Dot Pattern Background - Now using inline SVG for reliability */}
         <div
           className="absolute inset-0 opacity-40 dark:opacity-20 pointer-events-none"
           style={{
             backgroundImage: `radial-gradient(circle at 1px 1px, rgb(161 161 170) 1px, transparent 0)`,
-            backgroundSize: '24px 24px'
+            backgroundSize: "24px 24px",
           }}
         />
 
@@ -65,32 +73,49 @@ export default function LoginPage() {
 
         {/* Content Container */}
         <div className="relative z-10 flex flex-col h-full justify-between">
-
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-600/30">
               <Database className="h-5 w-5" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">Acto Engine</span>
+            <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
+              Acto Engine
+            </span>
           </div>
 
           {/* Value Prop */}
           <div className="max-w-md space-y-8">
             <h1 className="text-4xl font-semibold tracking-tight leading-[1.1] text-zinc-900 dark:text-white">
               Database schema <br />
-              management, <span className="text-emerald-600 dark:text-emerald-400">reimagined.</span>
+              management,{" "}
+              <span className="text-emerald-600 dark:text-emerald-400">
+                reimagined.
+              </span>
             </h1>
 
             <p className="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Stop fighting your database. Visualize dependencies, detect drift, and deploy changes with absolute confidence.
+              Stop fighting your database. Visualize dependencies, detect drift,
+              and deploy changes with absolute confidence.
             </p>
 
             {/* Feature Grid (Bento Style) */}
             <div className="grid grid-cols-1 gap-3 mt-4">
               {[
-                { icon: Zap, title: "Impact Analysis", desc: "Predict breaking changes before merge." },
-                { icon: Shield, title: "Drift Detection", desc: "Keep production aligned with code." },
-                { icon: Code2, title: "Semantic Context", desc: "Document intent, not just types." }
+                {
+                  icon: Zap,
+                  title: "Impact Analysis",
+                  desc: "Predict breaking changes before merge.",
+                },
+                {
+                  icon: Shield,
+                  title: "Drift Detection",
+                  desc: "Keep production aligned with code.",
+                },
+                {
+                  icon: Code2,
+                  title: "Semantic Context",
+                  desc: "Document intent, not just types.",
+                },
               ].map((item, idx) => (
                 <div
                   key={idx}
@@ -100,8 +125,12 @@ export default function LoginPage() {
                     <item.icon className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{item.title}</h3>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1 leading-snug">{item.desc}</p>
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {item.title}
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-1 leading-snug">
+                      {item.desc}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -118,22 +147,19 @@ export default function LoginPage() {
 
       {/* --- RIGHT PANEL: Login Form --- */}
       <div className="relative flex flex-col items-center justify-center p-6 sm:p-8 bg-white dark:bg-zinc-950 transition-colors duration-300">
-
         {/* Mobile Background Pattern */}
         <div
           className="absolute inset-0 lg:hidden opacity-30 dark:opacity-10 pointer-events-none"
           style={{
             backgroundImage: `radial-gradient(circle at 1px 1px, rgb(161 161 170) 1px, transparent 0)`,
-            backgroundSize: '24px 24px'
+            backgroundSize: "24px 24px",
           }}
         />
 
         {/* Premium Card Wrapper - Using reliable Tailwind utilities */}
         <div className="relative w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-4 duration-700">
-
           {/* The Card - Premium styling with visible effects */}
           <div className="relative p-8 sm:p-10 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl shadow-zinc-300/50 dark:shadow-black/50 ring-1 ring-zinc-900/5 dark:ring-white/5">
-
             {/* Top highlight line - visible premium effect */}
             <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-zinc-300 dark:via-zinc-600 to-transparent" />
 
@@ -156,10 +182,12 @@ export default function LoginPage() {
 
             {/* Main Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-
               {/* Username Field */}
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-xs uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
+                <Label
+                  htmlFor="username"
+                  className="text-xs uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400"
+                >
                   Username
                 </Label>
                 <Input
@@ -174,7 +202,8 @@ export default function LoginPage() {
                 />
                 {errors.username && (
                   <p className="text-xs text-red-500 font-medium flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" /> {errors.username.message}
+                    <AlertCircle className="w-3 h-3" />{" "}
+                    {errors.username.message}
                   </p>
                 )}
               </div>
@@ -182,7 +211,10 @@ export default function LoginPage() {
               {/* Password Field */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-xs uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
+                  <Label
+                    htmlFor="password"
+                    className="text-xs uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400"
+                  >
                     Password
                   </Label>
                   {/* TODO: Add forgot password link in future */}
@@ -207,12 +239,17 @@ export default function LoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
                 {errors.password && (
                   <p className="text-xs text-red-500 font-medium flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" /> {errors.password.message}
+                    <AlertCircle className="w-3 h-3" />{" "}
+                    {errors.password.message}
                   </p>
                 )}
               </div>

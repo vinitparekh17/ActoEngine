@@ -14,7 +14,11 @@ import {
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Skeleton, PageHeaderSkeleton, GridSkeleton } from "../components/ui/skeletons";
+import {
+  Skeleton,
+  PageHeaderSkeleton,
+  GridSkeleton,
+} from "../components/ui/skeletons";
 import {
   Database,
   Code,
@@ -71,7 +75,10 @@ export default function ProjectHub() {
   const canUpdateProject = useAuthorization("Projects:Update");
 
   useEffect(() => {
-    if (projectId && selectedProject?.projectId !== Number.parseInt(projectId)) {
+    if (
+      projectId &&
+      selectedProject?.projectId !== Number.parseInt(projectId)
+    ) {
       selectProject(Number.parseInt(projectId));
     }
   }, [projectId, selectedProject?.projectId]);
@@ -80,7 +87,11 @@ export default function ProjectHub() {
   // Check if sync is active (any non-terminal status)
   const isTerminalStatus = (status: string | null | undefined) => {
     if (!status) return true; // No status = not syncing
-    return status === "Completed" || status.startsWith("Failed") || status === "never";
+    return (
+      status === "Completed" ||
+      status.startsWith("Failed") ||
+      status === "never"
+    );
   };
 
   const isSyncing = selectedProject?.syncStatus
@@ -168,7 +179,7 @@ export default function ProjectHub() {
     );
   };
 
-  const renderStatCount = (field: 'tableCount' | 'spCount') => {
+  const renderStatCount = (field: "tableCount" | "spCount") => {
     if (isLoadingStats) {
       return <Skeleton className="h-8 w-16" />;
     }
@@ -182,11 +193,7 @@ export default function ProjectHub() {
       );
     }
 
-    return (
-      <div className="text-2xl font-bold">
-        {stats?.[field] ?? 0}
-      </div>
-    );
+    return <div className="text-2xl font-bold">{stats?.[field] ?? 0}</div>;
   };
 
   const renderRecentActivity = () => {
@@ -207,9 +214,7 @@ export default function ProjectHub() {
       return (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <Ghost className="w-12 h-12 text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
-            No recent activity
-          </p>
+          <p className="text-sm text-muted-foreground">No recent activity</p>
         </div>
       );
     }
@@ -246,7 +251,6 @@ export default function ProjectHub() {
       </div>
     );
   };
-
 
   if (!selectedProject) {
     return (
@@ -299,7 +303,7 @@ export default function ProjectHub() {
         </div>
 
         {/* Sync Progress Panel */}
-        {!!(selectedProject.projectId) && (
+        {!!selectedProject.projectId && (
           <SyncProgressPanel
             projectId={selectedProject.projectId}
             useSSE={isSyncing}
@@ -316,7 +320,7 @@ export default function ProjectHub() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {renderStatCount('tableCount')}
+              {renderStatCount("tableCount")}
               <p className="text-xs text-muted-foreground mt-1">
                 Database tables
               </p>
@@ -332,7 +336,7 @@ export default function ProjectHub() {
               <Code className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {renderStatCount('spCount')}
+              {renderStatCount("spCount")}
               <p className="text-xs text-muted-foreground mt-1">
                 Stored procedures
               </p>
@@ -369,9 +373,7 @@ export default function ProjectHub() {
               <CardTitle>Recent Activity</CardTitle>
               <CardDescription>Latest changes and updates</CardDescription>
             </CardHeader>
-            <CardContent>
-              {renderRecentActivity()}
-            </CardContent>
+            <CardContent>{renderRecentActivity()}</CardContent>
           </Card>
 
           {/* Quick Actions */}

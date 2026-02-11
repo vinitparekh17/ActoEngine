@@ -178,111 +178,113 @@ export default function ProjectsDashboard() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects && projects.map((project) => (
-              <Card
-                key={project.projectId}
-                className="border border-neutral-200 dark:border-neutral-700 transition-shadow hover:shadow-md"
-              >
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center">
-                      <div className="mr-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                        <Database className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            {projects &&
+              projects.map((project) => (
+                <Card
+                  key={project.projectId}
+                  className="border border-neutral-200 dark:border-neutral-700 transition-shadow hover:shadow-md"
+                >
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center">
+                        <div className="mr-3 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                          <Database className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-neutral-900 dark:text-neutral-100 hover:text-emerald-600 cursor-pointer">
+                            {project.projectName}
+                          </CardTitle>
+                          <CardDescription className="text-xs text-neutral-500 dark:text-neutral-400">
+                            {project.databaseName}
+                          </CardDescription>
+                        </div>
                       </div>
-                      <div>
-                        <CardTitle className="text-neutral-900 dark:text-neutral-100 hover:text-emerald-600 cursor-pointer">
-                          {project.projectName}
-                        </CardTitle>
-                        <CardDescription className="text-xs text-neutral-500 dark:text-neutral-400">
-                          {project.databaseName}
-                        </CardDescription>
-                      </div>
+                      <SyncStatusBadge project={project} />
                     </div>
-                    <SyncStatusBadge project={project} />
-                  </div>
-                  {project.description && (
-                    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2">
-                      {project.description}
-                    </p>
-                  )}
-                </CardHeader>
+                    {project.description && (
+                      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2">
+                        {project.description}
+                      </p>
+                    )}
+                  </CardHeader>
 
-                <CardContent className="space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
-                  <div className="flex justify-between">
-                    <span className="flex items-center gap-2">
-                      <Activity className="h-4 w-4" /> Status
-                    </span>
-                    <span
-                      className={`font-medium ${project.isActive
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-neutral-400"
-                        }`}
-                    >
-                      {project.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" /> Created
-                    </span>
-                    <span className="text-neutral-900 dark:text-neutral-200">
-                      {formatRelativeTime(project.createdAt, "N/A")}
-                    </span>
-                  </div>
-
-                  {project.lastSyncAttempt && (
+                  <CardContent className="space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
                     <div className="flex justify-between">
                       <span className="flex items-center gap-2">
-                        <Database className="h-4 w-4" /> Last Sync
+                        <Activity className="h-4 w-4" /> Status
                       </span>
-                      <span className="text-neutral-900 dark:text-neutral-200">
-                        {formatRelativeTime(project.lastSyncAttempt, "Never")}
+                      <span
+                        className={`font-medium ${
+                          project.isActive
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-neutral-400"
+                        }`}
+                      >
+                        {project.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
-                  )}
-                </CardContent>
 
-                <CardFooter className="flex justify-between items-center">
-                  <Button
-                    variant="link"
-                    onClick={() => navigate(`/project/${project.projectId}`)}
-                    className="text-emerald-600 dark:text-emerald-400 p-0 h-auto"
-                  >
-                    Open Project
-                    <ExternalLink className="w-4 h-4 ml-1" />
-                  </Button>
+                    <div className="flex justify-between">
+                      <span className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" /> Created
+                      </span>
+                      <span className="text-neutral-900 dark:text-neutral-200">
+                        {formatRelativeTime(project.createdAt, "N/A")}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center space-x-1">
+                    {project.lastSyncAttempt && (
+                      <div className="flex justify-between">
+                        <span className="flex items-center gap-2">
+                          <Database className="h-4 w-4" /> Last Sync
+                        </span>
+                        <span className="text-neutral-900 dark:text-neutral-200">
+                          {formatRelativeTime(project.lastSyncAttempt, "Never")}
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+
+                  <CardFooter className="flex justify-between items-center">
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        navigate(`/project/${project.projectId}/settings`)
-                      }
-                      title="Settings"
-                      className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+                      variant="link"
+                      onClick={() => navigate(`/project/${project.projectId}`)}
+                      className="text-emerald-600 dark:text-emerald-400 p-0 h-auto"
                     >
-                      <Settings className="h-4 w-4" />
+                      Open Project
+                      <ExternalLink className="w-4 h-4 ml-1" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(project.projectId)}
-                      disabled={deleteMutation.isPending}
-                      title="Delete"
-                      className="text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
-                    >
-                      {deleteMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </CardFooter>
-              </Card>
-            ))}
+
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          navigate(`/project/${project.projectId}/settings`)
+                        }
+                        title="Settings"
+                        className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(project.projectId)}
+                        disabled={deleteMutation.isPending}
+                        title="Delete"
+                        className="text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+                      >
+                        {deleteMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
           </div>
         )}
       </div>

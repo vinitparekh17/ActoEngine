@@ -37,7 +37,7 @@ export interface ImpactPathNode {
 
 export interface ImpactPath {
   nodes: ImpactPathNode[];
-  edges?: string[];  // DependencyType values from backend (e.g., "Select", "Update")
+  edges?: string[]; // DependencyType values from backend (e.g., "Select", "Update")
 }
 
 export interface ImpactEntity {

@@ -185,7 +185,9 @@ class RequestQueue {
               `[RequestQueue] Request cancelled: ${request.endpoint}`,
             );
             request.rejects.forEach((reject) =>
-              reject(new Error(`Request cancelled by user: ${request.endpoint}`)),
+              reject(
+                new Error(`Request cancelled by user: ${request.endpoint}`),
+              ),
             );
           }
         } else {

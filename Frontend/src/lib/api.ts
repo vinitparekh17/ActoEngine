@@ -202,10 +202,7 @@ class ApiClient {
       return undefined as T;
     }
 
-    throw new ApiError(
-      "Response body is empty or invalid",
-      response.status,
-    );
+    throw new ApiError("Response body is empty or invalid", response.status);
   }
 
   async get<T>(endpoint: string): Promise<T> {
@@ -252,4 +249,6 @@ export function initializeApiClient(onUnauthorized: OnUnauthorized) {
  * Base URL can be configured via VITE_API_BASE_URL environment variable.
  * Defaults to 'https://localhost:7150/api' for same-origin requests.
  */
-export const api = new ApiClient(import.meta.env.VITE_API_BASE_URL || "http://localhost:5093/api");
+export const api = new ApiClient(
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5093/api",
+);

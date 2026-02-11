@@ -224,72 +224,72 @@ export const validationRules = {
    */
   required:
     (fieldName: string): ValidationRule =>
-      (value) => {
-        if (
-          value === null ||
-          value === undefined ||
-          (typeof value === "string" && value.trim() === "")
-        ) {
-          return `${fieldName} is required`;
-        }
-        return null;
-      },
+    (value) => {
+      if (
+        value === null ||
+        value === undefined ||
+        (typeof value === "string" && value.trim() === "")
+      ) {
+        return `${fieldName} is required`;
+      }
+      return null;
+    },
 
   /**
    * Fixed: Guard .length access with type check
    */
   minLength:
     (fieldName: string, min: number): ValidationRule =>
-      (value) => {
-        if (
-          value != null &&
-          (typeof value === "string" || Array.isArray(value))
-        ) {
-          if (value.length < min) {
-            return `${fieldName} must be at least ${min} characters`;
-          }
+    (value) => {
+      if (
+        value != null &&
+        (typeof value === "string" || Array.isArray(value))
+      ) {
+        if (value.length < min) {
+          return `${fieldName} must be at least ${min} characters`;
         }
-        return null;
-      },
+      }
+      return null;
+    },
 
   /**
    * Fixed: Guard .length access with type check
    */
   maxLength:
     (fieldName: string, max: number): ValidationRule =>
-      (value) => {
-        if (
-          value != null &&
-          (typeof value === "string" || Array.isArray(value))
-        ) {
-          if (value.length > max) {
-            return `${fieldName} must be at most ${max} characters`;
-          }
+    (value) => {
+      if (
+        value != null &&
+        (typeof value === "string" || Array.isArray(value))
+      ) {
+        if (value.length > max) {
+          return `${fieldName} must be at most ${max} characters`;
         }
-        return null;
-      },
+      }
+      return null;
+    },
 
   email:
     (fieldName: string): ValidationRule =>
-      (value) => {
-        if (
-          value &&
-          typeof value === "string" &&
-          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-        ) {
-          return `${fieldName} must be a valid email address`;
-        }
-        return null;
-      },
+    (value) => {
+      if (
+        value &&
+        typeof value === "string" &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+      ) {
+        return `${fieldName} must be a valid email address`;
+      }
+      return null;
+    },
 
   pattern:
     (fieldName: string, pattern: RegExp, message: string): ValidationRule =>
-      (value) => {
-        if (value && typeof value === "string" && !pattern.test(value)) {
-          return message;
-        }
-        return null;
-      },
+    (value) => {
+      if (value && typeof value === "string" && !pattern.test(value)) {
+        return message;
+      }
+      return null;
+    },
 
   match:
     (
@@ -297,21 +297,21 @@ export const validationRules = {
       otherValue: unknown,
       otherFieldName: string,
     ): ValidationRule =>
-      (value) => {
-        if (value !== otherValue) {
-          return `${fieldName} must match ${otherFieldName}`;
-        }
-        return null;
-      },
+    (value) => {
+      if (value !== otherValue) {
+        return `${fieldName} must match ${otherFieldName}`;
+      }
+      return null;
+    },
 
   custom:
     (validator: (value: unknown) => boolean, message: string): ValidationRule =>
-      (value) => {
-        if (!validator(value)) {
-          return message;
-        }
-        return null;
-      },
+    (value) => {
+      if (!validator(value)) {
+        return message;
+      }
+      return null;
+    },
 };
 
 /**

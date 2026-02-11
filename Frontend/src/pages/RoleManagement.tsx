@@ -32,7 +32,9 @@ export default function RoleManagementPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [viewingRoleId, setViewingRoleId] = useState<number | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [editingRolePermissions, setEditingRolePermissions] = useState<number[]>([]);
+  const [editingRolePermissions, setEditingRolePermissions] = useState<
+    number[]
+  >([]);
 
   const { confirm } = useConfirm();
 
@@ -63,14 +65,13 @@ export default function RoleManagementPage() {
     },
   );
 
-  const updateMutation = useApiMutation<void, UpdateRoleRequest & { roleId: number }>(
-    "/Role/:roleId",
-    "PUT",
-    {
-      successMessage: "Role updated successfully",
-      invalidateKeys: [Array.from(queryKeys.roles.all())],
-    },
-  );
+  const updateMutation = useApiMutation<
+    void,
+    UpdateRoleRequest & { roleId: number }
+  >("/Role/:roleId", "PUT", {
+    successMessage: "Role updated successfully",
+    invalidateKeys: [Array.from(queryKeys.roles.all())],
+  });
 
   const deleteMutation = useApiMutation<void, { roleId: number }>(
     "/Role/:roleId",
@@ -105,7 +106,7 @@ export default function RoleManagementPage() {
         onSuccess: () => {
           setIsModalOpen(false);
         },
-      }
+      },
     );
   };
 
@@ -154,8 +155,11 @@ export default function RoleManagementPage() {
 
     // Fetch role with permissions to pre-fill
     try {
-      const response = await api.get<RoleWithPermissions>(`/Role/${role.roleId}`);
-      const permissionIds = response?.permissions?.map((p) => p.permissionId) || [];
+      const response = await api.get<RoleWithPermissions>(
+        `/Role/${role.roleId}`,
+      );
+      const permissionIds =
+        response?.permissions?.map((p) => p.permissionId) || [];
       setEditingRolePermissions(permissionIds);
     } catch (err) {
       console.error("Error loading role permissions:", err);
@@ -259,14 +263,16 @@ export default function RoleManagementPage() {
             defaultValues={
               editingRole
                 ? {
-                  roleName: editingRole.roleName,
-                  description: editingRole.description || "",
-                  permissionIds: editingRolePermissions,
-                }
+                    roleName: editingRole.roleName,
+                    description: editingRole.description || "",
+                    permissionIds: editingRolePermissions,
+                  }
                 : undefined
             }
             permissionGroups={permissionGroups}
-            isPending={isEditing ? updateMutation.isPending : createMutation.isPending}
+            isPending={
+              isEditing ? updateMutation.isPending : createMutation.isPending
+            }
             onClose={handleModalClose}
             onSubmit={isEditing ? handleUpdate : handleCreate}
           />
