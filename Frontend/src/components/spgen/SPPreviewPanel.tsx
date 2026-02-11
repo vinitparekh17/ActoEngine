@@ -1,5 +1,3 @@
-"use client";
-
 import { lazy } from "react";
 import { Skeleton } from "../ui/skeleton";
 const MonacoEditor = lazy(() => import("@monaco-editor/react"));

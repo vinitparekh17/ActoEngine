@@ -106,12 +106,26 @@ BEGIN
     WHERE cm.IsForeignKey = 0;
 
     -- 5. Sync Stored Procedures
+    DECLARE @DefaultClientId INT;
+    
+    SELECT @DefaultClientId = ClientId
+    FROM Clients
+    WHERE ClientName = 'Default Client';
+    
+    IF @DefaultClientId IS NULL
+    BEGIN
+        INSERT INTO Clients (ClientName, IsActive, CreatedAt, CreatedBy)
+        VALUES ('Default Client', 1, GETDATE(), @UserId);
+        
+        SET @DefaultClientId = SCOPE_IDENTITY();
+    END;
+    
     SET @Sql = '
     INSERT INTO ActoEngine.dbo.SpMetadata
         (ProjectId, ClientId, ProcedureName, SchemaName, Definition, CreatedBy)
     SELECT
         @ProjectId,
-        NULL,
+        @DefaultClientId,
         p.name,
         SCHEMA_NAME(p.schema_id),
         OBJECT_DEFINITION(p.object_id),
@@ -119,8 +133,8 @@ BEGIN
     FROM ' + QUOTENAME(@DbName) + '.sys.procedures p
     WHERE NOT EXISTS (
         SELECT 1 FROM ActoEngine.dbo.SpMetadata sm
-        WHERE sm.ProjectId = @ProjectId AND sm.ProcedureName = p.name AND sm.ClientId IS NULL
+        WHERE sm.ProjectId = @ProjectId AND sm.ProcedureName = p.name AND sm.ClientId = @DefaultClientId
     )';
 
-    EXEC sp_executesql @Sql, N'@ProjectId INT, @UserId INT', @ProjectId, @UserId;
+    EXEC sp_executesql @Sql, N'@ProjectId INT, @UserId INT, @DefaultClientId INT', @ProjectId, @UserId, @DefaultClientId;
 END;

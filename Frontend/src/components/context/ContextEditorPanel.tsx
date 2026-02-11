@@ -62,6 +62,14 @@ interface ContextData {
   isStale: boolean;
   suggestions?: {
     purpose?: string;
+    businessDomain?: string;
+    sensitivity?: string;
+    potentialExperts?: Array<{
+      userId: number;
+      username: string;
+      fullName?: string;
+      reason?: string;
+    }>;
   };
   experts?: Array<{
     userId: string;
@@ -405,6 +413,11 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       {localContext?.businessDomain || "Not set"}
                     </Badge>
                   )}
+                  {contextData?.suggestions?.businessDomain && !localContext?.businessDomain && (
+                    <p className="text-sm text-blue-600">
+                      💡 Suggestion: {contextData.suggestions.businessDomain}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -495,43 +508,83 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       {localContext?.sensitivity || "PUBLIC"}
                     </Badge>
                   )}
+                  {contextData?.suggestions?.sensitivity && !localContext?.sensitivity && (
+                    <p className="text-sm text-blue-600">
+                      💡 Suggestion: {contextData.suggestions.sensitivity}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Experts Section */}
-            <div className="space-y-3">
-              <Label className="text-sm">Subject Matter Experts</Label>
-              <div className="space-y-2">
-                {contextData?.experts?.map((expert) => (
-                  <div
-                    key={expert.userId}
-                    className="flex items-center space-x-3 p-2 bg-muted rounded-md"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {getInitials(expert.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{expert.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {expert.email}
-                      </p>
+            {contextData?.experts && contextData.experts.length > 0 && (
+              <div className="space-y-3">
+                <Label className="text-sm">Subject Matter Experts</Label>
+                <div className="space-y-2">
+                  {contextData?.experts?.map((expert) => (
+                    <div
+                      key={expert.userId}
+                      className="flex items-center space-x-3 p-2 bg-muted rounded-md"
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          {getInitials(expert.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{expert.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {expert.email}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {expert.expertiseLevel}
+                      </Badge>
+                      {isEditing && (
+                        <Button variant="ghost" size="sm">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {expert.expertiseLevel}
-                    </Badge>
-                    {isEditing && (
-                      <Button variant="ghost" size="sm">
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  ))}
 
+                </div>
+
+                {/* Suggested Experts - show when no experts and suggestions available */}
+                {(!contextData?.experts || contextData.experts.length === 0) &&
+                  contextData?.suggestions?.potentialExperts &&
+                  contextData.suggestions.potentialExperts.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-blue-600 font-medium">
+                        💡 Suggested Experts:
+                      </p>
+                      {contextData.suggestions.potentialExperts.map((suggestion) => (
+                        <div
+                          key={suggestion.userId}
+                          className="flex items-center space-x-3 p-2 bg-blue-50 border border-blue-200 rounded-md"
+                        >
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>
+                              {getInitials(suggestion.fullName || suggestion.username)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">
+                              {suggestion.fullName || suggestion.username}
+                            </p>
+                            {suggestion.reason && (
+                              <p className="text-xs text-muted-foreground">
+                                {suggestion.reason}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
               </div>
-            </div>
+            )}
 
             {/* Last Updated Info */}
             {contextData?.lastReviewed && (

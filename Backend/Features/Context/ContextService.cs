@@ -374,17 +374,23 @@ public partial class ContextService(
     }
 
     /// <summary>
-    /// Clean entity name for suggestions
+    /// Clean entity name for suggestions - handles PascalCase, snake_case, kebab-case, dot-separated
     /// </summary>
     private static string CleanName(string name)
     {
-        // Convert PascalCase to words
-        var words = UppercaseLetterRegex().Replace(name, " $1").Trim().ToLower();
+        // 1. Strip common DB prefixes first
+        var cleaned = DbPrefixRegex().Replace(name, "");
 
-        // Remove common prefixes
-        words = DbPrefixRegex().Replace(words, "");
+        // 2. Replace underscores, hyphens, dots with spaces
+        cleaned = cleaned.Replace('_', ' ').Replace('-', ' ').Replace('.', ' ');
 
-        return words;
+        // 3. Insert spaces before uppercase letters for PascalCase/camelCase
+        cleaned = UppercaseLetterRegex().Replace(cleaned, " $1");
+
+        // 4. Normalize: trim, collapse whitespace, lowercase
+        cleaned = MultipleSpacesRegex().Replace(cleaned.Trim(), " ").ToLower();
+
+        return cleaned;
     }
 
     /// <summary>
@@ -634,6 +640,8 @@ public partial class ContextService(
     private static partial Regex UppercaseLetterRegex();
     [GeneratedRegex(@"^(tbl_|sp_|fn_|vw_)")]
     private static partial Regex DbPrefixRegex();
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex MultipleSpacesRegex();
 
     #endregion
 }

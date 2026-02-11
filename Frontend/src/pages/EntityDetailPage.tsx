@@ -6,7 +6,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table";
 import { useApi } from "@/hooks/useApi";
 import { formatRelativeTime } from "@/lib/utils";
-import { Editor } from "@monaco-editor/react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -14,7 +13,8 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/comp
 import { AlertCircle, ArrowLeft, BookOpen, Calendar, Code2, Copy, Database, FileText, Info, Layers, Mail, Network, Shield, Sparkles, Table as TableIcon, UserIcon, Users, Clock } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import React from "react";
+import React, { lazy } from "react";
+const Editor = lazy(() => import("@monaco-editor/react"));
 
 // ============================================================================
 // TYPES

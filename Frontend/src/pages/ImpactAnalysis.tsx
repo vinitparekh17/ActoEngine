@@ -23,7 +23,7 @@ import * as Icons from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -31,14 +31,11 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useApi } from '@/hooks/useApi';
 import { useProject } from '@/hooks/useProject';
-import { GridSkeleton, PageHeaderSkeleton } from '@/components/ui/skeletons';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import {
   ImpactDecisionResponse,
-  ImpactPath,
-  EntityRef
-} from '@/types/impact-analysis';
+  ImpactPath} from '@/types/impact-analysis';
 
 // --- HELPER FUNCTIONS ---
 
@@ -87,7 +84,7 @@ const EntityTypeIcon = ({ type, className }: { type: string; className?: string 
 const RISK_CONFIG: Record<number, {
   label: string;
   color: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   barColor: string;
   borderColor: string;
   bgGradient: string;
@@ -242,7 +239,7 @@ const DependencyTrace = ({ paths, riskScore }: { paths: ImpactPath[], riskScore:
 
 export default function ImpactReportPage() {
   const { projectId, entityType, entityId } = useParams<{ projectId: string, entityType: string, entityId: string }>();
-  const { selectedProject, hasProject } = useProject();
+  const { hasProject } = useProject();
 
   const {
     data: response,
