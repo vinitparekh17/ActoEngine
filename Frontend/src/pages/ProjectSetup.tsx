@@ -35,7 +35,10 @@ const projectSetupSchema = z.object({
   databaseName: z.string().min(1, "Database name is required"),
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
-  port: z.coerce.number().min(1, "Port must be greater than 0").max(65535, "Port must be less than 65536"),
+  port: z.coerce
+    .number()
+    .min(1, "Port must be greater than 0")
+    .max(65535, "Port must be less than 65536"),
   databaseType: z.string(),
   projectName: z.string().min(1, "Project name is required"),
   description: z.string().optional(),
@@ -60,7 +63,8 @@ export default function ProjectSetup() {
     helpLink?: string;
   } | null>(null);
   const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
-  const [showConnectionStringPaste, setShowConnectionStringPaste] = useState(false);
+  const [showConnectionStringPaste, setShowConnectionStringPaste] =
+    useState(false);
   const [connectionStringInput, setConnectionStringInput] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
@@ -100,7 +104,7 @@ export default function ProjectSetup() {
       `Password=${data.password}`,
       `Encrypt=${data.encrypt}`,
       `TrustServerCertificate=${data.trustServerCertificate}`,
-      `Connection Timeout=${data.connectionTimeout}`
+      `Connection Timeout=${data.connectionTimeout}`,
     ];
 
     // Add optional Application Name if provided
@@ -108,7 +112,7 @@ export default function ProjectSetup() {
       parts.push(`Application Name=${data.applicationName}`);
     }
 
-    return parts.join(';') + ';';
+    return parts.join(";") + ";";
   };
 
   /**
@@ -123,7 +127,7 @@ export default function ProjectSetup() {
       return;
     }
 
-    const pairs = connStr.split(";").filter(p => p.trim());
+    const pairs = connStr.split(";").filter((p) => p.trim());
     const parsed: Record<string, string> = {};
 
     for (const pair of pairs) {
@@ -171,12 +175,17 @@ export default function ProjectSetup() {
       setValue("encrypt", encryptValue.toLowerCase() === "true");
     }
 
-    const trustCertValue = parsed["trustservercertificate"] || parsed["trust server certificate"];
+    const trustCertValue =
+      parsed["trustservercertificate"] || parsed["trust server certificate"];
     if (trustCertValue) {
-      setValue("trustServerCertificate", trustCertValue.toLowerCase() === "true");
+      setValue(
+        "trustServerCertificate",
+        trustCertValue.toLowerCase() === "true",
+      );
     }
 
-    const timeoutValue = parsed["connection timeout"] || parsed["connect timeout"];
+    const timeoutValue =
+      parsed["connection timeout"] || parsed["connect timeout"];
     if (timeoutValue) {
       const timeout = parseInt(timeoutValue, 10);
       if (!isNaN(timeout) && timeout >= 5 && timeout <= 120) {
@@ -314,38 +323,43 @@ export default function ProjectSetup() {
           <div className="flex items-center justify-between max-w-md mx-auto">
             <div className="flex flex-col items-center">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${step === "connection"
-                  ? "bg-primary text-primary-foreground shadow-md scale-110"
-                  : "bg-primary/20 text-primary"
-                  }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+                  step === "connection"
+                    ? "bg-primary text-primary-foreground shadow-md scale-110"
+                    : "bg-primary/20 text-primary"
+                }`}
               >
                 1
               </div>
               <p
-                className={`mt-1.5 text-xs font-medium transition-colors ${step === "connection" ? "text-primary" : "text-primary/60"
-                  }`}
+                className={`mt-1.5 text-xs font-medium transition-colors ${
+                  step === "connection" ? "text-primary" : "text-primary/60"
+                }`}
               >
                 Connection
               </p>
             </div>
 
             <div
-              className={`flex-1 h-0.5 mx-4 rounded-full transition-all ${step === "details" ? "bg-primary" : "bg-border"
-                }`}
+              className={`flex-1 h-0.5 mx-4 rounded-full transition-all ${
+                step === "details" ? "bg-primary" : "bg-border"
+              }`}
             />
 
             <div className="flex flex-col items-center">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${step === "details"
-                  ? "bg-primary text-primary-foreground shadow-md scale-110"
-                  : "bg-muted text-muted-foreground"
-                  }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+                  step === "details"
+                    ? "bg-primary text-primary-foreground shadow-md scale-110"
+                    : "bg-muted text-muted-foreground"
+                }`}
               >
                 2
               </div>
               <p
-                className={`mt-1.5 text-xs font-medium transition-colors ${step === "details" ? "text-primary" : "text-muted-foreground"
-                  }`}
+                className={`mt-1.5 text-xs font-medium transition-colors ${
+                  step === "details" ? "text-primary" : "text-muted-foreground"
+                }`}
               >
                 Details
               </p>
@@ -363,9 +377,12 @@ export default function ProjectSetup() {
                 <div className="flex items-start gap-3 p-3 rounded-md bg-primary/5 border border-primary/20">
                   <Info className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                   <div className="text-sm">
-                    <p className="font-medium text-foreground">Supported: SQL Server 2012 and later</p>
+                    <p className="font-medium text-foreground">
+                      Supported: SQL Server 2012 and later
+                    </p>
                     <p className="text-muted-foreground text-xs mt-0.5">
-                      SQL Server 2012 requires SP4 with cumulative updates for TLS 1.2 support.
+                      SQL Server 2012 requires SP4 with cumulative updates for
+                      TLS 1.2 support.
                     </p>
                   </div>
                 </div>
@@ -374,7 +391,9 @@ export default function ProjectSetup() {
                 <div className="border border-border rounded-md overflow-hidden">
                   <button
                     type="button"
-                    onClick={() => setShowConnectionStringPaste(!showConnectionStringPaste)}
+                    onClick={() =>
+                      setShowConnectionStringPaste(!showConnectionStringPaste)
+                    }
                     className="w-full flex items-center justify-between p-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                   >
                     <span>Or paste a connection string</span>
@@ -387,7 +406,9 @@ export default function ProjectSetup() {
                       <Textarea
                         id="connectionStringPaste"
                         value={connectionStringInput}
-                        onChange={(e) => setConnectionStringInput(e.target.value)}
+                        onChange={(e) =>
+                          setConnectionStringInput(e.target.value)
+                        }
                         placeholder="Server=myserver,1433;Database=mydb;User Id=sa;Password=...;"
                         className="text-sm font-mono min-h-[80px]"
                       />
@@ -398,7 +419,9 @@ export default function ProjectSetup() {
                         type="button"
                         variant="secondary"
                         size="sm"
-                        onClick={() => parseConnectionString(connectionStringInput)}
+                        onClick={() =>
+                          parseConnectionString(connectionStringInput)
+                        }
                         disabled={!connectionStringInput.trim()}
                       >
                         Parse & Fill Form
@@ -452,11 +475,7 @@ export default function ProjectSetup() {
                     >
                       Port
                     </Label>
-                    <Input
-                      id="port"
-                      type="number"
-                      {...register("port")}
-                    />
+                    <Input id="port" type="number" {...register("port")} />
                     {errors.port && (
                       <p className="mt-1.5 text-sm text-destructive">
                         {errors.port.message}
@@ -532,7 +551,10 @@ export default function ProjectSetup() {
                             {...register("encrypt")}
                             className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                           />
-                          <Label htmlFor="encrypt" className="text-sm font-normal cursor-pointer">
+                          <Label
+                            htmlFor="encrypt"
+                            className="text-sm font-normal cursor-pointer"
+                          >
                             Encrypt Connection
                           </Label>
                         </div>
@@ -544,7 +566,10 @@ export default function ProjectSetup() {
                               {...register("trustServerCertificate")}
                               className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                             />
-                            <Label htmlFor="trustServerCertificate" className="text-sm font-normal cursor-pointer">
+                            <Label
+                              htmlFor="trustServerCertificate"
+                              className="text-sm font-normal cursor-pointer"
+                            >
                               Trust Server Certificate
                             </Label>
                           </div>
@@ -557,7 +582,10 @@ export default function ProjectSetup() {
                       {/* Timeout & App Name row */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="connectionTimeout" className="text-sm font-medium mb-1.5 block">
+                          <Label
+                            htmlFor="connectionTimeout"
+                            className="text-sm font-medium mb-1.5 block"
+                          >
                             Connection Timeout (sec)
                           </Label>
                           <Input
@@ -569,7 +597,10 @@ export default function ProjectSetup() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="applicationName" className="text-sm font-medium mb-1.5 block">
+                          <Label
+                            htmlFor="applicationName"
+                            className="text-sm font-medium mb-1.5 block"
+                          >
                             Application Name
                           </Label>
                           <Input
@@ -585,10 +616,11 @@ export default function ProjectSetup() {
 
                 {verificationResult && (
                   <div
-                    className={`flex items-start gap-3 p-3 rounded-md border transition-all ${verificationResult.success
-                      ? "bg-primary/5 border-primary/20"
-                      : "bg-destructive/5 border-destructive/20"
-                      }`}
+                    className={`flex items-start gap-3 p-3 rounded-md border transition-all ${
+                      verificationResult.success
+                        ? "bg-primary/5 border-primary/20"
+                        : "bg-destructive/5 border-destructive/20"
+                    }`}
                   >
                     {verificationResult.success ? (
                       <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
@@ -597,10 +629,11 @@ export default function ProjectSetup() {
                     )}
                     <div className="flex-1">
                       <p
-                        className={`text-sm ${verificationResult.success
-                          ? "text-primary"
-                          : "text-destructive"
-                          }`}
+                        className={`text-sm ${
+                          verificationResult.success
+                            ? "text-primary"
+                            : "text-destructive"
+                        }`}
                       >
                         {verificationResult.message}
                       </p>
@@ -705,7 +738,8 @@ export default function ProjectSetup() {
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Server:</span>
                       <span className="font-medium text-foreground">
-                        {getValues("server") as string}:{getValues("port") as number}
+                        {getValues("server") as string}:
+                        {getValues("port") as number}
                       </span>
                     </div>
                     <div className="h-px bg-border" />

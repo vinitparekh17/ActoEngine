@@ -19,17 +19,17 @@ export type TreeNode = {
   name: string;
   children?: TreeNode[];
   type?:
-  | "database"
-  | "tables-folder"
-  | "programmability-folder"
-  | "table"
-  | "column"
-  | "index"
-  | "stored-procedures-folder"
-  | "functions-folder"
-  | "stored-procedure"
-  | "scalar-function"
-  | "table-function";
+    | "database"
+    | "tables-folder"
+    | "programmability-folder"
+    | "table"
+    | "column"
+    | "index"
+    | "stored-procedures-folder"
+    | "functions-folder"
+    | "stored-procedure"
+    | "scalar-function"
+    | "table-function";
 };
 
 function highlight(text: string, query: string) {
@@ -109,7 +109,9 @@ export default function TreeView({
   hideSearch?: boolean;
 }) {
   // Persistence for expanded nodes
-  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>(
+    {},
+  );
 
   // Load initial state from local storage once on mount
   useEffect(() => {
@@ -134,7 +136,10 @@ export default function TreeView({
       try {
         window.localStorage.setItem(persistenceKey, JSON.stringify(next));
       } catch (error) {
-        console.warn(`Failed to persist tree state for key "${persistenceKey}":`, error);
+        console.warn(
+          `Failed to persist tree state for key "${persistenceKey}":`,
+          error,
+        );
       }
       return next;
     });
@@ -188,7 +193,7 @@ export default function TreeView({
       if (persistenceKey) {
         const collectAllIds = (nodes: TreeNode[]): string[] => {
           const ids: string[] = [];
-          nodes.forEach(node => {
+          nodes.forEach((node) => {
             ids.push(node.id);
             if (node.children) {
               ids.push(...collectAllIds(node.children));
@@ -198,13 +203,19 @@ export default function TreeView({
         };
 
         const allIds = collectAllIds(filteredTreeData);
-        const allOpen = allIds.reduce((acc, id) => ({ ...acc, [id]: true }), {});
+        const allOpen = allIds.reduce(
+          (acc, id) => ({ ...acc, [id]: true }),
+          {},
+        );
         setExpandedNodes(allOpen);
 
         try {
           window.localStorage.setItem(persistenceKey, JSON.stringify(allOpen));
         } catch (error) {
-          console.warn(`Failed to persist expanded state during search:`, error);
+          console.warn(
+            `Failed to persist expanded state during search:`,
+            error,
+          );
         }
       }
     } else if (treeRef.current && !searchQuery && persistenceKey) {

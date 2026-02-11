@@ -67,8 +67,6 @@ interface ContextResponse {
   isStale: boolean;
 }
 
-
-
 interface UserManagementResponse {
   users: ProjectUser[];
   totalCount: number;
@@ -133,17 +131,14 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     },
   );
 
-
-
   // Fetch project members (for dropdown) - only when dialog is open
   // Uses the /projects/{projectId}/users endpoint that returns only project members
-  const { data: projectMembers, isLoading: isLoadingUsers } = useApi<ProjectUser[]>(
-    `/projects/${selectedProjectId}/users`,
-    {
-      enabled: hasProject && !!selectedProjectId && isAddDialogOpen,
-      staleTime: 10 * 60 * 1000, // 10 minutes
-    },
-  );
+  const { data: projectMembers, isLoading: isLoadingUsers } = useApi<
+    ProjectUser[]
+  >(`/projects/${selectedProjectId}/users`, {
+    enabled: hasProject && !!selectedProjectId && isAddDialogOpen,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
 
   // Use project members directly (no filtering needed)
   const allUsers = projectMembers || [];
@@ -246,8 +241,6 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
       await removeExpert(userId);
     }
   };
-
-
 
   const resetForm = () => {
     setSelectedUserId(null);
@@ -401,10 +394,10 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                               {experts.some(
                                 (e) => e.userId === user.userId,
                               ) && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Already assigned
-                                  </Badge>
-                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  Already assigned
+                                </Badge>
+                              )}
                             </div>
                           </SelectItem>
                         ))}
@@ -559,8 +552,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
-                        Added{" "}
-                        {formatRelativeTime(expert.addedAt, "recently")}
+                        Added {formatRelativeTime(expert.addedAt, "recently")}
                       </p>
                     </div>
                   </div>

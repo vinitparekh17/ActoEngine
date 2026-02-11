@@ -40,7 +40,6 @@ export interface ContextResponse {
   suggestions: {
     purpose?: string;
     businessImpact?: string;
-
   };
   completenessScore: number;
   isStale: boolean;
@@ -116,7 +115,6 @@ export interface SuggestionsResponse {
   suggestions: {
     purpose?: string;
     businessImpact?: string;
-
   };
   // optional metadata
   confidence?: number;
@@ -177,22 +175,22 @@ export function useSaveContext(
       invalidateKeys:
         selectedProjectId != null
           ? [
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              entityType,
-              String(entityId),
-            ],
-            ["projects", String(selectedProjectId), "context", "dashboard"],
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              "statistics",
-              "coverage",
-            ],
-          ]
+              [
+                "projects",
+                String(selectedProjectId),
+                "context",
+                entityType,
+                String(entityId),
+              ],
+              ["projects", String(selectedProjectId), "context", "dashboard"],
+              [
+                "projects",
+                String(selectedProjectId),
+                "context",
+                "statistics",
+                "coverage",
+              ],
+            ]
           : [],
     },
   );
@@ -229,15 +227,15 @@ export function useQuickSaveContext(onSuccess?: (data: EntityContext) => void) {
       invalidateKeys:
         selectedProjectId != null
           ? [
-            ["projects", String(selectedProjectId), "context", "dashboard"],
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              "statistics",
-              "coverage",
-            ],
-          ]
+              ["projects", String(selectedProjectId), "context", "dashboard"],
+              [
+                "projects",
+                String(selectedProjectId),
+                "context",
+                "statistics",
+                "coverage",
+              ],
+            ]
           : [],
     },
   );
@@ -385,14 +383,14 @@ export function useAddExpert(
       invalidateKeys:
         selectedProjectId != null
           ? [
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              entityType,
-              String(entityId),
-            ],
-          ]
+              [
+                "projects",
+                String(selectedProjectId),
+                "context",
+                entityType,
+                String(entityId),
+              ],
+            ]
           : [],
     },
   );
@@ -425,14 +423,14 @@ export function useRemoveExpert(
       invalidateKeys:
         selectedProjectId != null
           ? [
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              entityType,
-              String(entityId),
-            ],
-          ]
+              [
+                "projects",
+                String(selectedProjectId),
+                "context",
+                entityType,
+                String(entityId),
+              ],
+            ]
           : [],
     },
   );
@@ -464,22 +462,22 @@ export function useMarkContextReviewed(
       invalidateKeys:
         selectedProjectId != null
           ? [
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              entityType,
-              String(entityId),
-            ],
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              "statistics",
-              "stale",
-            ],
-            ["projects", String(selectedProjectId), "context", "dashboard"],
-          ]
+              [
+                "projects",
+                String(selectedProjectId),
+                "context",
+                entityType,
+                String(entityId),
+              ],
+              [
+                "projects",
+                String(selectedProjectId),
+                "context",
+                "statistics",
+                "stale",
+              ],
+              ["projects", String(selectedProjectId), "context", "dashboard"],
+            ]
           : [],
     },
   );
@@ -521,15 +519,15 @@ export function useBulkImportContext(
     invalidateKeys:
       selectedProjectId != null
         ? [
-          ["projects", String(selectedProjectId), "context", "dashboard"],
-          [
-            "projects",
-            String(selectedProjectId),
-            "context",
-            "statistics",
-            "coverage",
-          ],
-        ]
+            ["projects", String(selectedProjectId), "context", "dashboard"],
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              "statistics",
+              "coverage",
+            ],
+          ]
         : [],
   });
 }
@@ -597,8 +595,9 @@ export function useContextSearch(
     searchParams.append("minCompleteness", options.minCompleteness.toString());
   }
 
-  const endpoint = `/projects/${selectedProjectId}/context/search${searchParams.toString() ? `?${searchParams.toString()}` : ""
-    }`;
+  const endpoint = `/projects/${selectedProjectId}/context/search${
+    searchParams.toString() ? `?${searchParams.toString()}` : ""
+  }`;
 
   return useApi<
     Array<{

@@ -26,25 +26,37 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  Info,
-  Check,
-  AlertCircle,
-  Edit,
-  X,
-  AlertTriangle,
-
-} from "lucide-react";
+import { Info, Check, AlertCircle, Edit, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useApi, useApiPut } from "@/hooks/useApi";
 import { useAuthorization } from "../../hooks/useAuth";
 
 const CRITICALITY_LEVELS = [
-  { level: 1, label: "Low", description: "Minimal operational impact if changed or lost." },
-  { level: 2, label: "Moderate", description: "Minor impact on non-critical business processes." },
-  { level: 3, label: "Standard", description: "Important for day-to-day operations and reporting." },
-  { level: 4, label: "High", description: "Significant impact on core business functions." },
-  { level: 5, label: "Critical", description: "Essential data. Immediate financial or legal impact if lost." },
+  {
+    level: 1,
+    label: "Low",
+    description: "Minimal operational impact if changed or lost.",
+  },
+  {
+    level: 2,
+    label: "Moderate",
+    description: "Minor impact on non-critical business processes.",
+  },
+  {
+    level: 3,
+    label: "Standard",
+    description: "Important for day-to-day operations and reporting.",
+  },
+  {
+    level: 4,
+    label: "High",
+    description: "Significant impact on core business functions.",
+  },
+  {
+    level: 5,
+    label: "Critical",
+    description: "Essential data. Immediate financial or legal impact if lost.",
+  },
 ];
 
 // Types
@@ -413,15 +425,14 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       {localContext?.businessDomain || "Not set"}
                     </Badge>
                   )}
-                  {contextData?.suggestions?.businessDomain && !localContext?.businessDomain && (
-                    <p className="text-sm text-blue-600">
-                      💡 Suggestion: {contextData.suggestions.businessDomain}
-                    </p>
-                  )}
+                  {contextData?.suggestions?.businessDomain &&
+                    !localContext?.businessDomain && (
+                      <p className="text-sm text-blue-600">
+                        💡 Suggestion: {contextData.suggestions.businessDomain}
+                      </p>
+                    )}
                 </div>
               )}
-
-
 
               {/* Criticality */}
               <div className="space-y-2">
@@ -437,10 +448,12 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                                 ? "default"
                                 : "outline"
                             }
-                            className={`cursor-pointer px-3 py-1 ${level === localContext?.criticalityLevel && level >= 4
-                              ? "bg-destructive hover:bg-destructive/90"
-                              : ""
-                              }`}
+                            className={`cursor-pointer px-3 py-1 ${
+                              level === localContext?.criticalityLevel &&
+                              level >= 4
+                                ? "bg-destructive hover:bg-destructive/90"
+                                : ""
+                            }`}
                             onClick={() => handleCriticalityClick(level)}
                           >
                             {label}
@@ -464,11 +477,22 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                               : "outline"
                         }
                       >
-                        {CRITICALITY_LEVELS.find(l => l.level === (localContext?.criticalityLevel || 3))?.label || "Standard"}
+                        {CRITICALITY_LEVELS.find(
+                          (l) =>
+                            l.level === (localContext?.criticalityLevel || 3),
+                        )?.label || "Standard"}
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{CRITICALITY_LEVELS.find(l => l.level === (localContext?.criticalityLevel || 3))?.description || CRITICALITY_LEVELS.find(l => l.level === 3)?.description || "Standard criticality level"}</p>
+                      <p>
+                        {CRITICALITY_LEVELS.find(
+                          (l) =>
+                            l.level === (localContext?.criticalityLevel || 3),
+                        )?.description ||
+                          CRITICALITY_LEVELS.find((l) => l.level === 3)
+                            ?.description ||
+                          "Standard criticality level"}
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -500,7 +524,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                     <Badge
                       variant={
                         localContext?.sensitivity === "PII" ||
-                          localContext?.sensitivity === "FINANCIAL"
+                        localContext?.sensitivity === "FINANCIAL"
                           ? "destructive"
                           : "outline"
                       }
@@ -508,11 +532,12 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       {localContext?.sensitivity || "PUBLIC"}
                     </Badge>
                   )}
-                  {contextData?.suggestions?.sensitivity && !localContext?.sensitivity && (
-                    <p className="text-sm text-blue-600">
-                      💡 Suggestion: {contextData.suggestions.sensitivity}
-                    </p>
-                  )}
+                  {contextData?.suggestions?.sensitivity &&
+                    !localContext?.sensitivity && (
+                      <p className="text-sm text-blue-600">
+                        💡 Suggestion: {contextData.suggestions.sensitivity}
+                      </p>
+                    )}
                 </div>
               )}
             </div>
@@ -548,7 +573,6 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       )}
                     </div>
                   ))}
-
                 </div>
 
                 {/* Suggested Experts - show when no experts and suggestions available */}
@@ -559,28 +583,32 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       <p className="text-sm text-blue-600 font-medium">
                         💡 Suggested Experts:
                       </p>
-                      {contextData.suggestions.potentialExperts.map((suggestion) => (
-                        <div
-                          key={suggestion.userId}
-                          className="flex items-center space-x-3 p-2 bg-blue-50 border border-blue-200 rounded-md"
-                        >
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback>
-                              {getInitials(suggestion.fullName || suggestion.username)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">
-                              {suggestion.fullName || suggestion.username}
-                            </p>
-                            {suggestion.reason && (
-                              <p className="text-xs text-muted-foreground">
-                                {suggestion.reason}
+                      {contextData.suggestions.potentialExperts.map(
+                        (suggestion) => (
+                          <div
+                            key={suggestion.userId}
+                            className="flex items-center space-x-3 p-2 bg-blue-50 border border-blue-200 rounded-md"
+                          >
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>
+                                {getInitials(
+                                  suggestion.fullName || suggestion.username,
+                                )}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">
+                                {suggestion.fullName || suggestion.username}
                               </p>
-                            )}
+                              {suggestion.reason && (
+                                <p className="text-xs text-muted-foreground">
+                                  {suggestion.reason}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ),
+                      )}
                     </div>
                   )}
               </div>

@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
-import { FormConfig, useFormBuilder, type TableSchema } from "../hooks/useFormBuilder";
+import {
+  FormConfig,
+  useFormBuilder,
+  type TableSchema,
+} from "../hooks/useFormBuilder";
 import { useProject } from "../hooks/useProject";
 import { useApi, useApiDelete, api } from "../hooks/useApi";
 import { useAuthorization } from "../hooks/useAuth";
@@ -102,7 +106,7 @@ export default function FormBuilder() {
 
   // Find selected table info (name and schema)
   const selectedTableInfo = availableTables.find(
-    (t) => String(t.tableId) === String(selectedTable)
+    (t) => String(t.tableId) === String(selectedTable),
   );
   const selectedTableName = selectedTableInfo?.tableName;
   const selectedSchemaName = selectedTableInfo?.schemaName || "dbo";
@@ -119,23 +123,22 @@ export default function FormBuilder() {
   const { data: savedConfigs, refetch: refetchConfigs } = useApi<
     FormConfigListItem[]
   >(
-    selectedProject
-      ? `/FormBuilder/configs/${selectedProject.projectId}`
-      : "",
+    selectedProject ? `/FormBuilder/configs/${selectedProject.projectId}` : "",
     {
       enabled: !!selectedProject && canRead,
     },
   );
 
   // Delete mutation
-  const deleteMutation = useApiDelete<void, { id: number }>(`/FormBuilder/:id`, {
-    successMessage: "Form configuration deleted successfully",
-    onSuccess: () => {
-      refetchConfigs();
+  const deleteMutation = useApiDelete<void, { id: number }>(
+    `/FormBuilder/:id`,
+    {
+      successMessage: "Form configuration deleted successfully",
+      onSuccess: () => {
+        refetchConfigs();
+      },
     },
-  });
-
-
+  );
 
   // Initialize form when table schema is loaded or custom form is created
   useEffect(() => {
@@ -152,7 +155,11 @@ export default function FormBuilder() {
         typeof selectedTable === "string"
           ? Number(selectedTable)
           : selectedTable;
-      initializeFromTable(tableId, selectedProject.projectId, schemaData.schema);
+      initializeFromTable(
+        tableId,
+        selectedProject.projectId,
+        schemaData.schema,
+      );
       toast.success(
         `Loaded ${schemaData.schema.columns?.length || 0} fields from ${schemaData.schema.tableName || selectedTable}`,
       );
@@ -247,10 +254,7 @@ export default function FormBuilder() {
                 <List className="h-4 w-4 mr-1" />
                 Saved Forms
                 {savedConfigs && savedConfigs.length > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-2"
-                  >
+                  <Badge variant="secondary" className="ml-2">
                     {savedConfigs.length}
                   </Badge>
                 )}

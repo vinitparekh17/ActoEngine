@@ -76,17 +76,11 @@ function ClientTableRow({
           {client.isActive ? "Active" : "Inactive"}
         </Badge>
       </TableCell>
-      <TableCell>
-        {new Date(client.createdAt).toLocaleDateString()}
-      </TableCell>
+      <TableCell>{new Date(client.createdAt).toLocaleDateString()}</TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
           {canUpdate && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onEdit(client)}
-            >
+            <Button variant="ghost" size="icon" onClick={() => onEdit(client)}>
               <Pencil className="w-4 h-4" />
             </Button>
           )}
@@ -267,7 +261,7 @@ export default function ClientManagementPage() {
         onSuccess: () => {
           setIsModalOpen(false);
         },
-      }
+      },
     );
   };
 
@@ -403,9 +397,9 @@ export default function ClientManagementPage() {
             defaultValues={
               editingClient
                 ? {
-                  clientName: editingClient.clientName,
-                  projectId: editingClient.projectId,
-                }
+                    clientName: editingClient.clientName,
+                    projectId: editingClient.projectId,
+                  }
                 : undefined
             }
             isPending={

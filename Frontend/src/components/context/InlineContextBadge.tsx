@@ -109,9 +109,7 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
 
   // Loading state
   if (isLoading) {
-    return (
-      <Skeleton className="h-5 w-16 rounded-full" />
-    );
+    return <Skeleton className="h-5 w-16 rounded-full" />;
   }
 
   // Error state (silent - just show unavailable)
@@ -372,8 +370,6 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
                 </div>
               )}
 
-
-
               <div>
                 <span className="text-muted-foreground">Completeness:</span>
                 <span className="ml-1 font-medium">{completeness}%</span>
@@ -434,8 +430,13 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
             {contextResponse.lastReviewed && (
               <div className="text-xs text-muted-foreground">
                 Last reviewed{" "}
-                {formatRelativeTime(contextResponse.lastReviewed || contextResponse.lastReviewedAt || "")}
-                {(context.reviewedBy || (context as any).updatedBy) && ` by ${context.reviewedBy || (context as any).updatedBy}`}
+                {formatRelativeTime(
+                  contextResponse.lastReviewed ||
+                    contextResponse.lastReviewedAt ||
+                    "",
+                )}
+                {(context.reviewedBy || (context as any).updatedBy) &&
+                  ` by ${context.reviewedBy || (context as any).updatedBy}`}
               </div>
             )}
 
@@ -474,7 +475,7 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
       </HoverCard>
     </TooltipProvider>
   );
-}
+};
 
 // Helper functions
 function getEntityTypeLabel(entityType: string): string {

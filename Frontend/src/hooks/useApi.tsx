@@ -14,8 +14,10 @@ import { api } from "@/lib/api";
 // ============================================
 // useApi - Query Hook
 // ============================================
-interface UseApiOptions<T>
-  extends Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn"> {
+interface UseApiOptions<T> extends Omit<
+  UseQueryOptions<T, Error>,
+  "queryKey" | "queryFn"
+> {
   showErrorToast?: boolean;
   queryKey?: any[]; // Allow custom query keys
 }
@@ -63,8 +65,10 @@ function generateQueryKey(endpoint: string): string[] {
 // ============================================
 type HttpMethod = "POST" | "PUT" | "DELETE" | "PATCH";
 
-interface UseApiMutationOptions<TData, TVariables>
-  extends Omit<UseMutationOptions<TData, Error, TVariables>, "mutationFn"> {
+interface UseApiMutationOptions<TData, TVariables> extends Omit<
+  UseMutationOptions<TData, Error, TVariables>,
+  "mutationFn"
+> {
   showSuccessToast?: boolean;
   showErrorToast?: boolean;
   successMessage?: string;

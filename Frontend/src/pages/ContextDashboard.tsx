@@ -45,7 +45,7 @@ import {
   Calendar,
   Search,
   ArrowUpRight,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ExpertSummary } from "@/types/context";
@@ -131,7 +131,7 @@ const DashboardMetric = ({
   icon: Icon,
   trend,
   colorClass,
-  bgClass
+  bgClass,
 }: {
   title: string;
   value: string | number;
@@ -163,14 +163,19 @@ const DashboardMetric = ({
 
           {/* Trend Badge */}
           {trend !== undefined && (
-            <span className={cn(
-              "text-[10px] font-medium flex items-center px-1.5 py-0.5 rounded-full",
-              trend > 0
-                ? "text-emerald-700 bg-emerald-100/20 dark:text-emerald-400 dark:bg-emerald-900/40"
-                : "text-rose-700 bg-rose-100/20 dark:text-rose-400 dark:bg-rose-900/40"
-            )}>
-              {trend > 0 ? "+" : ""}{trend}%
-              <TrendingUp className={cn("w-3 h-3 ml-0.5", trend < 0 && "rotate-180")} />
+            <span
+              className={cn(
+                "text-[10px] font-medium flex items-center px-1.5 py-0.5 rounded-full",
+                trend > 0
+                  ? "text-emerald-700 bg-emerald-100/20 dark:text-emerald-400 dark:bg-emerald-900/40"
+                  : "text-rose-700 bg-rose-100/20 dark:text-rose-400 dark:bg-rose-900/40",
+              )}
+            >
+              {trend > 0 ? "+" : ""}
+              {trend}%
+              <TrendingUp
+                className={cn("w-3 h-3 ml-0.5", trend < 0 && "rotate-180")}
+              />
             </span>
           )}
         </div>
@@ -191,7 +196,7 @@ const EmptyState = ({
   title,
   description,
   actionLabel,
-  onAction
+  onAction,
 }: {
   icon: any;
   title: string;
@@ -204,7 +209,9 @@ const EmptyState = ({
       <Icon className="h-6 w-6 text-muted-foreground/70" />
     </div>
     <h3 className="text-base font-medium text-foreground mb-1">{title}</h3>
-    <p className="text-sm text-muted-foreground max-w-sm mb-6 leading-relaxed">{description}</p>
+    <p className="text-sm text-muted-foreground max-w-sm mb-6 leading-relaxed">
+      {description}
+    </p>
     {actionLabel && onAction && (
       <Button variant="outline" size="sm" onClick={onAction}>
         {actionLabel}
@@ -241,15 +248,14 @@ export const ContextDashboard: React.FC = () => {
   );
 
   // Fetch expert summary
-  const { data: expertSummary, isLoading: isLoadingExperts } = useApi<ExpertSummary[]>(
-    `/projects/${selectedProjectId}/context/experts/summary`,
-    {
-      enabled: hasProject && !!selectedProjectId,
-      staleTime: 2 * 60 * 1000,
-      retry: 1,
-      showErrorToast: false,
-    }
-  );
+  const { data: expertSummary, isLoading: isLoadingExperts } = useApi<
+    ExpertSummary[]
+  >(`/projects/${selectedProjectId}/context/experts/summary`, {
+    enabled: hasProject && !!selectedProjectId,
+    staleTime: 2 * 60 * 1000,
+    retry: 1,
+    showErrorToast: false,
+  });
 
   // Bulk import
   const bulkImportMutation = useBulkImportContext((results) => {
@@ -329,23 +335,39 @@ export const ContextDashboard: React.FC = () => {
           {!hasProject ? "No Project Selected" : "Failed to Load Dashboard"}
         </h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          {!hasProject ? "Please select a project to view context insights." : error?.message}
+          {!hasProject
+            ? "Please select a project to view context insights."
+            : error?.message}
         </p>
-        <Button asChild={!hasProject} onClick={hasProject ? () => refetch() : undefined} variant="outline">
-          {!hasProject ? <Link to="/projects">Select Project</Link> : "Try Again"}
+        <Button
+          asChild={!hasProject}
+          onClick={hasProject ? () => refetch() : undefined}
+          variant="outline"
+        >
+          {!hasProject ? (
+            <Link to="/projects">Select Project</Link>
+          ) : (
+            "Try Again"
+          )}
         </Button>
       </div>
     );
   }
 
   const projectId: number = selectedProjectId;
-  const totalDocumented = coverage.reduce((acc, item) => acc + (item.documented || 0), 0);
-  const totalEntities = coverage.reduce((acc, item) => acc + (item.total || 0), 0);
-  const overallCoverage = totalEntities > 0 ? (totalDocumented / totalEntities) * 100 : 0;
+  const totalDocumented = coverage.reduce(
+    (acc, item) => acc + (item.documented || 0),
+    0,
+  );
+  const totalEntities = coverage.reduce(
+    (acc, item) => acc + (item.total || 0),
+    0,
+  );
+  const overallCoverage =
+    totalEntities > 0 ? (totalDocumented / totalEntities) * 100 : 0;
 
   return (
     <div className="flex flex-col bg-background overflow-hidden">
-
       {/* Sticky Header */}
       <div className="px-6 py-3 border-b flex items-center justify-between bg-background/95 backdrop-blur z-30 sticky top-0 supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center gap-4">
@@ -354,10 +376,16 @@ export const ContextDashboard: React.FC = () => {
             Context Dashboard
           </div>
           <Separator orientation="vertical" className="h-4" />
-          <Badge variant="outline" className="font-normal text-xs">{selectedProject?.projectName}</Badge>
+          <Badge variant="outline" className="font-normal text-xs">
+            {selectedProject?.projectName}
+          </Badge>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setIsBulkImportOpen(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsBulkImportOpen(true)}
+          >
             <Upload className="w-4 h-4 mr-2" />
             Bulk Import
           </Button>
@@ -367,14 +395,17 @@ export const ContextDashboard: React.FC = () => {
       {/* Scrollable Content */}
       <ScrollArea className="flex-1">
         <div className="flex flex-col min-h-full pb-20">
-
           {/* Hero Stats Section */}
           <div className="px-8 py-8 border-b bg-gradient-to-b from-muted/20 to-background">
             <div className="max-w-[1920px] mx-auto w-full space-y-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Knowledge Base Health</h1>
-                  <p className="text-muted-foreground mt-1 text-sm">Overview of documentation coverage and stale context.</p>
+                  <h1 className="text-2xl font-bold tracking-tight">
+                    Knowledge Base Health
+                  </h1>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Overview of documentation coverage and stale context.
+                  </p>
                 </div>
                 {dashboard?.lastUpdated && (
                   <div className="text-xs text-muted-foreground flex items-center bg-background border px-3 py-1.5 rounded-full shadow-sm">
@@ -432,11 +463,22 @@ export const ContextDashboard: React.FC = () => {
                   </TabsTrigger>
                   <TabsTrigger value="gaps" className="gap-2 text-xs">
                     <AlertCircle className="w-3.5 h-3.5" /> Critical Gaps
-                    {criticalUndocumented.length > 0 && <Badge variant="destructive" className="ml-1 h-5 px-1.5">{criticalUndocumented.length}</Badge>}
+                    {criticalUndocumented.length > 0 && (
+                      <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                        {criticalUndocumented.length}
+                      </Badge>
+                    )}
                   </TabsTrigger>
                   <TabsTrigger value="stale" className="gap-2 text-xs">
                     <AlertTriangle className="w-3.5 h-3.5" /> Stale
-                    {(dashboard?.staleCount || 0) > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 border-amber-500 text-amber-600 bg-amber-50">{dashboard?.staleCount}</Badge>}
+                    {(dashboard?.staleCount || 0) > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="ml-1 h-5 px-1.5 border-amber-500 text-amber-600 bg-amber-50"
+                      >
+                        {dashboard?.staleCount}
+                      </Badge>
+                    )}
                   </TabsTrigger>
                   <TabsTrigger value="top" className="gap-2 text-xs">
                     <Crown className="w-3.5 h-3.5" /> Top Documented
@@ -450,13 +492,20 @@ export const ContextDashboard: React.FC = () => {
               </div>
 
               {/* Coverage Tab */}
-              <TabsContent value="coverage" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <TabsContent
+                value="coverage"
+                className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500"
+              >
                 <Card className="border-border/60">
                   <CardHeader className="border-b bg-muted/20 pb-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <CardTitle className="text-base">Coverage by Entity Type</CardTitle>
-                        <CardDescription>Breakdown of documentation progress across the schema.</CardDescription>
+                        <CardTitle className="text-base">
+                          Coverage by Entity Type
+                        </CardTitle>
+                        <CardDescription>
+                          Breakdown of documentation progress across the schema.
+                        </CardDescription>
                       </div>
                     </div>
                   </CardHeader>
@@ -492,15 +541,23 @@ export const ContextDashboard: React.FC = () => {
                             {/* 2. Progress Bar Area */}
                             <div className="flex-1 flex flex-col justify-center gap-1.5 max-w-md w-full">
                               <div className="flex justify-between text-xs">
-                                <span className="text-muted-foreground">Coverage</span>
+                                <span className="text-muted-foreground">
+                                  Coverage
+                                </span>
                                 {item.avgCompleteness && (
                                   <span className="flex items-center gap-1 text-muted-foreground">
                                     <Sparkles className="w-3 h-3 text-amber-500" />
-                                    Quality: <span className="font-medium text-foreground">{Math.round(item.avgCompleteness)}%</span>
+                                    Quality:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {Math.round(item.avgCompleteness)}%
+                                    </span>
                                   </span>
                                 )}
                               </div>
-                              <Progress value={item.coveragePercentage || 0} className="h-2" />
+                              <Progress
+                                value={item.coveragePercentage || 0}
+                                className="h-2"
+                              />
                             </div>
 
                             {/* 3. Big Percentage Stats */}
@@ -518,13 +575,19 @@ export const ContextDashboard: React.FC = () => {
               </TabsContent>
 
               {/* Gaps Tab */}
-              <TabsContent value="gaps" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <TabsContent
+                value="gaps"
+                className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500"
+              >
                 <Card className="border-border/60">
                   <CardHeader className="border-b bg-muted/20 pb-4">
                     <CardTitle className="text-base text-rose-600 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" /> Action Required: Critical Gaps
+                      <AlertCircle className="w-4 h-4" /> Action Required:
+                      Critical Gaps
                     </CardTitle>
-                    <CardDescription>High-usage entities missing context.</CardDescription>
+                    <CardDescription>
+                      High-usage entities missing context.
+                    </CardDescription>
                   </CardHeader>
                   <div className="p-0">
                     {criticalUndocumented.length === 0 ? (
@@ -544,33 +607,68 @@ export const ContextDashboard: React.FC = () => {
                               <TableHead>Entity Name</TableHead>
                               <TableHead>Gap Reason</TableHead>
                               <TableHead>Priority</TableHead>
-                              <TableHead className="text-right">Action</TableHead>
+                              <TableHead className="text-right">
+                                Action
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {paginatedGaps.map((item) => (
-                              <TableRow key={`${item.entityType}-${item.entityId}`} className="group hover:bg-muted/30">
+                              <TableRow
+                                key={`${item.entityType}-${item.entityId}`}
+                                className="group hover:bg-muted/30"
+                              >
                                 <TableCell>
-                                  <Badge variant="outline" className="font-mono text-[10px] bg-background">{item.entityType}</Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className="font-mono text-[10px] bg-background"
+                                  >
+                                    {item.entityType}
+                                  </Badge>
                                 </TableCell>
                                 <TableCell className="font-medium">
-                                  <span className="group-hover:text-primary transition-colors">{item.entityName}</span>
+                                  <span className="group-hover:text-primary transition-colors">
+                                    {item.entityName}
+                                  </span>
                                 </TableCell>
-                                <TableCell className="text-muted-foreground text-sm">{item.reason}</TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                  {item.reason}
+                                </TableCell>
                                 <TableCell>
                                   {(() => {
                                     const priority = getGapPriority(item);
                                     return (
-                                      <Badge variant={priority === "HIGH" ? "destructive" : priority === "MEDIUM" ? "secondary" : "outline"} className="text-[10px]">
+                                      <Badge
+                                        variant={
+                                          priority === "HIGH"
+                                            ? "destructive"
+                                            : priority === "MEDIUM"
+                                              ? "secondary"
+                                              : "outline"
+                                        }
+                                        className="text-[10px]"
+                                      >
                                         {priority}
                                       </Badge>
-                                    )
+                                    );
                                   })()}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <Button size="sm" variant="ghost" className="h-8 text-xs hover:text-primary hover:bg-primary/10" asChild>
-                                    <Link to={getEntityRoute(item.entityType, item.entityId, projectId)}>
-                                      Document <ArrowUpRight className="ml-1 w-3 h-3" />
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 text-xs hover:text-primary hover:bg-primary/10"
+                                    asChild
+                                  >
+                                    <Link
+                                      to={getEntityRoute(
+                                        item.entityType,
+                                        item.entityId,
+                                        projectId,
+                                      )}
+                                    >
+                                      Document{" "}
+                                      <ArrowUpRight className="ml-1 w-3 h-3" />
                                     </Link>
                                   </Button>
                                 </TableCell>
@@ -581,11 +679,38 @@ export const ContextDashboard: React.FC = () => {
                         {criticalUndocumented.length > pageSize && (
                           <div className="flex items-center justify-between p-4 border-t">
                             <div className="text-xs text-muted-foreground">
-                              Showing {(gapsPage - 1) * pageSize + 1}-{Math.min(gapsPage * pageSize, criticalUndocumented.length)} of {criticalUndocumented.length}
+                              Showing {(gapsPage - 1) * pageSize + 1}-
+                              {Math.min(
+                                gapsPage * pageSize,
+                                criticalUndocumented.length,
+                              )}{" "}
+                              of {criticalUndocumented.length}
                             </div>
                             <div className="flex gap-2">
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setGapsPage(p => Math.max(1, p - 1))} disabled={gapsPage === 1}><ChevronLeft className="w-4 h-4" /></Button>
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setGapsPage(p => Math.min(gapsTotalPages, p + 1))} disabled={gapsPage === gapsTotalPages}><ChevronRight className="w-4 h-4" /></Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  setGapsPage((p) => Math.max(1, p - 1))
+                                }
+                                disabled={gapsPage === 1}
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  setGapsPage((p) =>
+                                    Math.min(gapsTotalPages, p + 1),
+                                  )
+                                }
+                                disabled={gapsPage === gapsTotalPages}
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -596,13 +721,20 @@ export const ContextDashboard: React.FC = () => {
               </TabsContent>
 
               {/* Stale Tab */}
-              <TabsContent value="stale" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <TabsContent
+                value="stale"
+                className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500"
+              >
                 <Card className="border-border/60">
                   <CardHeader className="border-b bg-muted/20 pb-4">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" /> Stale Documentation
+                      <AlertTriangle className="w-4 h-4 text-amber-500" /> Stale
+                      Documentation
                     </CardTitle>
-                    <CardDescription>Entities where schema changes may have invalidated the context.</CardDescription>
+                    <CardDescription>
+                      Entities where schema changes may have invalidated the
+                      context.
+                    </CardDescription>
                   </CardHeader>
                   <div className="p-0">
                     {staleEntities.length === 0 ? (
@@ -623,30 +755,71 @@ export const ContextDashboard: React.FC = () => {
                               <TableHead>Last Updated</TableHead>
                               <TableHead>Status</TableHead>
                               <TableHead>Schema Changed</TableHead>
-                              <TableHead className="text-right">Action</TableHead>
+                              <TableHead className="text-right">
+                                Action
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {paginatedStale.map((item) => (
-                              <TableRow key={`${item.entityType}-${item.entityId}`} className="group hover:bg-muted/30">
+                              <TableRow
+                                key={`${item.entityType}-${item.entityId}`}
+                                className="group hover:bg-muted/30"
+                              >
                                 <TableCell>
-                                  <Badge variant="outline" className="font-mono text-[10px] bg-background">{item.entityType}</Badge>
+                                  <Badge
+                                    variant="outline"
+                                    className="font-mono text-[10px] bg-background"
+                                  >
+                                    {item.entityType}
+                                  </Badge>
                                 </TableCell>
-                                <TableCell className="font-medium">{item.entityName}</TableCell>
-                                <TableCell className="text-muted-foreground text-sm">{formatDate(item.lastContextUpdate)}</TableCell>
+                                <TableCell className="font-medium">
+                                  {item.entityName}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                  {formatDate(item.lastContextUpdate)}
+                                </TableCell>
                                 <TableCell>
-                                  <Badge variant={item.daysSinceUpdate > 30 ? "destructive" : "secondary"} className="text-[10px]">
+                                  <Badge
+                                    variant={
+                                      item.daysSinceUpdate > 30
+                                        ? "destructive"
+                                        : "secondary"
+                                    }
+                                    className="text-[10px]"
+                                  >
                                     {item.daysSinceUpdate} days ago
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
                                   {item.schemaChanged ? (
-                                    <Badge variant="outline" className="text-rose-600 bg-rose-50 border-rose-200">Changed</Badge>
-                                  ) : <span className="text-muted-foreground text-xs">-</span>}
+                                    <Badge
+                                      variant="outline"
+                                      className="text-rose-600 bg-rose-50 border-rose-200"
+                                    >
+                                      Changed
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">
+                                      -
+                                    </span>
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <Button size="sm" variant="ghost" className="h-8 text-xs hover:text-primary" asChild>
-                                    <Link to={getEntityRoute(item.entityType, item.entityId, projectId)}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 text-xs hover:text-primary"
+                                    asChild
+                                  >
+                                    <Link
+                                      to={getEntityRoute(
+                                        item.entityType,
+                                        item.entityId,
+                                        projectId,
+                                      )}
+                                    >
                                       Review
                                     </Link>
                                   </Button>
@@ -658,11 +831,38 @@ export const ContextDashboard: React.FC = () => {
                         {staleEntities.length > pageSize && (
                           <div className="flex items-center justify-between p-4 border-t">
                             <div className="text-xs text-muted-foreground">
-                              Showing {(stalePage - 1) * pageSize + 1}-{Math.min(stalePage * pageSize, staleEntities.length)} of {staleEntities.length}
+                              Showing {(stalePage - 1) * pageSize + 1}-
+                              {Math.min(
+                                stalePage * pageSize,
+                                staleEntities.length,
+                              )}{" "}
+                              of {staleEntities.length}
                             </div>
                             <div className="flex gap-2">
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setStalePage(p => Math.max(1, p - 1))} disabled={stalePage === 1}><ChevronLeft className="w-4 h-4" /></Button>
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setStalePage(p => Math.min(staleTotalPages, p + 1))} disabled={stalePage === staleTotalPages}><ChevronRight className="w-4 h-4" /></Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  setStalePage((p) => Math.max(1, p - 1))
+                                }
+                                disabled={stalePage === 1}
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  setStalePage((p) =>
+                                    Math.min(staleTotalPages, p + 1),
+                                  )
+                                }
+                                disabled={stalePage === staleTotalPages}
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -673,19 +873,28 @@ export const ContextDashboard: React.FC = () => {
               </TabsContent>
 
               {/* Top Documented & Experts Tabs follow similar patterns - abbreviated for brevity but styling is consistent */}
-              <TabsContent value="top" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <TabsContent
+                value="top"
+                className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500"
+              >
                 <Card className="border-border/60">
                   <CardHeader className="border-b bg-muted/20 pb-4">
                     <CardTitle className="text-base text-emerald-600 flex items-center gap-2">
                       <Crown className="w-4 h-4" /> Gold Standard Examples
                     </CardTitle>
-                    <CardDescription>Best documented entities to use as references.</CardDescription>
+                    <CardDescription>
+                      Best documented entities to use as references.
+                    </CardDescription>
                   </CardHeader>
                   <div className="p-0">
                     {/* Table structure same as above with paginatedTop */}
                     {topDocumented.length === 0 ? (
                       <div className="p-6">
-                        <EmptyState icon={Star} title="No Top Entities" description="Start documenting to see your best work here." />
+                        <EmptyState
+                          icon={Star}
+                          title="No Top Entities"
+                          description="Start documenting to see your best work here."
+                        />
                       </div>
                     ) : (
                       <>
@@ -699,32 +908,63 @@ export const ContextDashboard: React.FC = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {paginatedTop.map(item => (
-                              <TableRow key={item.entityId} className="hover:bg-muted/30">
+                            {paginatedTop.map((item) => (
+                              <TableRow
+                                key={item.entityId}
+                                className="hover:bg-muted/30"
+                              >
                                 <TableCell>
                                   <div className="flex flex-col">
-                                    <Link to={getEntityRoute(item.entityType, item.entityId, projectId)} className="font-medium hover:underline text-primary text-sm">{item.entityName}</Link>
-                                    <span className="text-[10px] text-muted-foreground uppercase">{item.entityType}</span>
+                                    <Link
+                                      to={getEntityRoute(
+                                        item.entityType,
+                                        item.entityId,
+                                        projectId,
+                                      )}
+                                      className="font-medium hover:underline text-primary text-sm"
+                                    >
+                                      {item.entityName}
+                                    </Link>
+                                    <span className="text-[10px] text-muted-foreground uppercase">
+                                      {item.entityType}
+                                    </span>
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="secondary" className="font-normal text-xs">{item.businessDomain || "N/A"}</Badge>
+                                  <Badge
+                                    variant="secondary"
+                                    className="font-normal text-xs"
+                                  >
+                                    {item.businessDomain || "N/A"}
+                                  </Badge>
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-2">
-                                    <Progress value={item.completenessScore} className="w-16 h-2" />
-                                    <span className="text-xs font-medium">{item.completenessScore}%</span>
+                                    <Progress
+                                      value={item.completenessScore}
+                                      className="w-16 h-2"
+                                    />
+                                    <span className="text-xs font-medium">
+                                      {item.completenessScore}%
+                                    </span>
                                   </div>
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex -space-x-2">
-                                    {[...Array(Math.min(3, item.expertCount))].map((_, i) => (
-                                      <div key={i} className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px]">
+                                    {[
+                                      ...Array(Math.min(3, item.expertCount)),
+                                    ].map((_, i) => (
+                                      <div
+                                        key={i}
+                                        className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px]"
+                                      >
                                         <Users className="w-3 h-3 text-muted-foreground" />
                                       </div>
                                     ))}
                                     {item.expertCount > 3 && (
-                                      <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px]">+{item.expertCount - 3}</div>
+                                      <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[8px]">
+                                        +{item.expertCount - 3}
+                                      </div>
                                     )}
                                   </div>
                                 </TableCell>
@@ -741,37 +981,82 @@ export const ContextDashboard: React.FC = () => {
 
               {/* Experts Tab */}
               {expertSummary && expertSummary.length > 0 && (
-                <TabsContent value="experts" className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <TabsContent
+                  value="experts"
+                  className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500"
+                >
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {expertSummary.map(expert => (
-                      <Card key={expert.userId} className="hover:shadow-md transition-shadow group">
+                    {expertSummary.map((expert) => (
+                      <Card
+                        key={expert.userId}
+                        className="hover:shadow-md transition-shadow group"
+                      >
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border">
                                 <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
-                                  {expert.user.fullName?.substring(0, 2).toUpperCase() || "EX"}
+                                  {expert.user.fullName
+                                    ?.substring(0, 2)
+                                    .toUpperCase() || "EX"}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <h4 className="font-medium text-sm">{expert.user.fullName || expert.user.username}</h4>
-                                <p className="text-xs text-muted-foreground">{expert.user.email}</p>
+                                <h4 className="font-medium text-sm">
+                                  {expert.user.fullName || expert.user.username}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                  {expert.user.email}
+                                </p>
                               </div>
                             </div>
-                            <Badge variant="outline" className="bg-primary/5">{expert.entityCount} entities</Badge>
+                            <Badge variant="outline" className="bg-primary/5">
+                              {expert.entityCount} entities
+                            </Badge>
                           </div>
                           <Separator className="mb-4" />
                           <div className="space-y-3">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Expertise Areas</p>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Expertise Areas
+                            </p>
                             <div className="flex flex-wrap gap-2">
-                              {expert.expertiseBreakdown.OWNER > 0 && <Badge variant="default" className="text-[10px]">Owner ({expert.expertiseBreakdown.OWNER})</Badge>}
-                              {expert.expertiseBreakdown.EXPERT > 0 && <Badge variant="secondary" className="text-[10px]">Expert ({expert.expertiseBreakdown.EXPERT})</Badge>}
-                              {expert.expertiseBreakdown.CONTRIBUTOR > 0 && <Badge variant="outline" className="text-[10px]">Contrib ({expert.expertiseBreakdown.CONTRIBUTOR})</Badge>}
+                              {expert.expertiseBreakdown.OWNER > 0 && (
+                                <Badge
+                                  variant="default"
+                                  className="text-[10px]"
+                                >
+                                  Owner ({expert.expertiseBreakdown.OWNER})
+                                </Badge>
+                              )}
+                              {expert.expertiseBreakdown.EXPERT > 0 && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px]"
+                                >
+                                  Expert ({expert.expertiseBreakdown.EXPERT})
+                                </Badge>
+                              )}
+                              {expert.expertiseBreakdown.CONTRIBUTOR > 0 && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px]"
+                                >
+                                  Contrib (
+                                  {expert.expertiseBreakdown.CONTRIBUTOR})
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <div className="mt-4 pt-4 border-t flex justify-end">
-                            <Button variant="ghost" size="sm" className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity" asChild>
-                              <a href={`mailto:${expert.user.email}`}>Contact Expert</a>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                              asChild
+                            >
+                              <a href={`mailto:${expert.user.email}`}>
+                                Contact Expert
+                              </a>
                             </Button>
                           </div>
                         </CardContent>
@@ -791,7 +1076,8 @@ export const ContextDashboard: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Bulk Import Context</DialogTitle>
             <DialogDescription>
-              Import multiple context entries via JSON. Existing entries will be updated.
+              Import multiple context entries via JSON. Existing entries will be
+              updated.
             </DialogDescription>
           </DialogHeader>
 
@@ -808,16 +1094,28 @@ export const ContextDashboard: React.FC = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Required fields: <code className="bg-muted px-1 rounded">entityType</code>, <code className="bg-muted px-1 rounded">entityId</code>, <code className="bg-muted px-1 rounded">context</code>
+                Required fields:{" "}
+                <code className="bg-muted px-1 rounded">entityType</code>,{" "}
+                <code className="bg-muted px-1 rounded">entityId</code>,{" "}
+                <code className="bg-muted px-1 rounded">context</code>
               </p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsBulkImportOpen(false); setBulkImportJson(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsBulkImportOpen(false);
+                setBulkImportJson("");
+              }}
+            >
               Cancel
             </Button>
-            <Button onClick={handleBulkImport} disabled={bulkImportMutation.isPending || !bulkImportJson.trim()}>
+            <Button
+              onClick={handleBulkImport}
+              disabled={bulkImportMutation.isPending || !bulkImportJson.trim()}
+            >
               {bulkImportMutation.isPending ? "Importing..." : "Import Context"}
             </Button>
           </DialogFooter>
@@ -830,31 +1128,52 @@ export const ContextDashboard: React.FC = () => {
 // Helper functions (kept same logic, polished return types if needed)
 function getEntityIcon(entityType: string) {
   switch (entityType) {
-    case "TABLE": return <TableIcon className="w-4 h-4 text-blue-500" />;
-    case "COLUMN": return <FileText className="w-4 h-4 text-green-500" />;
-    case "SP": return <FileCode className="w-4 h-4 text-purple-500" />;
-    default: return <Database className="w-4 h-4" />;
+    case "TABLE":
+      return <TableIcon className="w-4 h-4 text-blue-500" />;
+    case "COLUMN":
+      return <FileText className="w-4 h-4 text-green-500" />;
+    case "SP":
+      return <FileCode className="w-4 h-4 text-purple-500" />;
+    default:
+      return <Database className="w-4 h-4" />;
   }
 }
 
 function getEntityTypeLabel(entityType: string): string {
   switch (entityType) {
-    case "TABLE": return "Tables";
-    case "COLUMN": return "Columns";
-    case "SP": return "Stored Procedures";
-    default: return entityType;
+    case "TABLE":
+      return "Tables";
+    case "COLUMN":
+      return "Columns";
+    case "SP":
+      return "Stored Procedures";
+    default:
+      return entityType;
   }
 }
 
-function getEntityRoute(entityType: string, entityId: number, projectId: number): string {
+function getEntityRoute(
+  entityType: string,
+  entityId: number,
+  projectId: number,
+): string {
   const typeSlug = entityType.toLowerCase();
   return `/project/${projectId}/entities/${typeSlug}/${entityId}/overview`;
 }
 
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(dateString).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function formatDateTime(dateString: string): string {
-  return new Date(dateString).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(dateString).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

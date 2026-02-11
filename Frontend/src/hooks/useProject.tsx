@@ -149,7 +149,11 @@ export function useProject() {
       createdAt: selectedProject.createdAt,
       updatedAt: selectedProject.updatedAt,
     };
-  }, [selectedProject?.projectId, selectedProject?.syncStatus, selectedProject?.syncProgress]);
+  }, [
+    selectedProject?.projectId,
+    selectedProject?.syncStatus,
+    selectedProject?.syncProgress,
+  ]);
 
   // Select project and invalidate dependent queries
   const selectProject = useCallback(
@@ -278,25 +282,33 @@ export function useProjectTables() {
 // ============================================
 // Hook - useTableSchema (with connection string)
 // ============================================
-export function useTableSchema(tableName: string | undefined, schemaName?: string) {
+export function useTableSchema(
+  tableName: string | undefined,
+  schemaName?: string,
+) {
   const { selectedProjectId, hasProject } = useProject();
   const effectiveSchemaName = schemaName || "dbo";
-  const schemaUrl = tableName && selectedProjectId
-    ? `/DatabaseBrowser/projects/${selectedProjectId}/tables/${tableName}/schema?schemaName=${encodeURIComponent(effectiveSchemaName)}`
-    : "";
+  const schemaUrl =
+    tableName && selectedProjectId
+      ? `/DatabaseBrowser/projects/${selectedProjectId}/tables/${tableName}/schema?schemaName=${encodeURIComponent(effectiveSchemaName)}`
+      : "";
   const {
     data: schema,
     isLoading,
     error,
-  } = useApi<TableSchemaResponse>(
-    schemaUrl,
-    {
-      queryKey: ["projects", selectedProjectId, "tables", tableName, "schema", effectiveSchemaName],
-      enabled: hasProject && !!tableName && !!selectedProjectId,
-      staleTime: 5 * 60 * 1000,
-      retry: 2,
-    },
-  );
+  } = useApi<TableSchemaResponse>(schemaUrl, {
+    queryKey: [
+      "projects",
+      selectedProjectId,
+      "tables",
+      tableName,
+      "schema",
+      effectiveSchemaName,
+    ],
+    enabled: hasProject && !!tableName && !!selectedProjectId,
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
 
   return {
     schema,

@@ -68,30 +68,30 @@ export default function DataTable<TData extends { id?: string | number }>({
         <TableBody>
           {isLoading
             ? Array.from({ length: 5 }).map((_, i) => (
-              <TableRow key={`skeleton-${i}`}>
-                {columns.map((_col, j) => (
-                  <TableCell key={`${i}-${j}`}>
-                    <Skeleton className="h-4 w-[80%]" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+                <TableRow key={`skeleton-${i}`}>
+                  {columns.map((_col, j) => (
+                    <TableCell key={`${i}-${j}`}>
+                      <Skeleton className="h-4 w-[80%]" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             : table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                className="cursor-pointer hover:bg-accent/50"
-                onClick={() => onRowClick?.(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="text-sm">
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext(),
-                    )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer hover:bg-accent/50"
+                  onClick={() => onRowClick?.(row.original)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="text-sm">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
         </TableBody>
       </Table>
     </div>
