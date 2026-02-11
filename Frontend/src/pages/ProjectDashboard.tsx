@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProject } from "../hooks/useProject";
 import { useApiMutation } from "../hooks/useApi";
@@ -105,11 +106,19 @@ export default function ProjectsDashboard() {
   const { projects, isLoadingProjects, refetchProjects } = useProject();
   const { confirm } = useConfirm();
 
+  const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
+
   const deleteMutation = useApiMutation<void, { projectId: number }>(
     "/projects/:projectId",
     "DELETE",
     {
-      onSuccess: () => refetchProjects(),
+      onSuccess: () => {
+        setDeletingProjectId(null);
+        refetchProjects();
+      },
+      onError: () => {
+        setDeletingProjectId(null);
+      }
     },
   );
 
@@ -122,7 +131,11 @@ export default function ProjectsDashboard() {
       cancelText: "Cancel",
       variant: "destructive",
     });
-    if (confirmed) deleteMutation.mutate({ projectId });
+
+    if (confirmed) {
+      setDeletingProjectId(projectId);
+      deleteMutation.mutate({ projectId });
+    }
   };
 
   if (isLoadingProjects) {
@@ -214,11 +227,10 @@ export default function ProjectsDashboard() {
                         <Activity className="h-4 w-4" /> Status
                       </span>
                       <span
-                        className={`font-medium ${
-                          project.isActive
+                        className={`font-medium ${project.isActive
                             ? "text-emerald-600 dark:text-emerald-400"
                             : "text-neutral-400"
-                        }`}
+                          }`}
                       >
                         {project.isActive ? "Active" : "Inactive"}
                       </span>
@@ -271,11 +283,11 @@ export default function ProjectsDashboard() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(project.projectId)}
-                        disabled={deleteMutation.isPending}
+                        disabled={deleteMutation.isPending && deletingProjectId === project.projectId}
                         title="Delete"
                         className="text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
                       >
-                        {deleteMutation.isPending ? (
+                        {deleteMutation.isPending && deletingProjectId === project.projectId ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Trash2 className="h-4 w-4" />

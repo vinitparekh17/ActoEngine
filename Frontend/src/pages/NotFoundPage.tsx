@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
-  BrowserRouter,
   useNavigate,
   useLocation,
   useSearchParams,
-  Routes,
-  Route,
 } from "react-router-dom";
 import {
   Home,
@@ -153,9 +150,12 @@ export default function NotFoundPage() {
               <div className="mt-8 pt-6 border-t border-neutral-100 dark:border-neutral-800 transition-colors duration-300">
                 <p className="text-xs text-neutral-400 dark:text-neutral-500 text-center sm:text-left">
                   If you believe this is a bug, please{" "}
-                  <button className="underline hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors">
+                  <a
+                    href="mailto:support@actoengine.com"
+                    className="underline hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                  >
                     contact support
-                  </button>
+                  </a>
                   .
                 </p>
               </div>

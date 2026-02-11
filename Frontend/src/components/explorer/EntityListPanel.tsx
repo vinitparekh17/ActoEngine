@@ -32,6 +32,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { TableMetadataDto, StoredProcedureMetadataDto } from "@/types/context";
 import { Skeleton, TableSkeleton } from "@/components/ui/skeletons";
@@ -78,6 +79,7 @@ export function EntityListPanel({
   proceduresData = [],
   isLoadingTables = false,
   isLoadingSPs = false,
+  onRefresh,
 }: EntityListPanelProps) {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
 
@@ -428,6 +430,14 @@ export function EntityListPanel({
             >
               Tree
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              title="Refresh"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
           </div>
         </div>
 
@@ -466,13 +476,12 @@ export function EntityListPanel({
                         ref={(el) => {
                           itemRefs.current[index] = el;
                         }}
-                        className={`cursor-pointer ${
-                          selected
+                        className={`cursor-pointer ${selected
                             ? "bg-accent"
                             : isFocused
                               ? "bg-accent/50"
                               : "hover:bg-accent"
-                        }`}
+                          }`}
                         onClick={() => onSelectEntity(entity)}
                       >
                         <TableCell className="font-medium">
@@ -499,7 +508,7 @@ export function EntityListPanel({
                             variant="minimal"
                             preloadedContext={
                               contextMap[
-                                `${entity.entityType}:${entity.entityId}`
+                              `${entity.entityType}:${entity.entityId}`
                               ]
                             }
                             disableFetch={true}
@@ -547,10 +556,16 @@ export function EntityListPanel({
                     else if (node.type === "column") type = "COLUMN";
 
                     if (type) {
-                      const entityId = parseInt(
-                        node.id.split("-").pop() || "0",
-                        10,
-                      );
+                      // Use explicit entityId if available, otherwise fallback to robust regex parsing
+                      const entityId =
+                        node.entityId ||
+                        parseInt(/\b(\d+)$/.exec(node.id)?.[1] || "0", 10);
+
+                      // Legacy fallback just in case
+                      if (isNaN(entityId) || entityId === 0) {
+                        console.warn("Could not extract entity ID from node", node);
+                        return;
+                      }
                       // Find full entity details if possible, or construct partial
                       const found = allEntities.find(
                         (e) => e.entityType === type && e.entityId === entityId,
