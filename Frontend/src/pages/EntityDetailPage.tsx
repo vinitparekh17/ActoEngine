@@ -341,7 +341,6 @@ const EntityDetailPage: React.FC = () => {
     : (entityData as SPDetails)?.procedureName;
 
 
-
   const schema = entityData?.schemaName || getDefaultSchema(selectedProject?.databaseType);
   const fullName = name ? `${schema}.${name}` : "Loading...";
   const columns = isTable ? (entityData as TableDetails)?.columns : undefined;
