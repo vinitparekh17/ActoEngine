@@ -13,13 +13,13 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
     public void MigrateDatabase()
     {
         logger.LogInformation("Starting database migration...");
-        try 
+        try
         {
             EnsureDatabase.For.SqlDatabase(_connectionString);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to ensure database exists. ConnectionString (masked): {ConnectionString}", 
+            logger.LogError(ex, "Failed to ensure database exists. ConnectionString (masked): {ConnectionString}",
                 MaskConnectionString(_connectionString));
             throw;
         }
@@ -88,7 +88,7 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
 
     private static string MaskConnectionString(string connectionString)
     {
-        try 
+        try
         {
             var builder = new SqlConnectionStringBuilder(connectionString);
             if (!string.IsNullOrEmpty(builder.Password)) builder.Password = "******";

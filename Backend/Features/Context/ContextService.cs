@@ -60,12 +60,12 @@ public partial class ContextService(
     public async Task<ContextResponse?> GetContextAsync(int projectId, string entityType, int entityId)
     {
         var context = await _contextRepo.GetContextAsync(projectId, entityType, entityId) ?? new EntityContext
-            {
-                ProjectId = projectId,
-                EntityType = entityType,
-                EntityId = entityId,
-                EntityName = (await GetEntityNameAsync(projectId, entityType, entityId))?.Trim() ?? "Unknown"
-            };
+        {
+            ProjectId = projectId,
+            EntityType = entityType,
+            EntityId = entityId,
+            EntityName = (await GetEntityNameAsync(projectId, entityType, entityId))?.Trim() ?? "Unknown"
+        };
         var experts = await _contextRepo.GetExpertsAsync(projectId, entityType, entityId);
         var suggestions = await GetContextSuggestionsAsync(projectId, entityType, entityId, context);
         var completeness = CalculateCompletenessScore(context);

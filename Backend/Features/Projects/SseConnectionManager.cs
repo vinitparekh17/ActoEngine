@@ -47,7 +47,7 @@ public class SseConnectionManager
     public SseConnectionHandle RegisterConnection(int userId, int projectId, CancellationToken cancellationToken)
     {
         var key = GetConnectionKey(userId, projectId);
-        
+
         // Create a new CTS that can be cancelled independently
         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 

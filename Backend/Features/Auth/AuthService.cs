@@ -5,6 +5,7 @@ using ActoEngine.WebApi.Features.Users;
 using ActoEngine.WebApi.Features.Roles;
 
 namespace ActoEngine.WebApi.Features.Auth;
+
 public interface IAuthService
 {
     Task<AuthResult> LoginAsync(string username, string password);

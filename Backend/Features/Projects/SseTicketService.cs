@@ -39,7 +39,7 @@ public class SseTicketService(IDistributedCache cache, ILogger<SseTicketService>
     private readonly ILogger<SseTicketService> _logger = logger;
     private const int TicketTtlSeconds = 30;
     private const string CacheKeyPrefix = "sse_ticket:";
-    
+
     // Per-ticket locks to prevent TOCTOU race conditions during consumption
     // Using ConcurrentDictionary to avoid blocking unrelated tickets
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> _ticketLocks = new();
@@ -84,7 +84,7 @@ public class SseTicketService(IDistributedCache cache, ILogger<SseTicketService>
         }
 
         var cacheKey = $"{CacheKeyPrefix}{ticket}";
-        
+
         // Get or create a lock for this specific ticket to ensure atomic get-and-delete
         var ticketLock = _ticketLocks.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));
 

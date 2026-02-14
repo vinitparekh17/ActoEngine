@@ -83,7 +83,7 @@ public class ContextRepository(
         {
             sql = sql.Substring(0, orderByIndex).TrimEnd();
         }
-        
+
         var parameters = new DynamicParameters();
         parameters.Add("ProjectId", projectId);
 
@@ -103,7 +103,7 @@ public class ContextRepository(
         {
             sql += " AND (" + string.Join(" OR ", clauses) + ")";
         }
-        
+
         // Add ORDER BY at the end
         sql += " ORDER BY EntityType, EntityId;";
 

@@ -32,7 +32,7 @@ public static class DatabaseExtensions
 
         // Set admin password from environment variables or user secrets/configuration
         // Priority: SEED_ADMIN_PASSWORD env var > DatabaseSeeding:DefaultPasswords:AdminUser (user secrets/config) > throw
-        var adminPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD") 
+        var adminPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD")
             ?? builder.Configuration["DatabaseSeeding:DefaultPasswords:AdminUser"]
             ?? throw new InvalidOperationException(
                 "Admin password must be set via SEED_ADMIN_PASSWORD environment variable or " +

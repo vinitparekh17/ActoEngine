@@ -16,7 +16,7 @@ namespace ActoEngine.WebApi.Features.Projects
     [Authorize]
     [Route("api/projects")]
     public class ProjectController(
-        IProjectService projectService, 
+        IProjectService projectService,
         ILogger<ProjectController> logger,
         SseConnectionManager sseConnectionManager) : ControllerBase
     {
@@ -44,7 +44,7 @@ namespace ActoEngine.WebApi.Features.Projects
             // Return the detailed error response from the service with full ConnectionResponse data
             // This includes ErrorCode and HelpLink properties for the client
             return BadRequest(ApiResponse<ConnectionResponse>.Failure(
-                connectionResponse.Message, 
+                connectionResponse.Message,
                 connectionResponse.Errors,
                 connectionResponse));
         }
@@ -169,7 +169,7 @@ namespace ActoEngine.WebApi.Features.Projects
         [AllowAnonymous] // Bypass class-level [Authorize] - method handles its own auth via cookie or ticket
         [Produces("text/event-stream")]
         public async Task StreamSyncStatus(
-            int projectId, 
+            int projectId,
             [FromQuery] string? ticket,
             [FromServices] ISseTicketService sseTicketService,
             CancellationToken cancellationToken)
@@ -183,7 +183,7 @@ namespace ActoEngine.WebApi.Features.Projects
                 if (ticketMetadata != null && ticketMetadata.ProjectId == projectId)
                 {
                     userId = ticketMetadata.UserId;
-                    _logger.LogInformation("SSE stream authenticated via ticket for user {UserId}, project {ProjectId}", 
+                    _logger.LogInformation("SSE stream authenticated via ticket for user {UserId}, project {ProjectId}",
                         userId, projectId);
                 }
                 else
@@ -326,7 +326,7 @@ namespace ActoEngine.WebApi.Features.Projects
             var userMemberships = await _projectService.GetUserProjectMembershipsAsync(userId.Value);
             if (!userMemberships.Contains(projectId))
             {
-                _logger.LogWarning("User {UserId} attempted to get SSE ticket for project {ProjectId} without membership", 
+                _logger.LogWarning("User {UserId} attempted to get SSE ticket for project {ProjectId} without membership",
                     userId.Value, projectId);
                 return Forbid();
             }
