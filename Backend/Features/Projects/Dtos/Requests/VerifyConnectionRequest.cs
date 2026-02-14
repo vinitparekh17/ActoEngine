@@ -29,7 +29,7 @@ public class VerifyConnectionRequest
     public string DatabaseType { get; set; } = "SqlServer";
 
     // Advanced connection options (optional with sensible defaults)
-    
+
     /// <summary>
     /// Whether to encrypt the connection. Default: true (recommended).
     /// </summary>

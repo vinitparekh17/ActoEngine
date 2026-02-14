@@ -109,7 +109,7 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
 
         var sensitiveParams = new[] { "token", "ticket", "password", "secret" };
         var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(request.QueryString.Value);
-        
+
         var safeParams = queryParams
             .Select(kvp =>
             {

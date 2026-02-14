@@ -7,6 +7,7 @@ using ActoEngine.WebApi.Features.Users;
 using ActoEngine.WebApi.Api.ApiModels;
 
 namespace ActoEngine.WebApi.Features.Auth;
+
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase

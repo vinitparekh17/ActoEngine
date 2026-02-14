@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 namespace ActoEngine.WebApi.Features.Auth;
+
 public interface ITokenHasher
 {
     string HashToken(string token);

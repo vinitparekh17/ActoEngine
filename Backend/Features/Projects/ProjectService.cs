@@ -62,7 +62,7 @@ namespace ActoEngine.WebApi.Features.Projects
         public async Task<ConnectionResponse> VerifyConnectionAsync(VerifyConnectionRequest request)
         {
             var response = new ConnectionResponse { TestedAt = DateTime.UtcNow };
-            
+
             try
             {
                 // SECURITY: Use SqlConnectionStringBuilder instead of string concatenation
@@ -85,12 +85,12 @@ namespace ActoEngine.WebApi.Features.Projects
 
                 using var conn = new SqlConnection(builder.ConnectionString, credential);
                 await conn.OpenAsync();
-                
+
                 // Get server version for compatibility info
                 response.ServerVersion = conn.ServerVersion;
                 response.IsValid = true;
                 response.Message = "Connection successful";
-                
+
                 return response;
             }
             catch (SqlException ex)
@@ -98,30 +98,30 @@ namespace ActoEngine.WebApi.Features.Projects
                 // SECURITY: Do not log credentials - only log server and database
                 _logger.LogWarning(ex, "Failed to verify connection to database {DatabaseName} on server {Server}:{Port}. SQL Error: {ErrorNumber}",
                     request.DatabaseName, request.Server, request.Port, ex.Number);
-                
+
                 return MapSqlExceptionToResponse(ex, response);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to verify connection to database {DatabaseName} on server {Server}:{Port}",
                     request.DatabaseName, request.Server, request.Port);
-                
+
                 response.IsValid = false;
                 response.Message = "Connection failed. Please check your connection details.";
                 response.ErrorCode = "UNKNOWN_ERROR";
                 response.Errors.Add(ex.Message);
-                
+
                 return response;
             }
         }
-        
+
         /// <summary>
         /// Maps SQL exceptions to user-friendly error codes and messages.
         /// </summary>
         private static ConnectionResponse MapSqlExceptionToResponse(SqlException ex, ConnectionResponse response)
         {
             response.IsValid = false;
-            
+
             // Map SQL error numbers to user-friendly messages
             // Reference: https://docs.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors
             switch (ex.Number)
@@ -132,7 +132,7 @@ namespace ActoEngine.WebApi.Features.Projects
                     response.ErrorCode = "AUTH_FAILED";
                     response.Errors.Add("Login failed for the specified user.");
                     break;
-                    
+
                 // Network/connectivity errors
                 case -1:
                 case 53:
@@ -140,7 +140,7 @@ namespace ActoEngine.WebApi.Features.Projects
                     response.ErrorCode = "NETWORK_UNREACHABLE";
                     response.Errors.Add("A network-related or instance-specific error occurred.");
                     break;
-                    
+
                 // SQL Server not found / named instance issues
                 case -2:
                 case 2:
@@ -148,14 +148,14 @@ namespace ActoEngine.WebApi.Features.Projects
                     response.ErrorCode = "SERVER_NOT_FOUND";
                     response.Errors.Add("Timeout or server instance not found.");
                     break;
-                    
+
                 // Database does not exist
                 case 4060:
                     response.Message = "Database not found. Please verify the database name.";
                     response.ErrorCode = "DATABASE_NOT_FOUND";
                     response.Errors.Add($"Cannot open database. The database may not exist.");
                     break;
-                    
+
                 // Access denied / permission issues
                 case 916:
                 case 229:
@@ -163,7 +163,7 @@ namespace ActoEngine.WebApi.Features.Projects
                     response.ErrorCode = "ACCESS_DENIED";
                     response.Errors.Add("Insufficient permissions to access the database.");
                     break;
-                    
+
                 // TLS/SSL handshake errors - common with SQL Server 2012 without TLS 1.2 patches
                 case 20:
                 case 10054:
@@ -173,7 +173,7 @@ namespace ActoEngine.WebApi.Features.Projects
                     response.HelpLink = "https://support.microsoft.com/en-us/topic/kb3135244-tls-1-2-support-for-microsoft-sql-server-e4472ef8-90a9-13c1-e4d8-44aad198cdbe";
                     response.Errors.Add("SSL/TLS handshake failed. SQL Server 2012 requires SP4 + cumulative update for TLS 1.2.");
                     break;
-                    
+
                 // Encryption-related errors
                 case 10:
                 case 42:
@@ -181,14 +181,14 @@ namespace ActoEngine.WebApi.Features.Projects
                     response.ErrorCode = "ENCRYPTION_ERROR";
                     response.Errors.Add("Connection encryption negotiation failed.");
                     break;
-                    
+
                 default:
                     response.Message = $"Connection failed (Error {ex.Number}). Please check your connection details.";
                     response.ErrorCode = "SQL_ERROR";
                     response.Errors.Add(ex.Message);
                     break;
             }
-            
+
             return response;
         }
 

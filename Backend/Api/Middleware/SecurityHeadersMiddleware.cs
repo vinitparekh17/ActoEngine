@@ -1,5 +1,6 @@
 using System.Text;
 namespace ActoEngine.WebApi.Api.Middleware;
+
 public class SecurityHeadersMiddleware(RequestDelegate next)
 {
     private readonly RequestDelegate _next = next;

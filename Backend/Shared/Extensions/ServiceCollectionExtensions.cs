@@ -43,8 +43,8 @@ namespace ActoEngine.WebApi.Shared.Extensions
                     {
                         // Fallback to configuration or default
                         var configOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
-                        allowedOrigins = configOrigins?.Length > 0 
-                            ? configOrigins 
+                        allowedOrigins = configOrigins?.Length > 0
+                            ? configOrigins
                             : ["http://localhost:5173", "http://localhost:3000"];
                     }
 

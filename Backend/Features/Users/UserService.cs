@@ -63,7 +63,7 @@ public class UserManagementService(
 
         // Note: Permissions are managed through roles, so we only return the user and role information
         // The role name is already included in the UserDto from the query
-        
+
         return new UserWithRoleDto
         {
             User = user,
@@ -173,22 +173,22 @@ public class UserManagementService(
     public async Task DeleteUserAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken) ?? throw new InvalidOperationException($"User {userId} not found");
-        
+
         // Auto-cleanup: Remove all project memberships before deleting user
         // This prevents FK_ProjectMembers_Users constraint violations (ON DELETE NO ACTION)
         var projectMemberships = await projectRepository.GetUserProjectMembershipsAsync(userId, cancellationToken);
         var membershipsList = projectMemberships.ToList();
-        
+
         if (membershipsList.Any())
         {
             logger.LogInformation("Removing {Count} project membership(s) for user {UserId} before deletion", membershipsList.Count, userId);
-            
+
             foreach (var projectId in membershipsList)
             {
                 await projectRepository.RemoveProjectMemberAsync(projectId, userId, cancellationToken);
             }
         }
-        
+
         await userRepository.DeleteAsync(userId, cancellationToken);
         logger.LogInformation("Deleted user {Username} (ID: {UserId})", user.Username, userId);
     }
