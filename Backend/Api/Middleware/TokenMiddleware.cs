@@ -65,7 +65,7 @@ namespace ActoEngine.WebApi.Api.Middleware
                 SetRefreshTokenCookie(context, result.RefreshToken, result.RefreshExpiresAt.AddDays(7));
             }
 
-            var principal = authService.ValidateAccessToken(result.SessionToken);
+            var principal = await authService.ValidateAccessTokenAsync(result.SessionToken);
             if (principal != null)
             {
                 context.User = principal;
