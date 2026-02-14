@@ -92,10 +92,16 @@ public static class UserSqlQueries
             UpdatedAt = @UpdatedAt,
             UpdatedBy = @UpdatedBy
         WHERE UserID = @UserId";
+    // MIGRATION NOTE: This query handles role deletion during schema transition.
+    // The Users table currently has both:
+    // - RoleId (FK to Roles table) - new schema
+    // - Role (string column) - legacy schema
+    // When a role is deleted, we reset both columns to maintain consistency across
+    // old and new code paths until migration is complete.
     public const string UpdateRoleForUsers = @"
         UPDATE Users
         SET RoleId = NULL,
-            Role = 'User', -- Default role string
+            Role = 'User', -- Default role string for legacy column
             UpdatedAt = GETUTCDATE()
         WHERE RoleId = @RoleId";
 }

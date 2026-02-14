@@ -3,7 +3,7 @@ namespace ActoEngine.WebApi.Features.Auth;
 public interface IPasswordHasher
 {
     string HashPassword(string password);
-    bool VerifyPassword(string hashedPassword, string providedPassword);
+    bool VerifyPassword(string password, string hashedPassword);
 }
 public class PasswordHasher : IPasswordHasher
 {

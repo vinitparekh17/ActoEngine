@@ -136,6 +136,7 @@ namespace ActoEngine.WebApi.Features.Projects
                 // Network/connectivity errors
                 case -1:
                 case 53:
+                case 10060:
                     response.Message = "Cannot reach server. Please verify the server address and port are correct.";
                     response.ErrorCode = "NETWORK_UNREACHABLE";
                     response.Errors.Add("A network-related or instance-specific error occurred.");
@@ -167,7 +168,6 @@ namespace ActoEngine.WebApi.Features.Projects
                 // TLS/SSL handshake errors - common with SQL Server 2012 without TLS 1.2 patches
                 case 20:
                 case 10054:
-                case 10060:
                     response.Message = "Connection security error. If using SQL Server 2012, ensure TLS 1.2 updates are installed.";
                     response.ErrorCode = "TLS_HANDSHAKE_FAILED";
                     response.HelpLink = "https://support.microsoft.com/en-us/topic/kb3135244-tls-1-2-support-for-microsoft-sql-server-e4472ef8-90a9-13c1-e4d8-44aad198cdbe";

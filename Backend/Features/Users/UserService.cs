@@ -63,11 +63,12 @@ public class UserManagementService(
 
         // Note: Permissions are managed through roles, so we only return the user and role information
         // The role name is already included in the UserDto from the query
+        // RoleName can be null if user has no assigned role (LEFT JOIN result)
 
         return new UserWithRoleDto
         {
             User = user,
-            RoleName = user.RoleName ?? throw new InvalidOperationException("User has no role assigned")
+            RoleName = user.RoleName ?? "Unassigned"
         };
     }
 

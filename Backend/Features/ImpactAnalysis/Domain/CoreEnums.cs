@@ -27,7 +27,9 @@ public enum DependencyType
     Delete,
 
     SchemaDependency,
-    ApiCall
+    ApiCall,
+
+    LogicalFk
 }
 
 public enum ImpactLevel

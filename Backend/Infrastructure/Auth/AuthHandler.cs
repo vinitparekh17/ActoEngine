@@ -50,7 +50,7 @@ public class CustomTokenAuthenticationHandler(
         using var scope = _scopeFactory.CreateScope();
         var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
 
-        var principal = authService.ValidateAccessToken(token);
+        var principal = await authService.ValidateAccessTokenAsync(token);
         if (principal == null)
         {
             _logger.LogWarning("Token validation failed for path: {Path}", Request.Path);

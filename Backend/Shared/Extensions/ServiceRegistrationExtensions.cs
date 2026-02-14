@@ -20,6 +20,7 @@ using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Graph;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Aggregation;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Pathing;
+using ActoEngine.WebApi.Features.LogicalFk;
 
 namespace ActoEngine.WebApi.Shared.Extensions
 {
@@ -62,6 +63,10 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<IClientService, ClientService>();
             services.AddScoped<IProjectClientService, ProjectClientService>();
             services.AddScoped<IContextService, ContextService>();
+
+            // Logical FK Services
+            services.AddScoped<ILogicalFkRepository, LogicalFkRepository>();
+            services.AddScoped<ILogicalFkService, LogicalFkService>();
 
             // Impact Analysis Services
             services.AddScoped<IImpactFacade, ImpactFacade>();
