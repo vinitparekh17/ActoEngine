@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { useApi } from "@/hooks/useApi";
 import { formatRelativeTime } from "@/lib/utils";
+import { getDefaultSchema } from "@/lib/schema-utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -55,7 +56,7 @@ import {
   Users,
   Clock,
 } from "lucide-react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import React, { lazy } from "react";
 import { useProject } from "@/hooks/useProject";
@@ -299,13 +300,20 @@ const DocumentationEmptyState: React.FC<{ entityName: string }> = ({
 // MAIN COMPONENT
 // ============================================================================
 const EntityDetailPage: React.FC = () => {
-  const { projectId, entityId } = useParams<{
+  const { projectId, entityId, entityType: entityTypeParam } = useParams<{
     projectId: string;
     entityId: string;
+    entityType: string;
   }>();
-  const { pathname } = useLocation();
-  const isTable = pathname.includes("/tables/");
-  const entityType = isTable ? "TABLE" : "SP";
+
+  // Normalize entityType from route param, defaulting to "SP" if missing
+  const entityType = entityTypeParam?.toUpperCase() === "TABLES"
+    ? "TABLE"
+    : entityTypeParam?.toUpperCase() === "STORED-PROCEDURES" || entityTypeParam?.toUpperCase() === "SP"
+      ? "SP"
+      : "SP"; // Default fallback
+
+  const isTable = entityType === "TABLE";
 
   // Fetch Entity Structure
   const structureEndpoint = isTable
@@ -332,12 +340,7 @@ const EntityDetailPage: React.FC = () => {
     ? (entityData as TableDetails)?.tableName
     : (entityData as SPDetails)?.procedureName;
 
-  const getDefaultSchema = (dbType?: string) => {
-    const t = (dbType || "").toLowerCase();
-    if (t.includes("postgres")) return "public";
-    if (t.includes("sql") || t.includes("mssql")) return "dbo";
-    return "";
-  };
+
 
   const schema = entityData?.schemaName || getDefaultSchema(selectedProject?.databaseType);
   const fullName = name ? `${schema}.${name}` : "Loading...";
@@ -466,8 +469,8 @@ const EntityDetailPage: React.FC = () => {
               <div className="flex items-start gap-5">
                 <div
                   className={`p-4 rounded-xl border shadow-sm ${isTable
-                      ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900"
-                      : "bg-violet-50 text-violet-600 border-violet-100 dark:bg-violet-950/30 dark:border-violet-900"
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900"
+                    : "bg-violet-50 text-violet-600 border-violet-100 dark:bg-violet-950/30 dark:border-violet-900"
                     }`}
                 >
                   {isTable ? (

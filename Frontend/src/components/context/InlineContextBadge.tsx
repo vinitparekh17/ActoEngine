@@ -432,8 +432,8 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
                 Last reviewed{" "}
                 {formatRelativeTime(
                   contextResponse.lastReviewed ||
-                    contextResponse.lastReviewedAt ||
-                    "",
+                  contextResponse.lastReviewedAt ||
+                  "",
                 )}
                 {(context.reviewedBy || (context as any).updatedBy) &&
                   ` by ${context.reviewedBy || (context as any).updatedBy}`}
@@ -496,16 +496,8 @@ function getEntityRoute(
   entityId: number,
   projectId: number,
 ): string {
-  switch (entityType) {
-    case "TABLE":
-      return `/project/${projectId}/tables/${entityId}`;
-    case "SP":
-      return `/project/${projectId}/stored-procedures/${entityId}`;
-    case "COLUMN":
-      return `/project/${projectId}/columns/${entityId}`;
-    default:
-      return `/project/${projectId}`;
-  }
+  const entityTypeSlug = entityType === "TABLE" ? "tables" : "stored-procedures";
+  return `/project/${projectId}/${entityTypeSlug}/${entityId}/detail`;
 }
 
 function formatRelativeTime(date: string): string {

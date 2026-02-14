@@ -70,14 +70,8 @@ function getEntityRoute(
   id: number,
 ): string {
   if (!projectId) return "#";
-  switch (type) {
-    case "SP":
-      return `/project/${projectId}/stored-procedures/${id}`;
-    case "TABLE":
-      return `/project/${projectId}/tables/${id}`;
-    default:
-      return `/project/${projectId}/database-browser`;
-  }
+  const entityTypeSlug = type === "TABLE" ? "tables" : "stored-procedures";
+  return `/project/${projectId}/${entityTypeSlug}/${id}/detail`;
 }
 
 function getEntityTypeLabel(type: string): string {

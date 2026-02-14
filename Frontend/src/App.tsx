@@ -177,17 +177,9 @@ function AppRoutes() {
           }
         />
 
-        {/* Entity detail routes */}
+        {/* Entity detail routes - unified with entityType param */}
         <Route
-          path="project/:projectId/tables/:entityId"
-          element={
-            <PermissionRoute permission="Contexts:Read">
-              <EntityDetailPage />
-            </PermissionRoute>
-          }
-        />
-        <Route
-          path="project/:projectId/stored-procedures/:entityId"
+          path="project/:projectId/:entityType/:entityId/detail"
           element={
             <PermissionRoute permission="Contexts:Read">
               <EntityDetailPage />
