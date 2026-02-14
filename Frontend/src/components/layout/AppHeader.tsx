@@ -12,7 +12,7 @@ export default function AppHeader() {
         <div className="flex items-center gap-3">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-6" />
-          <div className="font-semibold text-lg">ActoX</div>
+          <div className="font-semibold text-lg">Acto Engine</div>
         </div>
 
         {/* Right: Actions */}

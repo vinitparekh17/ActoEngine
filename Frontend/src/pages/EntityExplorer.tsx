@@ -1,5 +1,5 @@
 // pages/EntityExplorer.tsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useProject } from "@/hooks/useProject";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,16 @@ export default function EntityExplorer() {
     null,
   );
 
+  // Track entity resolution state separately from entity name
+  const [isResolvingEntity, setIsResolvingEntity] = useState(false);
+
+  // Ref to track last synced entity to avoid infinite loops in effect
+  const lastSyncedEntityRef = useRef<{
+    entityType: EntityType;
+    entityId: number;
+    entityName: string;
+  } | null>(null);
+
   // Handle entity selection from list
   const handleSelectEntity = useCallback(
     (entity: UnifiedEntity | null) => {
@@ -161,22 +171,25 @@ export default function EntityExplorer() {
   // Sync URL params to selected entity state
   useEffect(() => {
     if (selectedEntityType && selectedEntityId && !isNaN(selectedEntityId)) {
-      // Check if we need to update the selected entity
+      // Check if we need to update the selected entity using ref to avoid reading selectedEntity
+      const lastSynced = lastSyncedEntityRef.current;
       const needsUpdate =
-        !selectedEntity ||
-        selectedEntity.entityId !== selectedEntityId ||
-        selectedEntity.entityType !== selectedEntityType ||
-        selectedEntity.entityName === "";
+        !lastSynced ||
+        lastSynced.entityId !== selectedEntityId ||
+        lastSynced.entityType !== selectedEntityType;
 
       if (needsUpdate) {
+        // Start resolution
+        setIsResolvingEntity(true);
+
         // Try to resolve entity name from loaded data
-        let foundName = "";
+        let foundName: string | undefined;
         let foundSchema = "";
 
         if (selectedEntityType === "TABLE" && tablesData) {
           const found = tablesData.find((t) => t.tableId === selectedEntityId);
           if (found) {
-            foundName = found.tableName || "";
+            foundName = found.tableName;
             foundSchema = found.schemaName || "";
           }
         } else if (selectedEntityType === "SP" && proceduresData) {
@@ -184,22 +197,39 @@ export default function EntityExplorer() {
             (sp) => sp.spId === selectedEntityId,
           );
           if (found) {
-            foundName = found.procedureName || "";
+            foundName = found.procedureName;
             foundSchema = found.schemaName || "";
           }
         }
 
-        // Update state
-        setSelectedEntity({
+        // Build the entity object
+        const resolvedEntity: UnifiedEntity = {
           entityType: selectedEntityType,
           entityId: selectedEntityId,
-          entityName: foundName, // Empty string triggers skeleton loading
+          entityName: foundName || "",
           schemaName: foundSchema,
-        });
+        };
+
+        // Update state
+        setSelectedEntity(resolvedEntity);
+
+        // Update ref to track what we just synced
+        lastSyncedEntityRef.current = {
+          entityType: selectedEntityType,
+          entityId: selectedEntityId,
+          entityName: foundName || "",
+        };
+
+        // End resolution (data is available or we've done our best)
+        setIsResolvingEntity(false);
       }
-    } else if (selectedEntity) {
+    } else {
       // URL cleared, deselect
-      setSelectedEntity(null);
+      if (lastSyncedEntityRef.current) {
+        setSelectedEntity(null);
+        lastSyncedEntityRef.current = null;
+        setIsResolvingEntity(false);
+      }
     }
   }, [selectedEntityType, selectedEntityId, tablesData, proceduresData]);
 
@@ -293,7 +323,7 @@ export default function EntityExplorer() {
               activeTab={activeTab}
               onTabChange={handleTabChange}
               onClose={handleCloseDetails}
-              isLoading={selectedEntity.entityName === ""}
+              isLoading={isResolvingEntity}
             />
           ) : (
             <EmptyDetailsState />

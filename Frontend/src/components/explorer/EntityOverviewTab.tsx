@@ -3,6 +3,7 @@ import React from "react";
 import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
 import { Link } from "react-router-dom";
+import { getDefaultSchema } from "@/lib/schema-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -66,12 +67,7 @@ interface EntityOverviewTabProps {
 export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
 
-  const getDefaultSchema = (dbType?: string) => {
-    const t = (dbType || "").toLowerCase();
-    if (t.includes("postgres")) return "public";
-    if (t.includes("sql") || t.includes("mssql")) return "dbo";
-    return "";
-  };
+
 
 
   // Fetch table details
@@ -115,14 +111,8 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
   };
 
   const getDetailRoute = () => {
-    switch (entity.entityType) {
-      case "TABLE":
-        return `/project/${selectedProjectId}/tables/${entity.entityId}`;
-      case "SP":
-        return `/project/${selectedProjectId}/stored-procedures/${entity.entityId}`;
-      default:
-        return `/project/${selectedProjectId}`;
-    }
+    const entityTypeSlug = entity.entityType === "TABLE" ? "tables" : "stored-procedures";
+    return `/project/${selectedProjectId}/${entityTypeSlug}/${entity.entityId}/detail`;
   };
 
   if (isLoading) {

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getDefaultSchema } from "@/lib/schema-utils";
 import {
   Select,
   SelectContent,
@@ -141,22 +142,6 @@ export function EntityListPanel({
 
     return entities;
   }, [tablesData, proceduresData, filterType]);
-
-  // Database-aware default schema helper
-  const getDefaultSchema = (dbType?: string) => {
-    const t = (dbType || "").toLowerCase();
-    switch (t) {
-      case "sqlserver":
-      case "mssql":
-      case "azure-sql":
-        return "dbo";
-      case "postgres":
-      case "postgresql":
-        return "public";
-      default:
-        return "";
-    }
-  };
 
   // Filter and sort entities
   const filteredEntities = useMemo(() => {
@@ -477,10 +462,10 @@ export function EntityListPanel({
                           itemRefs.current[index] = el;
                         }}
                         className={`cursor-pointer ${selected
-                            ? "bg-accent"
-                            : isFocused
-                              ? "bg-accent/50"
-                              : "hover:bg-accent"
+                          ? "bg-accent"
+                          : isFocused
+                            ? "bg-accent/50"
+                            : "hover:bg-accent"
                           }`}
                         onClick={() => onSelectEntity(entity)}
                       >

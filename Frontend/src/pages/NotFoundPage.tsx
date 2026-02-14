@@ -166,26 +166,3 @@ export default function NotFoundPage() {
     </div>
   );
 }
-
-// -----------------------------------------------------------------------------
-// APP WRAPPER (For Preview Context)
-// -----------------------------------------------------------------------------
-
-function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
-
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-    document.documentElement.classList.toggle("dark");
-  };
-
-  return (
-    <button
-      onClick={toggleTheme}
-      className="fixed top-4 right-4 z-50 p-2 rounded-full bg-white dark:bg-neutral-800 shadow-lg border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:scale-110 transition-all duration-200"
-      title="Toggle Theme for Preview"
-    >
-      {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-    </button>
-  );
-}

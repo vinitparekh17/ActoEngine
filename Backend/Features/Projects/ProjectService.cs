@@ -266,20 +266,20 @@ namespace ActoEngine.WebApi.Features.Projects
 
                 var isSameServer = await IsSameServerAsync(targetConnectionString);
 
-                using var actoxConn = await _connectionFactory.CreateConnectionAsync();
-                using var transaction = actoxConn.BeginTransaction();
+                using var dbConn = await _connectionFactory.CreateConnectionAsync();
+                using var transaction = dbConn.BeginTransaction();
 
                 try
                 {
                     if (isSameServer)
                     {
                         _logger.LogInformation("Target database is on the same server. Using same-server sync for project {ProjectId}", projectId);
-                        await SyncViaSameServerAsync(projectId, targetConnectionString, userId, actoxConn, transaction);
+                        await SyncViaSameServerAsync(projectId, targetConnectionString, userId, dbConn, transaction);
                     }
                     else
                     {
                         _logger.LogInformation("Target database is on a different server. Using cross-server sync for project {ProjectId}", projectId);
-                        await SyncViaCrossServerAsync(projectId, targetConnectionString, userId, actoxConn, transaction);
+                        await SyncViaCrossServerAsync(projectId, targetConnectionString, userId, dbConn, transaction);
                     }
 
                     transaction.Commit();
@@ -325,14 +325,14 @@ namespace ActoEngine.WebApi.Features.Projects
         /// <param name="projectId">The identifier of the project to synchronize.</param>
         /// <param name="targetConnectionString">Connection string for the target database to read schema from.</param>
         /// <param name="userId">Identifier of the user initiating the sync; used when creating or linking the global default client and recording ownership.</param>
-        /// <param name="actoxConn">Active connection to the Actox metadata database where schema changes are persisted.</param>
-        /// <param name="transaction">Database transaction on <paramref name="actoxConn"/> used to group persisted changes.</param>
+        /// <param name="dbConn">Active connection to the Actox metadata database where schema changes are persisted.</param>
+        /// <param name="transaction">Database transaction on <paramref name="dbConn"/> used to group persisted changes.</param>
         /// <exception cref="InvalidOperationException">Thrown if creation of the global "Default Client" succeeds but the created client cannot be retrieved.</exception>
         private async Task SyncViaCrossServerAsync(
             int projectId,
             string targetConnectionString,
             int userId,
-            IDbConnection actoxConn,
+            IDbConnection dbConn,
             IDbTransaction transaction)
         {
             using var targetConn = new SqlConnection(targetConnectionString);
@@ -340,25 +340,25 @@ namespace ActoEngine.WebApi.Features.Projects
             await targetConn.OpenAsync();
 
             // Step 1: Sync Tables
-            await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing tables...", 10);
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing tables...", 10);
             var tablesWithSchema = await _schemaService.GetAllTablesWithSchemaAsync(targetConnectionString);
-            var tableCount = await _schemaRepository.SyncTablesAsync(projectId, tablesWithSchema, actoxConn, transaction);
-            await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {tableCount} tables", 33);
+            var tableCount = await _schemaRepository.SyncTablesAsync(projectId, tablesWithSchema, dbConn, transaction);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {tableCount} tables", 33);
 
             // Step 2: Sync Columns
-            await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing columns...", 40);
-            var columnCount = await SyncColumnsForAllTablesAsync(projectId, tablesWithSchema, targetConn, actoxConn, transaction);
-            await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {columnCount} columns", 66);
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing columns...", 40);
+            var columnCount = await SyncColumnsForAllTablesAsync(projectId, tablesWithSchema, targetConn, dbConn, transaction);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {columnCount} columns", 66);
 
             // Step 3: Sync Foreign Keys
-            await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing foreign keys...", 67);
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 67);
             var tables = tablesWithSchema.Select(t => t.TableName);
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
-            var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, actoxConn, transaction);
-            await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
+            var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, dbConn, transaction);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
 
             // Step 4: Sync SPs
-            await UpdateSyncProgress(actoxConn, transaction, projectId, "Syncing stored procedures...", 89);
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing stored procedures...", 89);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
             // Get or create global "Default Client"
@@ -384,8 +384,8 @@ namespace ActoEngine.WebApi.Features.Projects
                 await _projectClientRepository.LinkAsync(projectId, transaction, defaultClient.ClientId, userId);
             }
 
-            var spCount = await _schemaRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, actoxConn, transaction);
-            await UpdateSyncProgress(actoxConn, transaction, projectId, $"Synced {spCount} procedures", 100);
+            var spCount = await _schemaRepository.SyncStoredProceduresAsync(projectId, defaultClient.ClientId, procedures, userId, dbConn, transaction);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {spCount} procedures", 100);
         }
 
         /// <summary>
@@ -394,20 +394,20 @@ namespace ActoEngine.WebApi.Features.Projects
         /// <param name="projectId">The project identifier whose table mappings are used to locate target table IDs.</param>
         /// <param name="tablesWithSchema">A sequence of tuples containing table names and schema names from the target database; only tables that match the project's tables are processed.</param>
         /// <param name="targetConn">An open SQL connection to the target database to read column metadata from.</param>
-        /// <param name="actoxConn">A database connection to the application's metadata store used for persisting synced columns.</param>
+        /// <param name="dbConn">A database connection to the application's metadata store used for persisting synced columns.</param>
         /// <param name="transaction">The transaction context to use when writing metadata to the application's metadata store.</param>
         /// <returns>The total number of columns that were synchronized for the project.</returns>
         private async Task<int> SyncColumnsForAllTablesAsync(
             int projectId,
             IEnumerable<(string TableName, string SchemaName)> tablesWithSchema,
             SqlConnection targetConn,
-            IDbConnection actoxConn,
+            IDbConnection dbConn,
             IDbTransaction transaction)
         {
             var totalColumns = 0;
 
             // Fetch all table IDs in a single query
-            var tables = await _schemaRepository.GetProjectTablesAsync(projectId, actoxConn, transaction);
+            var tables = await _schemaRepository.GetProjectTablesAsync(projectId, dbConn, transaction);
             var tableIdMap = tables.ToDictionary(t => t.TableName, t => t.TableId);
 
             // Use the table names we already have
@@ -416,7 +416,7 @@ namespace ActoEngine.WebApi.Features.Projects
                 if (tableIdMap.TryGetValue(tableName, out var tableId))
                 {
                     var columns = await ReadColumnsFromTargetAsync(targetConn, tableName);
-                    var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, actoxConn, transaction);
+                    var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
                     totalColumns += count;
                 }
             }
@@ -453,12 +453,12 @@ namespace ActoEngine.WebApi.Features.Projects
             int projectId,
             string targetConnectionString,
             int userId,
-            IDbConnection actoxConn,
+            IDbConnection dbConn,
             IDbTransaction transaction)
         {
             // Same-server sync uses 3-part naming (DbName.schema.table), 
             // so we don't need the connection string - the SP gets DatabaseName from Projects table
-            using var cmd = actoxConn.CreateCommand() as SqlCommand ?? throw new InvalidOperationException("Failed to create SqlCommand.");
+            using var cmd = dbConn.CreateCommand() as SqlCommand ?? throw new InvalidOperationException("Failed to create SqlCommand.");
             cmd.Transaction = transaction as SqlTransaction;
             if (cmd.Transaction == null)
             {
@@ -482,16 +482,16 @@ namespace ActoEngine.WebApi.Features.Projects
         }
         private async Task<bool> IsSameServerAsync(string targetConnectionString)
         {
-            var actoxConnectionString = _configuration.GetConnectionString("DefaultConnection");
+            var dbConnectionString = _configuration.GetConnectionString("DefaultConnection");
 
             using var targetConn = new SqlConnection(targetConnectionString);
-            using var actoxConn = new SqlConnection(actoxConnectionString);
+            using var dbConn = new SqlConnection(dbConnectionString);
 
             await targetConn.OpenAsync();
-            await actoxConn.OpenAsync();
+            await dbConn.OpenAsync();
 
             using var targetCmd = new SqlCommand(SchemaSyncQueries.GetServerName, targetConn);
-            using var actoxCmd = new SqlCommand(SchemaSyncQueries.GetServerName, actoxConn);
+            using var actoxCmd = new SqlCommand(SchemaSyncQueries.GetServerName, dbConn);
 
             var targetServer = await targetCmd.ExecuteScalarAsync() as string;
             var actoxServer = await actoxCmd.ExecuteScalarAsync() as string;
