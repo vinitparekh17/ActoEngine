@@ -12,7 +12,7 @@ public interface IAuthService
     Task<AuthResult> RefreshSessionAsync(string refreshToken);
     Task LogoutAsync(string refreshToken);
     Task LogoutByUserIdAsync(int userId);
-    ClaimsPrincipal? ValidateAccessToken(string accessToken);
+    Task<ClaimsPrincipal?> ValidateAccessTokenAsync(string accessToken);
     Task<TokenRotationResult?> RotateTokensAsync(string currentAccessToken, string refreshToken);
 
     Task<User?> GetUserAsync(int userId);
@@ -163,7 +163,7 @@ public class AuthService(
         };
     }
 
-    public ClaimsPrincipal? ValidateAccessToken(string accessToken)
+    public async Task<ClaimsPrincipal?> ValidateAccessTokenAsync(string accessToken)
     {
         if (string.IsNullOrWhiteSpace(accessToken))
         {
@@ -174,7 +174,7 @@ public class AuthService(
         try
         {
             var tokenHash = _tokenHasher.HashToken(accessToken);
-            var tokenRecord = _tokenRepository.GetBySessionTokenHashAsync(tokenHash).GetAwaiter().GetResult();
+            var tokenRecord = await _tokenRepository.GetBySessionTokenHashAsync(tokenHash);
 
             if (tokenRecord == null)
             {

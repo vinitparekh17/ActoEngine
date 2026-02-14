@@ -60,9 +60,16 @@ public class AuthController(IAuthService authService) : ControllerBase
             Permissions = user.Permissions ?? []
         };
 
+        // Guard against unexpected null tokens when authentication succeeds
+        if (string.IsNullOrEmpty(result.SessionToken) || string.IsNullOrEmpty(result.RefreshToken))
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                ApiResponse<object>.Failure("Authentication failed: tokens not generated"));
+        }
+
         // Set cookies
-        SetAccessTokenCookie(result.SessionToken!, result.ExpiresAt);
-        SetRefreshTokenCookie(result.RefreshToken!, result.RefreshExpiresAt);
+        SetAccessTokenCookie(result.SessionToken, result.ExpiresAt);
+        SetRefreshTokenCookie(result.RefreshToken, result.RefreshExpiresAt);
 
         var responseData = new AuthTokenResponse
         {
