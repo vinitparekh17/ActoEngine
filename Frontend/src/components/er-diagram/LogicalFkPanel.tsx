@@ -1,0 +1,365 @@
+/**
+ * LogicalFkPanel — Relationships tab content for EntityDetailPage
+ *
+ * Shows:
+ * 1. Physical Foreign Keys (read-only)
+ * 2. Logical Foreign Keys (confirmed + suggested)  
+ * 3. "Add Logical Relationship" button → modal
+ * 4. "Run Detection" to auto-detect candidates
+ */
+import { useState, useCallback } from "react";
+import {
+    ArrowRight,
+    Check,
+    X,
+    Plus,
+    Sparkles,
+    Link2,
+    Loader2,
+    Trash2,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useApi, useApiPut, useApiDelete } from "@/hooks/useApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import type { LogicalFkDto, PhysicalFkDto } from "@/types/er-diagram";
+import AddRelationshipModal from "./AddRelationshipModal";
+
+// ---------- Types ----------
+
+interface ColumnForModal {
+    columnId: number;
+    columnName: string;
+    dataType: string;
+    isPrimaryKey?: boolean;
+    isForeignKey?: boolean;
+}
+
+interface LogicalFkPanelProps {
+    projectId: number;
+    tableId: number;
+    tableName: string;
+    /** Current table columns (for the Add modal) */
+    columns: ColumnForModal[];
+}
+
+// ---------- Component ----------
+
+export default function LogicalFkPanel({
+    projectId,
+    tableId,
+    tableName,
+    columns,
+}: LogicalFkPanelProps) {
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [isDetecting, setIsDetecting] = useState(false);
+    const queryClient = useQueryClient();
+
+    // Fetch physical FKs
+    const { data: physicalFks, isLoading: isLoadingPhysical } = useApi<PhysicalFkDto[]>(
+        `/logical-fks/${projectId}/table/${tableId}/physical`,
+        { queryKey: ["physical-fks", String(projectId), "table", String(tableId)] }
+    );
+
+    // Fetch logical FKs for this table
+    const logicalFkQueryKey = ["logical-fks", String(projectId), "table", String(tableId)];
+    const { data: logicalFks, isLoading } = useApi<LogicalFkDto[]>(
+        `/logical-fks/${projectId}/table/${tableId}`,
+        { queryKey: logicalFkQueryKey, staleTime: 30_000 }
+    );
+
+    // Mutations
+    const confirmMutation = useApiPut<unknown, { id: number }>(
+        `/logical-fks/${projectId}/:id/confirm`,
+        {
+            successMessage: "Relationship confirmed",
+            invalidateKeys: [logicalFkQueryKey],
+        }
+    );
+
+    const rejectMutation = useApiPut<unknown, { id: number }>(
+        `/logical-fks/${projectId}/:id/reject`,
+        {
+            successMessage: "Relationship rejected",
+            invalidateKeys: [logicalFkQueryKey],
+        }
+    );
+
+    const deleteMutation = useApiDelete<unknown, { id: number }>(
+        `/logical-fks/${projectId}/:id`,
+        {
+            successMessage: "Relationship removed",
+            invalidateKeys: [logicalFkQueryKey],
+        }
+    );
+
+    // Detect candidates
+    const handleDetect = useCallback(async () => {
+        setIsDetecting(true);
+        try {
+            await api.get(`/logical-fks/${projectId}/detect-candidates`);
+            queryClient.invalidateQueries({ queryKey: logicalFkQueryKey });
+            toast.success("Detection complete — check for new suggestions");
+        } catch {
+            toast.error("Detection failed");
+        } finally {
+            setIsDetecting(false);
+        }
+    }, [projectId, queryClient, logicalFkQueryKey]);
+
+    // Split logical FKs by status
+    const confirmed = (logicalFks ?? []).filter((fk) => fk.status === "CONFIRMED");
+    const suggested = (logicalFks ?? []).filter((fk) => fk.status === "SUGGESTED");
+
+    // Determine direction labels (this table could be source or target)
+    const fkLabel = (fk: LogicalFkDto) => {
+        const isSource = fk.sourceTableId === tableId;
+        const otherTable = isSource ? fk.targetTableName : fk.sourceTableName;
+        const myColumns = isSource ? fk.sourceColumnNames : fk.targetColumnNames;
+        const otherColumns = isSource ? fk.targetColumnNames : fk.sourceColumnNames;
+        return {
+            myColumns: myColumns.join(", "),
+            otherTable,
+            otherColumns: otherColumns.join(", "),
+            direction: isSource ? "→" : "←",
+        };
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Physical Foreign Keys */}
+            <Card className="border-border/60 shadow-sm">
+                <CardHeader className="bg-muted/30 pb-3 border-b">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Link2 className="h-4 w-4 text-blue-500" />
+                        Physical Foreign Keys
+                        <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                            {physicalFks?.length ?? 0}
+                        </Badge>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    {isLoadingPhysical ? (
+                        <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (physicalFks?.length ?? 0) === 0 ? (
+                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                            No physical foreign keys on this table
+                        </div>
+                    ) : (
+                        <div className="divide-y">
+                            {(physicalFks || []).map((fk, idx) => (
+                                <div
+                                    key={idx}
+                                    className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-muted/20 transition-colors"
+                                >
+                                    <code className="text-xs font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">
+                                        {fk.sourceColumnName}
+                                    </code>
+                                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    <code className="text-xs font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900">
+                                        {fk.targetTableName}.{fk.targetColumnName}
+                                    </code>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Logical Foreign Keys */}
+            <Card className="border-border/60 shadow-sm">
+                <CardHeader className="bg-muted/30 pb-3 border-b">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-amber-500" />
+                            Logical Foreign Keys
+                            {!isLoading && (
+                                <span className="text-xs font-normal text-muted-foreground ml-1">
+                                    ({confirmed.length} confirmed{suggested.length > 0 ? `, ${suggested.length} suggested` : ""})
+                                </span>
+                            )}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={handleDetect}
+                                disabled={isDetecting}
+                            >
+                                {isDetecting ? (
+                                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                ) : (
+                                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                                )}
+                                Run Detection
+                            </Button>
+                            <Button
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => setShowAddModal(true)}
+                            >
+                                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                                Add Relationship
+                            </Button>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : confirmed.length === 0 && suggested.length === 0 ? (
+                        <div className="px-4 py-8 text-center">
+                            <p className="text-sm text-muted-foreground mb-2">
+                                No logical relationships found
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Click "Run Detection" to discover candidates, or "Add Relationship" to create one manually.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="divide-y">
+                            {/* Suggested — shown first with action buttons */}
+                            {suggested.map((fk) => {
+                                const info = fkLabel(fk);
+                                return (
+                                    <div
+                                        key={fk.logicalFkId}
+                                        className="px-4 py-3 hover:bg-amber-50/30 dark:hover:bg-amber-950/10 transition-colors"
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-[10px] h-5 px-1.5 border-amber-300 text-amber-600 dark:text-amber-400 shrink-0"
+                                                >
+                                                    ?
+                                                </Badge>
+                                                <code className="text-xs font-mono text-foreground bg-muted px-1.5 py-0.5 rounded truncate">
+                                                    {info.myColumns}
+                                                </code>
+                                                <span className="text-muted-foreground text-xs shrink-0">
+                                                    {info.direction}
+                                                </span>
+                                                <code className="text-xs font-mono text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900 truncate">
+                                                    {info.otherTable}.{info.otherColumns}
+                                                </code>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
+                                                    onClick={() => confirmMutation.mutate({ id: fk.logicalFkId })}
+                                                    disabled={confirmMutation.isPending}
+                                                >
+                                                    <Check className="h-3.5 w-3.5 mr-1" />
+                                                    Confirm
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 px-2 text-destructive hover:bg-destructive/10"
+                                                    onClick={() => rejectMutation.mutate({ id: fk.logicalFkId })}
+                                                    disabled={rejectMutation.isPending}
+                                                >
+                                                    <X className="h-3.5 w-3.5 mr-1" />
+                                                    Reject
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        {/* Meta row */}
+                                        <div className="flex items-center gap-3 mt-1.5 ml-7 text-[11px] text-muted-foreground">
+                                            <span>
+                                                Confidence: {Math.round(fk.confidenceScore * 100)}%
+                                            </span>
+                                            <span>•</span>
+                                            <span>Method: {fk.discoveryMethod.toLowerCase()}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Confirmed */}
+                            {confirmed.map((fk) => {
+                                const info = fkLabel(fk);
+                                console.log(info)
+                                return (
+                                    <div
+                                        key={fk.logicalFkId}
+                                        className="px-4 py-3 hover:bg-muted/20 transition-colors"
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-[10px] h-5 px-1.5 border-green-300 text-green-600 dark:text-green-400 shrink-0"
+                                                >
+                                                    ✓
+                                                </Badge>
+                                                <code className="text-xs font-mono text-foreground bg-muted px-1.5 py-0.5 rounded truncate">
+                                                    {info.myColumns}
+                                                </code>
+                                                <span className="text-muted-foreground text-xs shrink-0">
+                                                    {info.direction}
+                                                </span>
+                                                <code className="text-xs font-mono text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-900 truncate">
+                                                    {info.otherTable}.{info.otherColumns}
+                                                </code>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                                                onClick={() => deleteMutation.mutate({ id: fk.logicalFkId })}
+                                                disabled={deleteMutation.isPending}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                        {/* Meta row */}
+                                        <div className="flex items-center gap-3 mt-1.5 ml-7 text-[11px] text-muted-foreground">
+                                            {fk.confirmedAt && (
+                                                <span>
+                                                    Confirmed{" "}
+                                                    {new Date(fk.confirmedAt).toLocaleDateString()}
+                                                </span>
+                                            )}
+                                            {fk.notes && (
+                                                <>
+                                                    <span>•</span>
+                                                    <span className="italic truncate">{fk.notes}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Add Relationship Modal */}
+            {showAddModal && (
+                <AddRelationshipModal
+                    projectId={projectId}
+                    sourceTableId={tableId}
+                    sourceTableName={tableName}
+                    sourceColumns={columns}
+                    onClose={() => setShowAddModal(false)}
+                    onSuccess={() =>
+                        queryClient.invalidateQueries({ queryKey: logicalFkQueryKey })
+                    }
+                />
+            )}
+        </div>
+    );
+}

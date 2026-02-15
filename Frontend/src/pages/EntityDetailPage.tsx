@@ -55,11 +55,13 @@ import {
   UserIcon,
   Users,
   Clock,
+  Link2,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import React, { lazy } from "react";
 import { useProject } from "@/hooks/useProject";
+import LogicalFkPanel from "@/components/er-diagram/LogicalFkPanel";
 
 const Editor = lazy(() => import("@monaco-editor/react"));
 
@@ -551,6 +553,11 @@ const EntityDetailPage: React.FC = () => {
                   <TabsTrigger value="structure" className="gap-2 text-xs">
                     <Layers className="h-3.5 w-3.5" /> Structure
                   </TabsTrigger>
+                  {isTable && (
+                    <TabsTrigger value="relationships" className="gap-2 text-xs">
+                      <Link2 className="h-3.5 w-3.5" /> Relationships
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="experts" className="gap-2 text-xs">
                     <Users className="h-3.5 w-3.5" /> Experts
                     <Badge
@@ -687,56 +694,7 @@ const EntityDetailPage: React.FC = () => {
                       </div>
                     </Card>
 
-                    {/* SQL Definition */}
-                    <Card className="overflow-hidden border-border/60 shadow-sm flex flex-col">
-                      <CardHeader className="bg-muted/30 pb-3 border-b flex flex-row items-center justify-between space-y-0">
-                        <div className="space-y-0.5">
-                          <CardTitle className="text-sm font-semibold">
-                            {isTable ? "DDL Script" : "Source Definition"}
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            SQL used to create this entity
-                          </CardDescription>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() =>
-                            copyToClipboard(
-                              isTable ? ddl || "" : definition || "",
-                            )
-                          }
-                        >
-                          <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy SQL
-                        </Button>
-                      </CardHeader>
-                      <div className="bg-[#1e1e1e] flex-1 min-h-[500px]">
-                        <Editor
-                          height="500px"
-                          defaultLanguage="sql"
-                          theme="vs-dark"
-                          value={
-                            isTable
-                              ? ddl || "-- DDL not available"
-                              : definition || "-- Definition not available"
-                          }
-                          options={{
-                            readOnly: true,
-                            minimap: { enabled: false },
-                            fontSize: 13,
-                            fontFamily:
-                              "'JetBrains Mono', 'Fira Code', monospace",
-                            scrollBeyondLastLine: false,
-                            automaticLayout: true,
-                            padding: { top: 20, bottom: 20 },
-                            lineNumbers: "on",
-                            renderLineHighlight: "none",
-                            overviewRulerBorder: false,
-                          }}
-                        />
-                      </div>
-                    </Card>
+
                   </div>
 
                   {/* Right Column: Meta Info (1 span) */}
@@ -798,6 +756,29 @@ const EntityDetailPage: React.FC = () => {
                   </div>
                 </div>
               </TabsContent>
+
+              {/* Relationships Tab (Tables only) */}
+              {isTable && (
+                <TabsContent
+                  value="relationships"
+                  className="mt-0 focus-visible:outline-none"
+                >
+                  <LogicalFkPanel
+                    projectId={Number(projectId)}
+                    tableId={Number(entityId)}
+                    tableName={name || ""}
+                    columns={
+                      (columns ?? []).map((c) => ({
+                        columnId: c.columnId ?? 0,
+                        columnName: c.name,
+                        dataType: c.dataType,
+                        isPrimaryKey: c.isPrimaryKey,
+                        isForeignKey: c.isForeignKey,
+                      }))
+                    }
+                  />
+                </TabsContent>
+              )}
 
               {/* Experts Tab */}
               <TabsContent

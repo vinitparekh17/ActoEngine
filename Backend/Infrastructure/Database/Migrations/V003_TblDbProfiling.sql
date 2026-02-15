@@ -78,6 +78,7 @@ CREATE TABLE ForeignKeyMetadata (
     ColumnId INT NOT NULL,
     ReferencedTableId INT NOT NULL,
     ReferencedColumnId INT NOT NULL,
+    ForeignKeyName NVARCHAR(255),
     OnDeleteAction NVARCHAR(50) DEFAULT 'NO ACTION',
     OnUpdateAction NVARCHAR(50) DEFAULT 'NO ACTION',
 

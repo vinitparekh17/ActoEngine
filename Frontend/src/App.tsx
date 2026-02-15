@@ -18,6 +18,7 @@ import ProjectSettings from "@/pages/ProjectSetting";
 import { ContextDashboard } from "@/pages/ContextDashboard";
 import EntityExplorer from "@/pages/EntityExplorer";
 import ImpactAnalysisPage from "@/pages/ImpactAnalysis";
+import ERDiagramPage from "@/pages/ERDiagram";
 import UserManagementPage from "@/pages/UserManagement";
 import RoleManagementPage from "@/pages/RoleManagement";
 import EntityDetailPage from "@/pages/EntityDetailPage";
@@ -193,6 +194,16 @@ function AppRoutes() {
           element={
             <PermissionRoute permission="Contexts:Read">
               <ImpactAnalysisPage />
+            </PermissionRoute>
+          }
+        />
+
+        {/* ER Diagram route */}
+        <Route
+          path="project/:projectId/er-diagram"
+          element={
+            <PermissionRoute permission="Schema:Read">
+              <ERDiagramPage />
             </PermissionRoute>
           }
         />

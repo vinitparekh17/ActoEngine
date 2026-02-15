@@ -21,6 +21,7 @@ using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Aggregation;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Pathing;
 using ActoEngine.WebApi.Features.LogicalFk;
+using ActoEngine.WebApi.Features.ErDiagram;
 
 namespace ActoEngine.WebApi.Shared.Extensions
 {
@@ -68,6 +69,10 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<ILogicalFkRepository, LogicalFkRepository>();
             services.AddScoped<ILogicalFkService, LogicalFkService>();
 
+            // ER Diagram Services
+            services.AddScoped<IErDiagramRepository, ErDiagramRepository>();
+            services.AddScoped<IErDiagramService, ErDiagramService>();
+
             // Impact Analysis Services
             services.AddScoped<IImpactFacade, ImpactFacade>();
             services.AddScoped<IGraphBuilder, GraphBuilder>();
@@ -96,8 +101,8 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<IGenerationHistoryRepository, GenerationHistoryRepository>();
             services.AddScoped<ITemplateRenderService, TemplateRenderService>();
 
-            services.AddScoped<IPasswordHasher, PasswordHasher>();
-            services.AddScoped<ITokenHasher, TokenHasher>();
+            services.AddSingleton<IPasswordHasher, PasswordHasher>();
+            services.AddSingleton<ITokenHasher, TokenHasher>();
 
             // Validation Services
             services.AddSingleton<IPasswordValidator, PasswordValidator>();
