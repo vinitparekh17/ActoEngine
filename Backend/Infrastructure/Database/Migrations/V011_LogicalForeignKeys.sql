@@ -36,6 +36,7 @@ CREATE TABLE LogicalForeignKeys (
     FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId) ON DELETE CASCADE,
     FOREIGN KEY (SourceTableId) REFERENCES TablesMetadata(TableId),
     FOREIGN KEY (TargetTableId) REFERENCES TablesMetadata(TableId),
+    FOREIGN KEY (CreatedBy) REFERENCES Users(UserID),
     FOREIGN KEY (ConfirmedBy) REFERENCES Users(UserID),
 
     -- Prevent duplicate logical FK entries

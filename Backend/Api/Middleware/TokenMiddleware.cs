@@ -62,7 +62,7 @@ namespace ActoEngine.WebApi.Api.Middleware
             context.Response.Headers["X-New-Access-Token"] = result.SessionToken;
             if (!string.IsNullOrEmpty(result.RefreshToken))
             {
-                SetRefreshTokenCookie(context, result.RefreshToken, result.RefreshExpiresAt.AddDays(7));
+                SetRefreshTokenCookie(context, result.RefreshToken, result.RefreshExpiresAt);
             }
 
             var principal = await authService.ValidateAccessTokenAsync(result.SessionToken);

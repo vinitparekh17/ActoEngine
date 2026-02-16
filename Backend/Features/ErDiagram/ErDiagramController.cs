@@ -25,14 +25,14 @@ public class ErDiagramController(
     [RequirePermission("Schema:Read")]
     [ProducesResponseType(typeof(ApiResponse<ErDiagramResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetNeighborhood(int projectId, int tableId, [FromQuery] int hops = 2)
+    public async Task<IActionResult> GetNeighborhood(int projectId, int tableId, [FromQuery] int hops = 2, CancellationToken cancellationToken = default)
     {
         try
         {
             // Cap hops at 3 for performance
             hops = Math.Clamp(hops, 1, 3);
 
-            var result = await erDiagramService.GetNeighborhoodAsync(projectId, tableId, hops);
+            var result = await erDiagramService.GetNeighborhoodAsync(projectId, tableId, hops, cancellationToken);
             if (result == null)
             {
                 return NotFound(ApiResponse<object>.Failure($"Table {tableId} not found in project {projectId}"));

@@ -150,6 +150,7 @@ public class LogicalFkController(
     [ProducesResponseType(typeof(ApiResponse<LogicalFkDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Confirm(
+        int projectId,
         int id,
         [FromBody] UpdateLogicalFkStatusRequest? request = null)
     {
@@ -161,7 +162,7 @@ public class LogicalFkController(
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
             }
 
-            var result = await logicalFkService.ConfirmAsync(id, userId.Value, request?.Notes);
+            var result = await logicalFkService.ConfirmAsync(projectId, id, userId.Value, request?.Notes);
             return Ok(ApiResponse<LogicalFkDto>.Success(result, "Logical FK confirmed"));
         }
         catch (KeyNotFoundException)
@@ -183,6 +184,7 @@ public class LogicalFkController(
     [ProducesResponseType(typeof(ApiResponse<LogicalFkDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Reject(
+        int projectId,
         int id,
         [FromBody] UpdateLogicalFkStatusRequest? request = null)
     {
@@ -194,7 +196,7 @@ public class LogicalFkController(
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
             }
 
-            var result = await logicalFkService.RejectAsync(id, userId.Value, request?.Notes);
+            var result = await logicalFkService.RejectAsync(projectId, id, userId.Value, request?.Notes);
             return Ok(ApiResponse<LogicalFkDto>.Success(result, "Logical FK rejected"));
         }
         catch (KeyNotFoundException)
@@ -214,16 +216,20 @@ public class LogicalFkController(
     [HttpDelete("{id:int}")]
     [RequirePermission("Schema:Update")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> Delete(int id)
+    public async Task<IActionResult> Delete(int projectId, int id)
     {
         try
         {
-            await logicalFkService.DeleteAsync(id);
+            await logicalFkService.DeleteAsync(projectId, id);
             return Ok(ApiResponse<object>.Success(new { }, "Logical FK deleted"));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Failure(ex.Message));
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error deleting logical FK {LogicalFkId}", id);
+            logger.LogError(ex, "Error deleting logical FK {LogicalFkId} in project {ProjectId}", id, projectId);
             return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }

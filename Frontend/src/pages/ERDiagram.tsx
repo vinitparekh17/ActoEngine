@@ -6,7 +6,7 @@
  * Physical FKs shown as solid lines, logical FKs as dashed lines.
  * Click a dashed edge to confirm/reject a logical FK suggestion.
  */
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {
     ReactFlow,
@@ -29,7 +29,11 @@ import {
     AlertCircle,
     CheckCircle2,
     XCircle,
+    Clock,
+    Zap,
+    Undo2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useApi, useApiMutation } from "@/hooks/useApi";
 import TableNode, { type TableNodeData } from "@/components/er-diagram/TableNode";
@@ -55,6 +59,7 @@ export default function ERDiagramPage() {
     const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
     const [selectedEdge, setSelectedEdge] = useState<ErEdgeData | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // React Flow state
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -188,9 +193,28 @@ export default function ERDiagramPage() {
 
     const handleReject = () => {
         if (!selectedEdge?.logicalFkId || !projectId) return;
+        const fkId = selectedEdge.logicalFkId;
         rejectMutation.mutate(
-            { id: selectedEdge.logicalFkId, projectId: pid } as any,
-            { onSuccess: () => setIsModalOpen(false) }
+            { id: fkId, projectId: pid } as any,
+            {
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                    // Show undo toast for 8 seconds
+                    const toastId = toast("Logical FK rejected", {
+                        duration: 8000,
+                        action: {
+                            label: "Undo",
+                            onClick: () => {
+                                confirmMutation.mutate(
+                                    { id: fkId, projectId: pid } as any
+                                );
+                                if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+                            },
+                        },
+                        icon: <Undo2 className="h-4 w-4" />,
+                    });
+                },
+            }
         );
     };
 
@@ -353,38 +377,79 @@ export default function ERDiagramPage() {
 
             {/* Logical FK Action Modal */}
             {isModalOpen && selectedEdge && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-card border rounded-xl shadow-2xl w-[420px] p-6">
-                        <h3 className="text-lg font-semibold mb-4">Logical Foreign Key</h3>
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="fk-modal-title"
+                    onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
+                >
+                    <div className="bg-card border rounded-xl shadow-2xl w-[460px] p-6">
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 id="fk-modal-title" className="text-lg font-semibold">Logical Foreign Key</h3>
+                            <span
+                                className={`text-xs font-semibold px-2 py-1 rounded-full ${selectedEdge.status === "CONFIRMED"
+                                    ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
+                                    : selectedEdge.status === "REJECTED"
+                                        ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+                                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                                    }`}
+                            >
+                                {selectedEdge.status}
+                            </span>
+                        </div>
 
+                        {/* Relationship columns */}
                         <div className="space-y-3 text-sm">
                             <div>
-                                <span className="text-muted-foreground">Source:</span>{" "}
-                                <span className="font-mono">{selectedEdge.sourceColumnName}</span>
+                                <span className="text-muted-foreground text-xs uppercase tracking-wider">Source Column</span>
+                                <div className="font-mono mt-0.5">{selectedEdge.sourceColumnName}</div>
                             </div>
                             <div>
-                                <span className="text-muted-foreground">Target:</span>{" "}
-                                <span className="font-mono">{selectedEdge.targetColumnName}</span>
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Status:</span>{" "}
-                                <span
-                                    className={`font-semibold ${selectedEdge.status === "CONFIRMED"
-                                        ? "text-green-500"
-                                        : selectedEdge.status === "REJECTED"
-                                            ? "text-red-500"
-                                            : "text-amber-500"
-                                        }`}
-                                >
-                                    {selectedEdge.status}
-                                </span>
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Confidence:</span>{" "}
-                                <span>{Math.round((selectedEdge.confidenceScore ?? 0) * 100)}%</span>
+                                <span className="text-muted-foreground text-xs uppercase tracking-wider">Target Column</span>
+                                <div className="font-mono mt-0.5">{selectedEdge.targetColumnName}</div>
                             </div>
                         </div>
 
+                        {/* Metadata section */}
+                        <div className="mt-5 pt-4 border-t space-y-2.5 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                                <Zap className="h-3.5 w-3.5 shrink-0" />
+                                <span>Confidence:</span>
+                                <span className="font-semibold text-foreground">
+                                    {Math.round((selectedEdge.confidenceScore ?? 0) * 100)}%
+                                </span>
+                            </div>
+                            {selectedEdge.discoveryMethod && (
+                                <div className="flex items-center gap-2">
+                                    <Zap className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Discovery:</span>
+                                    <span className="font-semibold text-foreground capitalize">
+                                        {selectedEdge.discoveryMethod.toLowerCase()}
+                                    </span>
+                                </div>
+                            )}
+                            {selectedEdge.createdAt && (
+                                <div className="flex items-center gap-2">
+                                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Detected:</span>
+                                    <span className="text-foreground">
+                                        {new Date(selectedEdge.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                                    </span>
+                                </div>
+                            )}
+                            {selectedEdge.confirmedAt && (
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                                    <span>Confirmed:</span>
+                                    <span className="text-foreground">
+                                        {new Date(selectedEdge.confirmedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Action buttons */}
                         <div className="flex gap-2 mt-6">
                             {selectedEdge.status !== "CONFIRMED" && (
                                 <button
@@ -396,7 +461,7 @@ export default function ERDiagramPage() {
                                     Confirm
                                 </button>
                             )}
-                            {selectedEdge.status !== "REJECTED" && (
+                            {selectedEdge.status === "SUGGESTED" && (
                                 <button
                                     onClick={handleReject}
                                     disabled={rejectMutation.isPending}

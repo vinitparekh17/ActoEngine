@@ -142,7 +142,11 @@ public class ErDiagramService(
                 RelationshipType = "LOGICAL",
                 Status = edge.Status,
                 ConfidenceScore = edge.ConfidenceScore,
-                LogicalFkId = edge.LogicalForeignKeyId
+                LogicalFkId = edge.LogicalForeignKeyId,
+                DiscoveryMethod = edge.DiscoveryMethod,
+                ConfirmedAt = edge.ConfirmedAt,
+                ConfirmedBy = edge.ConfirmedBy,
+                CreatedAt = edge.CreatedAt
             });
         }
 

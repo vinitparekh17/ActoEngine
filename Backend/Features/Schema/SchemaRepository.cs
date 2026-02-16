@@ -430,7 +430,7 @@ public class SchemaRepository(
                 ColumnName = (string)fk.ColumnName,
                 ReferencedTable = (string)fk.ReferencedTable,
                 ReferencedColumn = (string)fk.ReferencedColumn,
-                ForeignKeyName = (string)fk.ForeignKeyName,
+                ForeignKeyName = fk.ForeignKeyName as string,
                 OnDeleteAction = (string)(fk.OnDeleteAction ?? "NO ACTION"),
                 OnUpdateAction = (string)(fk.OnUpdateAction ?? "NO ACTION")
             });

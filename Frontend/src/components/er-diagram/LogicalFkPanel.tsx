@@ -7,7 +7,7 @@
  * 3. "Add Logical Relationship" button → modal
  * 4. "Run Detection" to auto-detect candidates
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
     ArrowRight,
     Check,
@@ -17,6 +17,7 @@ import {
     Link2,
     Loader2,
     Trash2,
+    Undo2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ export default function LogicalFkPanel({
     const [showAddModal, setShowAddModal] = useState(false);
     const [isDetecting, setIsDetecting] = useState(false);
     const queryClient = useQueryClient();
+    const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Fetch physical FKs
     const { data: physicalFks, isLoading: isLoadingPhysical } = useApi<PhysicalFkDto[]>(
@@ -164,6 +166,16 @@ export default function LogicalFkPanel({
                                     <code className="text-xs font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900">
                                         {fk.targetTableName}.{fk.targetColumnName}
                                     </code>
+                                    {fk.onDeleteAction && fk.onDeleteAction !== "NO ACTION" && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 border border-red-200 dark:border-red-900 shrink-0">
+                                            ON DELETE {fk.onDeleteAction}
+                                        </span>
+                                    )}
+                                    {fk.onUpdateAction && fk.onUpdateAction !== "NO ACTION" && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200 dark:border-blue-900 shrink-0">
+                                            ON UPDATE {fk.onUpdateAction}
+                                        </span>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -267,7 +279,26 @@ export default function LogicalFkPanel({
                                                     variant="ghost"
                                                     size="sm"
                                                     className="h-7 px-2 text-destructive hover:bg-destructive/10"
-                                                    onClick={() => rejectMutation.mutate({ id: fk.logicalFkId })}
+                                                    onClick={() => {
+                                                        const fkId = fk.logicalFkId;
+                                                        rejectMutation.mutate(
+                                                            { id: fkId },
+                                                            {
+                                                                onSuccess: () => {
+                                                                    toast("Relationship rejected", {
+                                                                        duration: 8000,
+                                                                        action: {
+                                                                            label: "Undo",
+                                                                            onClick: () => {
+                                                                                confirmMutation.mutate({ id: fkId });
+                                                                            },
+                                                                        },
+                                                                        icon: <Undo2 className="h-4 w-4" />,
+                                                                    });
+                                                                },
+                                                            }
+                                                        );
+                                                    }}
                                                     disabled={rejectMutation.isPending}
                                                 >
                                                     <X className="h-3.5 w-3.5 mr-1" />
@@ -290,7 +321,7 @@ export default function LogicalFkPanel({
                             {/* Confirmed */}
                             {confirmed.map((fk) => {
                                 const info = fkLabel(fk);
-                                console.log(info)
+
                                 return (
                                     <div
                                         key={fk.logicalFkId}

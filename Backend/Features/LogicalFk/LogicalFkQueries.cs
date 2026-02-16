@@ -68,11 +68,11 @@ public static class LogicalFkQueries
     public const string Insert = @"
         INSERT INTO LogicalForeignKeys
             (ProjectId, SourceTableId, SourceColumnIds, TargetTableId, TargetColumnIds,
-             DiscoveryMethod, ConfidenceScore, Status, Notes, CreatedBy)
+             DiscoveryMethod, ConfidenceScore, Status, Notes, CreatedBy, ConfirmedBy, ConfirmedAt)
         OUTPUT INSERTED.LogicalFkId
         VALUES
             (@ProjectId, @SourceTableId, @SourceColumnIds, @TargetTableId, @TargetColumnIds,
-             @DiscoveryMethod, @ConfidenceScore, @Status, @Notes, @CreatedBy);";
+             @DiscoveryMethod, @ConfidenceScore, @Status, @Notes, @CreatedBy, @ConfirmedBy, @ConfirmedAt);";
 
     public const string Confirm = @"
         UPDATE LogicalForeignKeys
@@ -80,7 +80,8 @@ public static class LogicalFkQueries
             ConfirmedBy = @UserId,
             ConfirmedAt = GETUTCDATE(),
             Notes = COALESCE(@Notes, Notes)
-        WHERE LogicalFkId = @LogicalFkId;";
+        WHERE LogicalFkId = @LogicalFkId
+          AND ProjectId = @ProjectId;";
 
     public const string Reject = @"
         UPDATE LogicalForeignKeys
@@ -88,11 +89,13 @@ public static class LogicalFkQueries
             ConfirmedBy = @UserId,
             ConfirmedAt = GETUTCDATE(),
             Notes = COALESCE(@Notes, Notes)
-        WHERE LogicalFkId = @LogicalFkId;";
+        WHERE LogicalFkId = @LogicalFkId
+          AND ProjectId = @ProjectId;";
 
     public const string Delete = @"
         DELETE FROM LogicalForeignKeys
-        WHERE LogicalFkId = @LogicalFkId;";
+        WHERE LogicalFkId = @LogicalFkId
+          AND ProjectId = @ProjectId;";
 
     /// <summary>
     /// Check if a logical FK already exists for the same source→target column mapping
@@ -136,7 +139,9 @@ public static class LogicalFkQueries
             st.TableName AS SourceTableName,
             sc.ColumnName AS SourceColumnName,
             tt.TableName AS TargetTableName,
-            tc.ColumnName AS TargetColumnName
+            tc.ColumnName AS TargetColumnName,
+            fk.OnDeleteAction,
+            fk.OnUpdateAction
         FROM ForeignKeyMetadata fk
         INNER JOIN TablesMetadata st ON fk.TableId = st.TableId
         INNER JOIN ColumnsMetadata sc ON fk.ColumnId = sc.ColumnId

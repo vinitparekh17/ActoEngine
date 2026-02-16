@@ -62,6 +62,7 @@ import { toast } from "sonner";
 import React, { lazy } from "react";
 import { useProject } from "@/hooks/useProject";
 import LogicalFkPanel from "@/components/er-diagram/LogicalFkPanel";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
 
 const Editor = lazy(() => import("@monaco-editor/react"));
 
@@ -461,7 +462,8 @@ const EntityDetailPage: React.FC = () => {
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="flex-1 overflow-y-auto">
+
           {/* 2. Hero Header */}
           <header className="px-8 py-8 border-b bg-gradient-to-b from-muted/20 to-background">
             <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-8">
@@ -546,140 +548,108 @@ const EntityDetailPage: React.FC = () => {
           </header>
 
           {/* 3. Main Content & Tabs */}
-          <div className="p-8 max-w-[1920px] mx-auto">
-            <Tabs defaultValue="structure" className="w-full space-y-6">
-              <div className="flex items-center justify-between">
-                <TabsList className="h-10 bg-muted/50 p-1">
-                  <TabsTrigger value="structure" className="gap-2 text-xs">
-                    <Layers className="h-3.5 w-3.5" /> Structure
-                  </TabsTrigger>
-                  {isTable && (
-                    <TabsTrigger value="relationships" className="gap-2 text-xs">
-                      <Link2 className="h-3.5 w-3.5" /> Relationships
-                    </TabsTrigger>
-                  )}
-                  <TabsTrigger value="experts" className="gap-2 text-xs">
-                    <Users className="h-3.5 w-3.5" /> Experts
-                    <Badge
-                      variant="secondary"
-                      className="ml-1 h-5 px-1.5 min-w-[1.25rem]"
-                    >
-                      {experts.length}
-                    </Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="documentation" className="gap-2 text-xs">
-                    <FileText className="h-3.5 w-3.5" /> Documentation
-                  </TabsTrigger>
-                </TabsList>
-                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Created{" "}
-                  {formatRelativeTime(entityData.createdDate || "", "Unknown")}
-                </span>
-              </div>
+          <div className="min-h-screen bg-background/50 p-4 sm:p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto space-y-8">
 
-              {/* Structure Tab */}
-              <TabsContent
-                value="structure"
-                className="mt-0 focus-visible:outline-none"
-              >
-                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-                  {/* Left Column: Schema & Code (3 spans) */}
-                  <div className="xl:col-span-3 space-y-6">
-                    {/* Schema Table */}
-                    <Card className="overflow-hidden border-border/60 shadow-sm">
-                      <CardHeader className="bg-muted/30 pb-3 border-b">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <CardTitle className="text-sm font-semibold">
-                              {isTable ? "Column Schema" : "Input Parameters"}
-                            </CardTitle>
-                            <CardDescription className="text-xs">
-                              {isTable
-                                ? `Defines structure for ${columns?.length ?? 0} columns`
-                                : `Inputs required for execution`}
-                            </CardDescription>
+              <Tabs defaultValue="structure" className="w-full">
+                {/* Header Area: Tabs on left, Date on right */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <TabsList className="h-9 bg-muted/60 p-1 w-fit">
+                    <TabsTrigger value="structure" className="gap-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                      <Layers className="h-3.5 w-3.5" /> Structure
+                    </TabsTrigger>
+                    {isTable && (
+                      <TabsTrigger value="relationships" className="gap-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <Link2 className="h-3.5 w-3.5" /> Relationships
+                      </TabsTrigger>
+                    )}
+                    <TabsTrigger value="experts" className="gap-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                      <Users className="h-3.5 w-3.5" /> Experts
+                      <Badge
+                        variant="secondary"
+                        className="ml-1 h-5 px-1.5 min-w-[1.25rem] text-[10px] bg-muted-foreground/10 text-muted-foreground"
+                      >
+                        {experts.length}
+                      </Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="documentation" className="gap-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                      <FileText className="h-3.5 w-3.5" /> Documentation
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-full border border-border/40">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Created {formatRelativeTime(entityData.createdDate || "", "Unknown")}
+                  </span>
+                </div>
+
+                {/* Structure Tab */}
+                <TabsContent value="structure" className="mt-0 focus-visible:outline-none">
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+                    {/* Main Column: Schema & Code (9 cols) */}
+                    <div className="xl:col-span-9 space-y-6">
+
+                      {/* Schema Table */}
+                      <Card className="border border-border/60 shadow-sm bg-card">
+                        <CardHeader className="py-4 px-5 border-b bg-muted/5">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <CardTitle className="text-sm font-semibold tracking-tight">
+                                {isTable ? "Column Schema" : "Input Parameters"}
+                              </CardTitle>
+                              <CardDescription className="text-xs">
+                                {isTable
+                                  ? `Defines structure for ${columns?.length ?? 0} columns`
+                                  : `Inputs required for execution`}
+                              </CardDescription>
+                            </div>
                           </div>
-                        </div>
-                      </CardHeader>
-                      <div className="p-0">
-                        <Table>
-                          <TableHeader className="bg-muted/10">
-                            <TableRow className="hover:bg-transparent">
-                              <TableHead className="w-[250px] text-xs uppercase h-9">
-                                Name
-                              </TableHead>
-                              <TableHead className="text-xs uppercase h-9">
-                                Type
-                              </TableHead>
-                              <TableHead className="text-xs uppercase h-9">
-                                {isTable ? "Nullable" : "Direction"}
-                              </TableHead>
-                              {isTable && (
-                                <TableHead className="text-xs uppercase h-9">
-                                  Attributes
-                                </TableHead>
-                              )}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {(isTable ? columns : parameters)?.map(
-                              (item: any, idx: number) => (
-                                <TableRow
-                                  key={item.name || idx}
-                                  className="h-10"
-                                >
-                                  <TableCell className="font-mono text-sm font-medium text-foreground py-2">
+                        </CardHeader>
+                        <div className="p-0">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="hover:bg-transparent border-b border-border/60">
+                                <TableHead className="w-[250px] text-xs font-semibold text-muted-foreground h-10 pl-5">Name</TableHead>
+                                <TableHead className="text-xs font-semibold text-muted-foreground h-10">Type</TableHead>
+                                <TableHead className="text-xs font-semibold text-muted-foreground h-10">{isTable ? "Nullable" : "Direction"}</TableHead>
+                                {isTable && <TableHead className="text-xs font-semibold text-muted-foreground h-10">Attributes</TableHead>}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {(isTable ? columns : parameters)?.map((item: any, idx: number) => (
+                                <TableRow key={item.name || idx} className="h-11 border-b border-border/40 hover:bg-muted/30 transition-colors">
+                                  <TableCell className="font-mono text-sm font-medium text-foreground py-2 pl-5">
                                     {item.name}
                                   </TableCell>
                                   <TableCell className="py-2">
-                                    <code className="text-[11px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-100 dark:border-blue-900">
+                                    <code className="text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                                       {item.dataType}
-                                      {item.maxLength
-                                        ? `(${item.maxLength})`
-                                        : ""}
+                                      {item.maxLength ? `(${item.maxLength})` : ""}
                                     </code>
                                   </TableCell>
                                   <TableCell className="py-2">
                                     {isTable ? (
-                                      <span
-                                        className={`text-xs ${item.isNullable ? "text-muted-foreground" : "font-medium text-foreground"}`}
-                                      >
+                                      <span className={`text-xs inline-flex items-center ${item.isNullable ? "text-muted-foreground" : "font-medium text-foreground"}`}>
                                         {item.isNullable ? "NULL" : "NOT NULL"}
                                       </span>
                                     ) : (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[10px] font-normal"
-                                      >
+                                      <Badge variant="outline" className="text-[10px] font-normal bg-background">
                                         {item.direction}
                                       </Badge>
                                     )}
                                   </TableCell>
                                   {isTable && (
                                     <TableCell className="py-2">
-                                      <div className="flex gap-1.5">
+                                      <div className="flex flex-wrap gap-2">
                                         {item.isPrimaryKey && (
-                                          <Badge
-                                            variant="default"
-                                            className="text-[10px] h-5 px-1.5"
-                                          >
-                                            PK
-                                          </Badge>
+                                          <Badge variant="default" className="text-[10px] h-5 px-1.5 bg-primary/90 hover:bg-primary">PK</Badge>
                                         )}
                                         {item.isForeignKey && (
-                                          <Badge
-                                            variant="secondary"
-                                            className="text-[10px] h-5 px-1.5 text-muted-foreground border"
-                                          >
-                                            FK
-                                          </Badge>
+                                          <Badge variant="secondary" className="text-[10px] h-5 px-1.5 text-foreground bg-muted hover:bg-muted/80 border border-border/50">FK</Badge>
                                         )}
                                         {item.defaultValue && (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-[10px] h-5 px-1.5 font-mono text-muted-foreground"
-                                          >
+                                          <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono text-muted-foreground bg-transparent">
                                             def: {item.defaultValue}
                                           </Badge>
                                         )}
@@ -687,170 +657,188 @@ const EntityDetailPage: React.FC = () => {
                                     </TableCell>
                                   )}
                                 </TableRow>
-                              ),
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </Card>
-
-
-                  </div>
-
-                  {/* Right Column: Meta Info (1 span) */}
-                  <div className="space-y-6">
-                    <Card className="shadow-sm border-border/60">
-                      <CardHeader className="pb-3 border-b bg-muted/10">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <Info className="h-4 w-4 text-primary" />
-                          Metadata
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-5 pt-5">
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider mb-1">
-                            Last Modified
-                          </p>
-                          <div className="flex items-center gap-2 text-sm text-foreground">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            {entityData.modifiedDate
-                              ? new Date(
-                                entityData.modifiedDate,
-                              ).toLocaleDateString()
-                              : "Never"}
-                          </div>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
+                      </Card>
 
-                        <Separator />
-
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider mb-1">
-                            Domain
-                          </p>
-                          {context?.businessDomain ? (
-                            <Badge
-                              variant="secondary"
-                              className="rounded-sm font-normal"
+                      {!isTable && (
+                        <Card className="border border-border/60 shadow-sm overflow-hidden">
+                          <CardHeader className="py-3 px-5 border-b bg-muted/5 flex flex-row items-center justify-between space-y-0">
+                            <div className="space-y-1">
+                              <CardTitle className="text-sm font-semibold">Source Definition</CardTitle>
+                              <CardDescription className="text-xs">SQL used to create this entity</CardDescription>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => copyToClipboard(isTable ? ddl || "" : definition || "")}
                             >
-                              {context.businessDomain}
-                            </Badge>
-                          ) : (
-                            <span className="text-sm text-muted-foreground italic">
-                              Unassigned
-                            </span>
-                          )}
-                        </div>
+                              <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy SQL
+                            </Button>
+                          </CardHeader>
+                          <div className="bg-[#1e1e1e] p-0">
+                            {/* Applied a wrapper with min-height logic here instead of hardcoding min-h on the parent flex */}
+                            <div className="h-[500px] w-full">
+                              <Editor
+                                height="100%"
+                                defaultLanguage="sql"
+                                theme="vs-dark"
+                                value={isTable ? ddl || "-- DDL not available" : definition || "-- Definition not available"}
+                                options={{
+                                  readOnly: true,
+                                  minimap: { enabled: false },
+                                  fontSize: 13,
+                                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                  scrollBeyondLastLine: false,
+                                  automaticLayout: true,
+                                  padding: { top: 20, bottom: 20 },
+                                  lineNumbers: "on",
+                                  renderLineHighlight: "none",
+                                  overviewRulerBorder: false,
+                                  matchBrackets: "never",
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </Card>
+                      )}
+                    </div>
 
-                        <Separator />
+                    {/* Right Column: Meta Info (3 cols) */}
+                    <div className="xl:col-span-3 space-y-6">
+                      <Card className="border border-border/60 shadow-sm sticky top-6">
+                        <CardHeader className="py-4 border-b bg-muted/10">
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                            <Info className="h-4 w-4 text-primary" />
+                            Metadata
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-5 space-y-6">
 
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider mb-1">
-                            Purpose Summary
-                          </p>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            {context?.purpose || "No summary available."}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                              Last Modified
+                            </p>
+                            <div className="flex items-center gap-2 p-2 rounded-md bg-muted/40 border border-border/50">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-medium">
+                                {entityData.modifiedDate ? new Date(entityData.modifiedDate).toLocaleDateString() : "Never"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                              Domain
+                            </p>
+                            <div>
+                              {context?.businessDomain ? (
+                                <Badge variant="secondary" className="rounded-md px-2 py-1 font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-100 dark:border-blue-800">
+                                  {context.businessDomain}
+                                </Badge>
+                              ) : (
+                                <span className="text-sm text-muted-foreground italic px-2">Unassigned</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                              Purpose Summary
+                            </p>
+                            <div className="text-sm text-muted-foreground leading-relaxed p-2">
+                              {context?.purpose || "No summary available."}
+                            </div>
+                          </div>
+
+                        </CardContent>
+                      </Card>
+                    </div>
                   </div>
-                </div>
-              </TabsContent>
+                </TabsContent>
 
-              {/* Relationships Tab (Tables only) */}
-              {isTable && (
-                <TabsContent
-                  value="relationships"
-                  className="mt-0 focus-visible:outline-none"
-                >
-                  <LogicalFkPanel
-                    projectId={Number(projectId)}
-                    tableId={Number(entityId)}
-                    tableName={name || ""}
-                    columns={
-                      (columns ?? []).map((c) => ({
+                {/* Relationships Tab */}
+                {isTable && (
+                  <TabsContent value="relationships" className="mt-0 focus-visible:outline-none">
+                    <LogicalFkPanel
+                      projectId={Number(projectId)}
+                      tableId={Number(entityId)}
+                      tableName={name || ""}
+                      columns={(columns ?? []).map((c) => ({
                         columnId: c.columnId ?? 0,
                         columnName: c.name,
                         dataType: c.dataType,
                         isPrimaryKey: c.isPrimaryKey,
                         isForeignKey: c.isForeignKey,
-                      }))
-                    }
-                  />
+                      }))}
+                    />
+                  </TabsContent>
+                )}
+
+                {/* Experts Tab */}
+                <TabsContent value="experts" className="mt-0 focus-visible:outline-none">
+                  {isLoadingContext ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {[1, 2, 3].map((i) => (
+                        <Card key={i} className="border-border/40 shadow-sm">
+                          <CardContent className="p-6">
+                            <Skeleton className="h-20 w-full" />
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : experts.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {experts.map((expert) => (
+                        <ExpertCard key={expert.userId} expert={expert} />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyExpertsState entityName={name || "this entity"} />
+                  )}
                 </TabsContent>
-              )}
 
-              {/* Experts Tab */}
-              <TabsContent
-                value="experts"
-                className="mt-0 focus-visible:outline-none"
-              >
-                {isLoadingContext ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[1, 2, 3].map((i) => (
-                      <Card key={i}>
-                        <CardContent className="p-4">
-                          <Skeleton className="h-20 w-full" />
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : experts.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {experts.map((expert) => (
-                      <ExpertCard key={expert.userId} expert={expert} />
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyExpertsState entityName={name || "this entity"} />
-                )}
-              </TabsContent>
-
-              {/* Documentation Tab */}
-              <TabsContent
-                value="documentation"
-                className="mt-0 focus-visible:outline-none"
-              >
-                {context?.purpose || context?.businessImpact ? (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {context.purpose && (
-                      <Card className="h-full border-l-4 border-l-primary shadow-sm">
-                        <CardHeader>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-primary" />{" "}
-                            Business Purpose
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-muted-foreground leading-7">
-                            {context.purpose}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    )}
-                    {context.businessImpact && (
-                      <Card className="h-full border-l-4 border-l-orange-500 shadow-sm">
-                        <CardHeader>
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <AlertCircle className="h-4 w-4 text-orange-500" />{" "}
-                            Operational Impact
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-muted-foreground leading-7">
-                            {context.businessImpact}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                ) : (
-                  <DocumentationEmptyState entityName={name || "this entity"} />
-                )}
-              </TabsContent>
-            </Tabs>
+                {/* Documentation Tab */}
+                <TabsContent value="documentation" className="mt-0 focus-visible:outline-none">
+                  {context?.purpose || context?.businessImpact ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {context.purpose && (
+                        <Card className="h-full border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base flex items-center gap-2 text-primary">
+                              <Sparkles className="h-4 w-4" /> Business Purpose
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground leading-7">{context.purpose}</p>
+                          </CardContent>
+                        </Card>
+                      )}
+                      {context.businessImpact && (
+                        <Card className="h-full border-l-4 border-l-orange-500 shadow-sm hover:shadow-md transition-shadow">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                              <AlertCircle className="h-4 w-4" /> Operational Impact
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground leading-7">{context.businessImpact}</p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  ) : (
+                    <DocumentationEmptyState entityName={name || "this entity"} />
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
           </div>
-        </div>
+
+        </ScrollArea>
       </div>
     </TooltipProvider>
   );

@@ -70,6 +70,12 @@ public class ErEdge
     /// Only for logical edges: the LogicalForeignKeyId for confirm/reject actions
     /// </summary>
     public int? LogicalFkId { get; set; }
+
+    // Metadata for logical edges
+    public string? DiscoveryMethod { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+    public int? ConfirmedBy { get; set; }
+    public DateTime? CreatedAt { get; set; }
 }
 
 public class TableInfo
@@ -105,4 +111,8 @@ public class RawLogicalFkEdge : RawFkEdge
     public int LogicalForeignKeyId { get; set; }
     public string Status { get; set; } = "";
     public decimal ConfidenceScore { get; set; }
+    public string DiscoveryMethod { get; set; } = "";
+    public DateTime? ConfirmedAt { get; set; }
+    public int? ConfirmedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

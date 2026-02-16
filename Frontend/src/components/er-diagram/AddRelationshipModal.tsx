@@ -4,8 +4,8 @@
  * Source column dropdown (from current table) → target table search → target column selector.
  * Submits to POST /api/logical-fks/{projectId}
  */
-import { useState, useMemo } from "react";
-import { Search, Plus, X, Link2 } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, Plus, X, Link2, AlertTriangle } from "lucide-react";
 import { useApi, useApiPost } from "@/hooks/useApi";
 import type { TableListItem } from "@/types/er-diagram";
 
@@ -100,8 +100,19 @@ export default function AddRelationshipModal({
 
     const selectedTargetTable = tables?.find((t) => t.tableId === targetTableId);
 
+    // Data type mismatch check
+    const selectedSourceCol = sourceColumns.find((c) => c.columnId === sourceColumnId);
+    const selectedTargetCol = (targetColumns ?? []).find(
+        (c) => (c.columnId ?? 0) === targetColumnId
+    );
+    const dataTypeMismatch = useMemo(() => {
+        if (!selectedSourceCol || !selectedTargetCol) return false;
+        const normalize = (dt: string) => dt.toUpperCase().replace(/\(.*\)/, "").trim();
+        return normalize(selectedSourceCol.dataType) !== normalize(selectedTargetCol.dataType);
+    }, [selectedSourceCol, selectedTargetCol]);
+
     const canSubmit =
-        sourceColumnId && targetTableId && targetColumnId && !createMutation.isPending;
+        sourceColumnId && targetTableId && targetColumnId && !dataTypeMismatch && !createMutation.isPending;
 
     const handleSubmit = () => {
         if (!sourceColumnId || !targetTableId || !targetColumnId) return;
@@ -124,18 +135,47 @@ export default function AddRelationshipModal({
         );
     };
 
+    // Close on Escape key
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
+
+    // Handle click outside dropdown
+    useEffect(() => {
+        if (showTableDropdown) {
+            const handleClickOutside = (e: MouseEvent) => {
+                const target = e.target as HTMLElement;
+                if (!target.closest(".table-search-container")) {
+                    setShowTableDropdown(false);
+                }
+            };
+            document.addEventListener("mousedown", handleClickOutside);
+            return () => document.removeEventListener("mousedown", handleClickOutside);
+        }
+    }, [showTableDropdown]);
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+        >
             <div className="bg-card border rounded-xl shadow-2xl w-[500px] max-h-[90vh] overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b">
                     <div className="flex items-center gap-2">
                         <Link2 className="h-5 w-5 text-primary" />
-                        <h3 className="text-lg font-semibold">Add Logical Relationship</h3>
+                        <h3 id="modal-title" className="text-lg font-semibold">Add Logical Relationship</h3>
                     </div>
                     <button
                         onClick={onClose}
                         className="p-1 rounded-md hover:bg-muted transition-colors"
+                        aria-label="Close modal"
                     >
                         <X className="h-4 w-4" />
                     </button>
@@ -163,7 +203,7 @@ export default function AddRelationshipModal({
                     </div>
 
                     {/* Target table */}
-                    <div>
+                    <div className="table-search-container">
                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                             Target Table
                         </label>
@@ -171,7 +211,7 @@ export default function AddRelationshipModal({
                             <div className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted/30">
                                 <span className="font-mono text-sm flex-1">
                                     {selectedTargetTable.tableName}
-                                </span>
+                                </span >
                                 <button
                                     onClick={() => {
                                         setTargetTableId(null);
@@ -179,6 +219,7 @@ export default function AddRelationshipModal({
                                         setTableSearch("");
                                     }}
                                     className="p-0.5 rounded hover:bg-muted"
+                                    aria-label="Clear target table"
                                 >
                                     <X className="h-3.5 w-3.5" />
                                 </button>
@@ -196,6 +237,8 @@ export default function AddRelationshipModal({
                                     }}
                                     onFocus={() => setShowTableDropdown(true)}
                                     className="w-full pl-9 pr-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    aria-label="Search target table"
+                                    aria-expanded={showTableDropdown}
                                 />
                                 {showTableDropdown && filteredTables.length > 0 && (
                                     <div className="absolute z-10 top-full mt-1 w-full rounded-md border bg-popover shadow-lg max-h-40 overflow-auto">
@@ -240,6 +283,14 @@ export default function AddRelationshipModal({
                                     </option>
                                 ))}
                             </select>
+                            {dataTypeMismatch && selectedSourceCol && selectedTargetCol && (
+                                <div className="flex items-start gap-2 mt-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs">
+                                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                    <span>
+                                        Data type mismatch: source is <code className="font-mono font-semibold">{selectedSourceCol.dataType}</code> but target is <code className="font-mono font-semibold">{selectedTargetCol.dataType}</code>. Columns must have compatible types.
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
 

@@ -102,4 +102,6 @@ public class PhysicalFkDto
     public required string SourceColumnName { get; set; }
     public required string TargetTableName { get; set; }
     public required string TargetColumnName { get; set; }
+    public string OnDeleteAction { get; set; } = "NO ACTION";
+    public string OnUpdateAction { get; set; } = "NO ACTION";
 }

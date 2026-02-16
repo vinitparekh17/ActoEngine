@@ -13,9 +13,9 @@ public interface ILogicalFkService
     Task<LogicalFkDto?> GetByIdAsync(int logicalFkId, CancellationToken cancellationToken = default);
     Task<List<LogicalFkDto>> GetByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
     Task<LogicalFkDto> CreateManualAsync(int projectId, CreateLogicalFkRequest request, int userId, CancellationToken cancellationToken = default);
-    Task<LogicalFkDto> ConfirmAsync(int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
-    Task<LogicalFkDto> RejectAsync(int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
-    Task DeleteAsync(int logicalFkId, CancellationToken cancellationToken = default);
+    Task<LogicalFkDto> ConfirmAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
+    Task<LogicalFkDto> RejectAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
+    Task DeleteAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default);
     Task<List<LogicalFkCandidate>> DetectCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
     Task<List<PhysicalFkDto>> GetPhysicalFksByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
 }
@@ -84,12 +84,17 @@ public partial class LogicalFkService(
             ?? throw new InvalidOperationException("Failed to retrieve created logical FK.");
     }
 
-    public async Task<LogicalFkDto> ConfirmAsync(int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default)
+    public async Task<LogicalFkDto> ConfirmAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default)
     {
         var existing = await logicalFkRepository.GetByIdAsync(logicalFkId, cancellationToken)
             ?? throw new KeyNotFoundException($"Logical FK {logicalFkId} not found.");
 
-        await logicalFkRepository.ConfirmAsync(logicalFkId, userId, notes, cancellationToken);
+        if (existing.ProjectId != projectId)
+        {
+            throw new KeyNotFoundException($"Logical FK {logicalFkId} does not belong to project {projectId}.");
+        }
+
+        await logicalFkRepository.ConfirmAsync(projectId, logicalFkId, userId, notes, cancellationToken);
 
         // Feed confirmed FK into Dependencies table
         await FeedIntoDependenciesAsync(
@@ -100,20 +105,35 @@ public partial class LogicalFkService(
             ?? throw new InvalidOperationException("Failed to retrieve confirmed logical FK.");
     }
 
-    public async Task<LogicalFkDto> RejectAsync(int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default)
+    public async Task<LogicalFkDto> RejectAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default)
     {
-        _ = await logicalFkRepository.GetByIdAsync(logicalFkId, cancellationToken)
+        var existing = await logicalFkRepository.GetByIdAsync(logicalFkId, cancellationToken)
             ?? throw new KeyNotFoundException($"Logical FK {logicalFkId} not found.");
 
-        await logicalFkRepository.RejectAsync(logicalFkId, userId, notes, cancellationToken);
+        if (existing.ProjectId != projectId)
+        {
+            throw new KeyNotFoundException($"Logical FK {logicalFkId} does not belong to project {projectId}.");
+        }
+
+        await logicalFkRepository.RejectAsync(projectId, logicalFkId, userId, notes, cancellationToken);
 
         return await logicalFkRepository.GetByIdAsync(logicalFkId, cancellationToken)
             ?? throw new InvalidOperationException("Failed to retrieve rejected logical FK.");
     }
 
-    public async Task DeleteAsync(int logicalFkId, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default)
     {
-        await logicalFkRepository.DeleteAsync(logicalFkId, cancellationToken);
+        // Check existence and ownership
+        var existing = await logicalFkRepository.GetByIdAsync(logicalFkId, cancellationToken)
+             ?? throw new KeyNotFoundException($"Logical FK {logicalFkId} not found.");
+
+        if (existing.ProjectId != projectId)
+        {
+             // Treating mismatches as Not Found to avoid leaking existence
+             throw new KeyNotFoundException($"Logical FK {logicalFkId} not found in project {projectId}.");
+        }
+
+        await logicalFkRepository.DeleteAsync(projectId, logicalFkId, cancellationToken);
     }
 
     /// <summary>
@@ -231,7 +251,8 @@ public partial class LogicalFkService(
                 ConfidenceScore = confidenceScore
             };
 
-            await dependencyRepository.SaveDependenciesForSourcesAsync(
+            // Use append-only method to avoid wiping other dependencies
+            await dependencyRepository.AddDependenciesAsync(
                 projectId, [dependency], cancellationToken);
 
             logger.LogInformation(
@@ -258,6 +279,10 @@ public partial class LogicalFkService(
 
         // Pluralized: "customer" → "customers"
         if (tableNames.TryGetValue(prefix + "s", out tableId))
+            return tableId;
+        
+        // "box" -> "boxes"
+        if (tableNames.TryGetValue(prefix + "es", out tableId))
             return tableId;
 
         // Singular from plural: "customers" → "customer"

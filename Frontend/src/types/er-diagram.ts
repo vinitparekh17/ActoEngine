@@ -40,6 +40,10 @@ export interface ErEdgeData {
     status?: "SUGGESTED" | "CONFIRMED" | "REJECTED";
     confidenceScore?: number;
     logicalFkId?: number;
+    discoveryMethod?: string;
+    confirmedAt?: string;
+    confirmedBy?: number;
+    createdAt?: string;
 }
 
 export interface LogicalFkDto {
@@ -89,4 +93,6 @@ export interface PhysicalFkDto {
     sourceColumnName: string;
     targetTableName: string;
     targetColumnName: string;
+    onDeleteAction?: string;
+    onUpdateAction?: string;
 }

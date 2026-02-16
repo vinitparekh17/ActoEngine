@@ -18,6 +18,11 @@ public interface IDependencyRepository
     Task SaveDependenciesForSourcesAsync(int projectId, IEnumerable<ResolvedDependency> dependencies, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Adds dependencies without deleting existing ones (append-only).
+    /// </summary>
+    Task AddDependenciesAsync(int projectId, IEnumerable<ResolvedDependency> dependencies, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Get dependents for a specific entity
     /// </summary>
     Task<List<ResolvedDependency>> GetDependentsAsync(int projectId, string targetType, int targetId, CancellationToken cancellationToken = default);
@@ -93,6 +98,23 @@ public class DependencyRepository(
 
             return true; // Return value required by ExecuteInTransactionAsync
         }, cancellationToken);
+    }
+
+    public async Task AddDependenciesAsync(
+        int projectId,
+        IEnumerable<ResolvedDependency> dependencies,
+        CancellationToken cancellationToken = default)
+    {
+        var depsList = dependencies.ToList();
+        if (depsList.Count == 0) return;
+
+        var insertSql = DependencyQueries.InsertDependency;
+
+        await ExecuteAsync(insertSql, depsList, cancellationToken);
+
+        _logger.LogInformation(
+            "Added {Count} dependencies for project {ProjectId}",
+            depsList.Count, projectId);
     }
 
     public async Task<List<ResolvedDependency>> GetDependentsAsync(int projectId, string targetType, int targetId, CancellationToken cancellationToken = default)

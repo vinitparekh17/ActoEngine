@@ -13,9 +13,9 @@ public interface ILogicalFkRepository
     Task<LogicalFkDto?> GetByIdAsync(int logicalFkId, CancellationToken cancellationToken = default);
     Task<List<LogicalFkDto>> GetByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
     Task<int> CreateAsync(LogicalForeignKey logicalForeignKey, CancellationToken cancellationToken = default);
-    Task ConfirmAsync(int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
-    Task RejectAsync(int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
-    Task DeleteAsync(int logicalFkId, CancellationToken cancellationToken = default);
+    Task ConfirmAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
+    Task RejectAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
+    Task DeleteAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(int projectId, int sourceTableId, List<int> sourceColumnIds, int targetTableId, List<int> targetColumnIds, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsPhysicalFkAsync(int sourceTableId, int sourceColumnId, int targetTableId, int targetColumnId, CancellationToken cancellationToken = default);
     Task<List<DetectionColumnInfo>> GetColumnsForDetectionAsync(int projectId, CancellationToken cancellationToken = default);
@@ -95,7 +95,9 @@ public class LogicalFkRepository(
                 logicalForeignKey.ConfidenceScore,
                 logicalForeignKey.Status,
                 logicalForeignKey.Notes,
-                logicalForeignKey.CreatedBy
+                logicalForeignKey.CreatedBy,
+                logicalForeignKey.ConfirmedBy,
+                logicalForeignKey.ConfirmedAt
             },
             cancellationToken);
 
@@ -106,37 +108,37 @@ public class LogicalFkRepository(
         return id;
     }
 
-    public async Task ConfirmAsync(int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default)
+    public async Task ConfirmAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default)
     {
         var rows = await ExecuteAsync(
             LogicalFkQueries.Confirm,
-            new { LogicalFkId = logicalFkId, UserId = userId, Notes = notes },
+            new { LogicalFkId = logicalFkId, ProjectId = projectId, UserId = userId, Notes = notes },
             cancellationToken);
 
         if (rows == 0)
         {
-            _logger.LogWarning("No logical FK found with ID {LogicalFkId} to confirm", logicalFkId);
+            _logger.LogWarning("No logical FK found with ID {LogicalFkId} (Project {ProjectId}) to confirm", logicalFkId, projectId);
         }
     }
 
-    public async Task RejectAsync(int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default)
+    public async Task RejectAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default)
     {
         var rows = await ExecuteAsync(
             LogicalFkQueries.Reject,
-            new { LogicalFkId = logicalFkId, UserId = userId, Notes = notes },
+            new { LogicalFkId = logicalFkId, ProjectId = projectId, UserId = userId, Notes = notes },
             cancellationToken);
 
         if (rows == 0)
         {
-            _logger.LogWarning("No logical FK found with ID {LogicalFkId} to reject", logicalFkId);
+            _logger.LogWarning("No logical FK found with ID {LogicalFkId} (Project {ProjectId}) to reject", logicalFkId, projectId);
         }
     }
 
-    public async Task DeleteAsync(int logicalFkId, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default)
     {
         await ExecuteAsync(
             LogicalFkQueries.Delete,
-            new { LogicalFkId = logicalFkId },
+            new { LogicalFkId = logicalFkId, ProjectId = projectId },
             cancellationToken);
     }
 

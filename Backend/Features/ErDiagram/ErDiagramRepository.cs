@@ -43,10 +43,14 @@ public class ErDiagramRepository(
                 new { ProjectId = projectId });
             return [.. result];
         }
-        catch (Microsoft.Data.SqlClient.SqlException)
+        catch (Microsoft.Data.SqlClient.SqlException ex)
         {
-            _logger.LogWarning("LogicalForeignKeys table not found — skipping logical FK edges.");
-            return [];
+            if (ex.Number == 208) // Invalid object name
+            {
+                _logger.LogWarning("LogicalForeignKeys table not found — skipping logical FK edges.");
+                return [];
+            }
+            throw;
         }
     }
 

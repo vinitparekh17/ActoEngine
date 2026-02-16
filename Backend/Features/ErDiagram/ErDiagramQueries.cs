@@ -31,18 +31,24 @@ internal static class ErDiagramQueries
         SELECT
             lfk.LogicalFkId AS LogicalForeignKeyId,
             lfk.SourceTableId,
-            CAST(JSON_VALUE(lfk.SourceColumnIds, '$[0]') AS INT) AS SourceColumnId,
+            TRY_CAST(JSON_VALUE(lfk.SourceColumnIds, '$[0]') AS INT) AS SourceColumnId,
             sc.ColumnName AS SourceColumnName,
             lfk.TargetTableId,
-            CAST(JSON_VALUE(lfk.TargetColumnIds, '$[0]') AS INT) AS TargetColumnId,
+            TRY_CAST(JSON_VALUE(lfk.TargetColumnIds, '$[0]') AS INT) AS TargetColumnId,
             tc.ColumnName AS TargetColumnName,
             lfk.Status,
-            lfk.ConfidenceScore
+            lfk.ConfidenceScore,
+            lfk.DiscoveryMethod,
+            lfk.ConfirmedAt,
+            lfk.ConfirmedBy,
+            lfk.CreatedAt
         FROM LogicalForeignKeys lfk
-        INNER JOIN ColumnsMetadata sc ON sc.ColumnId = CAST(JSON_VALUE(lfk.SourceColumnIds, '$[0]') AS INT)
-        INNER JOIN ColumnsMetadata tc ON tc.ColumnId = CAST(JSON_VALUE(lfk.TargetColumnIds, '$[0]') AS INT)
+        INNER JOIN ColumnsMetadata sc ON sc.ColumnId = TRY_CAST(JSON_VALUE(lfk.SourceColumnIds, '$[0]') AS INT)
+        INNER JOIN ColumnsMetadata tc ON tc.ColumnId = TRY_CAST(JSON_VALUE(lfk.TargetColumnIds, '$[0]') AS INT)
         WHERE lfk.ProjectId = @ProjectId
-          AND lfk.Status IN ('SUGGESTED', 'CONFIRMED')";
+          AND lfk.Status IN ('SUGGESTED', 'CONFIRMED')
+          AND JSON_VALUE(lfk.SourceColumnIds, '$[0]') IS NOT NULL
+          AND JSON_VALUE(lfk.TargetColumnIds, '$[0]') IS NOT NULL";
 
     public const string GetTablesByIds = @"
         SELECT TableId, TableName, SchemaName
