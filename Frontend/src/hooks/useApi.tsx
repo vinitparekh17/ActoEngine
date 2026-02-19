@@ -72,7 +72,7 @@ interface UseApiMutationOptions<TData, TVariables> extends Omit<
   showSuccessToast?: boolean;
   showErrorToast?: boolean;
   successMessage?: string;
-  invalidateKeys?: string[][];
+  invalidateKeys?: Array<ReadonlyArray<string | number>>;
 }
 
 export function useApiMutation<TData = unknown, TVariables = void>(
@@ -144,15 +144,6 @@ export function useApiMutation<TData = unknown, TVariables = void>(
   });
 }
 
-// ============================================
-// Specialized Hooks for Common Patterns
-// ============================================
-
-/**
- * useApiQuery - Alternative name for useApi (for clarity)
- */
-export const useApiQuery = useApi;
-
 /**
  * useApiPost - POST mutation shorthand
  */
@@ -197,6 +188,8 @@ export const queryKeys = {
   },
   tables: {
     all: (projectId: number) => ["tables", projectId] as const,
+    detail: (projectId: number, tableId: number) =>
+      ["tables", projectId, tableId] as const,
     schema: (projectId: number, tableName: string) =>
       ["tables", projectId, tableName, "schema"] as const,
   },
@@ -215,6 +208,16 @@ export const queryKeys = {
   permissions: {
     all: () => ["permissions"] as const,
     grouped: () => ["permissions", "grouped"] as const,
+  },
+  erDiagram: {
+    neighborhood: (projectId: number, tableId: number, hops?: number) =>
+      hops == null
+        ? (["er-diagram", projectId, tableId] as const)
+        : (["er-diagram", projectId, tableId, hops] as const),
+  },
+  logicalFks: {
+    byTable: (projectId: number, tableId: number) =>
+      ["logical-fks", projectId, "table", tableId] as const,
   },
 };
 

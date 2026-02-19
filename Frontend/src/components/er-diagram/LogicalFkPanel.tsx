@@ -85,7 +85,6 @@ export default function LogicalFkPanel({
     const rejectMutation = useApiPut<unknown, { id: number }>(
         `/logical-fks/${projectId}/:id/reject`,
         {
-            successMessage: "Relationship rejected",
             invalidateKeys: [logicalFkQueryKey],
         }
     );

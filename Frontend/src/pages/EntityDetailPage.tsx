@@ -62,7 +62,7 @@ import { toast } from "sonner";
 import React, { lazy } from "react";
 import { useProject } from "@/hooks/useProject";
 import LogicalFkPanel from "@/components/er-diagram/LogicalFkPanel";
-import { ScrollArea } from "@radix-ui/react-scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Editor = lazy(() => import("@monaco-editor/react"));
 
@@ -767,8 +767,10 @@ const EntityDetailPage: React.FC = () => {
                       projectId={Number(projectId)}
                       tableId={Number(entityId)}
                       tableName={name || ""}
-                      columns={(columns ?? []).map((c) => ({
-                        columnId: c.columnId ?? 0,
+                      columns={(columns ?? [])
+                        .filter((c) => c.columnId != null)
+                        .map((c) => ({
+                        columnId: c.columnId!,
                         columnName: c.name,
                         dataType: c.dataType,
                         isPrimaryKey: c.isPrimaryKey,

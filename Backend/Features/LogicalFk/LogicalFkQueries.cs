@@ -102,12 +102,38 @@ public static class LogicalFkQueries
     /// </summary>
     public const string Exists = @"
         SELECT COUNT(1)
-        FROM LogicalForeignKeys
-        WHERE ProjectId = @ProjectId
-          AND SourceTableId = @SourceTableId
-          AND SourceColumnIds = @SourceColumnIds
-          AND TargetTableId = @TargetTableId
-          AND TargetColumnIds = @TargetColumnIds;";
+        FROM LogicalForeignKeys lfk
+        WHERE lfk.ProjectId = @ProjectId
+          AND lfk.SourceTableId = @SourceTableId
+          AND lfk.TargetTableId = @TargetTableId
+          AND (
+                (SELECT COUNT(1) FROM OPENJSON(lfk.SourceColumnIds))
+                = (SELECT COUNT(1) FROM OPENJSON(@SourceColumnIds))
+              )
+          AND NOT EXISTS (
+                SELECT value FROM OPENJSON(lfk.SourceColumnIds)
+                EXCEPT
+                SELECT value FROM OPENJSON(@SourceColumnIds)
+              )
+          AND NOT EXISTS (
+                SELECT value FROM OPENJSON(@SourceColumnIds)
+                EXCEPT
+                SELECT value FROM OPENJSON(lfk.SourceColumnIds)
+              )
+          AND (
+                (SELECT COUNT(1) FROM OPENJSON(lfk.TargetColumnIds))
+                = (SELECT COUNT(1) FROM OPENJSON(@TargetColumnIds))
+              )
+          AND NOT EXISTS (
+                SELECT value FROM OPENJSON(lfk.TargetColumnIds)
+                EXCEPT
+                SELECT value FROM OPENJSON(@TargetColumnIds)
+              )
+          AND NOT EXISTS (
+                SELECT value FROM OPENJSON(@TargetColumnIds)
+                EXCEPT
+                SELECT value FROM OPENJSON(lfk.TargetColumnIds)
+              );";
 
     /// <summary>
     /// Also exclude mappings that already exist as physical FKs

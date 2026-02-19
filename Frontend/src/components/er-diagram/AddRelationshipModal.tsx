@@ -6,7 +6,7 @@
  */
 import { useState, useMemo, useEffect } from "react";
 import { Search, Plus, X, Link2, AlertTriangle } from "lucide-react";
-import { useApi, useApiPost } from "@/hooks/useApi";
+import { queryKeys, useApi, useApiMutation } from "@/hooks/useApi";
 import type { TableListItem } from "@/types/er-diagram";
 
 interface ColumnItem {
@@ -54,7 +54,10 @@ export default function AddRelationshipModal({
     // Fetch all tables for target selection
     const { data: tables } = useApi<TableListItem[]>(
         `/DatabaseBrowser/projects/${projectId}/tables`,
-        { staleTime: 5 * 60 * 1000 }
+        {
+            queryKey: Array.from(queryKeys.tables.all(projectId)),
+            staleTime: 5 * 60 * 1000,
+        }
     );
 
     // Fetch target table details (including columns) when a target table is selected
@@ -67,7 +70,9 @@ export default function AddRelationshipModal({
             ? `/DatabaseBrowser/projects/${projectId}/tables/${targetTableId}`
             : "",
         {
-            queryKey: ["target-table-detail", projectId, targetTableId],
+            queryKey: targetTableId
+                ? Array.from(queryKeys.tables.detail(projectId, targetTableId))
+                : [],
             enabled: !!targetTableId,
         }
     );
@@ -75,12 +80,13 @@ export default function AddRelationshipModal({
     const targetColumns = targetTableDetails?.columns;
 
     // Create mutation
-    const createMutation = useApiPost<unknown, CreateLogicalFkPayload>(
-        `/logical-fks/:projectId`,
+    const createMutation = useApiMutation<unknown, CreateLogicalFkPayload>(
+        "/logical-fks/:projectId",
+        "POST",
         {
             successMessage: "Logical relationship created",
             invalidateKeys: [
-                ["logical-fks", String(projectId), "table", String(sourceTableId)],
+                Array.from(queryKeys.logicalFks.byTable(projectId, sourceTableId)),
             ],
         }
     );
@@ -190,7 +196,9 @@ export default function AddRelationshipModal({
                         </label>
                         <select
                             value={sourceColumnId ?? ""}
-                            onChange={(e) => setSourceColumnId(Number(e.target.value) || null)}
+                            onChange={(e) =>
+                                setSourceColumnId(e.target.value === "" ? null : Number(e.target.value))
+                            }
                             className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                         >
                             <option value="">Select column...</option>
@@ -271,7 +279,7 @@ export default function AddRelationshipModal({
                             <select
                                 value={targetColumnId ?? ""}
                                 onChange={(e) =>
-                                    setTargetColumnId(Number(e.target.value) || null)
+                                    setTargetColumnId(e.target.value === "" ? null : Number(e.target.value))
                                 }
                                 className="w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                             >

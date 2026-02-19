@@ -110,7 +110,11 @@ public class DependencyRepository(
 
         var insertSql = DependencyQueries.InsertDependency;
 
-        await ExecuteAsync(insertSql, depsList, cancellationToken);
+        await ExecuteInTransactionAsync(async (conn, transaction) =>
+        {
+            await conn.ExecuteAsync(insertSql, depsList, transaction);
+            return true;
+        }, cancellationToken);
 
         _logger.LogInformation(
             "Added {Count} dependencies for project {ProjectId}",

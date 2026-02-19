@@ -24,6 +24,8 @@ public class ErDiagramService(
     public async Task<ErDiagramResponse?> GetNeighborhoodAsync(
         int projectId, int focusTableId, int hops, CancellationToken cancellationToken = default)
     {
+        var boundedHops = Math.Min(Math.Max(hops, 0), 10);
+
         // Verify focus table exists and belongs to the project
         var focusTable = await repository.GetTableInfoAsync(projectId, focusTableId);
 
@@ -40,7 +42,7 @@ public class ErDiagramService(
         var logicalEdges = await repository.GetLogicalFksAsync(projectId);
 
         // BFS expansion: walk FK edges to discover neighbors
-        for (int depth = 1; depth <= hops; depth++)
+        for (int depth = 1; depth <= boundedHops; depth++)
         {
             var nextFrontier = new HashSet<int>();
 
@@ -152,7 +154,7 @@ public class ErDiagramService(
 
         logger.LogInformation(
             "ER diagram for table {FocusTableId}: {NodeCount} nodes, {EdgeCount} edges ({Hops} hops)",
-            focusTableId, nodes.Count, edges.Count, hops);
+            focusTableId, nodes.Count, edges.Count, boundedHops);
 
         return new ErDiagramResponse
         {

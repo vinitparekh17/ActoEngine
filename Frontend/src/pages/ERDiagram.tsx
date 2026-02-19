@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { useApi, useApiMutation } from "@/hooks/useApi";
+import { queryKeys, useApi, useApiMutation } from "@/hooks/useApi";
 import TableNode, { type TableNodeData } from "@/components/er-diagram/TableNode";
 import { getLayoutedElements, type LayoutOptions } from "@/components/er-diagram/useAutoLayout";
 import type {
@@ -54,6 +54,7 @@ export default function ERDiagramPage() {
 
     // State
     const [searchQuery, setSearchQuery] = useState("");
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
     const [hops, setHops] = useState(1);
     const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
@@ -68,7 +69,10 @@ export default function ERDiagramPage() {
     // Fetch tables list for search
     const { data: tables } = useApi<TableListItem[]>(
         projectId ? `/DatabaseBrowser/projects/${pid}/tables` : "",
-        { staleTime: 5 * 60 * 1000 }
+        {
+            queryKey: projectId ? Array.from(queryKeys.tables.all(pid)) : [],
+            staleTime: 5 * 60 * 1000,
+        }
     );
 
     // Fetch ER diagram data for selected table
@@ -81,27 +85,33 @@ export default function ERDiagramPage() {
             ? `/er-diagram/projects/${pid}/neighborhood/${selectedTableId}?hops=${hops}`
             : "",
         {
-            queryKey: ["er-diagram", pid, selectedTableId, hops],
+            queryKey: selectedTableId
+                ? Array.from(queryKeys.erDiagram.neighborhood(pid, selectedTableId, hops))
+                : [],
             enabled: !!selectedTableId,
         }
     );
 
+    const erDiagramInvalidateKey = selectedTableId
+        ? Array.from(queryKeys.erDiagram.neighborhood(pid, selectedTableId))
+        : [];
+
     // Confirm/reject mutations
-    const confirmMutation = useApiMutation<unknown, { id: number; notes?: string }>(
+    const confirmMutation = useApiMutation<unknown, { id: number; projectId: number; notes?: string }>(
         "/logical-fks/:projectId/:id/confirm",
         "PUT",
         {
             successMessage: "Logical FK confirmed",
-            invalidateKeys: [["er-diagram", String(pid), String(selectedTableId)]],
+            invalidateKeys: [erDiagramInvalidateKey],
         }
     );
 
-    const rejectMutation = useApiMutation<unknown, { id: number; notes?: string }>(
+    const rejectMutation = useApiMutation<unknown, { id: number; projectId: number; notes?: string }>(
         "/logical-fks/:projectId/:id/reject",
         "PUT",
         {
             successMessage: "Logical FK rejected",
-            invalidateKeys: [["er-diagram", String(pid), String(selectedTableId)]],
+            invalidateKeys: [erDiagramInvalidateKey],
         }
     );
 
@@ -186,7 +196,7 @@ export default function ERDiagramPage() {
     const handleConfirm = () => {
         if (!selectedEdge?.logicalFkId || !projectId) return;
         confirmMutation.mutate(
-            { id: selectedEdge.logicalFkId, projectId: pid } as any,
+            { id: selectedEdge.logicalFkId, projectId: pid },
             { onSuccess: () => setIsModalOpen(false) }
         );
     };
@@ -195,7 +205,7 @@ export default function ERDiagramPage() {
         if (!selectedEdge?.logicalFkId || !projectId) return;
         const fkId = selectedEdge.logicalFkId;
         rejectMutation.mutate(
-            { id: fkId, projectId: pid } as any,
+            { id: fkId, projectId: pid },
             {
                 onSuccess: () => {
                     setIsModalOpen(false);
@@ -206,7 +216,7 @@ export default function ERDiagramPage() {
                             label: "Undo",
                             onClick: () => {
                                 confirmMutation.mutate(
-                                    { id: fkId, projectId: pid } as any
+                                    { id: fkId, projectId: pid }
                                 );
                                 if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
                             },
@@ -232,12 +242,16 @@ export default function ERDiagramPage() {
                         type="text"
                         placeholder="Search tables..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setIsSearchOpen(true);
+                        }}
+                        onFocus={() => setIsSearchOpen(true)}
                         className="w-full pl-9 pr-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                     />
 
                     {/* Search dropdown */}
-                    {searchQuery.trim() && filteredTables.length > 0 && (
+                    {isSearchOpen && searchQuery.trim() && filteredTables.length > 0 && (
                         <div className="absolute z-50 top-full mt-1 w-full rounded-md border bg-popover shadow-lg max-h-60 overflow-auto">
                             {filteredTables.map((table) => (
                                 <button
@@ -245,8 +259,8 @@ export default function ERDiagramPage() {
                                     className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2"
                                     onClick={() => {
                                         setSelectedTableId(table.tableId);
-                                        setSearchQuery(table.tableName);
-                                        setTimeout(() => setSearchQuery(""), 100);
+                                        setSearchQuery("");
+                                        setIsSearchOpen(false);
                                     }}
                                 >
                                     <span className="font-mono">{table.tableName}</span>
