@@ -320,6 +320,7 @@ export default function ERDiagramPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
                         type="text"
+                        aria-label="Search tables"
                         placeholder="Search tables..."
                         value={searchQuery}
                         onChange={(e) => {

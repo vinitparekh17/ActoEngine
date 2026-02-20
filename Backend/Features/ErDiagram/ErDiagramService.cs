@@ -110,12 +110,12 @@ public class ErDiagramService(
         }).ToList();
 
         // Build edges: only include edges where both endpoints are in our visited set
-        var visitedSet = visited.Keys.ToHashSet();
+
         var edges = new List<ErEdge>();
 
         foreach (var edge in physicalEdges)
         {
-            if (!visitedSet.Contains(edge.SourceTableId) || !visitedSet.Contains(edge.TargetTableId))
+            if (!visited.ContainsKey(edge.SourceTableId) || !visited.ContainsKey(edge.TargetTableId))
                 continue;
 
             edges.Add(new ErEdge
@@ -133,7 +133,7 @@ public class ErDiagramService(
 
         foreach (var edge in logicalEdges)
         {
-            if (!visitedSet.Contains(edge.SourceTableId) || !visitedSet.Contains(edge.TargetTableId))
+            if (!visited.ContainsKey(edge.SourceTableId) || !visited.ContainsKey(edge.TargetTableId))
                 continue;
 
             edges.Add(new ErEdge

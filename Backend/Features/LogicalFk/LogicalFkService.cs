@@ -1,4 +1,5 @@
 using ActoEngine.WebApi.Features.ImpactAnalysis;
+using ActoEngine.WebApi.Features.ErDiagram;
 using System.Text.RegularExpressions;
 using System.Text.Json;
 
@@ -25,6 +26,7 @@ public interface ILogicalFkService
 /// </summary>
 public partial class LogicalFkService(
     ILogicalFkRepository logicalFkRepository,
+    IErDiagramRepository erDiagramRepository,
     IDependencyRepository dependencyRepository,
     ILogger<LogicalFkService> logger) : ILogicalFkService
 {
@@ -145,6 +147,24 @@ public partial class LogicalFkService(
             .GroupBy(c => c.TableId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        // Batch-fetch physical FKs and logical FKs once to avoid N+1 DB round-trips
+        var physicalFksTask = erDiagramRepository.GetPhysicalFksAsync(projectId, cancellationToken);
+        var logicalFksTask = logicalFkRepository.GetByProjectAsync(projectId, null, cancellationToken);
+        await Task.WhenAll(physicalFksTask, logicalFksTask);
+
+        var physicalFkSet = new HashSet<(int, int, int, int)>(
+            (await physicalFksTask).Select(fk => (fk.SourceTableId, fk.SourceColumnId, fk.TargetTableId, fk.TargetColumnId)));
+
+        var logicalFkSet = new HashSet<(int, int, int, int)>();
+        foreach (var lfk in await logicalFksTask)
+        {
+            // Logical FKs can be composite; for detection we check single-column matches
+            for (int i = 0; i < lfk.SourceColumnIds.Count && i < lfk.TargetColumnIds.Count; i++)
+            {
+                logicalFkSet.Add((lfk.SourceTableId, lfk.SourceColumnIds[i], lfk.TargetTableId, lfk.TargetColumnIds[i]));
+            }
+        }
+
         foreach (var col in columns)
         {
             // Skip PK and already-FK columns
@@ -174,15 +194,13 @@ public partial class LogicalFkService(
             if (!DataTypesCompatible(col.DataType, targetPk.DataType))
                 continue;
 
-            // Skip if this is already a physical FK
-            var isPhysical = await logicalFkRepository.ExistsAsPhysicalFkAsync(
-                col.TableId, col.ColumnId, targetTableId.Value, targetPk.ColumnId, cancellationToken);
-            if (isPhysical) continue;
+            // Skip if this is already a physical FK (O(1) HashSet lookup)
+            if (physicalFkSet.Contains((col.TableId, col.ColumnId, targetTableId.Value, targetPk.ColumnId)))
+                continue;
 
-            // Skip if already exists as a logical FK
-            var alreadyExists = await logicalFkRepository.ExistsAsync(
-                projectId, col.TableId, [col.ColumnId], targetTableId.Value, [targetPk.ColumnId], cancellationToken);
-            if (alreadyExists) continue;
+            // Skip if already exists as a logical FK (O(1) HashSet lookup)
+            if (logicalFkSet.Contains((col.TableId, col.ColumnId, targetTableId.Value, targetPk.ColumnId)))
+                continue;
 
             candidates.Add(new LogicalFkCandidate
             {
@@ -273,8 +291,8 @@ public partial class LogicalFkService(
         if (prefix.EndsWith('s') && tableNames.TryGetValue(prefix[..^1], out tableId))
             return tableId;
 
-        // Snake_case to table: "order_item" → "order_items"
-        if (tableNames.TryGetValue(prefix + "s", out tableId))
+        // "ies" pluralization: "category" → "categories"
+        if (prefix.EndsWith('y') && tableNames.TryGetValue(prefix[..^1] + "ies", out tableId))
             return tableId;
 
         return null;

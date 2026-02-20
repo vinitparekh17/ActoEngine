@@ -26,6 +26,15 @@ public static class DependencyQueries
                 (@ProjectId, @SourceType, @SourceId, @TargetType, @TargetId, @DependencyType, @ConfidenceScore);
         END";
 
+    /// <summary>
+    /// Plain INSERT — used after DELETE when duplicates are impossible.
+    /// </summary>
+    public const string InsertDependencyPlain = @"
+        INSERT INTO Dependencies
+            (ProjectId, SourceType, SourceId, TargetType, TargetId, DependencyType, ConfidenceScore)
+        VALUES
+            (@ProjectId, @SourceType, @SourceId, @TargetType, @TargetId, @DependencyType, @ConfidenceScore)";
+
     public const string GetDependents = @"
         SELECT * FROM Dependencies 
         WHERE ProjectId = @ProjectId 

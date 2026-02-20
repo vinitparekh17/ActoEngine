@@ -7,7 +7,7 @@
  * 3. "Add Logical Relationship" button → modal
  * 4. "Run Detection" to auto-detect candidates
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
     ArrowRight,
     Check,
@@ -72,7 +72,10 @@ export default function LogicalFkPanel({
     );
 
     // Fetch logical FKs for this table
-    const logicalFkTableQueryKey = logicalFkQueryKey(normalizedProjectId, normalizedTableId);
+    const logicalFkTableQueryKey = useMemo(
+        () => logicalFkQueryKey(normalizedProjectId, normalizedTableId),
+        [normalizedProjectId, normalizedTableId]
+    );
     const { data: logicalFks, isLoading } = useApi<LogicalFkDto[]>(
         `/logical-fks/${normalizedProjectId}/table/${normalizedTableId}`,
         { queryKey: logicalFkTableQueryKey, staleTime: 30_000 }
@@ -367,6 +370,8 @@ export default function LogicalFkPanel({
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                                                aria-label={`Delete relationship to ${info.otherTable}`}
+                                                title={`Delete relationship to ${info.otherTable}`}
                                                 onClick={() => {
                                                     const fkId = fk.logicalFkId;
                                                     setInflightFkId(fkId);

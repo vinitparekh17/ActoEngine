@@ -63,7 +63,6 @@ namespace ActoEngine.WebApi.Api.Middleware
                 return true;
             }
 
-            context.Response.Headers["X-New-Access-Token"] = result.SessionToken;
             if (!string.IsNullOrEmpty(result.RefreshToken))
             {
                 SetRefreshTokenCookie(context, result.RefreshToken, result.RefreshExpiresAt);
@@ -73,6 +72,7 @@ namespace ActoEngine.WebApi.Api.Middleware
             if (principal != null)
             {
                 context.User = principal;
+                context.Response.Headers["X-New-Access-Token"] = result.SessionToken;
 
                 // Set UserId in context items for controllers to use
                 var userIdClaim = principal.FindFirst("user_id")?.Value;
@@ -134,6 +134,12 @@ namespace ActoEngine.WebApi.Api.Middleware
             });
         }
 
+        private static readonly JsonSerializerOptions _unauthorizedJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        };
+
         private static async Task WriteUnauthorizedResponse(HttpContext context, string message)
         {
             if (context.Response.HasStarted)
@@ -151,13 +157,7 @@ namespace ActoEngine.WebApi.Api.Middleware
                 Path = context.Request.Path.Value ?? string.Empty
             };
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = false
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, _unauthorizedJsonOptions));
         }
     }
 

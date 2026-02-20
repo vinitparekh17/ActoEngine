@@ -59,18 +59,24 @@ public class ErDiagramRepository(
 
     public async Task<List<TableInfo>> GetTablesByIdsAsync(IEnumerable<int> tableIds, CancellationToken cancellationToken = default)
     {
+        var ids = tableIds?.ToList() ?? [];
+        if (ids.Count == 0) return [];
+
         var result = await QueryAsync<TableInfo>(
             ErDiagramQueries.GetTablesByIds,
-            new { TableIds = tableIds },
+            new { TableIds = ids },
             cancellationToken);
         return [.. result];
     }
 
     public async Task<List<ColumnInfo>> GetColumnsByTableIdsAsync(IEnumerable<int> tableIds, CancellationToken cancellationToken = default)
     {
+        var ids = tableIds?.ToList() ?? [];
+        if (ids.Count == 0) return [];
+
         var result = await QueryAsync<ColumnInfo>(
             ErDiagramQueries.GetColumnsByTableIds,
-            new { TableIds = tableIds },
+            new { TableIds = ids },
             cancellationToken);
         return [.. result];
     }

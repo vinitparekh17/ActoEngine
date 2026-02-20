@@ -85,8 +85,8 @@ public class DependencyRepository(
 
             await conn.ExecuteAsync(deleteSql, deleteParams, transaction);
 
-            // 2. Insert new dependencies
-            var insertSql = DependencyQueries.InsertDependency;
+            // 2. Insert new dependencies (plain INSERT — rows were just deleted, no duplicates possible)
+            var insertSql = DependencyQueries.InsertDependencyPlain;
 
             await conn.ExecuteAsync(insertSql, depsList, transaction);
 
@@ -109,26 +109,47 @@ public class DependencyRepository(
         if (depsList.Count == 0) return;
 
         var mismatchedProjectCount = 0;
+        var normalizedList = new List<ResolvedDependency>(depsList.Count);
         foreach (var dep in depsList)
         {
             if (dep.ProjectId != projectId)
             {
                 mismatchedProjectCount++;
-                dep.ProjectId = projectId;
+                normalizedList.Add(new ResolvedDependency
+                {
+                    ProjectId = projectId,
+                    SourceType = dep.SourceType,
+                    SourceId = dep.SourceId,
+                    TargetType = dep.TargetType,
+                    TargetId = dep.TargetId,
+                    DependencyType = dep.DependencyType,
+                    ConfidenceScore = dep.ConfidenceScore
+                });
             }
+            else
+            {
+                normalizedList.Add(dep);
+            }
+        }
+
+        if (mismatchedProjectCount > 0)
+        {
+            _logger.LogWarning(
+                "{Count} dependencies had mismatched ProjectId and were normalised to {ProjectId}",
+                mismatchedProjectCount, projectId);
         }
 
         var insertSql = DependencyQueries.InsertDependency;
 
         await ExecuteInTransactionAsync(async (conn, transaction) =>
         {
-            await conn.ExecuteAsync(insertSql, depsList, transaction);
+            await conn.ExecuteAsync(insertSql, normalizedList, transaction);
             return true;
         }, cancellationToken);
 
         _logger.LogInformation(
-            "Added {Count} dependencies for project {ProjectId} (normalizedProjectIds={NormalizedCount})",
-            depsList.Count, projectId, mismatchedProjectCount);
+            "Added {Count} dependencies for project {ProjectId}",
+            normalizedList.Count, projectId);
     }
 
     public async Task<List<ResolvedDependency>> GetDependentsAsync(int projectId, string targetType, int targetId, CancellationToken cancellationToken = default)

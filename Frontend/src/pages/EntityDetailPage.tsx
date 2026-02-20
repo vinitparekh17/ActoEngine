@@ -319,11 +319,15 @@ const DocumentationEmptyState: React.FC<{ entityName: string }> = ({
 // MAIN COMPONENT
 // ============================================================================
 const EntityDetailPage: React.FC = () => {
-  const { projectId, entityId, entityType: entityTypeParam } = useParams<{
+  const { projectId: projectIdParam, entityId: entityIdParam, entityType: entityTypeParam } = useParams<{
     projectId: string;
     entityId: string;
     entityType: string;
   }>();
+
+  const parsedProjectId = parseInt(projectIdParam ?? "", 10);
+  const parsedEntityId = parseInt(entityIdParam ?? "", 10);
+  const validIds = Number.isFinite(parsedProjectId) && Number.isFinite(parsedEntityId);
 
   const entityType = normalizeEntityType(entityTypeParam);
   const isTable = entityType === "TABLE";
@@ -331,8 +335,8 @@ const EntityDetailPage: React.FC = () => {
   // Fetch Entity Structure
   const structureEndpoint = entityType
     ? isTable
-      ? `/DatabaseBrowser/projects/${projectId}/tables/${entityId}`
-      : `/DatabaseBrowser/projects/${projectId}/stored-procedures/${entityId}`
+      ? `/DatabaseBrowser/projects/${parsedProjectId}/tables/${parsedEntityId}`
+      : `/DatabaseBrowser/projects/${parsedProjectId}/stored-procedures/${parsedEntityId}`
     : "";
 
   const {
@@ -344,7 +348,7 @@ const EntityDetailPage: React.FC = () => {
   // Fetch Context & Experts
   const { data: contextData, isLoading: isLoadingContext } =
     useApi<ContextResponse>(
-      entityType ? `/projects/${projectId}/context/${entityType}/${entityId}` : "",
+      entityType ? `/projects/${parsedProjectId}/context/${entityType}/${parsedEntityId}` : "",
       { staleTime: 30 * 1000, retry: 1 },
     );
 
@@ -364,7 +368,7 @@ const EntityDetailPage: React.FC = () => {
   const definition = !isTable
     ? (entityData as SPDetails)?.definition
     : undefined;
-  const ddl = isTable ? (entityData as TableDetails)?.ddl : undefined;
+
   const rowCount = isTable ? (entityData as TableDetails)?.rowCount : undefined;
   const experts = contextData?.experts || [];
   const context = contextData?.context;
@@ -379,24 +383,29 @@ const EntityDetailPage: React.FC = () => {
     }
   };
 
-  if (!entityType) {
+  if (!validIds || !entityType) {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-6 text-center bg-background">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
           <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
         <h2 className="text-2xl font-semibold text-foreground mb-2">
-          Invalid Entity Type
+          {!validIds ? "Invalid IDs" : "Invalid Entity Type"}
         </h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          The route includes an unsupported entity type:
-          {" "}
-          <code>{entityTypeParam || "(missing)"}</code>.
+          {!validIds
+            ? "The route includes an invalid project ID or entity ID."
+            : (
+              <>
+                The route includes an unsupported entity type:{" "}
+                <code>{entityTypeParam || "(missing)"}</code>.
+              </>
+            )}
         </p>
         <Button asChild variant="outline">
-          <Link to={`/project/${projectId}/entities`}>
+          <Link to={validIds ? `/project/${parsedProjectId}/entities` : "/"}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Explorer
+            {validIds ? "Back to Explorer" : "Back to Home"}
           </Link>
         </Button>
       </div>
@@ -442,7 +451,7 @@ const EntityDetailPage: React.FC = () => {
             "The requested entity could not be found or you don't have permission to view it."}
         </p>
         <Button asChild variant="outline">
-          <Link to={`/project/${projectId}/entities`}>
+          <Link to={`/project/${parsedProjectId}/entities`}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Explorer
           </Link>
@@ -459,7 +468,7 @@ const EntityDetailPage: React.FC = () => {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href={`/project/${projectId}/entities`}>
+                <BreadcrumbLink href={`/project/${parsedProjectId}/entities`}>
                   Explorer
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -488,7 +497,7 @@ const EntityDetailPage: React.FC = () => {
             <Separator orientation="vertical" className="h-4 mx-1" />
             <Button size="sm" variant="default" asChild className="h-8">
               <Link
-                to={`/project/${projectId}/impact/${entityType}/${entityId}`}
+                to={`/project/${parsedProjectId}/impact/${entityType}/${parsedEntityId}`}
               >
                 <Network className="h-3.5 w-3.5 mr-2" />
                 Impact Analysis
@@ -710,7 +719,7 @@ const EntityDetailPage: React.FC = () => {
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
-                              onClick={() => copyToClipboard(isTable ? ddl || "" : definition || "")}
+                              onClick={() => copyToClipboard(definition || "")}
                             >
                               <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy SQL
                             </Button>
@@ -722,7 +731,7 @@ const EntityDetailPage: React.FC = () => {
                                 height="100%"
                                 defaultLanguage="sql"
                                 theme="vs-dark"
-                                value={isTable ? ddl || "-- DDL not available" : definition || "-- Definition not available"}
+                                value={definition || "-- Definition not available"}
                                 options={{
                                   readOnly: true,
                                   minimap: { enabled: false },
@@ -800,18 +809,18 @@ const EntityDetailPage: React.FC = () => {
                 {isTable && (
                   <TabsContent value="relationships" className="mt-0 focus-visible:outline-none">
                     <LogicalFkPanel
-                      projectId={Number(projectId)}
-                      tableId={Number(entityId)}
+                      projectId={parsedProjectId}
+                      tableId={parsedEntityId}
                       tableName={name || ""}
                       columns={(columns ?? [])
                         .filter((c) => c.columnId != null)
                         .map((c) => ({
-                        columnId: c.columnId!,
-                        columnName: c.name,
-                        dataType: c.dataType,
-                        isPrimaryKey: c.isPrimaryKey,
-                        isForeignKey: c.isForeignKey,
-                      }))}
+                          columnId: c.columnId!,
+                          columnName: c.name,
+                          dataType: c.dataType,
+                          isPrimaryKey: c.isPrimaryKey,
+                          isForeignKey: c.isForeignKey,
+                        }))}
                     />
                   </TabsContent>
                 )}
