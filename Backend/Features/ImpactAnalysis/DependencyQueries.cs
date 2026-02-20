@@ -9,18 +9,22 @@ public static class DependencyQueries
           AND SourceType IN @SourceTypes";
 
     public const string InsertDependency = @"
-        INSERT INTO Dependencies (ProjectId, SourceType, SourceId, TargetType, TargetId, DependencyType, ConfidenceScore)
-        SELECT @ProjectId, @SourceType, @SourceId, @TargetType, @TargetId, @DependencyType, @ConfidenceScore
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM Dependencies
-            WHERE ProjectId = @ProjectId
-              AND SourceType = @SourceType
-              AND SourceId = @SourceId
-              AND TargetType = @TargetType
-              AND TargetId = @TargetId
-              AND DependencyType = @DependencyType
-        );";
+        UPDATE Dependencies
+        SET    ConfidenceScore = @ConfidenceScore
+        WHERE  ProjectId      = @ProjectId
+          AND  SourceType     = @SourceType
+          AND  SourceId       = @SourceId
+          AND  TargetType     = @TargetType
+          AND  TargetId       = @TargetId
+          AND  DependencyType = @DependencyType;
+
+        IF @@ROWCOUNT = 0
+        BEGIN
+            INSERT INTO Dependencies
+                (ProjectId, SourceType, SourceId, TargetType, TargetId, DependencyType, ConfidenceScore)
+            VALUES
+                (@ProjectId, @SourceType, @SourceId, @TargetType, @TargetId, @DependencyType, @ConfidenceScore);
+        END";
 
     public const string GetDependents = @"
         SELECT * FROM Dependencies 

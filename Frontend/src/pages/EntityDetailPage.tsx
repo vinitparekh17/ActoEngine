@@ -132,6 +132,9 @@ interface ContextResponse {
   isStale: boolean;
 }
 
+type EntityType = "TABLE" | "SP";
+type EntityTypeRouteSlug = "tables" | "stored-procedures";
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -149,6 +152,19 @@ function formatRowCount(count?: number): string {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
   if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
   return count.toLocaleString();
+}
+
+const ROUTE_TO_ENTITY_TYPE: Record<EntityTypeRouteSlug, EntityType> = {
+  tables: "TABLE",
+  "stored-procedures": "SP",
+};
+
+function normalizeEntityType(entityTypeParam?: string): EntityType | null {
+  if (!entityTypeParam) return null;
+  return (
+    ROUTE_TO_ENTITY_TYPE[entityTypeParam.toLowerCase() as EntityTypeRouteSlug] ??
+    null
+  );
 }
 
 const EXPERTISE_CONFIG = {
@@ -309,19 +325,15 @@ const EntityDetailPage: React.FC = () => {
     entityType: string;
   }>();
 
-  // Normalize entityType from route param, defaulting to "SP" if missing
-  const entityType = entityTypeParam?.toUpperCase() === "TABLES"
-    ? "TABLE"
-    : entityTypeParam?.toUpperCase() === "STORED-PROCEDURES" || entityTypeParam?.toUpperCase() === "SP"
-      ? "SP"
-      : "SP"; // Default fallback
-
+  const entityType = normalizeEntityType(entityTypeParam);
   const isTable = entityType === "TABLE";
 
   // Fetch Entity Structure
-  const structureEndpoint = isTable
-    ? `/DatabaseBrowser/projects/${projectId}/tables/${entityId}`
-    : `/DatabaseBrowser/projects/${projectId}/stored-procedures/${entityId}`;
+  const structureEndpoint = entityType
+    ? isTable
+      ? `/DatabaseBrowser/projects/${projectId}/tables/${entityId}`
+      : `/DatabaseBrowser/projects/${projectId}/stored-procedures/${entityId}`
+    : "";
 
   const {
     data: entityData,
@@ -332,7 +344,7 @@ const EntityDetailPage: React.FC = () => {
   // Fetch Context & Experts
   const { data: contextData, isLoading: isLoadingContext } =
     useApi<ContextResponse>(
-      `/projects/${projectId}/context/${entityType}/${entityId}`,
+      entityType ? `/projects/${projectId}/context/${entityType}/${entityId}` : "",
       { staleTime: 30 * 1000, retry: 1 },
     );
 
@@ -366,6 +378,30 @@ const EntityDetailPage: React.FC = () => {
       toast.error("Failed to copy to clipboard");
     }
   };
+
+  if (!entityType) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen p-6 text-center bg-background">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
+          <AlertCircle className="h-8 w-8 text-destructive" />
+        </div>
+        <h2 className="text-2xl font-semibold text-foreground mb-2">
+          Invalid Entity Type
+        </h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          The route includes an unsupported entity type:
+          {" "}
+          <code>{entityTypeParam || "(missing)"}</code>.
+        </p>
+        <Button asChild variant="outline">
+          <Link to={`/project/${projectId}/entities`}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Explorer
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   // Loading State
   if (isLoadingStructure) {

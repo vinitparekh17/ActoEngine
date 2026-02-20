@@ -7,11 +7,11 @@ namespace ActoEngine.WebApi.Features.ErDiagram;
 
 public interface IErDiagramRepository
 {
-    Task<TableInfo?> GetTableInfoAsync(int projectId, int tableId);
-    Task<List<RawFkEdge>> GetPhysicalFksAsync(int projectId);
-    Task<List<RawLogicalFkEdge>> GetLogicalFksAsync(int projectId);
-    Task<List<TableInfo>> GetTablesByIdsAsync(IEnumerable<int> tableIds);
-    Task<List<ColumnInfo>> GetColumnsByTableIdsAsync(IEnumerable<int> tableIds);
+    Task<TableInfo?> GetTableInfoAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
+    Task<List<RawFkEdge>> GetPhysicalFksAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<List<RawLogicalFkEdge>> GetLogicalFksAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<List<TableInfo>> GetTablesByIdsAsync(IEnumerable<int> tableIds, CancellationToken cancellationToken = default);
+    Task<List<ColumnInfo>> GetColumnsByTableIdsAsync(IEnumerable<int> tableIds, CancellationToken cancellationToken = default);
 }
 
 public class ErDiagramRepository(
@@ -19,28 +19,31 @@ public class ErDiagramRepository(
     ILogger<ErDiagramRepository> logger)
     : BaseRepository(connectionFactory, logger), IErDiagramRepository
 {
-    public async Task<TableInfo?> GetTableInfoAsync(int projectId, int tableId)
+    public async Task<TableInfo?> GetTableInfoAsync(int projectId, int tableId, CancellationToken cancellationToken = default)
     {
         return await QueryFirstOrDefaultAsync<TableInfo>(
             ErDiagramQueries.GetTableInfo,
-            new { ProjectId = projectId, TableId = tableId });
+            new { ProjectId = projectId, TableId = tableId },
+            cancellationToken);
     }
 
-    public async Task<List<RawFkEdge>> GetPhysicalFksAsync(int projectId)
+    public async Task<List<RawFkEdge>> GetPhysicalFksAsync(int projectId, CancellationToken cancellationToken = default)
     {
         var result = await QueryAsync<RawFkEdge>(
             ErDiagramQueries.GetPhysicalFks,
-            new { ProjectId = projectId });
+            new { ProjectId = projectId },
+            cancellationToken);
         return [.. result];
     }
 
-    public async Task<List<RawLogicalFkEdge>> GetLogicalFksAsync(int projectId)
+    public async Task<List<RawLogicalFkEdge>> GetLogicalFksAsync(int projectId, CancellationToken cancellationToken = default)
     {
         try
         {
             var result = await QueryAsync<RawLogicalFkEdge>(
                 ErDiagramQueries.GetLogicalFks,
-                new { ProjectId = projectId });
+                new { ProjectId = projectId },
+                cancellationToken);
             return [.. result];
         }
         catch (Microsoft.Data.SqlClient.SqlException ex)
@@ -54,19 +57,21 @@ public class ErDiagramRepository(
         }
     }
 
-    public async Task<List<TableInfo>> GetTablesByIdsAsync(IEnumerable<int> tableIds)
+    public async Task<List<TableInfo>> GetTablesByIdsAsync(IEnumerable<int> tableIds, CancellationToken cancellationToken = default)
     {
         var result = await QueryAsync<TableInfo>(
             ErDiagramQueries.GetTablesByIds,
-            new { TableIds = tableIds });
+            new { TableIds = tableIds },
+            cancellationToken);
         return [.. result];
     }
 
-    public async Task<List<ColumnInfo>> GetColumnsByTableIdsAsync(IEnumerable<int> tableIds)
+    public async Task<List<ColumnInfo>> GetColumnsByTableIdsAsync(IEnumerable<int> tableIds, CancellationToken cancellationToken = default)
     {
         var result = await QueryAsync<ColumnInfo>(
             ErDiagramQueries.GetColumnsByTableIds,
-            new { TableIds = tableIds });
+            new { TableIds = tableIds },
+            cancellationToken);
         return [.. result];
     }
 }

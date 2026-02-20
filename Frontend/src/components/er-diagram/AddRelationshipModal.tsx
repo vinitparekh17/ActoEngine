@@ -4,7 +4,7 @@
  * Source column dropdown (from current table) → target table search → target column selector.
  * Submits to POST /api/logical-fks/{projectId}
  */
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Search, Plus, X, Link2, AlertTriangle } from "lucide-react";
 import { queryKeys, useApi, useApiMutation } from "@/hooks/useApi";
 import type { TableListItem } from "@/types/er-diagram";
@@ -44,6 +44,8 @@ export default function AddRelationshipModal({
     onClose,
     onSuccess,
 }: AddRelationshipModalProps) {
+    const modalRef = useRef<HTMLDivElement | null>(null);
+    const previousFocusedElementRef = useRef<HTMLElement | null>(null);
     const [sourceColumnId, setSourceColumnId] = useState<number | null>(null);
     const [targetTableId, setTargetTableId] = useState<number | null>(null);
     const [targetColumnId, setTargetColumnId] = useState<number | null>(null);
@@ -109,7 +111,7 @@ export default function AddRelationshipModal({
     // Data type mismatch check
     const selectedSourceCol = sourceColumns.find((c) => c.columnId === sourceColumnId);
     const selectedTargetCol = (targetColumns ?? []).find(
-        (c) => (c.columnId ?? 0) === targetColumnId
+        (c) => c.columnId != null && targetColumnId != null && c.columnId === targetColumnId
     );
     const dataTypeMismatch = useMemo(() => {
         if (!selectedSourceCol || !selectedTargetCol) return false;
@@ -141,13 +143,74 @@ export default function AddRelationshipModal({
         );
     };
 
-    // Close on Escape key
+    // Focus management: move focus into modal on open and restore focus to trigger on close
+    useEffect(() => {
+        previousFocusedElementRef.current = document.activeElement as HTMLElement | null;
+
+        const modal = modalRef.current;
+        if (!modal) {
+            return;
+        }
+
+        const focusable = Array.from(
+            modal.querySelectorAll<HTMLElement>(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+        ).filter((el) => !el.hasAttribute("aria-hidden"));
+
+        (focusable[0] ?? modal).focus();
+
+        return () => {
+            previousFocusedElementRef.current?.focus();
+        };
+    }, []);
+
+    // Keyboard handling: Escape to close + trap Tab/Shift+Tab within modal
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
+            const modal = modalRef.current;
+            if (!modal) return;
+
+            if (e.key === "Escape") {
+                e.preventDefault();
+                onClose();
+                return;
+            }
+
+            if (e.key !== "Tab") return;
+
+            const focusable = Array.from(
+                modal.querySelectorAll<HTMLElement>(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                )
+            ).filter((el) => !el.hasAttribute("aria-hidden"));
+
+            if (focusable.length === 0) {
+                e.preventDefault();
+                modal.focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            const activeElement = document.activeElement as HTMLElement | null;
+
+            if (e.shiftKey) {
+                if (activeElement === first || !modal.contains(activeElement)) {
+                    e.preventDefault();
+                    last.focus();
+                }
+                return;
+            }
+
+            if (activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
         };
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
     }, [onClose]);
 
     // Handle click outside dropdown
@@ -171,7 +234,11 @@ export default function AddRelationshipModal({
             aria-modal="true"
             aria-labelledby="modal-title"
         >
-            <div className="bg-card border rounded-xl shadow-2xl w-[500px] max-h-[90vh] overflow-hidden">
+            <div
+                ref={modalRef}
+                tabIndex={-1}
+                className="bg-card border rounded-xl shadow-2xl w-[500px] max-h-[90vh] overflow-hidden"
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b">
                     <div className="flex items-center gap-2">

@@ -19,7 +19,8 @@ public abstract class BaseRepository(IDbConnectionFactory connectionFactory, ILo
         {
             using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
             _logger.LogDebug("Executing scalar query: {Sql}", sql);
-            return await connection.QuerySingleOrDefaultAsync<T>(sql, parameters);
+            return await connection.QuerySingleOrDefaultAsync<T>(
+                new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
         }
         catch (Exception ex)
         {
@@ -37,7 +38,8 @@ public abstract class BaseRepository(IDbConnectionFactory connectionFactory, ILo
         {
             using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
             _logger.LogDebug("Executing query: {Sql}", sql);
-            return await connection.QueryAsync<T>(sql, parameters);
+            return await connection.QueryAsync<T>(
+                new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
         }
         catch (Exception ex)
         {
@@ -55,7 +57,8 @@ public abstract class BaseRepository(IDbConnectionFactory connectionFactory, ILo
         {
             using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
             _logger.LogDebug("Executing single query: {Sql}", sql);
-            return await connection.QueryFirstOrDefaultAsync<T>(sql, parameters);
+            return await connection.QueryFirstOrDefaultAsync<T>(
+                new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
         }
         catch (Exception ex)
         {
@@ -73,7 +76,8 @@ public abstract class BaseRepository(IDbConnectionFactory connectionFactory, ILo
         {
             using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
             _logger.LogDebug("Executing command: {Sql}", sql);
-            return await connection.ExecuteAsync(sql, parameters);
+            return await connection.ExecuteAsync(
+                new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
         }
         catch (Exception ex)
         {

@@ -7,7 +7,7 @@
  * 3. "Add Logical Relationship" button → modal
  * 4. "Run Detection" to auto-detect candidates
  */
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import {
     ArrowRight,
     Check,
@@ -22,7 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useApi, useApiPut, useApiDelete } from "@/hooks/useApi";
+import { queryKeys, useApi, useApiPut, useApiDelete } from "@/hooks/useApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -47,6 +47,9 @@ interface LogicalFkPanelProps {
     columns: ColumnForModal[];
 }
 
+export const logicalFkQueryKey = (projectId: number, tableId: number) =>
+    Array.from(queryKeys.logicalFks.byTable(projectId, tableId));
+
 // ---------- Component ----------
 
 export default function LogicalFkPanel({
@@ -55,45 +58,47 @@ export default function LogicalFkPanel({
     tableName,
     columns,
 }: LogicalFkPanelProps) {
+    const normalizedProjectId = Number(projectId);
+    const normalizedTableId = Number(tableId);
     const [showAddModal, setShowAddModal] = useState(false);
     const [isDetecting, setIsDetecting] = useState(false);
+    const [inflightFkId, setInflightFkId] = useState<number | null>(null);
     const queryClient = useQueryClient();
-    const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Fetch physical FKs
     const { data: physicalFks, isLoading: isLoadingPhysical } = useApi<PhysicalFkDto[]>(
-        `/logical-fks/${projectId}/table/${tableId}/physical`,
-        { queryKey: ["physical-fks", String(projectId), "table", String(tableId)] }
+        `/logical-fks/${normalizedProjectId}/table/${normalizedTableId}/physical`,
+        { queryKey: ["physical-fks", normalizedProjectId, "table", normalizedTableId] }
     );
 
     // Fetch logical FKs for this table
-    const logicalFkQueryKey = ["logical-fks", String(projectId), "table", String(tableId)];
+    const logicalFkTableQueryKey = logicalFkQueryKey(normalizedProjectId, normalizedTableId);
     const { data: logicalFks, isLoading } = useApi<LogicalFkDto[]>(
-        `/logical-fks/${projectId}/table/${tableId}`,
-        { queryKey: logicalFkQueryKey, staleTime: 30_000 }
+        `/logical-fks/${normalizedProjectId}/table/${normalizedTableId}`,
+        { queryKey: logicalFkTableQueryKey, staleTime: 30_000 }
     );
 
     // Mutations
     const confirmMutation = useApiPut<unknown, { id: number }>(
-        `/logical-fks/${projectId}/:id/confirm`,
+        `/logical-fks/${normalizedProjectId}/:id/confirm`,
         {
             successMessage: "Relationship confirmed",
-            invalidateKeys: [logicalFkQueryKey],
+            invalidateKeys: [logicalFkTableQueryKey],
         }
     );
 
     const rejectMutation = useApiPut<unknown, { id: number }>(
-        `/logical-fks/${projectId}/:id/reject`,
+        `/logical-fks/${normalizedProjectId}/:id/reject`,
         {
-            invalidateKeys: [logicalFkQueryKey],
+            invalidateKeys: [logicalFkTableQueryKey],
         }
     );
 
     const deleteMutation = useApiDelete<unknown, { id: number }>(
-        `/logical-fks/${projectId}/:id`,
+        `/logical-fks/${normalizedProjectId}/:id`,
         {
             successMessage: "Relationship removed",
-            invalidateKeys: [logicalFkQueryKey],
+            invalidateKeys: [logicalFkTableQueryKey],
         }
     );
 
@@ -101,15 +106,15 @@ export default function LogicalFkPanel({
     const handleDetect = useCallback(async () => {
         setIsDetecting(true);
         try {
-            await api.get(`/logical-fks/${projectId}/detect-candidates`);
-            queryClient.invalidateQueries({ queryKey: logicalFkQueryKey });
+            await api.get(`/logical-fks/${normalizedProjectId}/detect-candidates`);
+            queryClient.invalidateQueries({ queryKey: logicalFkTableQueryKey });
             toast.success("Detection complete — check for new suggestions");
         } catch {
             toast.error("Detection failed");
         } finally {
             setIsDetecting(false);
         }
-    }, [projectId, queryClient, logicalFkQueryKey]);
+    }, [normalizedProjectId, queryClient, logicalFkTableQueryKey]);
 
     // Split logical FKs by status
     const confirmed = (logicalFks ?? []).filter((fk) => fk.status === "CONFIRMED");
@@ -117,7 +122,7 @@ export default function LogicalFkPanel({
 
     // Determine direction labels (this table could be source or target)
     const fkLabel = (fk: LogicalFkDto) => {
-        const isSource = fk.sourceTableId === tableId;
+        const isSource = fk.sourceTableId === normalizedTableId;
         const otherTable = isSource ? fk.targetTableName : fk.sourceTableName;
         const myColumns = isSource ? fk.sourceColumnNames : fk.targetColumnNames;
         const otherColumns = isSource ? fk.targetColumnNames : fk.sourceColumnNames;
@@ -153,9 +158,12 @@ export default function LogicalFkPanel({
                         </div>
                     ) : (
                         <div className="divide-y">
-                            {(physicalFks || []).map((fk, idx) => (
+                            {(physicalFks || []).map((fk) => (
                                 <div
-                                    key={idx}
+                                    key={
+                                        fk.foreignKeyName ||
+                                        `${fk.sourceTableName}.${fk.sourceColumnName}->${fk.targetTableName}.${fk.targetColumnName}`
+                                    }
                                     className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-muted/20 transition-colors"
                                 >
                                     <code className="text-xs font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -268,8 +276,17 @@ export default function LogicalFkPanel({
                                                     variant="ghost"
                                                     size="sm"
                                                     className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
-                                                    onClick={() => confirmMutation.mutate({ id: fk.logicalFkId })}
-                                                    disabled={confirmMutation.isPending}
+                                                    onClick={() => {
+                                                        const fkId = fk.logicalFkId;
+                                                        setInflightFkId(fkId);
+                                                        confirmMutation.mutate(
+                                                            { id: fkId },
+                                                            {
+                                                                onSettled: () => setInflightFkId(null),
+                                                            }
+                                                        );
+                                                    }}
+                                                    disabled={inflightFkId === fk.logicalFkId}
                                                 >
                                                     <Check className="h-3.5 w-3.5 mr-1" />
                                                     Confirm
@@ -280,6 +297,7 @@ export default function LogicalFkPanel({
                                                     className="h-7 px-2 text-destructive hover:bg-destructive/10"
                                                     onClick={() => {
                                                         const fkId = fk.logicalFkId;
+                                                        setInflightFkId(fkId);
                                                         rejectMutation.mutate(
                                                             { id: fkId },
                                                             {
@@ -295,10 +313,11 @@ export default function LogicalFkPanel({
                                                                         icon: <Undo2 className="h-4 w-4" />,
                                                                     });
                                                                 },
+                                                                onSettled: () => setInflightFkId(null),
                                                             }
                                                         );
                                                     }}
-                                                    disabled={rejectMutation.isPending}
+                                                    disabled={inflightFkId === fk.logicalFkId}
                                                 >
                                                     <X className="h-3.5 w-3.5 mr-1" />
                                                     Reject
@@ -348,8 +367,17 @@ export default function LogicalFkPanel({
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-7 px-2 text-muted-foreground hover:text-destructive"
-                                                onClick={() => deleteMutation.mutate({ id: fk.logicalFkId })}
-                                                disabled={deleteMutation.isPending}
+                                                onClick={() => {
+                                                    const fkId = fk.logicalFkId;
+                                                    setInflightFkId(fkId);
+                                                    deleteMutation.mutate(
+                                                        { id: fkId },
+                                                        {
+                                                            onSettled: () => setInflightFkId(null),
+                                                        }
+                                                    );
+                                                }}
+                                                disabled={inflightFkId === fk.logicalFkId}
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </Button>
@@ -380,13 +408,13 @@ export default function LogicalFkPanel({
             {/* Add Relationship Modal */}
             {showAddModal && (
                 <AddRelationshipModal
-                    projectId={projectId}
-                    sourceTableId={tableId}
+                    projectId={normalizedProjectId}
+                    sourceTableId={normalizedTableId}
                     sourceTableName={tableName}
                     sourceColumns={columns}
                     onClose={() => setShowAddModal(false)}
                     onSuccess={() =>
-                        queryClient.invalidateQueries({ queryKey: logicalFkQueryKey })
+                        queryClient.invalidateQueries({ queryKey: logicalFkTableQueryKey })
                     }
                 />
             )}

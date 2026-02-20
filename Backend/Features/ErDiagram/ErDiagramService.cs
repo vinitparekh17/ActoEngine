@@ -24,10 +24,10 @@ public class ErDiagramService(
     public async Task<ErDiagramResponse?> GetNeighborhoodAsync(
         int projectId, int focusTableId, int hops, CancellationToken cancellationToken = default)
     {
-        var boundedHops = Math.Min(Math.Max(hops, 0), 10);
+        var boundedHops = Math.Clamp(hops, 0, 10);
 
         // Verify focus table exists and belongs to the project
-        var focusTable = await repository.GetTableInfoAsync(projectId, focusTableId);
+        var focusTable = await repository.GetTableInfoAsync(projectId, focusTableId, cancellationToken);
 
         if (focusTable == null) return null;
 
@@ -36,10 +36,11 @@ public class ErDiagramService(
         var frontier = new HashSet<int> { focusTableId };
 
         // Get ALL physical FK edges for this project (efficient single query)
-        var physicalEdges = await repository.GetPhysicalFksAsync(projectId);
-
-        // Get ALL logical FK edges for this project (only SUGGESTED + CONFIRMED)
-        var logicalEdges = await repository.GetLogicalFksAsync(projectId);
+        var physicalEdgesTask = repository.GetPhysicalFksAsync(projectId, cancellationToken);
+        var logicalEdgesTask = repository.GetLogicalFksAsync(projectId, cancellationToken);
+        await Task.WhenAll(physicalEdgesTask, logicalEdgesTask);
+        var physicalEdges = await physicalEdgesTask;
+        var logicalEdges = await logicalEdgesTask;
 
         // BFS expansion: walk FK edges to discover neighbors
         for (int depth = 1; depth <= boundedHops; depth++)
@@ -80,8 +81,11 @@ public class ErDiagramService(
         var tableIds = visited.Keys.ToList();
 
         // Load table + column data for all visited tables
-        var tables = await repository.GetTablesByIdsAsync(tableIds);
-        var columns = await repository.GetColumnsByTableIdsAsync(tableIds);
+        var tablesTask = repository.GetTablesByIdsAsync(tableIds, cancellationToken);
+        var columnsTask = repository.GetColumnsByTableIdsAsync(tableIds, cancellationToken);
+        await Task.WhenAll(tablesTask, columnsTask);
+        var tables = await tablesTask;
+        var columns = await columnsTask;
 
         var columnsByTable = columns.GroupBy(c => c.TableId)
             .ToDictionary(g => g.Key, g => g.ToList());

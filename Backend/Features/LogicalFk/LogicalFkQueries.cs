@@ -47,7 +47,8 @@ public static class LogicalFkQueries
         FROM LogicalForeignKeys lfk
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
-        WHERE lfk.LogicalFkId = @LogicalFkId;";
+        WHERE lfk.LogicalFkId = @LogicalFkId
+          AND lfk.ProjectId = @ProjectId;";
 
     public const string GetByTable = @"
         SELECT 
@@ -104,6 +105,7 @@ public static class LogicalFkQueries
         SELECT COUNT(1)
         FROM LogicalForeignKeys lfk
         WHERE lfk.ProjectId = @ProjectId
+          AND lfk.Status NOT IN ('REJECTED', 'DELETED')
           AND lfk.SourceTableId = @SourceTableId
           AND lfk.TargetTableId = @TargetTableId
           AND (
@@ -177,5 +179,10 @@ public static class LogicalFkQueries
           AND (fk.TableId = @TableId OR fk.ReferencedTableId = @TableId)
         ORDER BY st.TableName, sc.ColumnOrder;";
 
-    public const string GetColumnNamesQuery = "SELECT ColumnId, ColumnName FROM ColumnsMetadata WHERE ColumnId IN @ColumnIds";
+    public const string GetColumnNamesQuery = @"
+        SELECT cm.ColumnId, cm.ColumnName
+        FROM ColumnsMetadata cm
+        INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
+        WHERE cm.ColumnId IN @ColumnIds
+          AND tm.ProjectId = @ProjectId";
 }

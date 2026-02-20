@@ -10,7 +10,7 @@ namespace ActoEngine.WebApi.Features.LogicalFk;
 public interface ILogicalFkRepository
 {
     Task<List<LogicalFkDto>> GetByProjectAsync(int projectId, string? statusFilter = null, CancellationToken cancellationToken = default);
-    Task<LogicalFkDto?> GetByIdAsync(int logicalFkId, CancellationToken cancellationToken = default);
+    Task<LogicalFkDto?> GetByIdAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default);
     Task<List<LogicalFkDto>> GetByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
     Task<int> CreateAsync(LogicalForeignKey logicalForeignKey, CancellationToken cancellationToken = default);
     Task ConfirmAsync(int projectId, int logicalFkId, int userId, string? notes = null, CancellationToken cancellationToken = default);
@@ -50,20 +50,20 @@ public class LogicalFkRepository(
         }
 
         var dtos = rows.Select(MapToDto).ToList();
-        return await EnrichDtosWithColumnNames(dtos, cancellationToken);
+        return await EnrichDtosWithColumnNames(dtos, projectId, cancellationToken);
     }
 
-    public async Task<LogicalFkDto?> GetByIdAsync(int logicalFkId, CancellationToken cancellationToken = default)
+    public async Task<LogicalFkDto?> GetByIdAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default)
     {
         var row = await QueryFirstOrDefaultAsync<LogicalFkRawRow>(
             LogicalFkQueries.GetById,
-            new { LogicalFkId = logicalFkId },
+            new { ProjectId = projectId, LogicalFkId = logicalFkId },
             cancellationToken);
 
         if (row == null) return null;
 
         var dto = MapToDto(row);
-        var enriched = await EnrichDtosWithColumnNames([dto], cancellationToken);
+        var enriched = await EnrichDtosWithColumnNames([dto], projectId, cancellationToken);
         return enriched.FirstOrDefault();
     }
 
@@ -75,7 +75,7 @@ public class LogicalFkRepository(
             cancellationToken);
 
         var dtos = rows.Select(MapToDto).ToList();
-        return await EnrichDtosWithColumnNames(dtos, cancellationToken);
+        return await EnrichDtosWithColumnNames(dtos, projectId, cancellationToken);
     }
 
     public async Task<int> CreateAsync(
@@ -208,7 +208,7 @@ public class LogicalFkRepository(
 
     #region Mapping Helpers
 
-    private async Task<List<LogicalFkDto>> EnrichDtosWithColumnNames(List<LogicalFkDto> dtos, CancellationToken cancellationToken)
+    private async Task<List<LogicalFkDto>> EnrichDtosWithColumnNames(List<LogicalFkDto> dtos, int projectId, CancellationToken cancellationToken)
     {
         if (dtos.Count == 0) return dtos;
 
@@ -223,7 +223,7 @@ public class LogicalFkRepository(
 
         var columnNames = await QueryAsync<dynamic>(
             LogicalFkQueries.GetColumnNamesQuery,
-            new { ColumnIds = allColumnIds },
+            new { ProjectId = projectId, ColumnIds = allColumnIds },
             cancellationToken);
 
         var nameMap = columnNames.ToDictionary(r => (int)r.ColumnId, r => (string)r.ColumnName);

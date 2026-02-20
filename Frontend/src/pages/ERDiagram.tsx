@@ -60,7 +60,9 @@ export default function ERDiagramPage() {
     const [layoutDirection, setLayoutDirection] = useState<"LR" | "TB">("LR");
     const [selectedEdge, setSelectedEdge] = useState<ErEdgeData | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchContainerRef = useRef<HTMLDivElement | null>(null);
+    const modalRef = useRef<HTMLDivElement | null>(null);
+    const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
 
     // React Flow state
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -122,11 +124,90 @@ export default function ERDiagramPage() {
         return tables.filter((t) => t.tableName.toLowerCase().includes(q)).slice(0, 20);
     }, [tables, searchQuery]);
 
+    // Close search dropdown when clicking outside search container
+    useEffect(() => {
+        const handleDocumentMouseDown = (event: MouseEvent) => {
+            if (!searchContainerRef.current) return;
+            if (!searchContainerRef.current.contains(event.target as globalThis.Node)) {
+                setIsSearchOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleDocumentMouseDown);
+        return () => document.removeEventListener("mousedown", handleDocumentMouseDown);
+    }, []);
+
+    // Modal focus management + Escape close + Tab trapping
+    useEffect(() => {
+        if (!isModalOpen) return;
+
+        previouslyFocusedElementRef.current = document.activeElement as HTMLElement | null;
+
+        const modalElement = modalRef.current;
+        if (modalElement) {
+            const focusable = Array.from(
+                modalElement.querySelectorAll<HTMLElement>(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                )
+            ).filter((el) => !el.hasAttribute("aria-hidden"));
+
+            (focusable[0] ?? modalElement).focus();
+        }
+
+        const handleModalKeyDown = (event: KeyboardEvent) => {
+            const currentModal = modalRef.current;
+            if (!currentModal) return;
+
+            if (event.key === "Escape") {
+                event.preventDefault();
+                setIsModalOpen(false);
+                return;
+            }
+
+            if (event.key !== "Tab") return;
+
+            const focusable = Array.from(
+                currentModal.querySelectorAll<HTMLElement>(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                )
+            ).filter((el) => !el.hasAttribute("aria-hidden"));
+
+            if (focusable.length === 0) {
+                event.preventDefault();
+                currentModal.focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            const activeElement = document.activeElement as HTMLElement | null;
+
+            if (event.shiftKey) {
+                if (activeElement === first || !currentModal.contains(activeElement)) {
+                    event.preventDefault();
+                    last.focus();
+                }
+                return;
+            }
+
+            if (activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener("keydown", handleModalKeyDown);
+        return () => {
+            document.removeEventListener("keydown", handleModalKeyDown);
+            previouslyFocusedElementRef.current?.focus();
+        };
+    }, [isModalOpen]);
+
     // Convert API data to React Flow nodes/edges
     useEffect(() => {
         if (!erData) return;
 
-        const rfNodes: Node[] = erData.nodes.map((node, idx) => ({
+        const rfNodes: Node[] = erData.nodes.map((node) => ({
             id: `table-${node.tableId}`,
             type: "table",
             position: { x: 0, y: 0 }, // dagre will overwrite
@@ -210,7 +291,7 @@ export default function ERDiagramPage() {
                 onSuccess: () => {
                     setIsModalOpen(false);
                     // Show undo toast for 8 seconds
-                    const toastId = toast("Logical FK rejected", {
+                    toast("Logical FK rejected", {
                         duration: 8000,
                         action: {
                             label: "Undo",
@@ -218,7 +299,6 @@ export default function ERDiagramPage() {
                                 confirmMutation.mutate(
                                     { id: fkId, projectId: pid }
                                 );
-                                if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
                             },
                         },
                         icon: <Undo2 className="h-4 w-4" />,
@@ -236,7 +316,7 @@ export default function ERDiagramPage() {
                 <h1 className="text-lg font-semibold">ER Diagram</h1>
 
                 {/* Search */}
-                <div className="relative ml-4 w-80">
+                <div ref={searchContainerRef} className="relative ml-4 w-80">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
                         type="text"
@@ -398,7 +478,11 @@ export default function ERDiagramPage() {
                     aria-labelledby="fk-modal-title"
                     onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
                 >
-                    <div className="bg-card border rounded-xl shadow-2xl w-[460px] p-6">
+                    <div
+                        ref={modalRef}
+                        tabIndex={-1}
+                        className="bg-card border rounded-xl shadow-2xl w-[460px] p-6"
+                    >
                         <div className="flex items-center justify-between mb-5">
                             <h3 id="fk-modal-title" className="text-lg font-semibold">Logical Foreign Key</h3>
                             <span

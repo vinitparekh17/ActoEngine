@@ -108,6 +108,16 @@ public class DependencyRepository(
         var depsList = dependencies.ToList();
         if (depsList.Count == 0) return;
 
+        var mismatchedProjectCount = 0;
+        foreach (var dep in depsList)
+        {
+            if (dep.ProjectId != projectId)
+            {
+                mismatchedProjectCount++;
+                dep.ProjectId = projectId;
+            }
+        }
+
         var insertSql = DependencyQueries.InsertDependency;
 
         await ExecuteInTransactionAsync(async (conn, transaction) =>
@@ -117,8 +127,8 @@ public class DependencyRepository(
         }, cancellationToken);
 
         _logger.LogInformation(
-            "Added {Count} dependencies for project {ProjectId}",
-            depsList.Count, projectId);
+            "Added {Count} dependencies for project {ProjectId} (normalizedProjectIds={NormalizedCount})",
+            depsList.Count, projectId, mismatchedProjectCount);
     }
 
     public async Task<List<ResolvedDependency>> GetDependentsAsync(int projectId, string targetType, int targetId, CancellationToken cancellationToken = default)
