@@ -468,8 +468,10 @@ const EntityDetailPage: React.FC = () => {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href={`/project/${parsedProjectId}/entities`}>
-                  Explorer
+                <BreadcrumbLink>
+                  <Link to={`/project/${parsedProjectId}/entities`}>
+                    Explorer
+                  </Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
@@ -507,7 +509,7 @@ const EntityDetailPage: React.FC = () => {
         </div>
 
         {/* Scrollable Content Area */}
-        <ScrollArea className="flex-1 overflow-y-auto">
+        <ScrollArea className="flex-1 overflow-y-auto [&_[data-radix-scroll-area-viewport]>div]:!block">
 
           {/* 2. Hero Header */}
           <header className="px-8 py-8 border-b bg-gradient-to-b from-muted/20 to-background">
