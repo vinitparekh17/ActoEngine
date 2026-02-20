@@ -69,7 +69,17 @@ public class LogicalFkCandidate
     public required string TargetDataType { get; set; }
 
     public decimal ConfidenceScore { get; set; }
-    public required string Reason { get; set; } // Human-readable explanation
+    public required string Reason { get; set; }
+
+    // Multi-strategy evidence
+    public List<string> DiscoveryMethods { get; set; } = [];
+    public List<string> SpEvidence { get; set; } = [];
+    public int MatchCount { get; set; }
+
+    /// <summary>
+    /// Canonical key for dedup: "srcTableId:srcColId→tgtTableId:tgtColId"
+    /// </summary>
+    public string CanonicalKey => $"{SourceTableId}:{SourceColumnId}→{TargetTableId}:{TargetColumnId}";
 }
 
 /// <summary>
@@ -104,4 +114,55 @@ public class PhysicalFkDto
     public required string TargetColumnName { get; set; }
     public string OnDeleteAction { get; set; } = "NO ACTION";
     public string OnUpdateAction { get; set; } = "NO ACTION";
+}
+
+/// <summary>
+/// Per-candidate signal flags consumed by ConfidenceCalculator
+/// </summary>
+public class DetectionSignals
+{
+    public bool NamingDetected { get; set; }
+    public bool SpJoinDetected { get; set; }
+    public bool Corroborated => NamingDetected && SpJoinDetected;
+    public bool TypeMatch { get; set; }
+    public bool HasIdSuffix { get; set; }
+    public int SpCount { get; set; }
+}
+
+/// <summary>
+/// Configurable scoring parameters (bindable from appsettings.json)
+/// </summary>
+public class DetectionConfig
+{
+    // Base scores
+    public decimal NamingBaseScore { get; set; } = 0.60m;
+    public decimal SpJoinBaseScore { get; set; } = 0.50m;
+
+    // Bonuses/penalties
+    public decimal NamingBonus { get; set; } = 0.15m;
+    public decimal TypeMatchBonus { get; set; } = 0.10m;
+    public decimal TypeMismatchPenalty { get; set; } = -0.10m;
+    public decimal RepetitionBonusPerSp { get; set; } = 0.04m;
+    public decimal RepetitionBonusCap { get; set; } = 0.15m;
+    public decimal CorroborationBonus { get; set; } = 0.25m;
+
+    // Hard caps
+    public decimal SpOnlyCap { get; set; } = 0.85m;
+    public decimal NamingOnlyCap { get; set; } = 0.80m;
+    public decimal TypeMismatchCap { get; set; } = 0.55m;
+}
+
+/// <summary>
+/// Confidence breakdown for transparency/debugging
+/// </summary>
+public class ConfidenceResult
+{
+    public decimal BaseScore { get; set; }
+    public decimal NamingBonus { get; set; }
+    public decimal TypeBonus { get; set; }
+    public decimal RepetitionBonus { get; set; }
+    public decimal CorroborationBonus { get; set; }
+    public decimal RawConfidence { get; set; }
+    public decimal FinalConfidence { get; set; }
+    public string[] CapsApplied { get; set; } = [];
 }

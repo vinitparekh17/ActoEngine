@@ -185,4 +185,55 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
         WHERE cm.ColumnId IN @ColumnIds
           AND tm.ProjectId = @ProjectId";
+
+    /// <summary>
+    /// Bulk-load all physical FK column pairs for a project (for batch exclusion)
+    /// Returns: SourceTableId, SourceColumnId, TargetTableId, TargetColumnId
+    /// </summary>
+    public const string GetAllPhysicalFkPairs = @"
+        SELECT 
+            fk.TableId AS SourceTableId,
+            fk.ColumnId AS SourceColumnId,
+            fk.ReferencedTableId AS TargetTableId,
+            fk.ReferencedColumnId AS TargetColumnId
+        FROM ForeignKeyMetadata fk
+        INNER JOIN TablesMetadata tm ON fk.TableId = tm.TableId
+        WHERE tm.ProjectId = @ProjectId;";
+
+    /// <summary>
+    /// Bulk-load canonical keys of all existing logical FKs for a project (for batch dedup)
+    /// Canonical key format: "srcTableId:srcColId→tgtTableId:tgtColId"
+    /// </summary>
+    public const string GetAllLogicalFkCanonicalKeys = @"
+        SELECT
+            lfk.SourceTableId,
+            src.value AS SourceColumnId,
+            lfk.TargetTableId,
+            tgt.value AS TargetColumnId
+        FROM LogicalForeignKeys lfk
+        CROSS APPLY OPENJSON(lfk.SourceColumnIds) src
+        CROSS APPLY OPENJSON(lfk.TargetColumnIds) tgt
+        WHERE lfk.ProjectId = @ProjectId;";
+
+    /// <summary>
+    /// Extended column query including IsUnique for target resolution.
+    /// Uses index metadata to determine uniqueness.
+    /// </summary>
+    public const string GetColumnsForDetectionWithUniques = @"
+        SELECT 
+            cm.ColumnId, cm.TableId, cm.ColumnName, cm.DataType,
+            cm.IsPrimaryKey, cm.IsForeignKey,
+            tm.TableName,
+            CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM sys.index_columns ic
+                INNER JOIN sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+                WHERE i.is_unique = 1
+                  AND OBJECT_NAME(i.object_id) = tm.TableName
+                  AND COL_NAME(ic.object_id, ic.column_id) = cm.ColumnName
+            ) THEN 1 ELSE 0 END AS BIT) AS IsUnique
+        FROM ColumnsMetadata cm
+        INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
+        WHERE tm.ProjectId = @ProjectId
+        ORDER BY tm.TableName, cm.ColumnOrder;";
 }
+

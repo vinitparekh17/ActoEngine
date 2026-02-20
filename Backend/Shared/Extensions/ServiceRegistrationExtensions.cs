@@ -68,6 +68,8 @@ namespace ActoEngine.WebApi.Shared.Extensions
             // Logical FK Services
             services.AddScoped<ILogicalFkRepository, LogicalFkRepository>();
             services.AddScoped<ILogicalFkService, LogicalFkService>();
+            services.AddSingleton(configuration.GetSection("DetectionConfig").Get<DetectionConfig>() ?? new DetectionConfig());
+            services.AddScoped<ConfidenceCalculator>();
 
             // ER Diagram Services
             services.AddScoped<IErDiagramRepository, ErDiagramRepository>();
