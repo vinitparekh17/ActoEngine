@@ -149,10 +149,10 @@ public static class SchemaSyncQueries
                 AND ReferencedColumnId = @ReferencedColumnId
         )
         INSERT INTO ForeignKeyMetadata (
-            TableId, ColumnId, ReferencedTableId, ReferencedColumnId, OnDeleteAction, OnUpdateAction
+            TableId, ColumnId, ReferencedTableId, ReferencedColumnId, ForeignKeyName, OnDeleteAction, OnUpdateAction
         )
         VALUES (
-            @TableId, @ColumnId, @ReferencedTableId, @ReferencedColumnId, @OnDeleteAction, @OnUpdateAction
+            @TableId, @ColumnId, @ReferencedTableId, @ReferencedColumnId, @ForeignKeyName, @OnDeleteAction, @OnUpdateAction
         )";
 
     public const string InsertForeignKeyMetadataByNames = @"
@@ -187,10 +187,10 @@ public static class SchemaSyncQueries
             )
             BEGIN
                 INSERT INTO ForeignKeyMetadata (
-                    TableId, ColumnId, ReferencedTableId, ReferencedColumnId, OnDeleteAction, OnUpdateAction
+                    TableId, ColumnId, ReferencedTableId, ReferencedColumnId, ForeignKeyName, OnDeleteAction, OnUpdateAction
                 )
                 VALUES (
-                    @ParentTableId, @ParentColumnId, @RefTableId, @RefColumnId, @OnDeleteAction, @OnUpdateAction
+                    @ParentTableId, @ParentColumnId, @RefTableId, @RefColumnId, @ForeignKeyName, @OnDeleteAction, @OnUpdateAction
                 );
             END
         END";

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 namespace ActoEngine.WebApi.Api.Middleware;
 
@@ -7,8 +8,10 @@ public class SecurityHeadersMiddleware(RequestDelegate next)
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Generate a nonce for CSP
-        var nonce = Convert.ToBase64String(Encoding.UTF8.GetBytes(Guid.NewGuid().ToString()));
+        // Generate a cryptographically secure nonce for CSP
+        var nonceBytes = new byte[32];
+        RandomNumberGenerator.Fill(nonceBytes);
+        var nonce = Convert.ToBase64String(nonceBytes);
         context.Items["csp-nonce"] = nonce;
 
         // Add security headers

@@ -186,6 +186,7 @@ public class DatabaseSeeder(
             // Schema Management
             new { PermissionKey = "Schema:Read", Resource = "Schema", Action = "Read", Description = "View database schema", Category = "Schema Management" },
             new { PermissionKey = "Schema:Sync", Resource = "Schema", Action = "Sync", Description = "Synchronize database schema", Category = "Schema Management" },
+            new { PermissionKey = "Schema:Update", Resource = "Schema", Action = "Update", Description = "Update database schema", Category = "Schema Management" },
 
             // Form Builder
             new { PermissionKey = "Forms:Read", Resource = "Forms", Action = "Read", Description = "View form configurations", Category = "Form Builder" },

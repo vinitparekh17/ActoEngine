@@ -13,6 +13,7 @@ import {
   Search,
   Binary,
   Key,
+  GitBranch,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -226,6 +227,20 @@ export default function AppSidebar() {
                       >
                         <Search />
                         <span>Entity Explorer</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname.includes("/er-diagram")}
+                      tooltip="ER Diagram"
+                    >
+                      <NavLink
+                        to={`/project/${selectedProject.projectId}/er-diagram`}
+                      >
+                        <GitBranch />
+                        <span>ER Diagram</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

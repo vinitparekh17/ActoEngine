@@ -53,6 +53,7 @@ namespace ActoEngine.WebApi.Shared.Extensions
                         .AllowAnyMethod()
                         .AllowAnyHeader()
                         .AllowCredentials()
+                        .WithExposedHeaders("X-New-Access-Token")
                         .SetIsOriginAllowedToAllowWildcardSubdomains();
                 });
             });

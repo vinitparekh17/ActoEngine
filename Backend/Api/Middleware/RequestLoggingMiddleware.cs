@@ -94,7 +94,7 @@ public class RequestLoggingMiddleware(RequestDelegate next, ILogger<RequestLoggi
 
     private static string GetSafeHeaders(HttpRequest request)
     {
-        var sensitiveHeaders = new[] { "Authorization", "Cookie" };
+        var sensitiveHeaders = new[] { "Authorization", "Cookie", "X-New-Access-Token" };
         return string.Join("; ", request.Headers
             .Where(h => !sensitiveHeaders.Contains(h.Key, StringComparer.OrdinalIgnoreCase))
             .Select(h => $"{h.Key}: {h.Value}"));

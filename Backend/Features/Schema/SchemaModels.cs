@@ -20,6 +20,7 @@ public class ForeignKeyMetadata
     public int ColumnId { get; set; }
     public int ReferencedTableId { get; set; }
     public int ReferencedColumnId { get; set; }
+    public string? ForeignKeyName { get; set; }
     public string OnDeleteAction { get; set; } = "NO ACTION";
     public string OnUpdateAction { get; set; } = "NO ACTION";
 }
@@ -38,6 +39,7 @@ public class ForeignKeyScanResult
     public required string ColumnName { get; set; }
     public required string ReferencedTable { get; set; }
     public required string ReferencedColumn { get; set; }
+    public string? ForeignKeyName { get; set; }
     public string OnDeleteAction { get; set; } = "NO ACTION";
     public string OnUpdateAction { get; set; } = "NO ACTION";
 }

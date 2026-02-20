@@ -9,8 +9,31 @@ public static class DependencyQueries
           AND SourceType IN @SourceTypes";
 
     public const string InsertDependency = @"
-        INSERT INTO Dependencies (ProjectId, SourceType, SourceId, TargetType, TargetId, DependencyType, ConfidenceScore)
-        VALUES (@ProjectId, @SourceType, @SourceId, @TargetType, @TargetId, @DependencyType, @ConfidenceScore)";
+        UPDATE Dependencies
+        SET    ConfidenceScore = @ConfidenceScore
+        WHERE  ProjectId      = @ProjectId
+          AND  SourceType     = @SourceType
+          AND  SourceId       = @SourceId
+          AND  TargetType     = @TargetType
+          AND  TargetId       = @TargetId
+          AND  DependencyType = @DependencyType;
+
+        IF @@ROWCOUNT = 0
+        BEGIN
+            INSERT INTO Dependencies
+                (ProjectId, SourceType, SourceId, TargetType, TargetId, DependencyType, ConfidenceScore)
+            VALUES
+                (@ProjectId, @SourceType, @SourceId, @TargetType, @TargetId, @DependencyType, @ConfidenceScore);
+        END";
+
+    /// <summary>
+    /// Plain INSERT — used after DELETE when duplicates are impossible.
+    /// </summary>
+    public const string InsertDependencyPlain = @"
+        INSERT INTO Dependencies
+            (ProjectId, SourceType, SourceId, TargetType, TargetId, DependencyType, ConfidenceScore)
+        VALUES
+            (@ProjectId, @SourceType, @SourceId, @TargetType, @TargetId, @DependencyType, @ConfidenceScore)";
 
     public const string GetDependents = @"
         SELECT * FROM Dependencies 

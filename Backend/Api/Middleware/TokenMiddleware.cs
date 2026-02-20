@@ -29,20 +29,24 @@ namespace ActoEngine.WebApi.Api.Middleware
 
             if (context.User.Identity?.IsAuthenticated != true)
             {
-                await TryRefreshTokens(context);
+                var requestHandled = await TryRefreshTokens(context);
+                if (requestHandled)
+                {
+                    return;
+                }
             }
 
             await _next(context);
         }
 
-        private async Task TryRefreshTokens(HttpContext context)
+        private async Task<bool> TryRefreshTokens(HttpContext context)
         {
             var refreshToken = context.Request.Cookies["refresh_token"];
             if (string.IsNullOrEmpty(refreshToken))
             {
                 _logger.LogDebug("No refresh token found in cookies for path: {Path}", context.Request.Path);
                 await WriteUnauthorizedResponse(context, "Refresh token required");
-                return;
+                return true;
             }
 
             var accessToken = ExtractAccessToken(context.Request) ?? string.Empty;
@@ -56,19 +60,19 @@ namespace ActoEngine.WebApi.Api.Middleware
                 ClearRefreshTokenCookie(context);
                 _logger.LogWarning("Token refresh failed for path: {Path}", context.Request.Path);
                 await WriteUnauthorizedResponse(context, "Token refresh failed");
-                return;
+                return true;
             }
 
-            context.Response.Headers["X-New-Access-Token"] = result.SessionToken;
             if (!string.IsNullOrEmpty(result.RefreshToken))
             {
-                SetRefreshTokenCookie(context, result.RefreshToken, result.RefreshExpiresAt.AddDays(7));
+                SetRefreshTokenCookie(context, result.RefreshToken, result.RefreshExpiresAt);
             }
 
-            var principal = authService.ValidateAccessToken(result.SessionToken);
+            var principal = await authService.ValidateAccessTokenAsync(result.SessionToken);
             if (principal != null)
             {
                 context.User = principal;
+                context.Response.Headers["X-New-Access-Token"] = result.SessionToken;
 
                 // Set UserId in context items for controllers to use
                 var userIdClaim = principal.FindFirst("user_id")?.Value;
@@ -78,14 +82,12 @@ namespace ActoEngine.WebApi.Api.Middleware
                 }
 
                 _logger.LogInformation("Tokens rotated successfully for user {UserId}", result.UserId);
-                // Re-run the pipeline to re-authenticate
-                await _next(context);
+                return false;
             }
-            else
-            {
-                _logger.LogWarning("Failed to validate new access token after refresh for path: {Path}", context.Request.Path);
-                await WriteUnauthorizedResponse(context, "Invalid new access token");
-            }
+
+            _logger.LogWarning("Failed to validate new access token after refresh for path: {Path}", context.Request.Path);
+            await WriteUnauthorizedResponse(context, "Invalid new access token");
+            return true;
         }
 
         private static string? ExtractAccessToken(HttpRequest request)
@@ -132,6 +134,12 @@ namespace ActoEngine.WebApi.Api.Middleware
             });
         }
 
+        private static readonly JsonSerializerOptions _unauthorizedJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        };
+
         private static async Task WriteUnauthorizedResponse(HttpContext context, string message)
         {
             if (context.Response.HasStarted)
@@ -149,13 +157,7 @@ namespace ActoEngine.WebApi.Api.Middleware
                 Path = context.Request.Path.Value ?? string.Empty
             };
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = false
-            };
-
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, _unauthorizedJsonOptions));
         }
     }
 
