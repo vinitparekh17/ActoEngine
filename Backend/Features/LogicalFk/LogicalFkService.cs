@@ -1,5 +1,5 @@
 using ActoEngine.WebApi.Features.ImpactAnalysis;
-using ActoEngine.WebApi.Features.ErDiagram;
+using ActoEngine.WebApi.Features.Schema;
 using System.Text.RegularExpressions;
 using System.Text.Json;
 
@@ -22,12 +22,17 @@ public interface ILogicalFkService
 }
 
 /// <summary>
-/// Service for Logical FK business logic including name convention detection
+/// Multi-strategy logical FK detection engine.
+/// Strategy 1: SP JOIN Analysis — Parse SP definitions for JOIN ON conditions
+/// Strategy 2: Naming Convention — Match *_id / *Id columns to PK columns
+/// Strategy 3: Corroboration — Boost when both strategies agree
 /// </summary>
 public partial class LogicalFkService(
     ILogicalFkRepository logicalFkRepository,
-    IErDiagramRepository erDiagramRepository,
     IDependencyRepository dependencyRepository,
+    ISchemaRepository schemaRepository,
+    IDependencyAnalysisService analysisService,
+    ConfidenceCalculator confidenceCalculator,
     ILogger<LogicalFkService> logger) : ILogicalFkService
 {
     // Name convention patterns: orders.customer_id → customers.id
@@ -91,6 +96,11 @@ public partial class LogicalFkService(
         var existing = await logicalFkRepository.GetByIdAsync(projectId, logicalFkId, cancellationToken)
             ?? throw new KeyNotFoundException($"Logical FK {logicalFkId} not found.");
 
+        if (existing.ProjectId != projectId)
+        {
+            throw new KeyNotFoundException($"Logical FK {logicalFkId} does not belong to project {projectId}.");
+        }
+
         await logicalFkRepository.ConfirmAsync(projectId, logicalFkId, userId, notes, cancellationToken);
 
         // Feed confirmed FK into Dependencies table
@@ -107,6 +117,11 @@ public partial class LogicalFkService(
         var existing = await logicalFkRepository.GetByIdAsync(projectId, logicalFkId, cancellationToken)
             ?? throw new KeyNotFoundException($"Logical FK {logicalFkId} not found.");
 
+        if (existing.ProjectId != projectId)
+        {
+            throw new KeyNotFoundException($"Logical FK {logicalFkId} does not belong to project {projectId}.");
+        }
+
         await logicalFkRepository.RejectAsync(projectId, logicalFkId, userId, notes, cancellationToken);
 
         return await logicalFkRepository.GetByIdAsync(projectId, logicalFkId, cancellationToken)
@@ -119,51 +134,158 @@ public partial class LogicalFkService(
         var existing = await logicalFkRepository.GetByIdAsync(projectId, logicalFkId, cancellationToken)
              ?? throw new KeyNotFoundException($"Logical FK {logicalFkId} not found.");
 
+        if (existing.ProjectId != projectId)
+        {
+             // Treating mismatches as Not Found to avoid leaking existence
+             throw new KeyNotFoundException($"Logical FK {logicalFkId} not found in project {projectId}.");
+        }
+
         await logicalFkRepository.DeleteAsync(projectId, logicalFkId, cancellationToken);
     }
 
     /// <summary>
-    /// Detect logical FK candidates using name convention + data type matching.
-    /// Matches columns named "&lt;table&gt;_id" or "&lt;table&gt;Id" to PK columns of matching tables.
+    /// Multi-strategy logical FK detection engine.
+    /// 1. SP JOIN Analysis — Parse SP definitions for JOIN ON conditions (high confidence)
+    /// 2. Naming Convention — Match *_id / *Id columns to PK columns (medium confidence)
+    /// 3. Corroboration — When both strategies agree, boost confidence
     /// </summary>
     public async Task<List<LogicalFkCandidate>> DetectCandidatesAsync(int projectId, CancellationToken cancellationToken = default)
     {
+        // ── Load shared metadata ──────────────────────────────────
         var columns = await logicalFkRepository.GetColumnsForDetectionAsync(projectId, cancellationToken);
-        var candidates = new List<LogicalFkCandidate>();
 
         // Group by table for fast lookup
         var columnsByTable = columns.GroupBy(c => c.TableId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Build table name → table info lookup (case-insensitive)
-        var tableNames = columns
+        // Table name → table ID (case-insensitive)
+        var tableNameToId = columns
             .Select(c => new { c.TableId, c.TableName })
             .DistinctBy(t => t.TableId)
             .ToDictionary(t => t.TableName, t => t.TableId, StringComparer.OrdinalIgnoreCase);
 
-        // Find PK columns per table
+        // Table ID → table name
+        var tableIdToName = columns
+            .Select(c => new { c.TableId, c.TableName })
+            .DistinctBy(t => t.TableId)
+            .ToDictionary(t => t.TableId, t => t.TableName);
+
+        // PK columns per table
         var pksByTable = columns
             .Where(c => c.IsPrimaryKey)
             .GroupBy(c => c.TableId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Batch-fetch physical FKs and logical FKs once to avoid N+1 DB round-trips
-        var physicalFksTask = erDiagramRepository.GetPhysicalFksAsync(projectId, cancellationToken);
-        var logicalFksTask = logicalFkRepository.GetByProjectAsync(projectId, null, cancellationToken);
-        await Task.WhenAll(physicalFksTask, logicalFksTask);
+        // Column lookup: (tableId, columnName) → columnInfo
+        var columnLookup = columns
+            .GroupBy(c => c.TableId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.ToDictionary(c => c.ColumnName, c => c, StringComparer.OrdinalIgnoreCase));
 
-        var physicalFkSet = new HashSet<(int, int, int, int)>(
-            (await physicalFksTask).Select(fk => (fk.SourceTableId, fk.SourceColumnId, fk.TargetTableId, fk.TargetColumnId)));
+        // ── Batch-load exclusion sets (avoid N+1) ─────────────────
+        var physicalFkKeys = await logicalFkRepository.GetAllPhysicalFkPairsAsync(projectId, cancellationToken);
+        var logicalFkKeys = await logicalFkRepository.GetAllLogicalFkCanonicalKeysAsync(projectId, cancellationToken);
 
-        var logicalFkSet = new HashSet<(int, int, int, int)>();
-        foreach (var lfk in await logicalFksTask)
+        // ── Strategy 1: SP JOIN Analysis ──────────────────────────
+        // Keyed by canonical key → (candidate info, list of SP names)
+        var spJoinCandidates = new Dictionary<string, SpJoinEvidence>();
+
+        try
         {
-            // Logical FKs can be composite; for detection we check single-column matches
-            for (int i = 0; i < lfk.SourceColumnIds.Count && i < lfk.TargetColumnIds.Count; i++)
+            var procedures = await schemaRepository.GetStoredStoredProceduresAsync(projectId);
+
+            foreach (var sp in procedures)
             {
-                logicalFkSet.Add((lfk.SourceTableId, lfk.SourceColumnIds[i], lfk.TargetTableId, lfk.TargetColumnIds[i]));
+                if (string.IsNullOrWhiteSpace(sp.Definition)) continue;
+
+                try
+                {
+                    var joinConditions = analysisService.ExtractJoinConditions(sp.Definition);
+
+                    foreach (var jc in joinConditions)
+                    {
+                        // Resolve table names to IDs
+                        int? leftTableId = ResolveTableName(jc.LeftTable, tableNameToId);
+                        int? rightTableId = ResolveTableName(jc.RightTable, tableNameToId);
+
+                        if (leftTableId == null || rightTableId == null) continue;
+                        if (leftTableId == rightTableId) continue; // Self-join
+
+                        // Resolve column names to IDs
+                        var leftCol = ResolveColumn(leftTableId.Value, jc.LeftColumn, columnLookup);
+                        var rightCol = ResolveColumn(rightTableId.Value, jc.RightColumn, columnLookup);
+
+                        if (leftCol == null || rightCol == null) continue;
+
+                        // Determine direction: the FK side is typically the non-PK column
+                        // If right is PK → left references right (left is FK side)
+                        // If left is PK → right references left (right is FK side)
+                        DetectionColumnInfo sourceCol, targetCol;
+
+                        if (rightCol.IsPrimaryKey && !leftCol.IsPrimaryKey)
+                        {
+                            sourceCol = leftCol;
+                            targetCol = rightCol;
+                        }
+                        else if (leftCol.IsPrimaryKey && !rightCol.IsPrimaryKey)
+                        {
+                            sourceCol = rightCol;
+                            targetCol = leftCol;
+                        }
+                        else
+                        {
+                            // Both PK or neither PK — take the one with *Id suffix as source
+                            if (FkColumnPattern().IsMatch(leftCol.ColumnName))
+                            {
+                                sourceCol = leftCol;
+                                targetCol = rightCol;
+                            }
+                            else
+                            {
+                                sourceCol = rightCol;
+                                targetCol = leftCol;
+                            }
+                        }
+
+                        var canonicalKey = $"{sourceCol.TableId}:{sourceCol.ColumnId}→{targetCol.TableId}:{targetCol.ColumnId}";
+
+                        if (!spJoinCandidates.TryGetValue(canonicalKey, out var evidence))
+                        {
+                            evidence = new SpJoinEvidence
+                            {
+                                SourceCol = sourceCol,
+                                TargetCol = targetCol,
+                                SpNames = []
+                            };
+                            spJoinCandidates[canonicalKey] = evidence;
+                        }
+
+                        if (!evidence.SpNames.Contains(sp.ProcedureName))
+                        {
+                            evidence.SpNames.Add(sp.ProcedureName);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to extract JOIN conditions from SP {SpName} (ID: {SpId})",
+                        sp.ProcedureName, sp.SpId);
+                }
             }
+
+            logger.LogInformation(
+                "SP JOIN analysis found {Count} candidate relationships from {SpCount} procedures for project {ProjectId}",
+                spJoinCandidates.Count, procedures.Count, projectId);
         }
+        catch (Exception ex)
+        {
+            // SP analysis failure is non-fatal — fall through to naming convention
+            logger.LogError(ex, "SP JOIN analysis failed for project {ProjectId}. Falling back to naming convention only.", projectId);
+        }
+
+        // ── Strategy 2: Naming Convention ─────────────────────────
+        var namingCandidates = new Dictionary<string, NamingEvidence>();
 
         foreach (var col in columns)
         {
@@ -176,8 +298,7 @@ public partial class LogicalFkService(
             var prefix = match.Groups[1].Value;
 
             // Try to find a matching table by prefix
-            // e.g., "customer" → "customers", "Customer", "Customers"
-            int? targetTableId = TryResolveTable(prefix, tableNames);
+            int? targetTableId = TryResolveTable(prefix, tableNameToId);
             if (targetTableId == null) continue;
 
             // Don't match a table to itself
@@ -187,41 +308,95 @@ public partial class LogicalFkService(
             if (!pksByTable.TryGetValue(targetTableId.Value, out var targetPks) || targetPks.Count == 0)
                 continue;
 
-            // Use the first PK column (single-column PK for name convention detection)
+            // Structural priority: PK always wins (use first single-column PK)
             var targetPk = targetPks[0];
 
-            // Data type must match
-            if (!DataTypesCompatible(col.DataType, targetPk.DataType))
-                continue;
+            var canonicalKey = $"{col.TableId}:{col.ColumnId}→{targetTableId.Value}:{targetPk.ColumnId}";
 
-            // Skip if this is already a physical FK (O(1) HashSet lookup)
-            if (physicalFkSet.Contains((col.TableId, col.ColumnId, targetTableId.Value, targetPk.ColumnId)))
-                continue;
-
-            // Skip if already exists as a logical FK (O(1) HashSet lookup)
-            if (logicalFkSet.Contains((col.TableId, col.ColumnId, targetTableId.Value, targetPk.ColumnId)))
-                continue;
-
-            candidates.Add(new LogicalFkCandidate
+            namingCandidates[canonicalKey] = new NamingEvidence
             {
-                SourceTableId = col.TableId,
-                SourceTableName = col.TableName,
-                SourceColumnId = col.ColumnId,
-                SourceColumnName = col.ColumnName,
-                SourceDataType = col.DataType,
-                TargetTableId = targetTableId.Value,
-                TargetTableName = targetPks[0].TableName,
-                TargetColumnId = targetPk.ColumnId,
-                TargetColumnName = targetPk.ColumnName,
-                TargetDataType = targetPk.DataType,
-                ConfidenceScore = 0.70m,
-                Reason = $"Column '{col.ColumnName}' follows naming convention matching table '{targetPks[0].TableName}' PK '{targetPk.ColumnName}' with compatible data types."
-            });
+                SourceCol = col,
+                TargetCol = targetPk,
+                HasIdSuffix = true
+            };
         }
 
         logger.LogInformation(
-            "Detected {Count} logical FK candidates for project {ProjectId}",
-            candidates.Count, projectId);
+            "Naming convention analysis found {Count} candidate relationships for project {ProjectId}",
+            namingCandidates.Count, projectId);
+
+        // ── Strategy 3: Merge + Corroborate + Score ───────────────
+        var allCanonicalKeys = new HashSet<string>(spJoinCandidates.Keys);
+        allCanonicalKeys.UnionWith(namingCandidates.Keys);
+
+        var candidates = new List<LogicalFkCandidate>();
+
+        foreach (var key in allCanonicalKeys)
+        {
+            // Skip if already a physical FK
+            if (physicalFkKeys.Contains(key)) continue;
+
+            // Skip if already an existing logical FK
+            if (logicalFkKeys.Contains(key)) continue;
+
+            var hasSpJoin = spJoinCandidates.TryGetValue(key, out var spEvidence);
+            var hasNaming = namingCandidates.TryGetValue(key, out var namingEvidence);
+
+            // Get source/target info from whichever strategy provided it
+            var sourceCol = hasSpJoin ? spEvidence!.SourceCol : namingEvidence!.SourceCol;
+            var targetCol = hasSpJoin ? spEvidence!.TargetCol : namingEvidence!.TargetCol;
+
+            // Build detection signals
+            var signals = new DetectionSignals
+            {
+                SpJoinDetected = hasSpJoin,
+                NamingDetected = hasNaming,
+                TypeMatch = DataTypesCompatible(sourceCol.DataType, targetCol.DataType),
+                HasIdSuffix = hasNaming && namingEvidence!.HasIdSuffix,
+                SpCount = hasSpJoin ? spEvidence!.SpNames.Count : 0
+            };
+
+            // Compute confidence with layered caps
+            var result = confidenceCalculator.ComputeConfidence(signals);
+
+            // Build discovery methods list
+            var discoveryMethods = new List<string>();
+            if (hasSpJoin) discoveryMethods.Add("SP_JOIN");
+            if (hasNaming) discoveryMethods.Add("NAME_CONVENTION");
+
+            // Build human-readable reason
+            var reason = BuildReason(sourceCol, targetCol, signals, spEvidence, result);
+
+            candidates.Add(new LogicalFkCandidate
+            {
+                SourceTableId = sourceCol.TableId,
+                SourceTableName = sourceCol.TableName,
+                SourceColumnId = sourceCol.ColumnId,
+                SourceColumnName = sourceCol.ColumnName,
+                SourceDataType = sourceCol.DataType,
+                TargetTableId = targetCol.TableId,
+                TargetTableName = targetCol.TableName,
+                TargetColumnId = targetCol.ColumnId,
+                TargetColumnName = targetCol.ColumnName,
+                TargetDataType = targetCol.DataType,
+                ConfidenceScore = result.FinalConfidence,
+                Reason = reason,
+                DiscoveryMethods = discoveryMethods,
+                SpEvidence = hasSpJoin ? spEvidence!.SpNames : [],
+                MatchCount = hasSpJoin ? spEvidence!.SpNames.Count : 0
+            });
+        }
+
+        // Sort by confidence descending
+        candidates.Sort((a, b) => b.ConfidenceScore.CompareTo(a.ConfidenceScore));
+
+        logger.LogInformation(
+            "Detected {Total} logical FK candidates for project {ProjectId} " +
+            "(SP JOIN: {SpCount}, Naming: {NamingCount}, Corroborated: {CorrCount})",
+            candidates.Count, projectId,
+            candidates.Count(c => c.DiscoveryMethods.Contains("SP_JOIN") && !c.DiscoveryMethods.Contains("NAME_CONVENTION")),
+            candidates.Count(c => c.DiscoveryMethods.Contains("NAME_CONVENTION") && !c.DiscoveryMethods.Contains("SP_JOIN")),
+            candidates.Count(c => c.DiscoveryMethods.Count > 1));
 
         return candidates;
     }
@@ -282,7 +457,7 @@ public partial class LogicalFkService(
         // Pluralized: "customer" → "customers"
         if (tableNames.TryGetValue(prefix + "s", out tableId))
             return tableId;
-        
+
         // "box" -> "boxes"
         if (tableNames.TryGetValue(prefix + "es", out tableId))
             return tableId;
@@ -296,6 +471,106 @@ public partial class LogicalFkService(
             return tableId;
 
         return null;
+    }
+
+    /// <summary>
+    /// Resolve a table name from a JOIN condition to a table ID.
+    /// Handles schema-qualified names (dbo.Orders → Orders) and case-insensitive matching.
+    /// </summary>
+    private static int? ResolveTableName(string name, Dictionary<string, int> tableNameToId)
+    {
+        // Direct match
+        if (tableNameToId.TryGetValue(name, out var id))
+            return id;
+
+        // Strip schema prefix (dbo.Orders → Orders)
+        var dotIndex = name.LastIndexOf('.');
+        if (dotIndex >= 0)
+        {
+            var baseName = name[(dotIndex + 1)..];
+            if (tableNameToId.TryGetValue(baseName, out id))
+                return id;
+        }
+
+        // Strip brackets ([dbo].[Orders] → Orders)
+        var cleaned = name.Replace("[", "").Replace("]", "");
+        if (tableNameToId.TryGetValue(cleaned, out id))
+            return id;
+
+        dotIndex = cleaned.LastIndexOf('.');
+        if (dotIndex >= 0)
+        {
+            var baseName = cleaned[(dotIndex + 1)..];
+            if (tableNameToId.TryGetValue(baseName, out id))
+                return id;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolve a column name within a specific table to its DetectionColumnInfo.
+    /// </summary>
+    private static DetectionColumnInfo? ResolveColumn(
+        int tableId,
+        string columnName,
+        Dictionary<int, Dictionary<string, DetectionColumnInfo>> columnLookup)
+    {
+        if (!columnLookup.TryGetValue(tableId, out var tableCols))
+            return null;
+
+        if (tableCols.TryGetValue(columnName, out var col))
+            return col;
+
+        // Strip brackets
+        var cleaned = columnName.Replace("[", "").Replace("]", "");
+        if (tableCols.TryGetValue(cleaned, out col))
+            return col;
+
+        return null;
+    }
+
+    /// <summary>
+    /// Build a human-readable reason string explaining why this candidate was detected.
+    /// </summary>
+    private static string BuildReason(
+        DetectionColumnInfo sourceCol,
+        DetectionColumnInfo targetCol,
+        DetectionSignals signals,
+        SpJoinEvidence? spEvidence,
+        ConfidenceResult result)
+    {
+        var parts = new List<string>();
+
+        if (signals.Corroborated)
+        {
+            parts.Add($"Corroborated: Column '{sourceCol.ColumnName}' matches naming convention " +
+                       $"AND is joined to '{targetCol.TableName}.{targetCol.ColumnName}' " +
+                       $"in {spEvidence!.SpNames.Count} SP(s): {string.Join(", ", spEvidence.SpNames)}");
+        }
+        else if (signals.SpJoinDetected)
+        {
+            parts.Add($"SP JOIN: '{sourceCol.TableName}.{sourceCol.ColumnName}' joined to " +
+                       $"'{targetCol.TableName}.{targetCol.ColumnName}' " +
+                       $"in {spEvidence!.SpNames.Count} SP(s): {string.Join(", ", spEvidence.SpNames)}");
+        }
+        else if (signals.NamingDetected)
+        {
+            parts.Add($"Naming convention: Column '{sourceCol.ColumnName}' matches " +
+                       $"table '{targetCol.TableName}' PK '{targetCol.ColumnName}'");
+        }
+
+        if (!signals.TypeMatch)
+        {
+            parts.Add($"Type mismatch: {sourceCol.DataType} → {targetCol.DataType}");
+        }
+
+        if (result.CapsApplied.Length > 0)
+        {
+            parts.Add($"Caps applied: {string.Join(", ", result.CapsApplied)}");
+        }
+
+        return string.Join(". ", parts);
     }
 
     /// <summary>
@@ -319,6 +594,26 @@ public partial class LogicalFkService(
             "nvarchar" or "varchar" or "char" or "nchar" => "string_family",
             _ => lower
         };
+    }
+
+    #endregion
+
+    #region Internal Models
+
+    /// <summary>Evidence from SP JOIN analysis for a single candidate</summary>
+    private sealed class SpJoinEvidence
+    {
+        public required DetectionColumnInfo SourceCol { get; set; }
+        public required DetectionColumnInfo TargetCol { get; set; }
+        public required List<string> SpNames { get; set; }
+    }
+
+    /// <summary>Evidence from naming convention analysis for a single candidate</summary>
+    private sealed class NamingEvidence
+    {
+        public required DetectionColumnInfo SourceCol { get; set; }
+        public required DetectionColumnInfo TargetCol { get; set; }
+        public bool HasIdSuffix { get; set; }
     }
 
     #endregion

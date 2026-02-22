@@ -20,6 +20,12 @@ public interface ILogicalFkRepository
     Task<bool> ExistsAsPhysicalFkAsync(int sourceTableId, int sourceColumnId, int targetTableId, int targetColumnId, CancellationToken cancellationToken = default);
     Task<List<DetectionColumnInfo>> GetColumnsForDetectionAsync(int projectId, CancellationToken cancellationToken = default);
     Task<List<PhysicalFkDto>> GetPhysicalFksByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
+
+    /// <summary>Bulk-load all physical FK column pairs for batch exclusion</summary>
+    Task<HashSet<string>> GetAllPhysicalFkPairsAsync(int projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>Bulk-load canonical keys of all existing logical FKs for batch dedup</summary>
+    Task<HashSet<string>> GetAllLogicalFkCanonicalKeysAsync(int projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -204,6 +210,36 @@ public class LogicalFkRepository(
             cancellationToken);
 
         return [.. rows];
+    }
+
+    public async Task<HashSet<string>> GetAllPhysicalFkPairsAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        var rows = await QueryAsync<dynamic>(
+            LogicalFkQueries.GetAllPhysicalFkPairs,
+            new { ProjectId = projectId },
+            cancellationToken);
+
+        var set = new HashSet<string>();
+        foreach (var row in rows)
+        {
+            set.Add($"{row.SourceTableId}:{row.SourceColumnId}\u2192{row.TargetTableId}:{row.TargetColumnId}");
+        }
+        return set;
+    }
+
+    public async Task<HashSet<string>> GetAllLogicalFkCanonicalKeysAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        var rows = await QueryAsync<dynamic>(
+            LogicalFkQueries.GetAllLogicalFkCanonicalKeys,
+            new { ProjectId = projectId },
+            cancellationToken);
+
+        var set = new HashSet<string>();
+        foreach (var row in rows)
+        {
+            set.Add($"{row.SourceTableId}:{row.SourceColumnId}\u2192{row.TargetTableId}:{row.TargetColumnId}");
+        }
+        return set;
     }
 
     #region Mapping Helpers

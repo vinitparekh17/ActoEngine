@@ -61,7 +61,7 @@ public sealed class ImpactFacade(
         // Enrich root entity with name if found in graph (populated from DB metadata)
         if (graph.Contains(rootEntity))
         {
-            rootEntity = graph.GetNode(rootEntity).Entity;
+            rootEntity = graph.GetNode(rootEntity)?.Entity ?? rootEntity;
         }
 
         // 3. Enumerate dependency paths (BFS, bounded)
