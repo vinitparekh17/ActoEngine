@@ -188,73 +188,89 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
 
     public override void Visit(UpdateSpecification node)
     {
-        _contextStack.Push("UPDATE");
-
-        // The Target is being Modified
-        if (node.Target != null)
+        _aliasScopeStack.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+        try
         {
-            node.Target.Accept(this);
-        }
+            _contextStack.Push("UPDATE");
 
-        // Visit SET clause - expressions are reads (right-hand side of assignments)
-        _contextStack.Pop(); // Pop UPDATE temporarily
-        _contextStack.Push("SELECT"); // SET expressions are reads
-
-        if (node.SetClauses != null)
-        {
-            foreach (var setClause in node.SetClauses)
+            // The Target is being Modified
+            if (node.Target != null)
             {
-                setClause.Accept(this);
+                node.Target.Accept(this);
             }
+
+            // Visit SET clause - expressions are reads (right-hand side of assignments)
+            _contextStack.Pop(); // Pop UPDATE temporarily
+            _contextStack.Push("SELECT"); // SET expressions are reads
+
+            if (node.SetClauses != null)
+            {
+                foreach (var setClause in node.SetClauses)
+                {
+                    setClause.Accept(this);
+                }
+            }
+
+            // The FROM and WHERE clauses are also for reading/joining
+            // Continue with SELECT context
+            _inFromClause = true;
+
+            if (node.FromClause != null)
+            {
+                node.FromClause.Accept(this);
+            }
+
+            if (node.WhereClause != null)
+            {
+                node.WhereClause.Accept(this);
+            }
+
+            _inFromClause = false;
+            _contextStack.Pop(); // Pop SELECT
         }
-
-        // The FROM and WHERE clauses are also for reading/joining
-        // Continue with SELECT context
-        _inFromClause = true;
-
-        if (node.FromClause != null)
+        finally
         {
-            node.FromClause.Accept(this);
+            _aliasScopeStack.Pop();
         }
-
-        if (node.WhereClause != null)
-        {
-            node.WhereClause.Accept(this);
-        }
-
-        _inFromClause = false;
-        _contextStack.Pop(); // Pop SELECT
     }
 
     public override void Visit(DeleteSpecification node)
     {
-        _contextStack.Push("DELETE");
-
-        // Visit target table (being deleted from)
-        if (node.Target != null)
+        _aliasScopeStack.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+        try
         {
-            node.Target.Accept(this);
+            _contextStack.Push("DELETE");
+
+            // Visit target table (being deleted from)
+            if (node.Target != null)
+            {
+                node.Target.Accept(this);
+            }
+
+            // Pop DELETE before processing FROM/WHERE as SELECT (matches UPDATE pattern)
+            _contextStack.Pop();
+            _contextStack.Push("SELECT");
+
+            // FROM and WHERE clauses are reads
+            _inFromClause = true;
+            if (node.FromClause != null)
+            {
+                node.FromClause.Accept(this);
+            }
+
+            if (node.WhereClause != null)
+            {
+                node.WhereClause.Accept(this);
+            }
+
+            _inFromClause = false;
+
+            _contextStack.Pop(); // Remove SELECT
         }
-
-        // Pop DELETE before processing FROM/WHERE as SELECT (matches UPDATE pattern)
-        _contextStack.Pop();
-        _contextStack.Push("SELECT");
-
-        // FROM and WHERE clauses are reads
-        _inFromClause = true;
-        if (node.FromClause != null)
+        finally
         {
-            node.FromClause.Accept(this);
+            _aliasScopeStack.Pop();
         }
-
-        if (node.WhereClause != null)
-        {
-            node.WhereClause.Accept(this);
-        }
-
-        _inFromClause = false;
-
-        _contextStack.Pop(); // Remove SELECT
     }
 
     public override void Visit(NamedTableReference node)
