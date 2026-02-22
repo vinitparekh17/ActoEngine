@@ -94,7 +94,7 @@ public class DependencyAnalysisService(ILogger<DependencyAnalysisService> logger
         using var reader = new StringReader(sqlDefinition);
         var fragment = parser.Parse(reader, out var parseErrors);
 
-        if (parseErrors?.Count > 0)
+        if (parseErrors.Count > 0)
         {
             _logger.LogWarning(
                 "Parser found {Count} error(s) while extracting join conditions. Parsing best effort.",
@@ -109,7 +109,7 @@ public class DependencyAnalysisService(ILogger<DependencyAnalysisService> logger
         var visitor = new SqlDependencyVisitor();
         fragment.Accept(visitor);
 
-        return visitor.JoinConditions;
+        return visitor.JoinConditions.Distinct().ToList();
     }
 }
 
@@ -147,14 +147,14 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
     private bool _inJoin = false;
     private bool _inJoinCondition = false;
 
-    public override void Visit(QuerySpecification node)
+    public override void ExplicitVisit(QuerySpecification node)
     {
         _aliasScopeStack.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
-        base.Visit(node);
+        base.ExplicitVisit(node);
         _aliasScopeStack.Pop();
     }
 
-    public override void Visit(InsertSpecification node)
+    public override void ExplicitVisit(InsertSpecification node)
     {
         _contextStack.Push("INSERT");
 
@@ -186,7 +186,7 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         _contextStack.Pop(); // Pop INSERT
     }
 
-    public override void Visit(UpdateSpecification node)
+    public override void ExplicitVisit(UpdateSpecification node)
     {
         _aliasScopeStack.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         try
@@ -234,7 +234,7 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         }
     }
 
-    public override void Visit(DeleteSpecification node)
+    public override void ExplicitVisit(DeleteSpecification node)
     {
         _aliasScopeStack.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         try
@@ -301,7 +301,7 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
         base.Visit(node);
     }
 
-    public override void Visit(QualifiedJoin node)
+    public override void ExplicitVisit(QualifiedJoin node)
     {
         // Mark that we are inside a join, so any tables found are READs
         bool wasInJoin = _inJoin;
