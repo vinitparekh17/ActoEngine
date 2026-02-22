@@ -92,7 +92,14 @@ public class DependencyAnalysisService(ILogger<DependencyAnalysisService> logger
 
         var parser = new TSql160Parser(true);
         using var reader = new StringReader(sqlDefinition);
-        var fragment = parser.Parse(reader, out _);
+        var fragment = parser.Parse(reader, out var parseErrors);
+
+        if (parseErrors?.Count > 0)
+        {
+            _logger.LogWarning(
+                "Parser found {Count} error(s) while extracting join conditions. Parsing best effort.",
+                parseErrors.Count);
+        }
 
         if (fragment == null)
         {
@@ -119,13 +126,33 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
 
     private readonly Stack<string> _contextStack = new();
 
-    // Alias → real table name mapping (case-insensitive)
-    private readonly Dictionary<string, string> _aliasMap = new(StringComparer.OrdinalIgnoreCase);
+    // Scoped alias resolution: inner scopes shadow outer ones
+    private readonly Stack<Dictionary<string, string>> _aliasScopeStack = new();
+
+    /// <summary>
+    /// Resolve an alias by searching scopes from innermost outward.
+    /// </summary>
+    private string? ResolveAlias(string alias)
+    {
+        foreach (var scope in _aliasScopeStack)
+        {
+            if (scope.TryGetValue(alias, out var name))
+                return name;
+        }
+        return null;
+    }
 
     // We track the current "Clause" to distinguish FROM (Read) vs UPDATE Targets (Write)
     private bool _inFromClause = false;
     private bool _inJoin = false;
     private bool _inJoinCondition = false;
+
+    public override void Visit(QuerySpecification node)
+    {
+        _aliasScopeStack.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+        base.Visit(node);
+        _aliasScopeStack.Pop();
+    }
 
     public override void Visit(InsertSpecification node)
     {
@@ -251,7 +278,8 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
             // Track alias → real table name for JOIN condition resolution
             if (node.Alias != null && !string.IsNullOrWhiteSpace(node.Alias.Value))
             {
-                _aliasMap[node.Alias.Value] = tableName;
+                if (_aliasScopeStack.Count > 0)
+                    _aliasScopeStack.Peek()[node.Alias.Value] = tableName;
             }
         }
         base.Visit(node);
@@ -315,9 +343,8 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
 
                 // (2) Resolve alias or use the nearest prior identifier as table name
                 var rawTableRef = parts[parts.Count - 2].Value;
-                var tableName = _aliasMap.TryGetValue(rawTableRef, out var realName)
-                    ? realName
-                    : rawTableRef;
+                var resolved = ResolveAlias(rawTableRef);
+                var tableName = resolved ?? rawTableRef;
 
                 // (3) Preserve full multipart information
                 var fullIdentifier = string.Join(".", parts.Select(p => p.Value));
@@ -363,9 +390,8 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
             var rawTable = parts[parts.Count - 2].Value;
 
             // Resolve alias to real table name
-            var table = _aliasMap.TryGetValue(rawTable, out var realName)
-                ? realName
-                : rawTable;
+            var resolved = ResolveAlias(rawTable);
+            var table = resolved ?? rawTable;
 
             return (table, column);
         }
@@ -412,8 +438,8 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
 /// </summary>
 public record JoinConditionInfo
 {
-    public required string LeftTable { get; set; }
-    public required string LeftColumn { get; set; }
-    public required string RightTable { get; set; }
-    public required string RightColumn { get; set; }
+    public required string LeftTable { get; init; }
+    public required string LeftColumn { get; init; }
+    public required string RightTable { get; init; }
+    public required string RightColumn { get; init; }
 }
