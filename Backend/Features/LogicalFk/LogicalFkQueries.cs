@@ -213,7 +213,8 @@ public static class LogicalFkQueries
         FROM LogicalForeignKeys lfk
         CROSS APPLY OPENJSON(lfk.SourceColumnIds) src
         CROSS APPLY OPENJSON(lfk.TargetColumnIds) tgt
-        WHERE lfk.ProjectId = @ProjectId;";
+        WHERE lfk.ProjectId = @ProjectId
+          AND src.[key] = tgt.[key];";
 
     /// <summary>
     /// Extended column query including IsUnique for target resolution.
@@ -225,15 +226,14 @@ public static class LogicalFkQueries
             cm.IsPrimaryKey, cm.IsForeignKey,
             tm.TableName,
             CAST(CASE WHEN EXISTS (
-                SELECT 1 FROM sys.index_columns ic
-                INNER JOIN sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-                WHERE i.is_unique = 1
-                  AND OBJECT_NAME(i.object_id) = tm.TableName
-                  AND COL_NAME(ic.object_id, ic.column_id) = cm.ColumnName
+                SELECT 1 FROM IndexColumnsMetadata icm
+                INNER JOIN IndexMetadata im ON icm.IndexId = im.IndexId
+                WHERE im.IsUnique = 1
+                  AND im.TableId = cm.TableId
+                  AND icm.ColumnId = cm.ColumnId
             ) THEN 1 ELSE 0 END AS BIT) AS IsUnique
         FROM ColumnsMetadata cm
         INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
         WHERE tm.ProjectId = @ProjectId
         ORDER BY tm.TableName, cm.ColumnOrder;";
 }
-

@@ -106,15 +106,15 @@ public class ConfidenceCalculator(DetectionConfig config)
 
         if (raw > final)
         {
-            if (signals.SpJoinDetected && !signals.NamingDetected && final <= _config.SpOnlyCap)
+            if (signals.SpJoinDetected && !signals.NamingDetected && raw > _config.SpOnlyCap)
             {
                 caps.Add("SP_ONLY_CAP");
             }
-            if (signals.NamingDetected && !signals.SpJoinDetected && final <= _config.NamingOnlyCap)
+            if (signals.NamingDetected && !signals.SpJoinDetected && raw > _config.NamingOnlyCap)
             {
                 caps.Add("NAMING_ONLY_CAP");
             }
-            if (!signals.TypeMatch && !signals.Corroborated && final <= _config.TypeMismatchCap)
+            if (!signals.TypeMatch && !signals.Corroborated && raw > _config.TypeMismatchCap)
             {
                 caps.Add("TYPE_MISMATCH_CAP");
             }

@@ -410,7 +410,7 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
 /// e.g., "Orders JOIN Customers ON o.CustomerId = c.Id" 
 /// → LeftTable=Orders, LeftColumn=CustomerId, RightTable=Customers, RightColumn=Id
 /// </summary>
-public class JoinConditionInfo
+public record JoinConditionInfo
 {
     public required string LeftTable { get; set; }
     public required string LeftColumn { get; set; }
