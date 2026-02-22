@@ -150,8 +150,14 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
     public override void ExplicitVisit(QuerySpecification node)
     {
         _aliasScopeStack.Push(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
-        base.ExplicitVisit(node);
-        _aliasScopeStack.Pop();
+        try
+        {
+            base.ExplicitVisit(node);
+        }
+        finally
+        {
+            _aliasScopeStack.Pop();
+        }
     }
 
     public override void ExplicitVisit(InsertSpecification node)
