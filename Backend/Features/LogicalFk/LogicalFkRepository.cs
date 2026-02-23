@@ -195,7 +195,7 @@ public class LogicalFkRepository(
     public async Task<List<DetectionColumnInfo>> GetColumnsForDetectionAsync(int projectId, CancellationToken cancellationToken = default)
     {
         var rows = await QueryAsync<DetectionColumnInfo>(
-            LogicalFkQueries.GetColumnsForDetection,
+            LogicalFkQueries.GetColumnsForDetectionWithUniques,
             new { ProjectId = projectId },
             cancellationToken);
 
@@ -348,5 +348,6 @@ public class DetectionColumnInfo
     public string DataType { get; set; } = string.Empty;
     public bool IsPrimaryKey { get; set; }
     public bool IsForeignKey { get; set; }
+    public bool IsUnique { get; set; }
     public string TableName { get; set; } = string.Empty;
 }

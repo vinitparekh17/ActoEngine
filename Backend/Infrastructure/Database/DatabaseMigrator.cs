@@ -1,8 +1,8 @@
 // Infrastructure/Data/DatabaseMigrator.cs
-using System.Reflection;
+using Dapper;
 using DbUp;
 using Microsoft.Data.SqlClient;
-using Dapper;
+using System.Reflection;
 
 namespace ActoEngine.WebApi.Infrastructure.Database;
 

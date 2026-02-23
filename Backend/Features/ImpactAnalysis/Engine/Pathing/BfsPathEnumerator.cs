@@ -124,6 +124,12 @@ public sealed class BfsPathEnumerator : IPathEnumerator
                 {
                     queue.Enqueue(nextState);
                 }
+                else if (graph.GetOutgoingEdges(nextState.Current).Count > 0)
+                {
+                    // We reached depth boundary and did not expand a node that still has dependents.
+                    // Mark analysis as truncated so callers can treat result as bounded.
+                    isTruncated = true;
+                }
 
                 if (paths.Count >= _maxPaths)
                 {

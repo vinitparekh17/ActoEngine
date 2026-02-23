@@ -104,7 +104,26 @@ public sealed class GraphBuilder : IGraphBuilder
 
     private static DependencyType ParseDependencyType(string raw)
     {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DependencyType.Unknown;
+        }
+
+        var normalized = raw.Trim()
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal);
+
+        if (normalized.Equals("LOGICALFK", StringComparison.OrdinalIgnoreCase))
+        {
+            return DependencyType.LogicalFk;
+        }
+
         if (Enum.TryParse<DependencyType>(raw, ignoreCase: true, out var parsed))
+        {
+            return parsed;
+        }
+
+        if (Enum.TryParse<DependencyType>(normalized, ignoreCase: true, out parsed))
         {
             return parsed;
         }

@@ -1,5 +1,5 @@
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 namespace ActoEngine.WebApi.Infrastructure.RateLimiting;
 

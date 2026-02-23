@@ -1,7 +1,7 @@
+using ActoEngine.WebApi.Api.ApiModels;
+using ActoEngine.WebApi.Shared.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ActoEngine.WebApi.Shared.Extensions;
-using ActoEngine.WebApi.Api.ApiModels;
 
 namespace ActoEngine.WebApi.Features.ProjectClients
 {

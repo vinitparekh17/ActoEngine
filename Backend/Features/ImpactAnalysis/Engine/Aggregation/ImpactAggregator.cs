@@ -64,6 +64,22 @@ public sealed class ImpactAggregator : IImpactAggregator
             });
         }
 
+        if (entityImpacts.Count == 0)
+        {
+            return new ImpactAggregationResult
+            {
+                OverallImpact = new OverallImpactSummary
+                {
+                    WorstImpactLevel = ImpactLevel.None,
+                    WorstRiskScore = 0,
+                    TriggeringEntity = null!,
+                    TriggeringPathId = string.Empty,
+                    RequiresApproval = false
+                },
+                EntityImpacts = Array.Empty<EntityImpact>()
+            };
+        }
+
         // Determine overall worst-case entity
         var triggeringEntityImpact = entityImpacts
             .OrderByDescending(e => e.WorstCaseImpactLevel)

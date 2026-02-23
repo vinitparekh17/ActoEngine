@@ -70,6 +70,7 @@ public class LogicalFkCandidate
 
     public decimal ConfidenceScore { get; set; }
     public required string Reason { get; set; }
+    public bool IsAmbiguous { get; set; }
 
     // Multi-strategy evidence
     public List<string> DiscoveryMethods { get; set; } = [];
@@ -79,7 +80,7 @@ public class LogicalFkCandidate
     /// <summary>
     /// Canonical key for dedup: "srcTableId:srcColId→tgtTableId:tgtColId"
     /// </summary>
-    public string CanonicalKey => $"{SourceTableId}:{SourceColumnId}→{TargetTableId}:{TargetColumnId}";
+    public string CanonicalKey => $"{SourceTableId}:{SourceColumnId}\u2192{TargetTableId}:{TargetColumnId}";
 }
 
 /// <summary>
@@ -142,8 +143,8 @@ public class DetectionConfig
     public decimal NamingBonus { get; set; } = 0.15m;
     public decimal TypeMatchBonus { get; set; } = 0.10m;
     public decimal TypeMismatchPenalty { get; set; } = -0.10m;
-    public decimal RepetitionBonusPerSp { get; set; } = 0.04m;
-    public decimal RepetitionBonusCap { get; set; } = 0.15m;
+    public decimal RepetitionBonusPerSp { get; set; } = 0.05m;
+    public decimal RepetitionBonusCap { get; set; } = 0.20m;
     public decimal CorroborationBonus { get; set; } = 0.25m;
 
     // Hard caps
@@ -166,3 +167,4 @@ public class ConfidenceResult
     public decimal FinalConfidence { get; set; }
     public string[] CapsApplied { get; set; } = [];
 }
+

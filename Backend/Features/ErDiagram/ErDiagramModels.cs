@@ -1,6 +1,3 @@
-
-using System.Text.Json.Serialization;
-
 namespace ActoEngine.WebApi.Features.ErDiagram;
 
 /// <summary>

@@ -24,6 +24,7 @@ public sealed class PathRiskEvaluatorV1 : IPathRiskEvaluator
         { DependencyType.Select, 4 },
         { DependencyType.SchemaDependency, 9 },
         { DependencyType.ApiCall, 6 },
+        { DependencyType.LogicalFk, 5 },
         { DependencyType.Unknown, 5 }
     };
 

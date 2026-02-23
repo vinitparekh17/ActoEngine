@@ -28,9 +28,10 @@ public class ConfidenceCalculator(DetectionConfig config)
             baseScore = _config.NamingBaseScore;
         }
 
-        // Naming bonus (SP JOIN strategy gets a boost when column also follows naming pattern)
+        // Naming bonus is only for SP-only detections with id suffix.
+        // Corroborated detections already get corroboration bonus and should not double count.
         decimal namingBonus =
-            (signals.SpJoinDetected && signals.HasIdSuffix)
+            (signals.SpJoinDetected && !signals.NamingDetected && signals.HasIdSuffix)
             ? _config.NamingBonus : 0m;
 
         // Type match bonus/penalty
@@ -71,7 +72,7 @@ public class ConfidenceCalculator(DetectionConfig config)
             CorroborationBonus = corroborationBonus,
             RawConfidence = rawConfidence,
             FinalConfidence = finalConfidence,
-            CapsApplied = GetAppliedCaps(rawConfidence, finalConfidence, signals)
+            CapsApplied = GetAppliedCaps(signals)
         };
     }
 
@@ -100,24 +101,23 @@ public class ConfidenceCalculator(DetectionConfig config)
         return Math.Clamp(confidence, 0m, 1.0m);
     }
 
-    private string[] GetAppliedCaps(decimal raw, decimal final, DetectionSignals signals)
+    private string[] GetAppliedCaps(DetectionSignals signals)
     {
         var caps = new List<string>();
 
-        if (raw > final)
+        if (signals.SpJoinDetected && !signals.NamingDetected)
         {
-            if (signals.SpJoinDetected && !signals.NamingDetected && raw > _config.SpOnlyCap)
-            {
-                caps.Add("SP_ONLY_CAP");
-            }
-            if (signals.NamingDetected && !signals.SpJoinDetected && raw > _config.NamingOnlyCap)
-            {
-                caps.Add("NAMING_ONLY_CAP");
-            }
-            if (!signals.TypeMatch && !signals.Corroborated && raw > _config.TypeMismatchCap)
-            {
-                caps.Add("TYPE_MISMATCH_CAP");
-            }
+            caps.Add("SP_ONLY_CAP");
+        }
+
+        if (signals.NamingDetected && !signals.SpJoinDetected)
+        {
+            caps.Add("NAMING_ONLY_CAP");
+        }
+
+        if (!signals.TypeMatch && !signals.Corroborated)
+        {
+            caps.Add("TYPE_MISMATCH_CAP");
         }
 
         return [.. caps];
