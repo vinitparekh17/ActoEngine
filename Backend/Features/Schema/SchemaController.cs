@@ -36,7 +36,7 @@ public class DatabaseBrowserController(
             var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
-                return NotFound($"Project with ID {projectId} not found");
+                return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
             }
 
             // Use project name or database name from connection string
@@ -70,7 +70,7 @@ public class DatabaseBrowserController(
             var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
-                return NotFound($"Project with ID {projectId} not found");
+                return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
             }
 
             // Use stored metadata to build structure
@@ -159,7 +159,7 @@ public class DatabaseBrowserController(
         {
             return NotFound(ApiResponse<TableSchemaResponseWithMetadata>.Failure($"Table schema not found: {ex.Message}"));
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        catch (Exception ex)
         {
             _logger.LogError(ex, "Error in {OperationName} for table {SchemaName}.{TableName} in project {ProjectId}", operationName, schemaName, tableName, projectId);
             return StatusCode(500, ApiResponse<TableSchemaResponseWithMetadata>.Failure("An error occurred while retrieving table schema"));
@@ -184,7 +184,7 @@ public class DatabaseBrowserController(
             var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
-                return NotFound($"Project with ID {projectId} not found");
+                return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
             }
 
             var procedures = await _schemaService.GetStoredProceduresMetadataAsync(projectId);
@@ -220,7 +220,7 @@ public class DatabaseBrowserController(
             var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
-                return NotFound($"Project with ID {projectId} not found");
+                return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
             }
 
             var tables = await _schemaService.GetTablesListAsync(projectId);
@@ -598,6 +598,22 @@ public class DatabaseBrowserController(
             if (table == null)
             {
                 return NotFound(ApiResponse<ColumnDetailResponse>.Failure($"Table with ID {tableId} not found"));
+            }
+
+            // Verify column belongs to the requested table
+            if (column.TableId != tableId)
+            {
+                _logger.LogWarning("Column {ColumnId} belongs to table {ActualTableId} but was requested for table {RequestedTableId}",
+                    columnId, column.TableId, tableId);
+                return NotFound(ApiResponse<ColumnDetailResponse>.Failure($"Column with ID {columnId} not found"));
+            }
+
+            // Verify table belongs to the requested project
+            if (table.ProjectId != projectId)
+            {
+                _logger.LogWarning("Column {ColumnId} in table {TableId} belongs to project {ActualProjectId} but was requested for project {RequestedProjectId}",
+                    columnId, tableId, table.ProjectId, projectId);
+                return NotFound(ApiResponse<ColumnDetailResponse>.Failure($"Column with ID {columnId} not found"));
             }
 
             // Build the detailed response

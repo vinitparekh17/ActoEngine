@@ -7,7 +7,7 @@ public interface IDbConnectionFactory
 {
     Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken = default);
     IDbConnection CreateConnection();
-    Task<SqlConnection> CreateConnectionWithConnectionString(string connectionString);
+    Task<IDbConnection> CreateConnectionWithConnectionString(string connectionString, CancellationToken cancellationToken = default);
 }
 
 public class SqlServerConnectionFactory(
@@ -29,10 +29,10 @@ public class SqlServerConnectionFactory(
         connection.Open();
         return connection;
     }
-    public async Task<SqlConnection> CreateConnectionWithConnectionString(string connectionString)
+    public async Task<IDbConnection> CreateConnectionWithConnectionString(string connectionString, CancellationToken cancellationToken = default)
     {
         var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync();
+        await connection.OpenAsync(cancellationToken);
         return connection;
     }
 }

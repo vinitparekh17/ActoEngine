@@ -35,7 +35,7 @@ public class SchemaProceduresController(
             var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
-                return NotFound($"Project with ID {projectId} not found");
+                return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
             }
 
             var procedures = await _schemaService.GetStoredProceduresMetadataAsync(projectId);

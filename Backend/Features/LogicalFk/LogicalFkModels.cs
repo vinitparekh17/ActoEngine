@@ -69,6 +69,7 @@ public class LogicalFkCandidate
     public required string TargetDataType { get; set; }
 
     public decimal ConfidenceScore { get; set; }
+    public ConfidenceBand ConfidenceBand { get; set; }
     public required string Reason { get; set; }
     public bool IsAmbiguous { get; set; }
 

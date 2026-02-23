@@ -439,6 +439,7 @@ public partial class LogicalFkService(
                 TargetColumnName = targetCol.ColumnName,
                 TargetDataType = targetCol.DataType,
                 ConfidenceScore = result.FinalConfidence,
+                ConfidenceBand = ConfidenceBandClassifier.Classify(result.FinalConfidence),
                 Reason = reason,
                 IsAmbiguous = hasNaming && namingEvidence!.IsAmbiguous,
                 DiscoveryMethods = discoveryMethods,

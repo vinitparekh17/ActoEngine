@@ -16,14 +16,7 @@ public sealed class ImpactAggregator : IImpactAggregator
         {
             return new ImpactAggregationResult
             {
-                OverallImpact = new OverallImpactSummary
-                {
-                    WorstImpactLevel = ImpactLevel.None,
-                    WorstRiskScore = 0,
-                    TriggeringEntity = null!,
-                    TriggeringPathId = string.Empty,
-                    RequiresApproval = false
-                },
+                OverallImpact = OverallImpactSummary.Empty(),
                 EntityImpacts = Array.Empty<EntityImpact>()
             };
         }
@@ -68,14 +61,7 @@ public sealed class ImpactAggregator : IImpactAggregator
         {
             return new ImpactAggregationResult
             {
-                OverallImpact = new OverallImpactSummary
-                {
-                    WorstImpactLevel = ImpactLevel.None,
-                    WorstRiskScore = 0,
-                    TriggeringEntity = null!,
-                    TriggeringPathId = string.Empty,
-                    RequiresApproval = false
-                },
+                OverallImpact = OverallImpactSummary.Empty(),
                 EntityImpacts = Array.Empty<EntityImpact>()
             };
         }

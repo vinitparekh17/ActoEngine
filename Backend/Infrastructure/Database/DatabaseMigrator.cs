@@ -8,7 +8,8 @@ namespace ActoEngine.WebApi.Infrastructure.Database;
 
 public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigrator> logger)
 {
-    private readonly string _connectionString = configuration.GetConnectionString("DefaultConnection")!;
+    private readonly string _connectionString = configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
     public void MigrateDatabase()
     {
@@ -44,42 +45,46 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
         logger.LogInformation("Database migration completed successfully.");
     }
 
-    public async Task SeedDataAsync()
+    public async Task SeedDataAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Starting data seeding...");
 
+        var assemblyName = Assembly.GetExecutingAssembly().GetName().Name
+            ?? throw new InvalidOperationException("Executing assembly name could not be determined.");
+
         var seedScripts = new[]
         {
-            "Sql.StoredProcedures.PROJECT_SYNC.sql",
+            $"{assemblyName}.Sql.StoredProcedures.PROJECT_SYNC.sql",
         };
 
         using var connection = new SqlConnection(_connectionString);
-        await connection.OpenAsync();
+        await connection.OpenAsync(cancellationToken);
 
         foreach (var scriptName in seedScripts)
         {
             try
             {
-                var script = GetEmbeddedScript(scriptName);
-                if (!string.IsNullOrEmpty(script))
-                {
-                    await connection.ExecuteAsync(script);
-                    logger.LogInformation("Executed seed script: {Script}", scriptName);
-                }
+                var script = GetEmbeddedScriptOrThrow(scriptName);
+                await connection.ExecuteAsync(script);
+                logger.LogInformation("Executed seed script: {Script}", scriptName);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to execute seed script: {Script}", scriptName);
+                logger.LogError(ex, "Failed to execute seed script: {Script}", scriptName);
+                throw;
             }
         }
     }
-    private static string? GetEmbeddedScript(string scriptName)
+
+    private static string GetEmbeddedScriptOrThrow(string scriptName)
     {
         var assembly = Assembly.GetExecutingAssembly();
         using var stream = assembly.GetManifestResourceStream(scriptName);
         if (stream == null)
         {
-            return null;
+            throw new InvalidOperationException(
+                $"Embedded script '{scriptName}' was not found. " +
+                $"Available resources: {string.Join(", ", assembly.GetManifestResourceNames())}");
         }
 
         using var reader = new StreamReader(stream);
