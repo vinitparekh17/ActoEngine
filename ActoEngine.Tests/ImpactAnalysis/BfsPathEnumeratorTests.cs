@@ -87,6 +87,7 @@ public class BfsPathEnumeratorTests
 
         Assert.Single(result.Paths);
         Assert.True(result.IsTruncated);
+        Assert.Equal("PATH_LIMIT_OR_DEPTH_LIMIT", result.TruncationReason);
     }
 
     [Fact]

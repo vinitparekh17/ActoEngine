@@ -45,7 +45,7 @@ public class ConfidenceCalculatorTests
     }
 
     [Fact]
-    public void T03_SpJoinSingle_TypeMatch_Returns075_WithSpOnlyCapTag()
+    public void T03_SpJoinSingle_TypeMatch_Returns075_NoCaps()
     {
         var signals = SignalBuilder.Create()
             .WithSpJoin(spCount: 1)
@@ -77,7 +77,7 @@ public class ConfidenceCalculatorTests
     }
 
     [Fact]
-    public void T05_SpJoin5_TypeMismatch_NoNaming_Returns055_WithBothCaps()
+    public void T05_SpJoin5_TypeMismatch_NoNaming_Returns055_WithTypeMismatchCapOnly()
     {
         var signals = SignalBuilder.Create()
             .WithSpJoin(spCount: 5)
@@ -167,7 +167,7 @@ public class ConfidenceCalculatorTests
 
         var result = _calculator.ComputeConfidence(signals);
 
-        Assert.True(result.FinalConfidence > 0.55m);
+        Assert.Equal(0.95m, result.FinalConfidence);
         Assert.DoesNotContain("TYPE_MISMATCH_CAP", result.CapsApplied);
     }
 

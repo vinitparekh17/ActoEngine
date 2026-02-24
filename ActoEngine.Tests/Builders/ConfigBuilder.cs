@@ -23,5 +23,18 @@ public sealed class ConfigBuilder
     public ConfigBuilder WithRepetitionBonusCap(decimal cap) { _config.RepetitionBonusCap = cap; return this; }
     public ConfigBuilder WithCorroborationBonus(decimal bonus) { _config.CorroborationBonus = bonus; return this; }
 
-    public DetectionConfig Build() => _config;
+    public DetectionConfig Build() => new()
+    {
+        NamingBaseScore = _config.NamingBaseScore,
+        SpJoinBaseScore = _config.SpJoinBaseScore,
+        NamingBonus = _config.NamingBonus,
+        TypeMatchBonus = _config.TypeMatchBonus,
+        TypeMismatchPenalty = _config.TypeMismatchPenalty,
+        RepetitionBonusPerSp = _config.RepetitionBonusPerSp,
+        RepetitionBonusCap = _config.RepetitionBonusCap,
+        CorroborationBonus = _config.CorroborationBonus,
+        SpOnlyCap = _config.SpOnlyCap,
+        NamingOnlyCap = _config.NamingOnlyCap,
+        TypeMismatchCap = _config.TypeMismatchCap
+    };
 }

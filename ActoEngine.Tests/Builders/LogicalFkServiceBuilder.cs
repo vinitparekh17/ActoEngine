@@ -16,6 +16,7 @@ public sealed class LogicalFkServiceBuilder
     private int _projectId = 1;
     private List<DetectionColumnInfo> _columns = [];
     private List<StoredProcedureMetadataDto> _procedures = [];
+    private int? _procedureCount;
     private List<JoinConditionInfo> _joinConditions = [];
     private HashSet<string> _physicalKeys = [];
     private HashSet<string> _logicalKeys = [];
@@ -30,20 +31,17 @@ public sealed class LogicalFkServiceBuilder
 
     public LogicalFkServiceBuilder WithProcedures(int count)
     {
-        _procedures = Enumerable.Range(1, count)
-            .Select(i => new StoredProcedureMetadataDto
-            {
-                SpId = i,
-                ProjectId = _projectId,
-                ClientId = 1,
-                ProcedureName = $"sp_{i}",
-                Definition = "SELECT 1"
-            })
-            .ToList();
+        _procedureCount = count;
+        _procedures = [];
         return this;
     }
 
-    public LogicalFkServiceBuilder WithProcedures(List<StoredProcedureMetadataDto> procedures) { _procedures = procedures; return this; }
+    public LogicalFkServiceBuilder WithProcedures(List<StoredProcedureMetadataDto> procedures)
+    {
+        _procedureCount = null;
+        _procedures = procedures;
+        return this;
+    }
 
     public LogicalFkServiceBuilder WithJoinConditions(List<JoinConditionInfo> joinConditions) { _joinConditions = joinConditions; return this; }
 
@@ -57,6 +55,19 @@ public sealed class LogicalFkServiceBuilder
 
     public LogicalFkService Build()
     {
+        var procedures = _procedureCount.HasValue
+            ? Enumerable.Range(1, _procedureCount.Value)
+                .Select(i => new StoredProcedureMetadataDto
+                {
+                    SpId = i,
+                    ProjectId = _projectId,
+                    ClientId = 1,
+                    ProcedureName = $"sp_{i}",
+                    Definition = "SELECT 1"
+                })
+                .ToList()
+            : _procedures;
+
         var logicalFkRepo = Substitute.For<ILogicalFkRepository>();
         logicalFkRepo.GetColumnsForDetectionAsync(_projectId, Arg.Any<CancellationToken>()).Returns(_columns);
         logicalFkRepo.GetAllPhysicalFkPairsAsync(_projectId, Arg.Any<CancellationToken>()).Returns(_physicalKeys);
@@ -65,7 +76,7 @@ public sealed class LogicalFkServiceBuilder
         var dependencyRepo = Substitute.For<IDependencyRepository>();
 
         var schemaRepo = Substitute.For<ISchemaRepository>();
-        schemaRepo.GetStoredStoredProceduresAsync(_projectId).Returns(_procedures);
+        schemaRepo.GetStoredStoredProceduresAsync(_projectId).Returns(procedures);
 
         var analysisService = Substitute.For<IDependencyAnalysisService>();
         if (_throwOnJoinExtraction)

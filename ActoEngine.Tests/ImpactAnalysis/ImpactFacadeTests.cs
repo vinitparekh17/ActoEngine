@@ -1,6 +1,7 @@
 using ActoEngine.WebApi.Features.ImpactAnalysis;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Contracts;
+using GraphEdge = ActoEngine.WebApi.Features.ImpactAnalysis.Domain.GraphEdge;
 using NSubstitute;
 
 namespace ActoEngine.Tests.ImpactAnalysis;
@@ -46,7 +47,7 @@ public class ImpactFacadeTests
     }
 
     [Fact]
-    public async Task AnalyzeAsync_CallsPipelineInCorrectOrder()
+    public async Task AnalyzeAsync_InvokesEachPipelineStepExactlyOnce()
     {
         var (facade, mocks) = CreatePipelineFixture();
 
@@ -241,9 +242,9 @@ public class ImpactFacadeTests
             [dependent] = new GraphNode { Entity = dependent, CriticalityLevel = 3 }
         };
 
-        var adjacency = new Dictionary<EntityRef, List<ActoEngine.WebApi.Features.ImpactAnalysis.Domain.GraphEdge>>
+        var adjacency = new Dictionary<EntityRef, List<GraphEdge>>
         {
-            [root] = new List<ActoEngine.WebApi.Features.ImpactAnalysis.Domain.GraphEdge>
+            [root] = new List<GraphEdge>
             {
                 new() { From = root, To = dependent, DependencyType = DependencyType.Select }
             }

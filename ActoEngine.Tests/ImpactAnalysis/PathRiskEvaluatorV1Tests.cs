@@ -54,6 +54,12 @@ public class PathRiskEvaluatorV1Tests
     }
 
     [Fact]
+    public void Evaluate_ThrowsWhenPathIsNull()
+    {
+        Assert.Throws<ArgumentNullException>(() => _evaluator.Evaluate(null!, ChangeType.Modify));
+    }
+
+    [Fact]
     public void Evaluate_ThrowsWhenPathHasNoNodes()
     {
         var emptyNodePath = new DependencyPath
@@ -97,6 +103,7 @@ public class PathRiskEvaluatorV1Tests
             PathId = pathId,
             Nodes = new List<EntityRef> { root, terminal },
             Edges = new List<DependencyType> { maxDependencyType },
+            // Depth can intentionally diverge from Nodes.Count - 1 for targeted test scenarios.
             Depth = depth,
             MaxDependencyType = maxDependencyType,
             MaxCriticalityLevel = maxCriticality,

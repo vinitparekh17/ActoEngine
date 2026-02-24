@@ -1,6 +1,7 @@
 using ActoEngine.Tests.Builders;
 using ActoEngine.WebApi.Features.ImpactAnalysis;
 using ActoEngine.WebApi.Features.LogicalFk;
+using static ActoEngine.Tests.Builders.LogicalFkServiceBuilder;
 
 namespace ActoEngine.Tests.LogicalFk;
 
@@ -41,6 +42,7 @@ public class LogicalFkServiceDetectionTests
 
         var candidate = Assert.Single(candidates);
         Assert.Equal(0.50m, candidate.ConfidenceScore);
+        Assert.Equal(ConfidenceBand.Low, candidate.ConfidenceBand);
         Assert.Equal(["NAME_CONVENTION"], candidate.DiscoveryMethods);
     }
 
@@ -365,9 +367,4 @@ public class LogicalFkServiceDetectionTests
         Assert.Equal(0.75m, candidate.ConfidenceScore);
     }
 
-    private static DetectionColumnInfo Col(
-        int columnId, int tableId, string tableName,
-        string columnName, string dataType,
-        bool isPk = false, bool isFk = false, bool isUnique = false)
-        => LogicalFkServiceBuilder.Col(columnId, tableId, tableName, columnName, dataType, isPk, isFk, isUnique);
 }
