@@ -8,6 +8,7 @@ namespace ActoEngine.WebApi.Infrastructure.Database;
 
 public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigrator> logger)
 {
+    private static readonly Assembly ExecutingAssembly = Assembly.GetExecutingAssembly();
     private readonly string _connectionString = configuration.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
@@ -28,7 +29,7 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
         var upgrader = DeployChanges.To
     .SqlDatabase(_connectionString)
     .WithScriptsEmbeddedInAssembly(
-        Assembly.GetExecutingAssembly(),
+        ExecutingAssembly,
         script => script.Contains("Migrations")) // Filter to migrations folder
     .WithTransaction()
     .LogToConsole()
@@ -49,7 +50,7 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
     {
         logger.LogInformation("Starting data seeding...");
 
-        var assemblyName = Assembly.GetExecutingAssembly().GetName().Name
+        var assemblyName = ExecutingAssembly.GetName().Name
             ?? throw new InvalidOperationException("Executing assembly name could not be determined.");
 
         var seedScripts = new[]
@@ -65,7 +66,7 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
             try
             {
                 var script = GetEmbeddedScriptOrThrow(scriptName);
-                await connection.ExecuteAsync(new CommandDefinition(script, cancellationToken: cancellationToken));
+                await connection.ExecuteAsync(script);
                 logger.LogInformation("Executed seed script: {Script}", scriptName);
             }
             catch (Exception ex)
@@ -78,13 +79,12 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
 
     private static string GetEmbeddedScriptOrThrow(string scriptName)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream(scriptName);
+        using var stream = ExecutingAssembly.GetManifestResourceStream(scriptName);
         if (stream == null)
         {
             throw new InvalidOperationException(
                 $"Embedded script '{scriptName}' was not found. " +
-                $"Available resources: {string.Join(", ", assembly.GetManifestResourceNames())}");
+                $"Available resources: {string.Join(", ", ExecutingAssembly.GetManifestResourceNames())}");
         }
 
         using var reader = new StreamReader(stream);

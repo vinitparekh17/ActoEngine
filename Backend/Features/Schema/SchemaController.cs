@@ -120,7 +120,7 @@ public class DatabaseBrowserController(
         var project = await _projectRepository.GetByIdAsync(projectId);
         if (project == null)
         {
-            return NotFound(ApiResponse<TableSchemaResponseWithMetadata>.Failure($"Project with ID {projectId} not found"));
+            return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
         }
 
         // Audit log for cross-user access
@@ -356,7 +356,7 @@ public class DatabaseBrowserController(
             var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
-                return NotFound(ApiResponse<List<Dictionary<string, object>>>.Failure($"Project with ID {projectId} not found"));
+                return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
             }
 
             // Get actual data from the database using the connection string

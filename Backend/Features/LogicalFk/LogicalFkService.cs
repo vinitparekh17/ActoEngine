@@ -318,9 +318,11 @@ public partial class LogicalFkService(
             var tierWinners = targetCandidates.Where(c => c.StructuralTier == maxTier).ToList();
 
             var maxNamingScore = tierWinners.Max(c => c.NamingScore);
+            if (maxNamingScore == 0)
+                continue;
             var winners = tierWinners.Where(c => c.NamingScore == maxNamingScore).ToList();
 
-            var ambiguityGroupKey = $"{col.TableId}:{col.ColumnId}->{targetTableId.Value}";
+            var ambiguityGroupKey = $"{col.TableId}:{col.ColumnId}\u2192{targetTableId.Value}";
             var isAmbiguous = winners.Count > 1;
 
             foreach (var winner in winners)
@@ -329,11 +331,8 @@ public partial class LogicalFkService(
 
                 namingCandidates[canonicalKey] = new NamingEvidence
                 {
-                    CanonicalKey = canonicalKey,
-                    AmbiguityGroupKey = ambiguityGroupKey,
                     SourceCol = col,
                     TargetCol = winner.Column,
-                    HasIdSuffix = true,
                     IsAmbiguous = isAmbiguous
                 };
 
@@ -582,22 +581,27 @@ public partial class LogicalFkService(
     /// </summary>
     private static int GetNamingScore(string sourcePrefix, string targetColumnName)
     {
+        // Score 3: Canonical PK name "id" — strongest signal (e.g., Customers.id)
         if (targetColumnName.Equals("id", StringComparison.OrdinalIgnoreCase))
         {
             return 3;
         }
 
+        // Score 2: Table-prefixed FK pattern — target matches sourcePrefix+"id" or sourcePrefix+"_id"
+        // e.g., source column "customer_id" with prefix "customer" matches target "customer_id" or "customerid"
         if (targetColumnName.Equals(sourcePrefix + "id", StringComparison.OrdinalIgnoreCase) ||
             targetColumnName.Equals(sourcePrefix + "_id", StringComparison.OrdinalIgnoreCase))
         {
             return 2;
         }
 
+        // Score 1: Generic *Id column — ends with "id" but no prefix match; weaker signal
         if (targetColumnName.EndsWith("id", StringComparison.OrdinalIgnoreCase))
         {
             return 1;
         }
 
+        // Score 0: No naming evidence — column name doesn't suggest an FK relationship
         return 0;
     }
 
@@ -619,11 +623,8 @@ public partial class LogicalFkService(
     /// <summary>Evidence from naming convention analysis for a single candidate</summary>
     private sealed class NamingEvidence
     {
-        public required string CanonicalKey { get; set; }
-        public required string AmbiguityGroupKey { get; set; }
         public required DetectionColumnInfo SourceCol { get; set; }
         public required DetectionColumnInfo TargetCol { get; set; }
-        public bool HasIdSuffix { get; set; }
         public bool IsAmbiguous { get; set; }
     }
 
