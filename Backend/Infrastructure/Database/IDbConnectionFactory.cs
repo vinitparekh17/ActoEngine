@@ -32,7 +32,15 @@ public class SqlServerConnectionFactory(
     public async Task<IDbConnection> CreateConnectionWithConnectionString(string connectionString, CancellationToken cancellationToken = default)
     {
         var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await connection.DisposeAsync();
+            throw new InvalidOperationException("Failed to open connection", ex);
+        }
         return connection;
     }
 }

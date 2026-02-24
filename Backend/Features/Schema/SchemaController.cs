@@ -275,7 +275,7 @@ public class DatabaseBrowserController(
             var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
-                return NotFound(ApiResponse<List<StoredProcedureListDto>>.Failure($"Project with ID {projectId} not found"));
+                return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
             }
 
             var procedures = await _schemaService.GetStoredProceduresListAsync(projectId);

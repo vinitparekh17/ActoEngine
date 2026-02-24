@@ -65,7 +65,7 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
             try
             {
                 var script = GetEmbeddedScriptOrThrow(scriptName);
-                await connection.ExecuteAsync(script);
+                await connection.ExecuteAsync(new CommandDefinition(script, cancellationToken: cancellationToken));
                 logger.LogInformation("Executed seed script: {Script}", scriptName);
             }
             catch (Exception ex)
