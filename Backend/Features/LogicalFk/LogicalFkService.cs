@@ -19,6 +19,8 @@ public interface ILogicalFkService
     Task DeleteAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default);
     Task<List<LogicalFkCandidate>> DetectCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
     Task<List<PhysicalFkDto>> GetPhysicalFksByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
+    Task<int> DetectAndPersistCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<bool> IsDetectionStaleAsync(int projectId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -38,6 +40,12 @@ public partial class LogicalFkService(
     // Name convention patterns: orders.customer_id → customers.id
     [GeneratedRegex(@"^(.+?)(?:_?[Ii][Dd])$")]
     private static partial Regex FkColumnPattern();
+
+    /// <summary>
+    /// Bump this when detection logic, confidence thresholds, or scoring rules change.
+    /// The staleness guard compares this against the stored version to invalidate cache.
+    /// </summary>
+    public const string AlgorithmVersion = "1.0";
 
     public async Task<List<LogicalFkDto>> GetByProjectAsync(int projectId, string? statusFilter = null, CancellationToken cancellationToken = default)
         => await logicalFkRepository.GetByProjectAsync(projectId, statusFilter, cancellationToken);
@@ -464,6 +472,47 @@ public partial class LogicalFkService(
     public async Task<List<PhysicalFkDto>> GetPhysicalFksByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default)
     {
         return await logicalFkRepository.GetPhysicalFksByTableAsync(projectId, tableId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Detect candidates and persist them as SUGGESTED rows in LogicalForeignKeys.
+    /// Uses INSERT + UPDATE (not MERGE) for safe concurrency.
+    /// </summary>
+    public async Task<int> DetectAndPersistCandidatesAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        var candidates = await DetectCandidatesAsync(projectId, cancellationToken);
+
+        if (candidates.Count == 0)
+        {
+            logger.LogInformation("No candidates to persist for project {ProjectId}", projectId);
+            await logicalFkRepository.UpdateDetectionMetadataAsync(projectId, AlgorithmVersion, cancellationToken);
+            return 0;
+        }
+
+        var affected = await logicalFkRepository.BulkUpsertSuggestedAsync(projectId, candidates, cancellationToken);
+        await logicalFkRepository.UpdateDetectionMetadataAsync(projectId, AlgorithmVersion, cancellationToken);
+
+        logger.LogInformation(
+            "Persisted {Affected} candidates (of {Total} detected) for project {ProjectId} [AlgoVersion={Version}]",
+            affected, candidates.Count, projectId, AlgorithmVersion);
+
+        return affected;
+    }
+
+    /// <summary>
+    /// Check if detection results are stale (need re-run).
+    /// Stale when: algo version differs OR sync happened after last detection.
+    /// </summary>
+    public async Task<bool> IsDetectionStaleAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        var metadata = await logicalFkRepository.GetDetectionMetadataAsync(projectId, cancellationToken);
+
+        if (metadata == null) return true;
+        if (metadata.LastDetectionRunAt == null) return true;
+        if (metadata.DetectionAlgorithmVersion != AlgorithmVersion) return true;
+        if (metadata.LastSyncAttempt > metadata.LastDetectionRunAt) return true;
+
+        return false;
     }
 
     #region Private Helpers

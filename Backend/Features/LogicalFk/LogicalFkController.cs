@@ -78,7 +78,8 @@ public class LogicalFkController(
     }
 
     /// <summary>
-    /// Run name convention detection and return candidates (without persisting)
+    /// Detect FK candidates with staleness guard.
+    /// Returns cached SUGGESTED rows if fresh, otherwise re-runs detection and persists.
     /// </summary>
     [HttpGet("detect-candidates")]
     [RequirePermission("Schema:Read")]
@@ -87,10 +88,21 @@ public class LogicalFkController(
     {
         try
         {
+            var isStale = await logicalFkService.IsDetectionStaleAsync(projectId);
+
+            if (isStale)
+            {
+                logger.LogInformation("Detection is stale for project {ProjectId}, re-running...", projectId);
+                await logicalFkService.DetectAndPersistCandidatesAsync(projectId);
+            }
+
+            // Always return fresh detection results (run or cached from DB)
             var candidates = await logicalFkService.DetectCandidatesAsync(projectId);
             return Ok(ApiResponse<List<LogicalFkCandidate>>.Success(
                 candidates,
-                $"Detected {candidates.Count} candidate(s)"));
+                isStale
+                    ? $"Detected {candidates.Count} candidate(s)"
+                    : $"Returned {candidates.Count} cached candidate(s) — detection is up to date"));
         }
         catch (Exception ex)
         {

@@ -26,6 +26,15 @@ public interface ILogicalFkRepository
 
     /// <summary>Bulk-load canonical keys of all existing logical FKs for batch dedup</summary>
     Task<HashSet<string>> GetAllLogicalFkCanonicalKeysAsync(int projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>Bulk-upsert detected candidates as SUGGESTED rows (INSERT + UPDATE, no MERGE)</summary>
+    Task<int> BulkUpsertSuggestedAsync(int projectId, List<LogicalFkCandidate> candidates, CancellationToken cancellationToken = default);
+
+    /// <summary>Read detection staleness metadata from Projects</summary>
+    Task<DetectionMetadata?> GetDetectionMetadataAsync(int projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>Update detection metadata after a successful run</summary>
+    Task UpdateDetectionMetadataAsync(int projectId, string algorithmVersion, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -310,6 +319,90 @@ public class LogicalFkRepository(
         {
             return [];
         }
+    }
+
+    #endregion
+
+    #region Detection Persistence
+
+    public async Task<int> BulkUpsertSuggestedAsync(
+        int projectId,
+        List<LogicalFkCandidate> candidates,
+        CancellationToken cancellationToken = default)
+    {
+        var affected = 0;
+
+        foreach (var c in candidates)
+        {
+            var sourceColumnIds = JsonSerializer.Serialize(new[] { c.SourceColumnId });
+            var targetColumnIds = JsonSerializer.Serialize(new[] { c.TargetColumnId });
+            var discoveryMethod = c.DiscoveryMethods.Count > 1 ? "CORROBORATED"
+                : c.DiscoveryMethods.FirstOrDefault() ?? "NAME_CONVENTION";
+            var discoveryMethodsJson = JsonSerializer.Serialize(c.DiscoveryMethods);
+
+            var parameters = new
+            {
+                ProjectId = projectId,
+                c.SourceTableId,
+                SourceColumnIds = sourceColumnIds,
+                c.TargetTableId,
+                TargetColumnIds = targetColumnIds,
+                DiscoveryMethod = discoveryMethod,
+                c.ConfidenceScore,
+                DetectionReason = c.Reason,
+                DiscoveryMethods = discoveryMethodsJson
+            };
+
+            // Step 1: Try INSERT (new candidates)
+            var inserted = await ExecuteAsync(
+                LogicalFkQueries.InsertSuggestedCandidate, parameters, cancellationToken);
+
+            if (inserted > 0)
+            {
+                affected += inserted;
+                continue;
+            }
+
+            // Step 2: Try re-surface REJECTED (score improved)
+            var resurfaced = await ExecuteAsync(
+                LogicalFkQueries.UpdateResurfacedCandidate, parameters, cancellationToken);
+
+            if (resurfaced > 0)
+            {
+                affected += resurfaced;
+                _logger.LogInformation(
+                    "Re-surfaced rejected FK: {Source} → {Target} (new score: {Score})",
+                    c.SourceTableName, c.TargetTableName, c.ConfidenceScore);
+                continue;
+            }
+
+            // Step 3: Refresh existing SUGGESTED with updated score/reason
+            affected += await ExecuteAsync(
+                LogicalFkQueries.UpdateExistingSuggested, parameters, cancellationToken);
+        }
+
+        return affected;
+    }
+
+    public async Task<DetectionMetadata?> GetDetectionMetadataAsync(
+        int projectId,
+        CancellationToken cancellationToken = default)
+    {
+        return await QueryFirstOrDefaultAsync<DetectionMetadata>(
+            LogicalFkQueries.GetDetectionMetadata,
+            new { ProjectId = projectId },
+            cancellationToken);
+    }
+
+    public async Task UpdateDetectionMetadataAsync(
+        int projectId,
+        string algorithmVersion,
+        CancellationToken cancellationToken = default)
+    {
+        await ExecuteAsync(
+            LogicalFkQueries.UpdateDetectionMetadata,
+            new { ProjectId = projectId, AlgorithmVersion = algorithmVersion },
+            cancellationToken);
     }
 
     #endregion

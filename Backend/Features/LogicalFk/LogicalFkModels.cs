@@ -169,3 +169,13 @@ public class ConfidenceResult
     public string[] CapsApplied { get; set; } = [];
 }
 
+/// <summary>
+/// Detection staleness metadata from Projects table
+/// </summary>
+public class DetectionMetadata
+{
+    public DateTime? LastDetectionRunAt { get; set; }
+    public string? DetectionAlgorithmVersion { get; set; }
+    public DateTime? LastSyncAttempt { get; set; }
+}
+
