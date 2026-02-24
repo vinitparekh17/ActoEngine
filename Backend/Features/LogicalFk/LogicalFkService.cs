@@ -1,7 +1,7 @@
 using ActoEngine.WebApi.Features.ImpactAnalysis;
 using ActoEngine.WebApi.Features.Schema;
-using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Features.LogicalFk;
 
@@ -136,8 +136,8 @@ public partial class LogicalFkService(
 
         if (existing.ProjectId != projectId)
         {
-             // Treating mismatches as Not Found to avoid leaking existence
-             throw new KeyNotFoundException($"Logical FK {logicalFkId} not found in project {projectId}.");
+            // Treating mismatches as Not Found to avoid leaking existence
+            throw new KeyNotFoundException($"Logical FK {logicalFkId} not found in project {projectId}.");
         }
 
         await logicalFkRepository.DeleteAsync(projectId, logicalFkId, cancellationToken);
@@ -163,18 +163,6 @@ public partial class LogicalFkService(
             .Select(c => new { c.TableId, c.TableName })
             .DistinctBy(t => t.TableId)
             .ToDictionary(t => t.TableName, t => t.TableId, StringComparer.OrdinalIgnoreCase);
-
-        // Table ID → table name
-        var tableIdToName = columns
-            .Select(c => new { c.TableId, c.TableName })
-            .DistinctBy(t => t.TableId)
-            .ToDictionary(t => t.TableId, t => t.TableName);
-
-        // PK columns per table
-        var pksByTable = columns
-            .Where(c => c.IsPrimaryKey)
-            .GroupBy(c => c.TableId)
-            .ToDictionary(g => g.Key, g => g.ToList());
 
         // Column lookup: (tableId, columnName) → columnInfo
         var columnLookup = columns
@@ -248,7 +236,7 @@ public partial class LogicalFkService(
                             }
                         }
 
-                        var canonicalKey = $"{sourceCol.TableId}:{sourceCol.ColumnId}→{targetCol.TableId}:{targetCol.ColumnId}";
+                        var canonicalKey = $"{sourceCol.TableId}:{sourceCol.ColumnId}\u2192{targetCol.TableId}:{targetCol.ColumnId}";
 
                         if (!spJoinCandidates.TryGetValue(canonicalKey, out var evidence))
                         {
@@ -286,6 +274,7 @@ public partial class LogicalFkService(
 
         // ── Strategy 2: Naming Convention ─────────────────────────
         var namingCandidates = new Dictionary<string, NamingEvidence>();
+        var namingAmbiguityGroups = new Dictionary<string, List<string>>();
 
         foreach (var col in columns)
         {
@@ -304,23 +293,92 @@ public partial class LogicalFkService(
             // Don't match a table to itself
             if (targetTableId == col.TableId) continue;
 
-            // Check that the target table has a PK we can reference
-            if (!pksByTable.TryGetValue(targetTableId.Value, out var targetPks) || targetPks.Count == 0)
-                continue;
-
-            // Structural priority: PK always wins (use first single-column PK)
-            var targetPk = targetPks[0];
-
-            var canonicalKey = $"{col.TableId}:{col.ColumnId}→{targetTableId.Value}:{targetPk.ColumnId}";
-
-            namingCandidates[canonicalKey] = new NamingEvidence
+            if (!columnsByTable.TryGetValue(targetTableId.Value, out var targetColumns) || targetColumns.Count == 0)
             {
-                SourceCol = col,
-                TargetCol = targetPk,
-                HasIdSuffix = true
-            };
+                continue;
+            }
+
+            // Tiering: PRIMARY KEY always outranks UNIQUE.
+            var targetCandidates = targetColumns
+                .Where(c => c.IsPrimaryKey || c.IsUnique)
+                .Select(c => new
+                {
+                    Column = c,
+                    StructuralTier = c.IsPrimaryKey ? 2 : 1,
+                    NamingScore = GetNamingScore(prefix, c.ColumnName)
+                })
+                .ToList();
+
+            if (targetCandidates.Count == 0)
+            {
+                continue;
+            }
+
+            var maxTier = targetCandidates.Max(c => c.StructuralTier);
+            var tierWinners = targetCandidates.Where(c => c.StructuralTier == maxTier).ToList();
+
+            var maxNamingScore = tierWinners.Max(c => c.NamingScore);
+            if (maxNamingScore == 0)
+                continue;
+            var winners = tierWinners.Where(c => c.NamingScore == maxNamingScore).ToList();
+
+            var ambiguityGroupKey = $"{col.TableId}:{col.ColumnId}\u2192{targetTableId.Value}";
+            var isAmbiguous = winners.Count > 1;
+
+            foreach (var winner in winners)
+            {
+                var canonicalKey = $"{col.TableId}:{col.ColumnId}\u2192{targetTableId.Value}:{winner.Column.ColumnId}";
+
+                namingCandidates[canonicalKey] = new NamingEvidence
+                {
+                    SourceCol = col,
+                    TargetCol = winner.Column,
+                    IsAmbiguous = isAmbiguous
+                };
+
+                if (!isAmbiguous)
+                {
+                    continue;
+                }
+
+                if (!namingAmbiguityGroups.TryGetValue(ambiguityGroupKey, out var keys))
+                {
+                    keys = [];
+                    namingAmbiguityGroups[ambiguityGroupKey] = keys;
+                }
+
+                keys.Add(canonicalKey);
+            }
         }
 
+        // Corroboration can disambiguate ties when exactly one candidate in a tied naming group
+        // also appears in SP JOIN evidence.
+        foreach (var tiedKeys in namingAmbiguityGroups.Values)
+        {
+            var corroborated = tiedKeys.Where(k => spJoinCandidates.ContainsKey(k)).ToList();
+            if (corroborated.Count != 1)
+            {
+                continue;
+            }
+
+            var selected = corroborated[0];
+            foreach (var key in tiedKeys)
+            {
+                if (!namingCandidates.TryGetValue(key, out var evidence))
+                {
+                    continue;
+                }
+
+                if (key == selected)
+                {
+                    evidence.IsAmbiguous = false;
+                }
+                else
+                {
+                    namingCandidates.Remove(key);
+                }
+            }
+        }
         logger.LogInformation(
             "Naming convention analysis found {Count} candidate relationships for project {ProjectId}",
             namingCandidates.Count, projectId);
@@ -352,7 +410,7 @@ public partial class LogicalFkService(
                 SpJoinDetected = hasSpJoin,
                 NamingDetected = hasNaming,
                 TypeMatch = DataTypesCompatible(sourceCol.DataType, targetCol.DataType),
-                HasIdSuffix = hasNaming && namingEvidence!.HasIdSuffix,
+                HasIdSuffix = FkColumnPattern().IsMatch(sourceCol.ColumnName),
                 SpCount = hasSpJoin ? spEvidence!.SpNames.Count : 0
             };
 
@@ -380,7 +438,9 @@ public partial class LogicalFkService(
                 TargetColumnName = targetCol.ColumnName,
                 TargetDataType = targetCol.DataType,
                 ConfidenceScore = result.FinalConfidence,
+                ConfidenceBand = ConfidenceBandClassifier.Classify(result.FinalConfidence),
                 Reason = reason,
+                IsAmbiguous = hasNaming && namingEvidence!.IsAmbiguous,
                 DiscoveryMethods = discoveryMethods,
                 SpEvidence = hasSpJoin ? spEvidence!.SpNames : [],
                 MatchCount = hasSpJoin ? spEvidence!.SpNames.Count : 0
@@ -444,69 +504,11 @@ public partial class LogicalFkService(
         }
     }
 
-    /// <summary>
-    /// Try to resolve a column name prefix to a table name.
-    /// Handles: "customer" → "Customers", "customers", "Customer"
-    /// </summary>
     private static int? TryResolveTable(string prefix, Dictionary<string, int> tableNames)
-    {
-        // Direct match
-        if (tableNames.TryGetValue(prefix, out int tableId))
-            return tableId;
+        => TableNameResolver.TryResolveTable(prefix, tableNames);
 
-        // Pluralized: "customer" → "customers"
-        if (tableNames.TryGetValue(prefix + "s", out tableId))
-            return tableId;
-
-        // "box" -> "boxes"
-        if (tableNames.TryGetValue(prefix + "es", out tableId))
-            return tableId;
-
-        // Singular from plural: "customers" → "customer"
-        if (prefix.EndsWith('s') && tableNames.TryGetValue(prefix[..^1], out tableId))
-            return tableId;
-
-        // "ies" pluralization: "category" → "categories"
-        if (prefix.EndsWith('y') && tableNames.TryGetValue(prefix[..^1] + "ies", out tableId))
-            return tableId;
-
-        return null;
-    }
-
-    /// <summary>
-    /// Resolve a table name from a JOIN condition to a table ID.
-    /// Handles schema-qualified names (dbo.Orders → Orders) and case-insensitive matching.
-    /// </summary>
     private static int? ResolveTableName(string name, Dictionary<string, int> tableNameToId)
-    {
-        // Direct match
-        if (tableNameToId.TryGetValue(name, out var id))
-            return id;
-
-        // Strip schema prefix (dbo.Orders → Orders)
-        var dotIndex = name.LastIndexOf('.');
-        if (dotIndex >= 0)
-        {
-            var baseName = name[(dotIndex + 1)..];
-            if (tableNameToId.TryGetValue(baseName, out id))
-                return id;
-        }
-
-        // Strip brackets ([dbo].[Orders] → Orders)
-        var cleaned = name.Replace("[", "").Replace("]", "");
-        if (tableNameToId.TryGetValue(cleaned, out id))
-            return id;
-
-        dotIndex = cleaned.LastIndexOf('.');
-        if (dotIndex >= 0)
-        {
-            var baseName = cleaned[(dotIndex + 1)..];
-            if (tableNameToId.TryGetValue(baseName, out id))
-                return id;
-        }
-
-        return null;
-    }
+        => TableNameResolver.ResolveTableName(name, tableNameToId);
 
     /// <summary>
     /// Resolve a column name within a specific table to its DetectionColumnInfo.
@@ -557,7 +559,7 @@ public partial class LogicalFkService(
         else if (signals.NamingDetected)
         {
             parts.Add($"Naming convention: Column '{sourceCol.ColumnName}' matches " +
-                       $"table '{targetCol.TableName}' PK '{targetCol.ColumnName}'");
+                       $"table '{targetCol.TableName}' key column '{targetCol.ColumnName}'");
         }
 
         if (!signals.TypeMatch)
@@ -574,27 +576,37 @@ public partial class LogicalFkService(
     }
 
     /// <summary>
-    /// Check if two SQL Server data types are compatible for FK matching
+    /// Score how well a target key column name matches the source FK naming prefix.
+    /// Higher score wins within the same structural tier.
     /// </summary>
-    private static bool DataTypesCompatible(string sourceType, string targetType)
+    private static int GetNamingScore(string sourcePrefix, string targetColumnName)
     {
-        var source = NormalizeDataType(sourceType);
-        var target = NormalizeDataType(targetType);
-        return source == target;
+        // Score 3: Canonical PK name "id" — strongest signal (e.g., Customers.id)
+        if (targetColumnName.Equals("id", StringComparison.OrdinalIgnoreCase))
+        {
+            return 3;
+        }
+
+        // Score 2: Table-prefixed FK pattern — target matches sourcePrefix+"id" or sourcePrefix+"_id"
+        // e.g., source column "customer_id" with prefix "customer" matches target "customer_id" or "customerid"
+        if (targetColumnName.Equals(sourcePrefix + "id", StringComparison.OrdinalIgnoreCase) ||
+            targetColumnName.Equals(sourcePrefix + "_id", StringComparison.OrdinalIgnoreCase))
+        {
+            return 2;
+        }
+
+        // Score 1: Generic *Id column — ends with "id" but no prefix match; weaker signal
+        if (targetColumnName.EndsWith("id", StringComparison.OrdinalIgnoreCase))
+        {
+            return 1;
+        }
+
+        // Score 0: No naming evidence — column name doesn't suggest an FK relationship
+        return 0;
     }
 
-    private static string NormalizeDataType(string dataType)
-    {
-        var lower = dataType.Trim().ToLowerInvariant();
-        // Treat int/bigint/smallint as grouped families
-        return lower switch
-        {
-            "int" or "bigint" or "smallint" or "tinyint" => "integer_family",
-            "uniqueidentifier" => "guid",
-            "nvarchar" or "varchar" or "char" or "nchar" => "string_family",
-            _ => lower
-        };
-    }
+    private static bool DataTypesCompatible(string sourceType, string targetType)
+        => DataTypeCompatibility.AreCompatible(sourceType, targetType);
 
     #endregion
 
@@ -613,8 +625,10 @@ public partial class LogicalFkService(
     {
         public required DetectionColumnInfo SourceCol { get; set; }
         public required DetectionColumnInfo TargetCol { get; set; }
-        public bool HasIdSuffix { get; set; }
+        public bool IsAmbiguous { get; set; }
     }
 
     #endregion
 }
+
+

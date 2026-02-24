@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.RateLimiting;
+using ActoEngine.WebApi.Api.ApiModels;
 using ActoEngine.WebApi.Features.Auth.Dtos.Requests;
 using ActoEngine.WebApi.Features.Auth.Dtos.Responses;
 using ActoEngine.WebApi.Features.Users;
-using ActoEngine.WebApi.Api.ApiModels;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace ActoEngine.WebApi.Features.Auth;
 
@@ -107,11 +107,18 @@ public class AuthController(IAuthService authService) : ControllerBase
             return Unauthorized(ApiResponse<object>.Failure(result.ErrorMessage ?? "Token refresh failed"));
         }
 
+        // Guard against unexpected null tokens when refresh succeeds
+        if (string.IsNullOrEmpty(result.SessionToken) || string.IsNullOrEmpty(result.RefreshToken))
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                ApiResponse<object>.Failure("Token refresh failed: tokens not generated"));
+        }
+
         // Set new access token cookie
-        SetAccessTokenCookie(result.SessionToken!, result.ExpiresAt);
+        SetAccessTokenCookie(result.SessionToken, result.ExpiresAt);
 
         // Extend refresh token cookie expiry (rotation not implemented)
-        SetRefreshTokenCookie(result.RefreshToken!, result.RefreshExpiresAt);
+        SetRefreshTokenCookie(result.RefreshToken, result.RefreshExpiresAt);
 
         var responseData = new AuthTokenResponse
         {

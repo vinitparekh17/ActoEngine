@@ -1,5 +1,5 @@
-using System.Data;
 using Microsoft.Data.SqlClient;
+using System.Data;
 
 namespace ActoEngine.WebApi.Infrastructure.Database;
 
@@ -7,7 +7,7 @@ public interface IDbConnectionFactory
 {
     Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken = default);
     IDbConnection CreateConnection();
-    Task<SqlConnection> CreateConnectionWithConnectionString(string connectionString);
+    Task<IDbConnection> CreateConnectionWithConnectionString(string connectionString, CancellationToken cancellationToken = default);
 }
 
 public class SqlServerConnectionFactory(
@@ -19,8 +19,16 @@ public class SqlServerConnectionFactory(
     public async Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken = default)
     {
         var connection = new SqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
-        return connection;
+        try
+        {
+            await connection.OpenAsync(cancellationToken);
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
     }
 
     public IDbConnection CreateConnection()
@@ -29,10 +37,28 @@ public class SqlServerConnectionFactory(
         connection.Open();
         return connection;
     }
-    public async Task<SqlConnection> CreateConnectionWithConnectionString(string connectionString)
+    public async Task<IDbConnection> CreateConnectionWithConnectionString(string connectionString, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(connectionString));
+        }
+
         var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync();
-        return connection;
+        try
+        {
+            await connection.OpenAsync(cancellationToken);
+            return connection;
+        }
+        catch (OperationCanceledException)
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await connection.DisposeAsync();
+            throw new InvalidOperationException("Failed to open connection", ex);
+        }
     }
 }

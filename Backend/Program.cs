@@ -1,10 +1,10 @@
-using ActoEngine.WebApi.Infrastructure.Database;
-using ActoEngine.WebApi.Infrastructure.Security;
-using ActoEngine.WebApi.Infrastructure.RateLimiting;
-using DotNetEnv;
-using ActoEngine.WebApi.Shared.Extensions;
-using ActoEngine.WebApi.Api.Middleware;
 using ActoEngine.WebApi.Api;
+using ActoEngine.WebApi.Api.Middleware;
+using ActoEngine.WebApi.Infrastructure.Database;
+using ActoEngine.WebApi.Infrastructure.RateLimiting;
+using ActoEngine.WebApi.Infrastructure.Security;
+using ActoEngine.WebApi.Shared.Extensions;
+using DotNetEnv;
 
 var builder = WebApplication.CreateBuilder(args);
 

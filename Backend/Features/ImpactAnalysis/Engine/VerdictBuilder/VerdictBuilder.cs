@@ -235,6 +235,7 @@ public sealed class ImpactVerdictBuilder
         DependencyType.Delete => 3,
         DependencyType.Update => 2,
         DependencyType.Insert => 1,
+        DependencyType.LogicalFk => 1,
         DependencyType.Select => 0,
         _ => 0
     };

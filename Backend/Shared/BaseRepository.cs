@@ -1,7 +1,7 @@
 // Infrastructure/Data/BaseRepository.cs
-using System.Data;
 using ActoEngine.WebApi.Infrastructure.Database;
 using Dapper;
+using System.Data;
 
 namespace ActoEngine.WebApi.Shared;
 

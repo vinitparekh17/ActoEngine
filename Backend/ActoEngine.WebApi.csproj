@@ -7,7 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="ActoEngine.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Infrastructure\Database\Migrations\*.sql" />
+    <EmbeddedResource Include="Sql\StoredProcedures\*.sql" />
     <!-- Keeping this commented out for now for future use , currently unused
     <Content Include="Infrastructure\Database\StoredProcedures\*.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -20,7 +25,7 @@
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.19" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
     <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="170.128.0" />
     <PackageReference Include="Scriban" Version="6.4.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />

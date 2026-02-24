@@ -1,7 +1,7 @@
-using System.Net;
 using ActoEngine.WebApi.Infrastructure.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 
 namespace ActoEngine.WebApi.Infrastructure.Security;
 

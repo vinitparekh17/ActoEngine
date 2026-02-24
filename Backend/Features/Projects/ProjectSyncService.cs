@@ -1,12 +1,13 @@
-using ActoEngine.WebApi.Infrastructure.Database;
-using ActoEngine.WebApi.Features.Schema;
-using Microsoft.Data.SqlClient;
-using System.Data;
-using ActoEngine.WebApi.Infrastructure.Security;
 using ActoEngine.WebApi.Features.Clients;
 using ActoEngine.WebApi.Features.ImpactAnalysis;
-using ActoEngine.WebApi.Features.Projects.Dtos.Requests;
 using ActoEngine.WebApi.Features.ProjectClients;
+using ActoEngine.WebApi.Features.Projects.Dtos.Requests;
+using ActoEngine.WebApi.Features.Schema;
+using ActoEngine.WebApi.Infrastructure.Database;
+using ActoEngine.WebApi.Infrastructure.Security;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.DependencyInjection;
+using System.Data;
 namespace ActoEngine.WebApi.Features.Projects
 {
     public class ProjectSyncService(
@@ -19,7 +20,8 @@ namespace ActoEngine.WebApi.Features.Projects
         DependencyOrchestrationService dependencyOrchestrationService,
         ILogger<ProjectSyncService> logger,
         IConfiguration configuration,
-        IHostEnvironment environment)
+        IHostEnvironment environment,
+        IServiceScopeFactory serviceScopeFactory)
     {
         private readonly ProjectRepository _projectRepository = projectRepository;
         private readonly SchemaRepository _schemaRepository = schemaRepository;
@@ -31,6 +33,7 @@ namespace ActoEngine.WebApi.Features.Projects
         private readonly ILogger<ProjectSyncService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
         private readonly IHostEnvironment _environment = environment;
+        private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
 
         /// <summary>
         /// Verifies a database connection using secure credential handling.
@@ -91,7 +94,7 @@ namespace ActoEngine.WebApi.Features.Projects
             var projectId = await _projectRepository.AddOrUpdateProjectAsync(project, userId);
 
             // Start background sync using connection string temporarily
-            _ = Task.Run(async () => await SyncSchemaWithProgressAsync(projectId, request.ConnectionString, userId));
+            StartBackgroundSync(projectId, request.ConnectionString, userId);
 
             return new ProjectResponse
             {
@@ -110,7 +113,7 @@ namespace ActoEngine.WebApi.Features.Projects
                 _logger.LogInformation("Starting re-sync for project {ProjectId}. Connection string provided temporarily.", request.ProjectId);
 
                 // Start background sync using connection string temporarily
-                _ = Task.Run(async () => await SyncSchemaWithProgressAsync(request.ProjectId, request.ConnectionString, userId));
+                StartBackgroundSync(request.ProjectId, request.ConnectionString, userId);
 
                 return new ProjectResponse
                 {
@@ -135,6 +138,26 @@ namespace ActoEngine.WebApi.Features.Projects
         public async Task<SyncStatus?> GetSyncStatusAsync(int projectId)
         {
             return await _projectRepository.GetSyncStatusAsync(projectId);
+        }
+
+        private void StartBackgroundSync(int projectId, string targetConnectionString, int userId)
+        {
+            var scopeFactory = _serviceScopeFactory;
+            var logger = _logger;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = scopeFactory.CreateScope();
+                    var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
+                    await scopedSyncService.SyncSchemaWithProgressAsync(projectId, targetConnectionString, userId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to start background schema sync for project {ProjectId}", projectId);
+                }
+            });
         }
 
         private async Task SyncSchemaWithProgressAsync(int projectId, string targetConnectionString, int userId)
@@ -183,10 +206,9 @@ namespace ActoEngine.WebApi.Features.Projects
 
                     _logger.LogInformation("Schema sync completed successfully for project {ProjectId}. Project is now linked.", projectId);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     transaction.Rollback();
-                    _logger.LogError(ex, "Schema sync failed for project {ProjectId}", projectId);
                     throw;
                 }
             }
@@ -368,6 +390,10 @@ namespace ActoEngine.WebApi.Features.Projects
         private async Task<bool> IsSameServerAsync(string targetConnectionString)
         {
             var dbConnectionString = _configuration.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrWhiteSpace(dbConnectionString))
+            {
+                throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+            }
 
             using var targetConn = new SqlConnection(targetConnectionString);
             using var dbConn = new SqlConnection(dbConnectionString);

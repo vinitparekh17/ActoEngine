@@ -28,9 +28,10 @@ public class ConfidenceCalculator(DetectionConfig config)
             baseScore = _config.NamingBaseScore;
         }
 
-        // Naming bonus (SP JOIN strategy gets a boost when column also follows naming pattern)
+        // Naming bonus is only for SP-only detections with id suffix.
+        // Corroborated detections already get corroboration bonus and should not double count.
         decimal namingBonus =
-            (signals.SpJoinDetected && signals.HasIdSuffix)
+            (signals.SpJoinDetected && !signals.NamingDetected && signals.HasIdSuffix)
             ? _config.NamingBonus : 0m;
 
         // Type match bonus/penalty
@@ -56,8 +57,8 @@ public class ConfidenceCalculator(DetectionConfig config)
         decimal rawConfidence = baseScore + namingBonus + typeBonus +
                                 repetitionBonus + corroborationBonus;
 
-        // Apply layered caps
-        decimal finalConfidence = ApplyLayeredCaps(rawConfidence, signals);
+        // Apply layered caps and track only caps that actually reduced confidence
+        var (finalConfidence, capsApplied) = ApplyLayeredCaps(rawConfidence, signals);
 
         // Round to 2 decimals
         finalConfidence = Math.Round(finalConfidence, 2, MidpointRounding.AwayFromZero);
@@ -71,55 +72,49 @@ public class ConfidenceCalculator(DetectionConfig config)
             CorroborationBonus = corroborationBonus,
             RawConfidence = rawConfidence,
             FinalConfidence = finalConfidence,
-            CapsApplied = GetAppliedCaps(rawConfidence, finalConfidence, signals)
+            CapsApplied = capsApplied
         };
     }
 
-    private decimal ApplyLayeredCaps(decimal raw, DetectionSignals signals)
+    private (decimal FinalConfidence, string[] CapsApplied) ApplyLayeredCaps(decimal raw, DetectionSignals signals)
     {
         decimal confidence = raw;
+        var caps = new List<string>();
 
         // Layer 1: Strategy-based caps
         if (signals.SpJoinDetected && !signals.NamingDetected)
         {
-            confidence = Math.Min(_config.SpOnlyCap, confidence);
+            var capped = Math.Min(_config.SpOnlyCap, confidence);
+            if (capped < confidence)
+            {
+                caps.Add("SP_ONLY_CAP");
+            }
+            confidence = capped;
         }
         else if (signals.NamingDetected && !signals.SpJoinDetected)
         {
-            confidence = Math.Min(_config.NamingOnlyCap, confidence);
+            var capped = Math.Min(_config.NamingOnlyCap, confidence);
+            if (capped < confidence)
+            {
+                caps.Add("NAMING_ONLY_CAP");
+            }
+            confidence = capped;
         }
 
         // Layer 2: Safety caps (override strategy caps if more restrictive)
         // Corroboration overrides the type mismatch safety cap
         if (!signals.TypeMatch && !signals.Corroborated)
         {
-            confidence = Math.Min(_config.TypeMismatchCap, confidence);
-        }
-
-        // Layer 3: Absolute bounds
-        return Math.Clamp(confidence, 0m, 1.0m);
-    }
-
-    private string[] GetAppliedCaps(decimal raw, decimal final, DetectionSignals signals)
-    {
-        var caps = new List<string>();
-
-        if (raw > final)
-        {
-            if (signals.SpJoinDetected && !signals.NamingDetected && raw > _config.SpOnlyCap)
-            {
-                caps.Add("SP_ONLY_CAP");
-            }
-            if (signals.NamingDetected && !signals.SpJoinDetected && raw > _config.NamingOnlyCap)
-            {
-                caps.Add("NAMING_ONLY_CAP");
-            }
-            if (!signals.TypeMatch && !signals.Corroborated && raw > _config.TypeMismatchCap)
+            var capped = Math.Min(_config.TypeMismatchCap, confidence);
+            if (capped < confidence)
             {
                 caps.Add("TYPE_MISMATCH_CAP");
             }
+            confidence = capped;
         }
 
-        return [.. caps];
+        // Layer 3: Absolute bounds
+        confidence = Math.Clamp(confidence, 0m, 1.0m);
+        return (confidence, [.. caps]);
     }
 }

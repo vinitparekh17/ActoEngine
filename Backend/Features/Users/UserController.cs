@@ -1,11 +1,11 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using ActoEngine.WebApi.Features.Users.Dtos.Responses;
-using ActoEngine.WebApi.Features.Users.Dtos.Requests;
-using ActoEngine.WebApi.Features.Auth;
-using ActoEngine.WebApi.Shared.Extensions;
 using ActoEngine.WebApi.Api.ApiModels;
 using ActoEngine.WebApi.Api.Attributes;
+using ActoEngine.WebApi.Features.Auth;
+using ActoEngine.WebApi.Features.Users.Dtos.Requests;
+using ActoEngine.WebApi.Features.Users.Dtos.Responses;
+using ActoEngine.WebApi.Shared.Extensions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ActoEngine.WebApi.Features.Users;
 

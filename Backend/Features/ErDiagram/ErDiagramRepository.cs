@@ -1,7 +1,6 @@
 
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
-using Dapper;
 
 namespace ActoEngine.WebApi.Features.ErDiagram;
 

@@ -1,6 +1,5 @@
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
-using ActoEngine.WebApi.Features.Roles;
 
 namespace ActoEngine.WebApi.Features.Permissions;
 

@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text;
 namespace ActoEngine.WebApi.Api.Middleware;
 
 public class SecurityHeadersMiddleware(RequestDelegate next)

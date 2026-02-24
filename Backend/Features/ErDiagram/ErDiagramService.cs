@@ -1,5 +1,3 @@
-using ActoEngine.WebApi.Infrastructure.Database;
-
 namespace ActoEngine.WebApi.Features.ErDiagram;
 
 /// <summary>

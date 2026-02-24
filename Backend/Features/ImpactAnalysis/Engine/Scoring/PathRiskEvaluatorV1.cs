@@ -24,6 +24,7 @@ public sealed class PathRiskEvaluatorV1 : IPathRiskEvaluator
         { DependencyType.Select, 4 },
         { DependencyType.SchemaDependency, 9 },
         { DependencyType.ApiCall, 6 },
+        { DependencyType.LogicalFk, 6 },
         { DependencyType.Unknown, 5 }
     };
 
@@ -43,22 +44,28 @@ public sealed class PathRiskEvaluatorV1 : IPathRiskEvaluator
     private const int DefaultMultiplier = 1;
 
     /// <summary>
+    /// Cached, immutable snapshot — avoids allocating a new Dictionary on every access.
+    /// Built once from canonical sources at class-load time.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, object> CachedPolicySnapshot =
+        new Dictionary<string, object>
+        {
+            ["Version"] = "v1.0",
+            ["DepthDecayFactor"] = DepthDecayFactor,
+            ["DependencyWeights"] = DependencyWeightsSource.ToDictionary(
+                kvp => kvp.Key.ToString(),
+                kvp => kvp.Value),
+            ["ChangeTypeMultipliers"] = ChangeTypeMultipliersSource.ToDictionary(
+                kvp => kvp.Key.ToString(),
+                kvp => kvp.Value),
+            ["CriticalityScale"] = "1-5"
+        };
+
+    /// <summary>
     /// Serializable snapshot of scoring policy used for this evaluator.
     /// This must be embedded into ImpactResult for audit replay.
-    /// Built from canonical sources to prevent drift.
     /// </summary>
-    public IReadOnlyDictionary<string, object> PolicySnapshot => new Dictionary<string, object>
-    {
-        ["Version"] = Version,
-        ["DepthDecayFactor"] = DepthDecayFactor,
-        ["DependencyWeights"] = DependencyWeightsSource.ToDictionary(
-            kvp => kvp.Key.ToString(),
-            kvp => kvp.Value),
-        ["ChangeTypeMultipliers"] = ChangeTypeMultipliersSource.ToDictionary(
-            kvp => kvp.Key.ToString(),
-            kvp => kvp.Value),
-        ["CriticalityScale"] = "1-5"
-    };
+    public IReadOnlyDictionary<string, object> PolicySnapshot => CachedPolicySnapshot;
 
     public DependencyPath Evaluate(
         DependencyPath path,

@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using ActoEngine.WebApi.Api.ApiModels;
 using ActoEngine.WebApi.Features.Projects;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ActoEngine.WebApi.Features.Schema;
 
@@ -35,7 +35,7 @@ public class SchemaProceduresController(
             var project = await _projectRepository.GetByIdAsync(projectId);
             if (project == null)
             {
-                return NotFound($"Project with ID {projectId} not found");
+                return NotFound(ApiResponse<object>.Failure($"Project with ID {projectId} not found"));
             }
 
             var procedures = await _schemaService.GetStoredProceduresMetadataAsync(projectId);

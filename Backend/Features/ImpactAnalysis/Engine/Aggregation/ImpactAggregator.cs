@@ -16,14 +16,7 @@ public sealed class ImpactAggregator : IImpactAggregator
         {
             return new ImpactAggregationResult
             {
-                OverallImpact = new OverallImpactSummary
-                {
-                    WorstImpactLevel = ImpactLevel.None,
-                    WorstRiskScore = 0,
-                    TriggeringEntity = null!,
-                    TriggeringPathId = string.Empty,
-                    RequiresApproval = false
-                },
+                OverallImpact = OverallImpactSummary.Empty(),
                 EntityImpacts = Array.Empty<EntityImpact>()
             };
         }
@@ -62,6 +55,15 @@ public sealed class ImpactAggregator : IImpactAggregator
                 DominantPathId = dominantPath.PathId,
                 Paths = paths
             });
+        }
+
+        if (entityImpacts.Count == 0)
+        {
+            return new ImpactAggregationResult
+            {
+                OverallImpact = OverallImpactSummary.Empty(),
+                EntityImpacts = Array.Empty<EntityImpact>()
+            };
         }
 
         // Determine overall worst-case entity

@@ -1,9 +1,9 @@
 using ActoEngine.WebApi.Features.Auth;
+using ActoEngine.WebApi.Features.Projects;
 using ActoEngine.WebApi.Features.Users.Dtos.Requests;
 using ActoEngine.WebApi.Features.Users.Dtos.Responses;
-using ActoEngine.WebApi.Features.Projects;
-using Dapper;
 using ActoEngine.WebApi.Shared.Validation;
+using Dapper;
 
 namespace ActoEngine.WebApi.Features.Users;
 

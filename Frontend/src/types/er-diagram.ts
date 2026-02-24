@@ -79,6 +79,7 @@ export interface LogicalFkCandidate {
     targetDataType: string;
     confidenceScore: number;
     reason: string;
+    isAmbiguous?: boolean;
 }
 
 export interface TableListItem {
