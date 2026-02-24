@@ -49,7 +49,7 @@ public class PathRiskEvaluatorV1Tests
 
         var scored = _evaluator.Evaluate(path, ChangeType.Create);
 
-        // 10 * 1 * 1 * floor(0.2) = 2
+        // Evaluate_AppliesDepthDecayFloor: minimum decay of 0.2 applied, so 10 * 1 * 1 * 0.2 = 2.
         Assert.Equal(2, scored.RiskScore);
     }
 
@@ -84,13 +84,21 @@ public class PathRiskEvaluatorV1Tests
     {
         var snapshot = _evaluator.PolicySnapshot;
 
-        Assert.Equal("v1.0", snapshot["Version"]);
+        Assert.Equal("v1.0", snapshot[nameof(PathRiskEvaluatorV1.Version)]);
 
-        var dependencyWeights = Assert.IsType<Dictionary<string, int>>(snapshot["DependencyWeights"]);
-        Assert.Equal(6, dependencyWeights["LogicalFk"]);
+        var dependencyWeights = Assert.IsAssignableFrom<IReadOnlyDictionary<string, int>>(
+            snapshot[nameof(PolicySnapshotKeys.DependencyWeights)]);
+        Assert.Equal(6, dependencyWeights[nameof(DependencyType.LogicalFk)]);
 
-        var multipliers = Assert.IsType<Dictionary<string, int>>(snapshot["ChangeTypeMultipliers"]);
-        Assert.Equal(3, multipliers["Delete"]);
+        var multipliers = Assert.IsAssignableFrom<IReadOnlyDictionary<string, int>>(
+            snapshot[nameof(PolicySnapshotKeys.ChangeTypeMultipliers)]);
+        Assert.Equal(3, multipliers[nameof(ChangeType.Delete)]);
+    }
+
+    private static class PolicySnapshotKeys
+    {
+        public const string DependencyWeights = nameof(DependencyWeights);
+        public const string ChangeTypeMultipliers = nameof(ChangeTypeMultipliers);
     }
 
     private static DependencyPath CreatePath(string pathId, DependencyType maxDependencyType, int maxCriticality, int depth)

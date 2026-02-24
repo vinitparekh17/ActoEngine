@@ -13,7 +13,7 @@ public class ConfidenceCalculatorTests
     }
 
     [Fact]
-    public void T01_NamingOnly_TypeMatch_Returns070_WithNamingCapTag()
+    public void T01_NamingOnly_TypeMatch_Returns070_NoCaps()
     {
         var signals = SignalBuilder.Create()
             .WithNaming()
@@ -29,7 +29,7 @@ public class ConfidenceCalculatorTests
     }
 
     [Fact]
-    public void T02_NamingOnly_TypeMismatch_Returns050_WithExpectedCaps()
+    public void T02_NamingOnly_TypeMismatch_Returns050_NoCaps()
     {
         var signals = SignalBuilder.Create()
             .WithNaming()
