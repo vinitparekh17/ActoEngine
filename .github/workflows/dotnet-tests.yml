@@ -1,0 +1,37 @@
+name: dotnet-tests
+
+on:
+  push:
+    paths:
+      - Backend/**
+      - ActoEngine.Tests/**
+      - ActoEngine.sln
+      - .github/workflows/**
+  pull_request:
+    paths:
+      - Backend/**
+      - ActoEngine.Tests/**
+      - ActoEngine.sln
+      - .github/workflows/**
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore ActoEngine.sln
+
+      - name: Build
+        run: dotnet build ActoEngine.sln --no-restore -v minimal
+
+      - name: Test
+        run: dotnet test ActoEngine.sln --no-build -v minimal
