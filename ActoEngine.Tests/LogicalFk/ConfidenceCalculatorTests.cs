@@ -61,7 +61,7 @@ public class ConfidenceCalculatorTests
     }
 
     [Fact]
-    public void T04_SpJoin5_NamingPattern_TypeMatch_Returns085_WithSpOnlyCapTag()
+    public void T04_SpJoin5_IdSuffixOnly_TypeMatch_Returns085_WithSpOnlyCapApplied()
     {
         var signals = SignalBuilder.Create()
             .WithSpJoin(spCount: 5)
@@ -150,6 +150,8 @@ public class ConfidenceCalculatorTests
             .WithTypeMatch()
             .Build();
 
+        Assert.True(signals.Corroborated);
+
         var result = _calculator.ComputeConfidence(signals);
 
         Assert.Equal(0.00m, result.NamingBonus);
@@ -164,6 +166,8 @@ public class ConfidenceCalculatorTests
             .WithTypeMatch(false)
             .WithIdSuffix()
             .Build();
+
+        Assert.True(signals.Corroborated);
 
         var result = _calculator.ComputeConfidence(signals);
 
