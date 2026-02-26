@@ -19,7 +19,8 @@ public interface ILogicalFkService
     Task DeleteAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default);
     Task<List<LogicalFkCandidate>> DetectCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
     Task<List<PhysicalFkDto>> GetPhysicalFksByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
-    Task<int> DetectAndPersistCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<List<LogicalFkCandidate>> DetectAndPersistCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
+    Task<List<LogicalFkCandidate>> GetPersistedSuggestedCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
     Task<bool> IsDetectionStaleAsync(int projectId, CancellationToken cancellationToken = default);
 }
 
@@ -478,7 +479,7 @@ public partial class LogicalFkService(
     /// Detect candidates and persist them as SUGGESTED rows in LogicalForeignKeys.
     /// Uses INSERT + UPDATE (not MERGE) for safe concurrency.
     /// </summary>
-    public async Task<int> DetectAndPersistCandidatesAsync(int projectId, CancellationToken cancellationToken = default)
+    public async Task<List<LogicalFkCandidate>> DetectAndPersistCandidatesAsync(int projectId, CancellationToken cancellationToken = default)
     {
         var candidates = await DetectCandidatesAsync(projectId, cancellationToken);
 
@@ -486,7 +487,7 @@ public partial class LogicalFkService(
         {
             logger.LogInformation("No candidates to persist for project {ProjectId}", projectId);
             await logicalFkRepository.UpdateDetectionMetadataAsync(projectId, AlgorithmVersion, cancellationToken);
-            return 0;
+            return [];
         }
 
         var affected = await logicalFkRepository.BulkUpsertSuggestedAsync(projectId, candidates, cancellationToken);
@@ -496,7 +497,15 @@ public partial class LogicalFkService(
             "Persisted {Affected} candidates (of {Total} detected) for project {ProjectId} [AlgoVersion={Version}]",
             affected, candidates.Count, projectId, AlgorithmVersion);
 
-        return affected;
+        return candidates;
+    }
+
+    /// <summary>
+    /// Load previously persisted SUGGESTED candidates from the DB
+    /// </summary>
+    public async Task<List<LogicalFkCandidate>> GetPersistedSuggestedCandidatesAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        return await logicalFkRepository.GetPersistedSuggestedCandidatesAsync(projectId, cancellationToken);
     }
 
     /// <summary>

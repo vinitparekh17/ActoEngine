@@ -93,16 +93,17 @@ public class LogicalFkController(
             if (isStale)
             {
                 logger.LogInformation("Detection is stale for project {ProjectId}, re-running...", projectId);
-                await logicalFkService.DetectAndPersistCandidatesAsync(projectId);
+                var newlyDetectedList = await logicalFkService.DetectAndPersistCandidatesAsync(projectId);
+                return Ok(ApiResponse<List<LogicalFkCandidate>>.Success(
+                    newlyDetectedList,
+                    $"Detected {newlyDetectedList.Count} candidate(s)"));
             }
 
             // Always return fresh detection results (run or cached from DB)
-            var candidates = await logicalFkService.DetectCandidatesAsync(projectId);
+            var candidates = await logicalFkService.GetPersistedSuggestedCandidatesAsync(projectId);
             return Ok(ApiResponse<List<LogicalFkCandidate>>.Success(
                 candidates,
-                isStale
-                    ? $"Detected {candidates.Count} candidate(s)"
-                    : $"Returned {candidates.Count} cached candidate(s) — detection is up to date"));
+                $"Returned {candidates.Count} cached candidate(s) — detection is up to date"));
         }
         catch (Exception ex)
         {

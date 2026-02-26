@@ -300,15 +300,8 @@ namespace ActoEngine.WebApi.Features.Projects
 
                     // Trigger Logical FK Detection (Fault-tolerant)
                     // Detection failures do not fail the schema sync
-                    try
-                    {
-                        await _projectRepository.UpdateSyncStatusAsync(projectId, "Detecting logical FKs...", 97);
-                        await _logicalFkService.DetectAndPersistCandidatesAsync(projectId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Logical FK detection failed for project {ProjectId}. Sync continues.", projectId);
-                    }
+                    await SyncHelpers.PerformFaultTolerantLogicalFkDetectionAsync(
+                        projectId, _projectRepository, _logicalFkService, _logger);
 
                     await _projectRepository.UpdateSyncStatusAsync(projectId, "Completed", 100);
 

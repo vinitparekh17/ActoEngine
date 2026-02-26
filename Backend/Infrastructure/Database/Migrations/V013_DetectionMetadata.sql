@@ -4,32 +4,48 @@
 -- Date: 2026-02-24
 -- ============================================
 
--- ── LogicalForeignKeys: detection result columns ──
+BEGIN TRY
+    BEGIN TRANSACTION;
 
-ALTER TABLE LogicalForeignKeys
-ADD DetectionReason  NVARCHAR(1000) NULL,
-    DiscoveryMethods NVARCHAR(200)  NULL,
-    RejectedScore    DECIMAL(5,2)   NULL;
+    -- ── LogicalForeignKeys: detection result columns ──
 
--- ── Expand DiscoveryMethod CHECK to include auto-detected methods ──
+    ALTER TABLE LogicalForeignKeys
+    ADD DetectionReason  NVARCHAR(1000) NULL,
+        DiscoveryMethods NVARCHAR(200)  NULL,
+        RejectedScore    DECIMAL(5,2)   NULL;
 
-DECLARE @ConstraintName NVARCHAR(256);
-SELECT @ConstraintName = name
-FROM sys.check_constraints
-WHERE parent_object_id = OBJECT_ID('LogicalForeignKeys')
-  AND definition LIKE '%DiscoveryMethod%';
+    -- ── Expand DiscoveryMethod CHECK to include auto-detected methods ──
 
-IF @ConstraintName IS NOT NULL
-BEGIN
-    EXEC('ALTER TABLE LogicalForeignKeys DROP CONSTRAINT [' + @ConstraintName + ']');
-END
+    DECLARE @ConstraintName NVARCHAR(256);
+    SELECT @ConstraintName = name
+    FROM sys.check_constraints
+    WHERE parent_object_id = OBJECT_ID('LogicalForeignKeys')
+      AND definition LIKE '%DiscoveryMethod%';
 
-ALTER TABLE LogicalForeignKeys
-ADD CONSTRAINT CK_LogicalForeignKeys_DiscoveryMethod
-CHECK (DiscoveryMethod IN ('MANUAL', 'NAME_CONVENTION', 'SP_JOIN', 'CORROBORATED'));
+    IF @ConstraintName IS NOT NULL
+    BEGIN
+        EXEC('ALTER TABLE LogicalForeignKeys DROP CONSTRAINT [' + @ConstraintName + ']');
+    END
 
--- ── Projects: detection staleness tracking ──
+    ALTER TABLE LogicalForeignKeys
+    ADD CONSTRAINT CK_LogicalForeignKeys_DiscoveryMethod
+    CHECK (DiscoveryMethod IN ('MANUAL', 'NAME_CONVENTION', 'SP_JOIN', 'CORROBORATED'));
 
-ALTER TABLE Projects
-ADD LastDetectionRunAt         DATETIME2    NULL,
-    DetectionAlgorithmVersion  NVARCHAR(20) NULL;
+    -- ── Projects: detection staleness tracking ──
+
+    ALTER TABLE Projects
+    ADD LastDetectionRunAt         DATETIME2    NULL,
+        DetectionAlgorithmVersion  NVARCHAR(20) NULL;
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0
+        ROLLBACK TRANSACTION;
+
+    DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+    DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+    DECLARE @ErrorState INT = ERROR_STATE();
+
+    RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+END CATCH;

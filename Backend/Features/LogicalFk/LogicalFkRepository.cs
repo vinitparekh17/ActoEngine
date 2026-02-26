@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
+using Dapper;
 using System.Text.Json;
 
 namespace ActoEngine.WebApi.Features.LogicalFk;
@@ -29,6 +30,8 @@ public interface ILogicalFkRepository
 
     /// <summary>Bulk-upsert detected candidates as SUGGESTED rows (INSERT + UPDATE, no MERGE)</summary>
     Task<int> BulkUpsertSuggestedAsync(int projectId, List<LogicalFkCandidate> candidates, CancellationToken cancellationToken = default);
+
+    Task<List<LogicalFkCandidate>> GetPersistedSuggestedCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
 
     /// <summary>Read detection staleness metadata from Projects</summary>
     Task<DetectionMetadata?> GetDetectionMetadataAsync(int projectId, CancellationToken cancellationToken = default);
@@ -330,58 +333,96 @@ public class LogicalFkRepository(
         List<LogicalFkCandidate> candidates,
         CancellationToken cancellationToken = default)
     {
-        var affected = 0;
-
-        foreach (var c in candidates)
+        return await ExecuteInTransactionAsync(async (connection, transaction) =>
         {
-            var sourceColumnIds = JsonSerializer.Serialize(new[] { c.SourceColumnId });
-            var targetColumnIds = JsonSerializer.Serialize(new[] { c.TargetColumnId });
-            var discoveryMethod = c.DiscoveryMethods.Count > 1 ? "CORROBORATED"
-                : c.DiscoveryMethods.FirstOrDefault() ?? "NAME_CONVENTION";
-            var discoveryMethodsJson = JsonSerializer.Serialize(c.DiscoveryMethods);
+            var affected = 0;
 
-            var parameters = new
+            foreach (var c in candidates)
             {
-                ProjectId = projectId,
-                c.SourceTableId,
-                SourceColumnIds = sourceColumnIds,
-                c.TargetTableId,
-                TargetColumnIds = targetColumnIds,
-                DiscoveryMethod = discoveryMethod,
-                c.ConfidenceScore,
-                DetectionReason = c.Reason,
-                DiscoveryMethods = discoveryMethodsJson
-            };
+                var sourceColumnIds = JsonSerializer.Serialize(new[] { c.SourceColumnId });
+                var targetColumnIds = JsonSerializer.Serialize(new[] { c.TargetColumnId });
+                var discoveryMethod = c.DiscoveryMethods.Count > 1 ? "CORROBORATED"
+                    : c.DiscoveryMethods.FirstOrDefault() ?? "NAME_CONVENTION";
+                var discoveryMethodsJson = JsonSerializer.Serialize(c.DiscoveryMethods);
 
-            // Step 1: Try INSERT (new candidates)
-            var inserted = await ExecuteAsync(
-                LogicalFkQueries.InsertSuggestedCandidate, parameters, cancellationToken);
+                var parameters = new
+                {
+                    ProjectId = projectId,
+                    c.SourceTableId,
+                    SourceColumnIds = sourceColumnIds,
+                    c.TargetTableId,
+                    TargetColumnIds = targetColumnIds,
+                    DiscoveryMethod = discoveryMethod,
+                    c.ConfidenceScore,
+                    DetectionReason = c.Reason,
+                    DiscoveryMethods = discoveryMethodsJson
+                };
 
-            if (inserted > 0)
-            {
-                affected += inserted;
-                continue;
+                // Step 1: Try INSERT (new candidates)
+                var inserted = await connection.ExecuteAsync(
+                    LogicalFkQueries.InsertSuggestedCandidate, parameters, transaction);
+
+                if (inserted > 0)
+                {
+                    affected += inserted;
+                    continue;
+                }
+
+                // Step 2: Try re-surface REJECTED (score improved)
+                var resurfaced = await connection.ExecuteAsync(
+                    LogicalFkQueries.UpdateResurfacedCandidate, parameters, transaction);
+
+                if (resurfaced > 0)
+                {
+                    affected += resurfaced;
+                    _logger.LogInformation(
+                        "Re-surfaced rejected FK: {Source} → {Target} (new score: {Score})",
+                        c.SourceTableName, c.TargetTableName, c.ConfidenceScore);
+                    continue;
+                }
+
+                // Step 3: Refresh existing SUGGESTED with updated score/reason
+                affected += await connection.ExecuteAsync(
+                    LogicalFkQueries.UpdateExistingSuggested, parameters, transaction);
             }
 
-            // Step 2: Try re-surface REJECTED (score improved)
-            var resurfaced = await ExecuteAsync(
-                LogicalFkQueries.UpdateResurfacedCandidate, parameters, cancellationToken);
+            return affected;
+        }, cancellationToken);
+    }
 
-            if (resurfaced > 0)
+    public async Task<List<LogicalFkCandidate>> GetPersistedSuggestedCandidatesAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        var rawRows = await QueryAsync<dynamic>(
+            LogicalFkQueries.GetSuggestedCandidates,
+            new { ProjectId = projectId },
+            cancellationToken);
+
+        var candidates = new List<LogicalFkCandidate>();
+        foreach (var row in rawRows)
+        {
+            candidates.Add(new LogicalFkCandidate
             {
-                affected += resurfaced;
-                _logger.LogInformation(
-                    "Re-surfaced rejected FK: {Source} → {Target} (new score: {Score})",
-                    c.SourceTableName, c.TargetTableName, c.ConfidenceScore);
-                continue;
-            }
-
-            // Step 3: Refresh existing SUGGESTED with updated score/reason
-            affected += await ExecuteAsync(
-                LogicalFkQueries.UpdateExistingSuggested, parameters, cancellationToken);
+                SourceTableId = row.SourceTableId,
+                SourceTableName = row.SourceTableName,
+                SourceColumnId = int.TryParse(row.SourceColumnId?.ToString(), out int srcId) ? srcId : 0,
+                SourceColumnName = row.SourceColumnName ?? "",
+                SourceDataType = row.SourceDataType ?? "",
+                TargetTableId = row.TargetTableId,
+                TargetTableName = row.TargetTableName,
+                TargetColumnId = int.TryParse(row.TargetColumnId?.ToString(), out int tgtId) ? tgtId : 0,
+                TargetColumnName = row.TargetColumnName ?? "",
+                TargetDataType = row.TargetDataType ?? "",
+                ConfidenceScore = row.ConfidenceScore,
+                ConfidenceBand = ConfidenceBandClassifier.Classify((decimal)row.ConfidenceScore),
+                Reason = row.Reason ?? "",
+                IsAmbiguous = false,
+                DiscoveryMethods = string.IsNullOrWhiteSpace((string)row.DiscoveryMethods) 
+                    ? new List<string>() 
+                    : JsonSerializer.Deserialize<List<string>>((string)row.DiscoveryMethods) ?? new List<string>(),
+                MatchCount = 0
+            });
         }
-
-        return affected;
+        return candidates;
     }
 
     public async Task<DetectionMetadata?> GetDetectionMetadataAsync(

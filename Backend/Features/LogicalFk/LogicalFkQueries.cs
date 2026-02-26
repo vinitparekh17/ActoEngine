@@ -241,6 +241,28 @@ public static class LogicalFkQueries
 
     // ── Detection persistence queries ──────────────────────────
 
+    public const string GetSuggestedCandidates = @"
+        SELECT 
+            lfk.SourceTableId, st.TableName AS SourceTableName,
+            JSON_VALUE(lfk.SourceColumnIds, '$[0]') AS SourceColumnId,
+            (SELECT ColumnName FROM ColumnsMetadata WHERE ColumnId = JSON_VALUE(lfk.SourceColumnIds, '$[0]')) AS SourceColumnName,
+            (SELECT DataType FROM ColumnsMetadata WHERE ColumnId = JSON_VALUE(lfk.SourceColumnIds, '$[0]')) AS SourceDataType,
+            
+            lfk.TargetTableId, tt.TableName AS TargetTableName,
+            JSON_VALUE(lfk.TargetColumnIds, '$[0]') AS TargetColumnId,
+            (SELECT ColumnName FROM ColumnsMetadata WHERE ColumnId = JSON_VALUE(lfk.TargetColumnIds, '$[0]')) AS TargetColumnName,
+            (SELECT DataType FROM ColumnsMetadata WHERE ColumnId = JSON_VALUE(lfk.TargetColumnIds, '$[0]')) AS TargetDataType,
+            
+            lfk.ConfidenceScore,
+            lfk.DetectionReason AS Reason,
+            lfk.DiscoveryMethods
+        FROM LogicalForeignKeys lfk
+        INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
+        INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
+        WHERE lfk.ProjectId = @ProjectId
+          AND lfk.Status = 'SUGGESTED'
+        ORDER BY lfk.ConfidenceScore DESC;";
+
     /// <summary>
     /// Insert a detected candidate as SUGGESTED, skipping if the canonical key already exists
     /// </summary>
@@ -268,7 +290,9 @@ public static class LogicalFkQueries
             ConfidenceScore = @ConfidenceScore,
             DiscoveryMethod = @DiscoveryMethod,
             DetectionReason = @DetectionReason,
-            DiscoveryMethods = @DiscoveryMethods
+            DiscoveryMethods = @DiscoveryMethods,
+            ConfirmedBy = NULL,
+            ConfirmedAt = NULL
         WHERE ProjectId = @ProjectId
           AND SourceTableId = @SourceTableId
           AND SourceColumnIds = @SourceColumnIds
