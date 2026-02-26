@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Features.Clients;
 using ActoEngine.WebApi.Features.ImpactAnalysis;
+using ActoEngine.WebApi.Features.LogicalFk;
 using ActoEngine.WebApi.Features.ProjectClients;
 using ActoEngine.WebApi.Features.Projects.Dtos.Requests;
 using ActoEngine.WebApi.Features.Projects.Dtos.Responses;
@@ -36,6 +37,7 @@ namespace ActoEngine.WebApi.Features.Projects
         IClientRepository clientRepository,
         IProjectClientRepository projectClientRepository,
         IDependencyOrchestrationService dependencyOrchestrationService,
+        ILogicalFkService logicalFkService,
         ILogger<ProjectService> logger,
         IConfiguration configuration,
         IHostEnvironment environment) : IProjectService
@@ -47,6 +49,7 @@ namespace ActoEngine.WebApi.Features.Projects
         private readonly IClientRepository _clientRepository = clientRepository;
         private readonly IProjectClientRepository _projectClientRepository = projectClientRepository;
         private readonly IDependencyOrchestrationService _dependencyOrchestrationService = dependencyOrchestrationService;
+        private readonly ILogicalFkService _logicalFkService = logicalFkService;
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
         private readonly IHostEnvironment _environment = environment;
@@ -294,6 +297,11 @@ namespace ActoEngine.WebApi.Features.Projects
                         _logger.LogError(ex, "Dependency analysis failed for project {ProjectId}. Schema sync remains successful.", projectId);
                         // Do not re-throw, allow sync to complete
                     }
+
+                    // Trigger Logical FK Detection (Fault-tolerant)
+                    // Detection failures do not fail the schema sync
+                    await SyncHelpers.PerformFaultTolerantLogicalFkDetectionAsync(
+                        projectId, _projectRepository, _logicalFkService, _logger);
 
                     await _projectRepository.UpdateSyncStatusAsync(projectId, "Completed", 100);
 

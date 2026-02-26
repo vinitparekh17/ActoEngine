@@ -89,7 +89,8 @@ public static class LogicalFkQueries
         SET Status = 'REJECTED',
             ConfirmedBy = @UserId,
             ConfirmedAt = GETUTCDATE(),
-            Notes = COALESCE(@Notes, Notes)
+            Notes = COALESCE(@Notes, Notes),
+            RejectedScore = ConfidenceScore
         WHERE LogicalFkId = @LogicalFkId
           AND ProjectId = @ProjectId;";
 
@@ -214,6 +215,7 @@ public static class LogicalFkQueries
         CROSS APPLY OPENJSON(lfk.SourceColumnIds) src
         CROSS APPLY OPENJSON(lfk.TargetColumnIds) tgt
         WHERE lfk.ProjectId = @ProjectId
+          AND lfk.Status = 'CONFIRMED'
           AND src.[key] = tgt.[key];";
 
     /// <summary>
@@ -236,4 +238,101 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
         WHERE tm.ProjectId = @ProjectId
         ORDER BY tm.TableName, cm.ColumnOrder;";
+
+    // ── Detection persistence queries ──────────────────────────
+
+    public const string GetSuggestedCandidates = @"
+        SELECT 
+            lfk.SourceTableId, st.TableName AS SourceTableName,
+            JSON_VALUE(lfk.SourceColumnIds, '$[0]') AS SourceColumnId,
+            sc.ColumnName AS SourceColumnName,
+            sc.DataType AS SourceDataType,
+            
+            lfk.TargetTableId, tt.TableName AS TargetTableName,
+            JSON_VALUE(lfk.TargetColumnIds, '$[0]') AS TargetColumnId,
+            tc.ColumnName AS TargetColumnName,
+            tc.DataType AS TargetDataType,
+            
+            lfk.ConfidenceScore,
+            lfk.DetectionReason AS Reason,
+            lfk.DiscoveryMethods
+        FROM LogicalForeignKeys lfk
+        INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
+        INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
+        LEFT JOIN ColumnsMetadata sc ON sc.ColumnId = JSON_VALUE(lfk.SourceColumnIds, '$[0]')
+        LEFT JOIN ColumnsMetadata tc ON tc.ColumnId = JSON_VALUE(lfk.TargetColumnIds, '$[0]')
+        WHERE lfk.ProjectId = @ProjectId
+          AND lfk.Status = 'SUGGESTED'
+        ORDER BY lfk.ConfidenceScore DESC;";
+
+    /// <summary>
+    /// Insert a detected candidate as SUGGESTED, skipping if the canonical key already exists
+    /// </summary>
+    public const string InsertSuggestedCandidate = @"
+        INSERT INTO LogicalForeignKeys
+            (ProjectId, SourceTableId, SourceColumnIds, TargetTableId, TargetColumnIds,
+             DiscoveryMethod, ConfidenceScore, Status, DetectionReason, DiscoveryMethods)
+        SELECT @ProjectId, @SourceTableId, @SourceColumnIds, @TargetTableId, @TargetColumnIds,
+               @DiscoveryMethod, @ConfidenceScore, 'SUGGESTED', @DetectionReason, @DiscoveryMethods
+        WHERE NOT EXISTS (
+            SELECT 1 FROM LogicalForeignKeys
+            WHERE ProjectId = @ProjectId
+              AND SourceTableId = @SourceTableId
+              AND SourceColumnIds = @SourceColumnIds
+              AND TargetTableId = @TargetTableId
+              AND TargetColumnIds = @TargetColumnIds
+        );";
+
+    /// <summary>
+    /// Re-surface a REJECTED candidate when new evidence raises confidence above RejectedScore
+    /// </summary>
+    public const string UpdateResurfacedCandidate = @"
+        UPDATE LogicalForeignKeys
+        SET Status = 'SUGGESTED',
+            ConfidenceScore = @ConfidenceScore,
+            DiscoveryMethod = @DiscoveryMethod,
+            DetectionReason = @DetectionReason,
+            DiscoveryMethods = @DiscoveryMethods,
+            ConfirmedBy = NULL,
+            ConfirmedAt = NULL
+        WHERE ProjectId = @ProjectId
+          AND SourceTableId = @SourceTableId
+          AND SourceColumnIds = @SourceColumnIds
+          AND TargetTableId = @TargetTableId
+          AND TargetColumnIds = @TargetColumnIds
+          AND Status = 'REJECTED'
+          AND @ConfidenceScore > ISNULL(RejectedScore, 0);";
+
+    /// <summary>
+    /// Refresh an existing SUGGESTED entry with updated score/reason from re-detection
+    /// </summary>
+    public const string UpdateExistingSuggested = @"
+        UPDATE LogicalForeignKeys
+        SET ConfidenceScore = @ConfidenceScore,
+            DiscoveryMethod = @DiscoveryMethod,
+            DetectionReason = @DetectionReason,
+            DiscoveryMethods = @DiscoveryMethods
+        WHERE ProjectId = @ProjectId
+          AND SourceTableId = @SourceTableId
+          AND SourceColumnIds = @SourceColumnIds
+          AND TargetTableId = @TargetTableId
+          AND TargetColumnIds = @TargetColumnIds
+          AND Status = 'SUGGESTED';";
+
+    /// <summary>
+    /// Read detection staleness metadata from Projects
+    /// </summary>
+    public const string GetDetectionMetadata = @"
+        SELECT LastDetectionRunAt, DetectionAlgorithmVersion, LastSyncAttempt
+        FROM Projects
+        WHERE ProjectId = @ProjectId;";
+
+    /// <summary>
+    /// Update detection metadata after a successful detection run
+    /// </summary>
+    public const string UpdateDetectionMetadata = @"
+        UPDATE Projects
+        SET LastDetectionRunAt = GETUTCDATE(),
+            DetectionAlgorithmVersion = @AlgorithmVersion
+        WHERE ProjectId = @ProjectId;";
 }

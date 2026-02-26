@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
+using Dapper;
 using System.Text.Json;
 
 namespace ActoEngine.WebApi.Features.LogicalFk;
@@ -26,6 +27,17 @@ public interface ILogicalFkRepository
 
     /// <summary>Bulk-load canonical keys of all existing logical FKs for batch dedup</summary>
     Task<HashSet<string>> GetAllLogicalFkCanonicalKeysAsync(int projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>Bulk-upsert detected candidates as SUGGESTED rows (INSERT + UPDATE, no MERGE)</summary>
+    Task<int> BulkUpsertSuggestedAsync(int projectId, List<LogicalFkCandidate> candidates, CancellationToken cancellationToken = default);
+
+    Task<List<LogicalFkCandidate>> GetPersistedSuggestedCandidatesAsync(int projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>Read detection staleness metadata from Projects</summary>
+    Task<DetectionMetadata?> GetDetectionMetadataAsync(int projectId, CancellationToken cancellationToken = default);
+
+    /// <summary>Update detection metadata after a successful run</summary>
+    Task UpdateDetectionMetadataAsync(int projectId, string algorithmVersion, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -310,6 +322,151 @@ public class LogicalFkRepository(
         {
             return [];
         }
+    }
+
+    #endregion
+
+    #region Detection Persistence
+
+    public async Task<int> BulkUpsertSuggestedAsync(
+        int projectId,
+        List<LogicalFkCandidate> candidates,
+        CancellationToken cancellationToken = default)
+    {
+        return await ExecuteInTransactionAsync(async (connection, transaction) =>
+        {
+            var affected = 0;
+
+            foreach (var c in candidates)
+            {
+                var sourceColumnIds = JsonSerializer.Serialize(new[] { c.SourceColumnId });
+                var targetColumnIds = JsonSerializer.Serialize(new[] { c.TargetColumnId });
+                var discoveryMethod = c.DiscoveryMethods.Count > 1 ? "CORROBORATED"
+                    : c.DiscoveryMethods.FirstOrDefault() ?? "NAME_CONVENTION";
+                var discoveryMethodsJson = JsonSerializer.Serialize(c.DiscoveryMethods);
+
+                var parameters = new
+                {
+                    ProjectId = projectId,
+                    c.SourceTableId,
+                    SourceColumnIds = sourceColumnIds,
+                    c.TargetTableId,
+                    TargetColumnIds = targetColumnIds,
+                    DiscoveryMethod = discoveryMethod,
+                    c.ConfidenceScore,
+                    DetectionReason = c.Reason,
+                    DiscoveryMethods = discoveryMethodsJson
+                };
+
+                // Step 1: Try INSERT (new candidates)
+                var inserted = await connection.ExecuteAsync(
+                    LogicalFkQueries.InsertSuggestedCandidate, parameters, transaction);
+
+                if (inserted > 0)
+                {
+                    affected += inserted;
+                    continue;
+                }
+
+                // Step 2: Try re-surface REJECTED (score improved)
+                var resurfaced = await connection.ExecuteAsync(
+                    LogicalFkQueries.UpdateResurfacedCandidate, parameters, transaction);
+
+                if (resurfaced > 0)
+                {
+                    affected += resurfaced;
+                    _logger.LogInformation(
+                        "Re-surfaced rejected FK: {Source} → {Target} (new score: {Score})",
+                        c.SourceTableName, c.TargetTableName, c.ConfidenceScore);
+                    continue;
+                }
+
+                // Step 3: Refresh existing SUGGESTED with updated score/reason
+                affected += await connection.ExecuteAsync(
+                    LogicalFkQueries.UpdateExistingSuggested, parameters, transaction);
+            }
+
+            return affected;
+        }, cancellationToken);
+    }
+
+    public async Task<List<LogicalFkCandidate>> GetPersistedSuggestedCandidatesAsync(int projectId, CancellationToken cancellationToken = default)
+    {
+        var rawRows = await QueryAsync<dynamic>(
+            LogicalFkQueries.GetSuggestedCandidates,
+            new { ProjectId = projectId },
+            cancellationToken);
+
+        var candidates = new List<LogicalFkCandidate>();
+        foreach (var row in rawRows)
+        {
+            string? srcRaw = row.SourceColumnId?.ToString();
+            string? tgtRaw = row.TargetColumnId?.ToString();
+            int sourceTableId = (int)row.SourceTableId;
+            string sourceTableName = (string)row.SourceTableName;
+            int targetTableId = (int)row.TargetTableId;
+            string targetTableName = (string)row.TargetTableName;
+
+            if (!int.TryParse(srcRaw, out int srcId))
+            {
+                _logger.LogWarning(
+                    "Failed to parse SourceColumnId '{RawValue}' for suggested FK in table {TableId} ({TableName})",
+                    srcRaw, sourceTableId, sourceTableName);
+                srcId = -1;
+            }
+
+            if (!int.TryParse(tgtRaw, out int tgtId))
+            {
+                _logger.LogWarning(
+                    "Failed to parse TargetColumnId '{RawValue}' for suggested FK in table {TableId} ({TableName})",
+                    tgtRaw, targetTableId, targetTableName);
+                tgtId = -1;
+            }
+
+            candidates.Add(new LogicalFkCandidate
+            {
+                SourceTableId = row.SourceTableId,
+                SourceTableName = row.SourceTableName,
+                SourceColumnId = srcId,
+                SourceColumnName = row.SourceColumnName ?? "",
+                SourceDataType = row.SourceDataType ?? "",
+                TargetTableId = row.TargetTableId,
+                TargetTableName = row.TargetTableName,
+                TargetColumnId = tgtId,
+                TargetColumnName = row.TargetColumnName ?? "",
+                TargetDataType = row.TargetDataType ?? "",
+                ConfidenceScore = row.ConfidenceScore,
+                ConfidenceBand = ConfidenceBandClassifier.Classify((decimal)row.ConfidenceScore),
+                Reason = row.Reason ?? "",
+                IsAmbiguous = false,
+                DiscoveryMethods = string.IsNullOrWhiteSpace((string)row.DiscoveryMethods) 
+                    ? new List<string>() 
+                    : JsonSerializer.Deserialize<List<string>>((string)row.DiscoveryMethods) ?? new List<string>(),
+                MatchCount = 0
+            });
+        }
+        return candidates;
+    }
+
+    public async Task<DetectionMetadata?> GetDetectionMetadataAsync(
+        int projectId,
+        CancellationToken cancellationToken = default)
+    {
+        return await QueryFirstOrDefaultAsync<DetectionMetadata>(
+            LogicalFkQueries.GetDetectionMetadata,
+            new { ProjectId = projectId },
+            cancellationToken);
+    }
+
+    public async Task UpdateDetectionMetadataAsync(
+        int projectId,
+        string algorithmVersion,
+        CancellationToken cancellationToken = default)
+    {
+        await ExecuteAsync(
+            LogicalFkQueries.UpdateDetectionMetadata,
+            new { ProjectId = projectId, AlgorithmVersion = algorithmVersion },
+            cancellationToken);
     }
 
     #endregion
