@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
 import { useBulkImportContext } from "@/hooks/useContext";
+import { utcToLocal } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -410,7 +411,7 @@ export const ContextDashboard: React.FC = () => {
                 {dashboard?.lastUpdated && (
                   <div className="text-xs text-muted-foreground flex items-center bg-background border px-3 py-1.5 rounded-full shadow-sm">
                     <Calendar className="w-3.5 h-3.5 mr-2" />
-                    Last synced: {formatDateTime(dashboard.lastUpdated)}
+                    Last synced: {utcToLocal(dashboard.lastUpdated, "MMM d, HH:mm")}
                   </div>
                 )}
               </div>
@@ -778,7 +779,7 @@ export const ContextDashboard: React.FC = () => {
                                   {item.entityName}
                                 </TableCell>
                                 <TableCell className="text-muted-foreground text-sm">
-                                  {formatDate(item.lastContextUpdate)}
+                                  {utcToLocal(item.lastContextUpdate, "PPP")}
                                 </TableCell>
                                 <TableCell>
                                   <Badge
@@ -1161,19 +1162,3 @@ function getEntityRoute(
   return `/project/${projectId}/entities/${typeSlug}/${entityId}/overview`;
 }
 
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(dateString: string): string {
-  return new Date(dateString).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}

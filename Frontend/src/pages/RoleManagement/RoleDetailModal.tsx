@@ -15,7 +15,7 @@ import type {
   PermissionGroupDto,
 } from "../../types/user-management";
 import { filterPermissionGroupsByRole } from "./helpers";
-import { safeFormatDate } from "../../lib/utils";
+import { utcToLocal } from "../../lib/utils";
 
 interface RoleDetailModalProps {
   isOpen: boolean;
@@ -34,9 +34,9 @@ export function RoleDetailModal({
 }: Readonly<RoleDetailModalProps>) {
   const filteredGroups = roleDetail
     ? filterPermissionGroupsByRole(
-        permissionGroups ?? [],
-        roleDetail.permissions?.map((p) => p.permissionId) ?? [],
-      )
+      permissionGroups ?? [],
+      roleDetail.permissions?.map((p) => p.permissionId) ?? [],
+    )
     : [];
 
   const handleEdit = () => {
@@ -85,11 +85,10 @@ export function RoleDetailModal({
               <div>
                 <Label className="text-muted-foreground">Status</Label>
                 <span
-                  className={`px-2 py-1 rounded-full text-xs inline-block ${
-                    roleDetail.role.isActive
+                  className={`px-2 py-1 rounded-full text-xs inline-block ${roleDetail.role.isActive
                       ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                       : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                  }`}
+                    }`}
                 >
                   {roleDetail.role.isActive ? "Active" : "Inactive"}
                 </span>
@@ -97,7 +96,7 @@ export function RoleDetailModal({
               <div>
                 <Label className="text-muted-foreground">Created At</Label>
                 <p className="font-medium">
-                  {safeFormatDate(roleDetail.role.createdAt)}
+                  {utcToLocal(roleDetail.role.createdAt)}
                 </p>
               </div>
             </div>

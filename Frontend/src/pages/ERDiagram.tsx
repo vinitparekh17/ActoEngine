@@ -32,9 +32,12 @@ import {
     Clock,
     Zap,
     Undo2,
+    Maximize2,
+    Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { utcToLocal } from "@/lib/utils";
 import { queryKeys, useApi, useApiMutation } from "@/hooks/useApi";
 import TableNode, { type TableNodeData } from "@/components/er-diagram/TableNode";
 import { getLayoutedElements, type LayoutOptions } from "@/components/er-diagram/useAutoLayout";
@@ -44,6 +47,7 @@ import type {
     ErEdgeData,
     TableListItem,
 } from "@/types/er-diagram";
+import { useFullscreen } from "@/hooks/useFullscreen";
 
 // Register custom node types
 const nodeTypes = { table: TableNode };
@@ -53,6 +57,7 @@ export default function ERDiagramPage() {
     const pid = Number(projectId);
 
     // State
+    const { isFullscreen, toggleFullscreen } = useFullscreen();
     const [searchQuery, setSearchQuery] = useState("");
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
@@ -309,9 +314,9 @@ export default function ERDiagramPage() {
     };
 
     return (
-        <div className="h-[calc(100vh-4rem)] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center gap-3 p-4 border-b bg-background">
+        <div className={`flex flex-col ${isFullscreen ? "h-screen p-4" : "h-[calc(100vh-4rem)]"} bg-background`}>
+            {/* Top Toolbar */}
+            <div className="flex items-center gap-4 p-4 border-b bg-card z-10">
                 <GitBranch className="h-5 w-5 text-primary" />
                 <h1 className="text-lg font-semibold">ER Diagram</h1>
 
@@ -398,6 +403,17 @@ export default function ERDiagramPage() {
                                 </button>
                             ))}
                         </div>
+
+                        <div className="w-px h-5 bg-border" />
+
+                        {/* Fullscreen toggle */}
+                        <button
+                            onClick={toggleFullscreen}
+                            className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                        >
+                            {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+                        </button>
                     </div>
                 )}
             </div>
@@ -533,7 +549,7 @@ export default function ERDiagramPage() {
                                     <Clock className="h-3.5 w-3.5 shrink-0" />
                                     <span>Detected:</span>
                                     <span className="text-foreground">
-                                        {new Date(selectedEdge.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                                        {utcToLocal(selectedEdge.createdAt, "PPP")}
                                     </span>
                                 </div>
                             )}
@@ -542,7 +558,7 @@ export default function ERDiagramPage() {
                                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
                                     <span>Confirmed:</span>
                                     <span className="text-foreground">
-                                        {new Date(selectedEdge.confirmedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                                        {utcToLocal(selectedEdge.confirmedAt, "PPP")}
                                     </span>
                                 </div>
                             )}

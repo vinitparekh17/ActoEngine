@@ -9,6 +9,7 @@ import { useApi, useApiDelete, api } from "../hooks/useApi";
 import { useAuthorization } from "../hooks/useAuth";
 import { useConfirm } from "../hooks/useConfirm";
 import { Save, Code, Table, List, Trash2, FolderOpen } from "lucide-react";
+import { utcToLocal } from "../lib/utils";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import {
@@ -431,7 +432,7 @@ export default function FormBuilder() {
                       </TableCell>
                       <TableCell>{configItem.title}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {new Date(configItem.updatedAt).toLocaleDateString()}
+                        {utcToLocal(configItem.updatedAt, "PPP")}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

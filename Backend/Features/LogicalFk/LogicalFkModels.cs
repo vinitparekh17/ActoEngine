@@ -179,3 +179,7 @@ public class DetectionMetadata
     public DateTime? LastSyncAttempt { get; set; }
 }
 
+/// <summary>
+/// Pending FK count for a specific table
+/// </summary>
+public record PendingFkCount(int TableId, int PendingCount);

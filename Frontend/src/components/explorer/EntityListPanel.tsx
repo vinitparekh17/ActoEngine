@@ -34,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Link2,
 } from "lucide-react";
 import { TableMetadataDto, StoredProcedureMetadataDto } from "@/types/context";
 import { Skeleton, TableSkeleton } from "@/components/ui/skeletons";
@@ -64,6 +65,7 @@ interface EntityListPanelProps {
   // Data props lifted from internal state
   tablesData?: TableMetadataDto[];
   proceduresData?: StoredProcedureMetadataDto[];
+  pendingFkCounts?: Map<number, number>;
   isLoadingTables?: boolean;
   isLoadingSPs?: boolean;
   onRefresh: () => void;
@@ -78,6 +80,7 @@ export function EntityListPanel({
   keepSelectedVisible = true,
   tablesData = [],
   proceduresData = [],
+  pendingFkCounts = new Map(),
   isLoadingTables = false,
   isLoadingSPs = false,
   onRefresh,
@@ -476,11 +479,14 @@ export function EntityListPanel({
                               <span className="truncate max-w-[180px]">
                                 {entity.entityName}
                               </span>
-                              <span className="text-xs text-muted-foreground">
-                                {entity.schemaName ||
-                                  getDefaultSchema(
-                                    selectedProject?.databaseType,
-                                  )}
+                              <span className="text-xs text-muted-foreground flex items-center gap-2">
+                                <span>{entity.schemaName || getDefaultSchema(selectedProject?.databaseType)}</span>
+                                {entity.entityType === "TABLE" && pendingFkCounts.get(entity.entityId) ? (
+                                  <span className="flex items-center text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-sm text-[10px] font-medium border border-amber-500/20">
+                                    <Link2 className="w-3 h-3 mr-1" />
+                                    {pendingFkCounts.get(entity.entityId)} Pending
+                                  </span>
+                                ) : null}
                               </span>
                             </div>
                           </div>

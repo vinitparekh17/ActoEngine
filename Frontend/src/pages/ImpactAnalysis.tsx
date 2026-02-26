@@ -20,7 +20,7 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import * as Icons from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, utcToLocal } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -417,7 +417,7 @@ export default function ImpactReportPage() {
         <div className="flex items-center gap-3">
           <div className="text-xs text-muted-foreground flex items-center gap-1.5 hidden md:flex">
             <Calendar className="w-3.5 h-3.5" />
-            {new Date(verdict.generatedAt).toLocaleDateString()}
+            {utcToLocal(verdict.generatedAt, "PPP")}
           </div>
           <Separator orientation="vertical" className="h-4 hidden md:block" />
           <div

@@ -39,6 +39,26 @@ public class LogicalFkController(
     }
 
     /// <summary>
+    /// Get per-table pending counts for SUGGESTED logical FKs in a project
+    /// </summary>
+    [HttpGet("pending-counts")]
+    [RequirePermission("Schema:Read")]
+    [ProducesResponseType(typeof(ApiResponse<List<PendingFkCount>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPendingCounts([FromRoute] int projectId)
+    {
+        try
+        {
+            var counts = await logicalFkService.GetPendingCountsAsync(projectId);
+            return Ok(ApiResponse<List<PendingFkCount>>.Success(counts, "Pending counts retrieved"));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting pending logical FK counts for project {ProjectId}", projectId);
+            return StatusCode(500, ApiResponse<object>.Failure("An error occurred while retrieving pending counts"));
+        }
+    }
+
+    /// <summary>
     /// Get logical FKs related to a specific table (as source or target)
     /// </summary>
     [HttpGet("table/{tableId:int}")]

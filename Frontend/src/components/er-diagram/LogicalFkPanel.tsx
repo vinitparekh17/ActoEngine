@@ -26,6 +26,7 @@ import { queryKeys, useApi, useApiPut, useApiDelete } from "@/hooks/useApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { utcToLocal } from "@/lib/utils";
 import type { LogicalFkDto, PhysicalFkDto } from "@/types/er-diagram";
 import AddRelationshipModal from "./AddRelationshipModal";
 
@@ -392,7 +393,7 @@ export default function LogicalFkPanel({
                                             {fk.confirmedAt && (
                                                 <span>
                                                     Confirmed{" "}
-                                                    {new Date(fk.confirmedAt).toLocaleDateString()}
+                                                    {utcToLocal(fk.confirmedAt, "PPP")}
                                                 </span>
                                             )}
                                             {fk.notes && (

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
+import { utcToLocal } from "../lib/utils";
 import type {
   VerifyConnectionRequest,
   ConnectionResponse,
@@ -533,7 +534,7 @@ export default function ProjectSettings() {
                 <p className="text-sm font-medium">Last Sync</p>
                 <p className="text-sm text-muted-foreground">
                   {selectedProject.lastSyncAttempt
-                    ? new Date(selectedProject.lastSyncAttempt).toLocaleString()
+                    ? utcToLocal(selectedProject.lastSyncAttempt)
                     : "Never synced"}
                 </p>
                 {selectedProject.syncStatus && (

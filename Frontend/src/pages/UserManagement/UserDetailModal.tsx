@@ -11,7 +11,7 @@ import {
 import { Key } from "lucide-react";
 import type { UserDto, UserDetailResponse } from "../../types/user-management";
 import { getActiveBadgeClass, getInactiveBadgeClass } from "./helpers";
-import { safeFormatDate } from "../../lib/utils";
+import { utcToLocal } from "../../lib/utils";
 
 interface UserDetailModalProps {
   readonly isOpen: boolean;
@@ -64,20 +64,20 @@ export function UserDetailModal({
                   {userDetail.user.isActive ? "Active" : "Inactive"}
                 </span>
               </div>
-              {safeFormatDate(userDetail.user.createdAt, "") && (
+              {utcToLocal(userDetail.user.createdAt, "PPpp", "") && (
                 <div>
                   <Label className="text-muted-foreground">Created At</Label>
                   <p className="font-medium">
-                    {safeFormatDate(userDetail.user.createdAt)}
+                    {utcToLocal(userDetail.user.createdAt)}
                   </p>
                 </div>
               )}
               {userDetail.user.updatedAt &&
-                safeFormatDate(userDetail.user.updatedAt, "") && (
+                utcToLocal(userDetail.user.updatedAt, "PPpp", "") && (
                   <div>
                     <Label className="text-muted-foreground">Updated At</Label>
                     <p className="font-medium">
-                      {safeFormatDate(userDetail.user.updatedAt)}
+                      {utcToLocal(userDetail.user.updatedAt)}
                     </p>
                   </div>
                 )}
