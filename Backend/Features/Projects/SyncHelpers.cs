@@ -1,8 +1,6 @@
 using ActoEngine.WebApi.Features.LogicalFk;
 using ActoEngine.WebApi.Infrastructure.Database;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Threading.Tasks;
 
 namespace ActoEngine.WebApi.Features.Projects
 {
@@ -12,12 +10,13 @@ namespace ActoEngine.WebApi.Features.Projects
             int projectId,
             IProjectRepository projectRepository,
             ILogicalFkService logicalFkService,
-            ILogger logger)
+            ILogger logger,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                await projectRepository.UpdateSyncStatusAsync(projectId, "Detecting logical FKs...", 97);
-                await logicalFkService.DetectAndPersistCandidatesAsync(projectId);
+                await projectRepository.UpdateSyncStatusAsync(projectId, "Detecting logical FKs...", 97, cancellationToken);
+                await logicalFkService.DetectAndPersistCandidatesAsync(projectId, cancellationToken);
             }
             catch (Exception ex)
             {

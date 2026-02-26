@@ -400,16 +400,39 @@ public class LogicalFkRepository(
         var candidates = new List<LogicalFkCandidate>();
         foreach (var row in rawRows)
         {
+            string? srcRaw = row.SourceColumnId?.ToString();
+            string? tgtRaw = row.TargetColumnId?.ToString();
+            int sourceTableId = (int)row.SourceTableId;
+            string sourceTableName = (string)row.SourceTableName;
+            int targetTableId = (int)row.TargetTableId;
+            string targetTableName = (string)row.TargetTableName;
+
+            if (!int.TryParse(srcRaw, out int srcId))
+            {
+                _logger.LogWarning(
+                    "Failed to parse SourceColumnId '{RawValue}' for suggested FK in table {TableId} ({TableName})",
+                    srcRaw, sourceTableId, sourceTableName);
+                srcId = -1;
+            }
+
+            if (!int.TryParse(tgtRaw, out int tgtId))
+            {
+                _logger.LogWarning(
+                    "Failed to parse TargetColumnId '{RawValue}' for suggested FK in table {TableId} ({TableName})",
+                    tgtRaw, targetTableId, targetTableName);
+                tgtId = -1;
+            }
+
             candidates.Add(new LogicalFkCandidate
             {
                 SourceTableId = row.SourceTableId,
                 SourceTableName = row.SourceTableName,
-                SourceColumnId = int.TryParse(row.SourceColumnId?.ToString(), out int srcId) ? srcId : 0,
+                SourceColumnId = srcId,
                 SourceColumnName = row.SourceColumnName ?? "",
                 SourceDataType = row.SourceDataType ?? "",
                 TargetTableId = row.TargetTableId,
                 TargetTableName = row.TargetTableName,
-                TargetColumnId = int.TryParse(row.TargetColumnId?.ToString(), out int tgtId) ? tgtId : 0,
+                TargetColumnId = tgtId,
                 TargetColumnName = row.TargetColumnName ?? "",
                 TargetDataType = row.TargetDataType ?? "",
                 ConfidenceScore = row.ConfidenceScore,

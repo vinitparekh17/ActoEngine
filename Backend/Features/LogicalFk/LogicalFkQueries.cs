@@ -245,13 +245,13 @@ public static class LogicalFkQueries
         SELECT 
             lfk.SourceTableId, st.TableName AS SourceTableName,
             JSON_VALUE(lfk.SourceColumnIds, '$[0]') AS SourceColumnId,
-            (SELECT ColumnName FROM ColumnsMetadata WHERE ColumnId = JSON_VALUE(lfk.SourceColumnIds, '$[0]')) AS SourceColumnName,
-            (SELECT DataType FROM ColumnsMetadata WHERE ColumnId = JSON_VALUE(lfk.SourceColumnIds, '$[0]')) AS SourceDataType,
+            sc.ColumnName AS SourceColumnName,
+            sc.DataType AS SourceDataType,
             
             lfk.TargetTableId, tt.TableName AS TargetTableName,
             JSON_VALUE(lfk.TargetColumnIds, '$[0]') AS TargetColumnId,
-            (SELECT ColumnName FROM ColumnsMetadata WHERE ColumnId = JSON_VALUE(lfk.TargetColumnIds, '$[0]')) AS TargetColumnName,
-            (SELECT DataType FROM ColumnsMetadata WHERE ColumnId = JSON_VALUE(lfk.TargetColumnIds, '$[0]')) AS TargetDataType,
+            tc.ColumnName AS TargetColumnName,
+            tc.DataType AS TargetDataType,
             
             lfk.ConfidenceScore,
             lfk.DetectionReason AS Reason,
@@ -259,6 +259,8 @@ public static class LogicalFkQueries
         FROM LogicalForeignKeys lfk
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
+        LEFT JOIN ColumnsMetadata sc ON sc.ColumnId = JSON_VALUE(lfk.SourceColumnIds, '$[0]')
+        LEFT JOIN ColumnsMetadata tc ON tc.ColumnId = JSON_VALUE(lfk.TargetColumnIds, '$[0]')
         WHERE lfk.ProjectId = @ProjectId
           AND lfk.Status = 'SUGGESTED'
         ORDER BY lfk.ConfidenceScore DESC;";
