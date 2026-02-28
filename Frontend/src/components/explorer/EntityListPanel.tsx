@@ -458,6 +458,7 @@ export function EntityListPanel({
                   {paginatedEntities.map((entity, index) => {
                     const isFocused = index === focusedIndex;
                     const selected = isSelected(entity);
+                    const pendingCount = pendingFkCounts.get(entity.entityId);
                     return (
                       <TableRow
                         key={`${entity.entityType}-${entity.entityId}`}
@@ -481,10 +482,10 @@ export function EntityListPanel({
                               </span>
                               <span className="text-xs text-muted-foreground flex items-center gap-2">
                                 <span>{entity.schemaName || getDefaultSchema(selectedProject?.databaseType)}</span>
-                                {entity.entityType === "TABLE" && pendingFkCounts.get(entity.entityId) ? (
+                                {entity.entityType === "TABLE" && pendingCount ? (
                                   <span className="flex items-center text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-sm text-[10px] font-medium border border-amber-500/20">
                                     <Link2 className="w-3 h-3 mr-1" />
-                                    {pendingFkCounts.get(entity.entityId)} Pending
+                                    {pendingCount} Pending
                                   </span>
                                 ) : null}
                               </span>

@@ -41,10 +41,10 @@ public static class LogicalFkQueries
     public const string GetPendingCountsByProject = @"
         SELECT TableId, COUNT(*) AS PendingCount
         FROM (
-            SELECT SourceTableId AS TableId FROM LogicalForeignKeys
+            SELECT LogicalFkId, SourceTableId AS TableId FROM LogicalForeignKeys
             WHERE ProjectId = @ProjectId AND Status = 'SUGGESTED'
-            UNION ALL
-            SELECT TargetTableId AS TableId FROM LogicalForeignKeys
+            UNION
+            SELECT LogicalFkId, TargetTableId AS TableId FROM LogicalForeignKeys
             WHERE ProjectId = @ProjectId AND Status = 'SUGGESTED'
         ) x
         GROUP BY TableId;";

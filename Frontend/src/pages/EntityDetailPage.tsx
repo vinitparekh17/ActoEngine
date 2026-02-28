@@ -294,10 +294,12 @@ export const EmptyExpertsState: React.FC<{ entityName: string, onAddClick?: () =
       Help your team by identifying who knows about{" "}
       <span className="font-medium text-foreground">{entityName}</span>.
     </p>
-    <Button variant="outline" size="sm" onClick={onAddClick}>
-      <UserIcon className="h-4 w-4 mr-2" />
-      Assign Expert
-    </Button>
+    {onAddClick && (
+      <Button variant="outline" size="sm" onClick={onAddClick}>
+        <UserIcon className="h-4 w-4 mr-2" />
+        Assign Expert
+      </Button>
+    )}
   </div>
 );
 
@@ -316,10 +318,12 @@ const DocumentationEmptyState: React.FC<{ entityName: string, onAddClick?: () =>
       Document the business purpose and usage patterns for{" "}
       <span className="font-medium text-foreground">{entityName}</span>.
     </p>
-    <Button size="sm" onClick={onAddClick}>
-      <FileText className="h-4 w-4 mr-2" />
-      Add Documentation
-    </Button>
+    {onAddClick && (
+      <Button size="sm" onClick={onAddClick}>
+        <FileText className="h-4 w-4 mr-2" />
+        Add Documentation
+      </Button>
+    )}
   </div>
 );
 
@@ -509,6 +513,22 @@ const EntityDetailPage: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>Copy name</TooltipContent>
             </Tooltip>
+
+            {isFullscreen && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={toggleFullscreen}
+                  >
+                    <Minimize2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Exit fullscreen</TooltipContent>
+              </Tooltip>
+            )}
 
             <Separator orientation="vertical" className="h-4 mx-1" />
 

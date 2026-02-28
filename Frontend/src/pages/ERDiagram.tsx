@@ -366,56 +366,58 @@ export default function ERDiagramPage() {
                 )}
 
                 {/* Hop depth selector */}
-                {selectedTableId && (
-                    <div className="ml-auto flex items-center gap-3 text-sm">
-                        {/* Direction toggle */}
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-muted-foreground">Layout:</span>
-                            {(["LR", "TB"] as const).map((dir) => (
-                                <button
-                                    key={dir}
-                                    onClick={() => setLayoutDirection(dir)}
-                                    className={`px-2 py-1 rounded-md border transition-colors ${layoutDirection === dir
-                                        ? "bg-primary text-primary-foreground border-primary"
-                                        : "hover:bg-muted border-border"
-                                        }`}
-                                >
-                                    {dir === "LR" ? "\u2192" : "\u2193"}
-                                </button>
-                            ))}
-                        </div>
+                <div className="ml-auto flex items-center gap-3 text-sm">
+                    {selectedTableId && (
+                        <>
+                            {/* Direction toggle */}
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-muted-foreground">Layout:</span>
+                                {(["LR", "TB"] as const).map((dir) => (
+                                    <button
+                                        key={dir}
+                                        onClick={() => setLayoutDirection(dir)}
+                                        className={`px-2 py-1 rounded-md border transition-colors ${layoutDirection === dir
+                                            ? "bg-primary text-primary-foreground border-primary"
+                                            : "hover:bg-muted border-border"
+                                            }`}
+                                    >
+                                        {dir === "LR" ? "\u2192" : "\u2193"}
+                                    </button>
+                                ))}
+                            </div>
 
-                        <div className="w-px h-5 bg-border" />
+                            <div className="w-px h-5 bg-border" />
 
-                        {/* Depth selector */}
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-muted-foreground">Depth:</span>
-                            {[1, 2, 3].map((h) => (
-                                <button
-                                    key={h}
-                                    onClick={() => setHops(h)}
-                                    className={`px-2.5 py-1 rounded-md border transition-colors ${hops === h
-                                        ? "bg-primary text-primary-foreground border-primary"
-                                        : "hover:bg-muted border-border"
-                                        }`}
-                                >
-                                    {h}
-                                </button>
-                            ))}
-                        </div>
+                            {/* Depth selector */}
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-muted-foreground">Depth:</span>
+                                {[1, 2, 3].map((h) => (
+                                    <button
+                                        key={h}
+                                        onClick={() => setHops(h)}
+                                        className={`px-2.5 py-1 rounded-md border transition-colors ${hops === h
+                                            ? "bg-primary text-primary-foreground border-primary"
+                                            : "hover:bg-muted border-border"
+                                            }`}
+                                    >
+                                        {h}
+                                    </button>
+                                ))}
+                            </div>
 
-                        <div className="w-px h-5 bg-border" />
+                            <div className="w-px h-5 bg-border" />
+                        </>
+                    )}
 
-                        {/* Fullscreen toggle */}
-                        <button
-                            onClick={toggleFullscreen}
-                            className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                        >
-                            {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
-                        </button>
-                    </div>
-                )}
+                    {/* Fullscreen toggle */}
+                    <button
+                        onClick={toggleFullscreen}
+                        className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    >
+                        {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+                    </button>
+                </div>
             </div>
 
             {/* Diagram canvas */}

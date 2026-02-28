@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 
 interface FullscreenContextType {
     isFullscreen: boolean;
@@ -10,6 +11,7 @@ const FullscreenContext = createContext<FullscreenContextType | undefined>(undef
 
 export const FullscreenProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const location = useLocation();
 
     const toggleFullscreen = useCallback(() => {
         setIsFullscreen((prev) => !prev);
@@ -32,6 +34,10 @@ export const FullscreenProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isFullscreen, exitFullscreen]);
+
+    useEffect(() => {
+        exitFullscreen();
+    }, [location.pathname, exitFullscreen]);
 
     return (
         <FullscreenContext.Provider value={{ isFullscreen, toggleFullscreen, exitFullscreen }}>

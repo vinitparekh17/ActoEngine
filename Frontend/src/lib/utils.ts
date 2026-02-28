@@ -86,9 +86,13 @@ export function utcToLocal(
   if (!dateValue) return fallback;
 
   // Ensure UTC strings without a trailing "Z" are treated as UTC
+  const timezoneSuffix = /([Zz]|[+\-]\d{2}:\d{2})$/;
   const raw =
-    typeof dateValue === "string" && !dateValue.endsWith("Z") && !dateValue.includes("+")
-      ? `${dateValue}Z`
+    typeof dateValue === "string"
+      ? (() => {
+          const trimmed = dateValue.trim();
+          return timezoneSuffix.test(trimmed) ? trimmed : `${trimmed}Z`;
+        })()
       : dateValue;
 
   const date = typeof raw === "string" ? new Date(raw) : raw;
