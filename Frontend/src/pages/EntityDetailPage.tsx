@@ -341,6 +341,10 @@ const EntityDetailPage: React.FC = () => {
 
   const [isExpertSheetOpen, setIsExpertSheetOpen] = React.useState(false);
   const [isDocSheetOpen, setIsDocSheetOpen] = React.useState(false);
+  const [isEditorFullscreen, setIsEditorFullscreen] = React.useState(false);
+  const toggleEditorFullscreen = React.useCallback(() => {
+    setIsEditorFullscreen((prev) => !prev);
+  }, []);
 
   const parsedProjectId = parseInt(projectIdParam ?? "", 10);
   const parsedEntityId = parseInt(entityIdParam ?? "", 10);
@@ -363,7 +367,7 @@ const EntityDetailPage: React.FC = () => {
   } = useApi<TableDetails | SPDetails>(structureEndpoint);
 
   // Fetch Context & Experts
-  const { data: contextData, isLoading: isLoadingContext } =
+  const { data: contextData, isLoading: isLoadingContext, refetch: refetchContext } =
     useApi<ContextResponse>(
       entityType ? `/projects/${parsedProjectId}/context/${entityType}/${parsedEntityId}` : "",
       { staleTime: 30 * 1000, retry: 1 },
@@ -606,15 +610,6 @@ const EntityDetailPage: React.FC = () => {
                     icon={<Layers className="h-3 w-3" />}
                   />
                 </div>
-                {isTable && (
-                  <div className="px-6 py-3 hover:bg-muted/50 transition-colors">
-                    <StatItem
-                      label="Rows"
-                      value={formatRowCount(rowCount)}
-                      icon={<Database className="h-3 w-3" />}
-                    />
-                  </div>
-                )}
                 <div className="px-6 py-3 hover:bg-muted/50 transition-colors">
                   <StatItem
                     label="Experts"
@@ -763,18 +758,20 @@ const EntityDetailPage: React.FC = () => {
                                     variant="outline"
                                     size="icon"
                                     className="h-7 w-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
-                                    onClick={toggleFullscreen}
-                                    aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                                    title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                    onClick={toggleEditorFullscreen}
+                                    aria-label={isEditorFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                    title={isEditorFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                                   >
-                                    {isFullscreen ? (
+                                    {isEditorFullscreen ? (
                                       <Minimize2 className="h-3.5 w-3.5" />
                                     ) : (
                                       <Maximize2 className="h-3.5 w-3.5" />
                                     )}
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Toggle fullscreen</TooltipContent>
+                                <TooltipContent>
+                                  {isEditorFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                </TooltipContent>
                               </Tooltip>
 
                               <Tooltip>
@@ -794,8 +791,8 @@ const EntityDetailPage: React.FC = () => {
                               </Tooltip>
                             </div>
                           </CardHeader>
-                          <div className={isFullscreen ? "fixed inset-0 z-[100] bg-background flex flex-col" : "bg-[#1e1e1e] p-0"}>
-                            {isFullscreen && (
+                          <div className={isEditorFullscreen ? "fixed inset-0 z-[100] bg-background flex flex-col" : "bg-[#1e1e1e] p-0"}>
+                            {isEditorFullscreen && (
                               <div className="py-3 px-5 border-b bg-muted/5 flex flex-row items-center justify-between">
                                 <div className="space-y-1">
                                   <h3 className="text-sm font-semibold">Source Definition: {name}</h3>
@@ -816,7 +813,7 @@ const EntityDetailPage: React.FC = () => {
                                     variant="outline"
                                     size="sm"
                                     className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
-                                    onClick={toggleFullscreen}
+                                    onClick={toggleEditorFullscreen}
                                     aria-label="Exit fullscreen"
                                     title="Exit fullscreen"
                                   >
@@ -825,7 +822,7 @@ const EntityDetailPage: React.FC = () => {
                                 </div>
                               </div>
                             )}
-                            <div className={isFullscreen ? "flex-1 w-full" : "h-[500px] w-full"}>
+                            <div className={isEditorFullscreen ? "flex-1 w-full" : "h-[500px] w-full"}>
                               <Editor
                                 height="100%"
                                 defaultLanguage="sql"
@@ -1013,7 +1010,7 @@ const EntityDetailPage: React.FC = () => {
       <Sheet open={isExpertSheetOpen} onOpenChange={setIsExpertSheetOpen}>
         <SheetContent className="sm:max-w-md p-0 overflow-y-auto w-full">
           <ExpertManagement
-            entityType={entityType as any}
+            entityType={entityType}
             entityId={parsedEntityId}
             entityName={name || ""}
           />
@@ -1024,13 +1021,14 @@ const EntityDetailPage: React.FC = () => {
         <SheetContent className="sm:max-w-xl md:max-w-2xl p-0 overflow-y-auto w-full">
           <ContextEditor
             projectId={parsedProjectId}
-            entityType={entityType as any}
+            entityType={entityType}
             entityId={parsedEntityId}
             entityName={name || ""}
+            onSave={() => refetchContext()}
           />
         </SheetContent>
       </Sheet>
-    </TooltipProvider >
+    </TooltipProvider>
   );
 };
 

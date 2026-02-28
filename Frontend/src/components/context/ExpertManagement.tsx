@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { formatRelativeTime } from "@/lib/utils";
 import { useProject } from "@/hooks/useProject";
+import { useConfirm } from "@/hooks/useConfirm";
 import { useApi, useApiPost, useApiDelete } from "@/hooks/useApi";
 import {
   Card,
@@ -109,6 +110,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   entityName,
 }) => {
   const { selectedProjectId, hasProject } = useProject();
+  const { confirm } = useConfirm();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -158,6 +160,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
         toast.success("Expert added successfully");
         setIsAddDialogOpen(false);
         resetForm();
+        refetchContext();
       },
       onError: (error) => {
         toast.error(`Failed to add expert: ${error.message}`);
@@ -235,7 +238,13 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     const userName =
       expert?.user?.fullName || expert?.user?.username || "this expert";
 
-    if (confirm(`Are you sure you want to remove ${userName}?`)) {
+    const confirmed = await confirm({
+      title: "Remove Expert",
+      description: `Are you sure you want to remove ${userName}?`,
+      confirmText: "Remove",
+      variant: "destructive",
+    });
+    if (confirmed) {
       // mark which expert is being removed so only that button shows loading
       setRemovedExpertId(userId);
       await removeExpert(userId);
@@ -394,10 +403,10 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
                               {experts.some(
                                 (e) => e.userId === user.userId,
                               ) && (
-                                <Badge variant="outline" className="text-xs">
-                                  Already assigned
-                                </Badge>
-                              )}
+                                  <Badge variant="outline" className="text-xs">
+                                    Already assigned
+                                  </Badge>
+                                )}
                             </div>
                           </SelectItem>
                         ))}

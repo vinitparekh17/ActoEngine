@@ -6,7 +6,6 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FormSkeleton } from "@/components/ui/skeletons";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -16,19 +15,19 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Info, Check, AlertCircle, Edit, X, AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
-import { useApi, useApiPut } from "@/hooks/useApi";
+import { useApi } from "@/hooks/useApi";
+import { useSaveContext } from "@/hooks/useContext";
+import type { SaveContextRequest } from "@/types/context";
 import { useAuthorization } from "../../hooks/useAuth";
 
 const CRITICALITY_LEVELS = [
@@ -84,10 +83,15 @@ interface ContextData {
     }>;
   };
   experts?: Array<{
-    userId: string;
-    name: string;
-    email: string;
+    userId: number;
     expertiseLevel: string;
+    notes?: string;
+    addedAt: string;
+    user: {
+      userId: number;
+      fullName?: string;
+      username: string;
+    };
   }>;
   lastReviewed?: string;
 }
@@ -98,6 +102,7 @@ interface ContextEditorProps {
   entityId: number;
   entityName: string;
   isReadOnly?: boolean;
+  onSave?: () => void;
 }
 
 export const ContextEditor: React.FC<ContextEditorProps> = ({
@@ -106,6 +111,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
   entityId,
   entityName,
   isReadOnly = false,
+  onSave,
 }) => {
   const canUpdate = useAuthorization("Contexts:Update");
   const effectiveReadOnly = isReadOnly || !canUpdate;
@@ -129,20 +135,23 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
     },
   );
 
-  // Save mutation using your existing hook
-  const { mutate: saveContext, isPending: isSaving } = useApiPut<
-    ContextData,
-    ContextData["context"]
-  >(`/projects/${projectId}/context/${entityType}/${entityId}`, {
-    showSuccessToast: false, // We'll handle this manually
-    showErrorToast: true,
-    onSuccess: (savedData) => {
-      toast.success("Context saved", { duration: 2000 });
-      setLastSavedContext(savedData.context);
+  // Save mutation using the shared hook (has comprehensive invalidateKeys)
+  const { mutate: saveContext, isPending: isSaving } = useSaveContext(
+    entityType,
+    entityId,
+    (savedData) => {
+      setLastSavedContext({
+        purpose: savedData.purpose,
+        businessImpact: savedData.businessImpact,
+        businessDomain: savedData.businessDomain,
+        criticalityLevel: savedData.criticalityLevel,
+        sensitivity: savedData.sensitivity,
+        reviewedBy: savedData.reviewedBy?.toString(),
+      });
       hasUnsavedChanges.current = false;
-      // Removed setIsEditing(false) - user stays in edit mode until 'Done'
+      onSave?.();
     },
-  });
+  );
 
   // Stable debounced save that always calls the latest saveContext
   const saveContextRef = useRef(saveContext);
@@ -153,7 +162,8 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
   const debouncedSaveRef = useRef(
     debounce((data: ContextData["context"]) => {
       // call the latest saveContext from ref
-      saveContextRef.current(data);
+      // Cast is safe - criticalityLevel values are always 1-5 from UI
+      saveContextRef.current(data as unknown as SaveContextRequest);
     }, 3000), // Increased from 1s to 3s for better "Google Forms" style UX
   );
 
@@ -438,7 +448,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
               <div className="space-y-2">
                 <Label className="text-sm">Criticality</Label>
                 {isEditing ? (
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-2">
                     {CRITICALITY_LEVELS.map(({ level, label, description }) => (
                       <Tooltip key={level}>
                         <TooltipTrigger asChild>
@@ -448,12 +458,11 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                                 ? "default"
                                 : "outline"
                             }
-                            className={`cursor-pointer px-3 py-1 ${
-                              level === localContext?.criticalityLevel &&
+                            className={`cursor-pointer px-3 py-1 ${level === localContext?.criticalityLevel &&
                               level >= 4
-                                ? "bg-destructive hover:bg-destructive/90"
-                                : ""
-                            }`}
+                              ? "bg-destructive hover:bg-destructive/90"
+                              : ""
+                              }`}
                             onClick={() => handleCriticalityClick(level)}
                           >
                             {label}
@@ -524,7 +533,7 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                     <Badge
                       variant={
                         localContext?.sensitivity === "PII" ||
-                        localContext?.sensitivity === "FINANCIAL"
+                          localContext?.sensitivity === "FINANCIAL"
                           ? "destructive"
                           : "outline"
                       }
@@ -554,14 +563,11 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                     >
                       <Avatar className="h-8 w-8">
                         <AvatarFallback>
-                          {getInitials(expert.name)}
+                          {getInitials(expert.user?.fullName || expert.user?.username)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{expert.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {expert.email}
-                        </p>
+                        <p className="text-sm font-medium">{expert.user?.fullName || expert.user?.username}</p>
                       </div>
                       <Badge variant="outline" className="text-xs">
                         {expert.expertiseLevel}
@@ -655,6 +661,7 @@ function getPurposePlaceholder(entityType: string): string {
  * - Returns uppercased initials or '?' when no valid characters found
  */
 function getInitials(name?: string): string {
+  console.log(name);
   if (!name) return "?";
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = parts.map((p) => p[0]).filter(Boolean);
