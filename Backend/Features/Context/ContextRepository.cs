@@ -17,7 +17,7 @@ public interface IContextRepository
     Task<EntityContext?> GetContextByNameAsync(int projectId, string entityType, string entityName, CancellationToken cancellationToken = default);
     Task<EntityContext> UpsertContextAsync(int projectId, string entityType, int entityId, string entityName, SaveContextRequest request, int userId, CancellationToken cancellationToken = default);
     Task MarkContextStaleAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
-    Task MarkContextFreshAsync(int projectId, string entityType, int entityId, int userId, CancellationToken cancellationToken = default);
+    Task MarkContextFreshAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
 
     // Entity Experts
     Task<List<EntityExpert>> GetExpertsAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
@@ -36,10 +36,6 @@ public interface IContextRepository
     Task<List<TopDocumentedEntity>> GetTopDocumentedEntitiesAsync(int projectId, int limit = 10, CancellationToken cancellationToken = default);
     Task<List<CriticalUndocumentedEntity>> GetCriticalUndocumentedAsync(int projectId, CancellationToken cancellationToken = default);
 
-    // Review Requests
-    Task<int> CreateReviewRequestAsync(int projectId, string entityType, int entityId, int requestedBy, int? assignedTo, string? reason, CancellationToken cancellationToken = default);
-    Task<List<ContextReviewRequest>> GetPendingReviewRequestsAsync(int? userId = null, CancellationToken cancellationToken = default);
-    Task CompleteReviewRequestAsync(int requestId, CancellationToken cancellationToken = default);
 
     // Smart Suggestions
     Task<List<UserSuggestion>> GetPotentialExpertsAsync(string entityType, int entityId, CancellationToken cancellationToken = default);
@@ -212,11 +208,11 @@ public class ContextRepository(
         }
     }
 
-    public async Task MarkContextFreshAsync(int projectId, string entityType, int entityId, int userId, CancellationToken cancellationToken = default)
+    public async Task MarkContextFreshAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default)
     {
         var rows = await ExecuteAsync(
             ContextQueries.MarkContextFresh,
-            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId, UserId = userId },
+            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
             cancellationToken);
         if (rows == 0)
         {
@@ -397,54 +393,6 @@ public class ContextRepository(
 
     #endregion
 
-    #region Review Requests
-
-    public async Task<int> CreateReviewRequestAsync(int projectId, string entityType, int entityId, int requestedBy, int? assignedTo, string? reason, CancellationToken cancellationToken = default)
-    {
-        var requestId = (await ExecuteScalarAsync<int?>(
-            ContextQueries.CreateReviewRequest,
-            new
-            {
-                ProjectId = projectId,
-                EntityType = entityType,
-                EntityId = entityId,
-                RequestedBy = requestedBy,
-                AssignedTo = assignedTo,
-                Reason = reason
-            },
-            cancellationToken)) ?? 0;
-
-        if (requestId == 0)
-        {
-            _logger.LogError("CreateReviewRequest failed for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-            throw new InvalidOperationException($"Failed to create review request for {entityType} {entityId} in project {projectId}");
-        }
-
-        return requestId;
-    }
-
-    public async Task<List<ContextReviewRequest>> GetPendingReviewRequestsAsync(int? userId = null, CancellationToken cancellationToken = default)
-    {
-        var requests = await QueryAsync<ContextReviewRequest>(
-            ContextQueries.GetPendingReviewRequests,
-            new { UserId = userId },
-            cancellationToken);
-        return [.. requests];
-    }
-
-    public async Task CompleteReviewRequestAsync(int requestId, CancellationToken cancellationToken = default)
-    {
-        var rows = await ExecuteAsync(
-            ContextQueries.CompleteReviewRequest,
-            new { RequestId = requestId },
-            cancellationToken);
-        if (rows == 0)
-        {
-            _logger.LogWarning("No review request updated for RequestId {RequestId}", requestId);
-        }
-    }
-
-    #endregion
 
     #region Smart Suggestions
 

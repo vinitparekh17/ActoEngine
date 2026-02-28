@@ -32,11 +32,6 @@ public interface IContextService
 
     // Bulk Operations
     Task<List<BulkImportResult>> BulkImportContextAsync(int projectId, List<BulkContextEntry> entries, int userId);
-
-    // Review Management
-    Task<int> CreateReviewRequestAsync(int projectId, string entityType, int entityId, int requestedBy, int? assignedTo, string? reason);
-    Task MarkContextFreshAsync(int projectId, string entityType, int entityId, int userId);
-    Task<List<ContextReviewRequest>> GetPendingReviewRequestsAsync(int? userId = null);
 }
 
 /// <summary>
@@ -76,7 +71,6 @@ public partial class ContextService(
             Experts = experts,
             Suggestions = suggestions,
             CompletenessScore = completeness,
-            IsStale = context.IsContextStale,
             DependencyCount = 0 // TODO: Implement with DependencyMap
         };
     }
@@ -108,7 +102,6 @@ public partial class ContextService(
                     Experts = [], // Optimization: Skip experts for batch view
                     Suggestions = null, // Skip suggestions for batch view
                     CompletenessScore = completeness,
-                    IsStale = context.IsContextStale,
                     DependencyCount = 0
                 });
             }
@@ -121,7 +114,6 @@ public partial class ContextService(
                     Experts = [],
                     Suggestions = null,
                     CompletenessScore = 0,
-                    IsStale = false,
                     DependencyCount = 0
                 });
             }
@@ -603,39 +595,6 @@ public partial class ContextService(
 
     #endregion
 
-    #region Review Management
-
-    /// <summary>
-    /// Create review request for stale context
-    /// </summary>
-    public async Task<int> CreateReviewRequestAsync(
-        int projectId,
-        string entityType,
-        int entityId,
-        int requestedBy,
-        int? assignedTo,
-        string? reason)
-    {
-        return await _contextRepo.CreateReviewRequestAsync(
-            projectId, entityType, entityId, requestedBy, assignedTo, reason);
-    }
-
-    /// <summary>
-    /// Mark context as reviewed
-    /// </summary>
-    public async Task MarkContextFreshAsync(int projectId, string entityType, int entityId, int userId)
-    {
-        await _contextRepo.MarkContextFreshAsync(projectId, entityType, entityId, userId);
-    }
-
-    /// <summary>
-    /// Get pending review requests
-    /// </summary>
-    public async Task<List<ContextReviewRequest>> GetPendingReviewRequestsAsync(int? userId = null)
-    {
-        return await _contextRepo.GetPendingReviewRequestsAsync(userId);
-    }
-
     [GeneratedRegex("([A-Z])")]
     private static partial Regex UppercaseLetterRegex();
     [GeneratedRegex(@"^(tbl_|sp_|fn_|vw_)")]
@@ -643,5 +602,4 @@ public partial class ContextService(
     [GeneratedRegex(@"\s+")]
     private static partial Regex MultipleSpacesRegex();
 
-    #endregion
 }

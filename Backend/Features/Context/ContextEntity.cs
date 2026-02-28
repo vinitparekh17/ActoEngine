@@ -32,9 +32,6 @@ public class EntityContext
     public string? ReplacedBy { get; set; }
 
     // Metadata
-    public bool IsContextStale { get; set; }
-    public DateTime? LastReviewedAt { get; set; }
-    public int? ReviewedBy { get; set; }
     public DateTime? LastContextUpdate { get; set; }
     public int? ContextUpdatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -74,22 +71,5 @@ public class ContextHistory
     public int ChangedBy { get; set; }
     public DateTime ChangedAt { get; set; } = DateTime.UtcNow;
     public string? ChangeReason { get; set; }
-}
-
-/// <summary>
-/// Requests to review stale context
-/// </summary>
-public class ContextReviewRequest
-{
-    public int RequestId { get; set; }
-    public int ProjectId { get; set; }
-    public required string EntityType { get; set; }
-    public int EntityId { get; set; }
-    public int RequestedBy { get; set; }
-    public int? AssignedTo { get; set; }
-    public required string Status { get; set; } = "PENDING"; // 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
-    public string? Reason { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? CompletedAt { get; set; }
 }
 

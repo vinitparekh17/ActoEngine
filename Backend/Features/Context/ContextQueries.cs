@@ -28,9 +28,6 @@ public static class ContextQueries
             IsDeprecated,
             DeprecationReason,
             ReplacedBy,
-            IsContextStale,
-            LastReviewedAt,
-            ReviewedBy,
             LastContextUpdate,
             ContextUpdatedBy,
             CreatedAt
@@ -60,9 +57,6 @@ public static class ContextQueries
             IsDeprecated,
             DeprecationReason,
             ReplacedBy,
-            IsContextStale,
-            LastReviewedAt,
-            ReviewedBy,
             LastContextUpdate,
             ContextUpdatedBy,
             CreatedAt
@@ -83,7 +77,7 @@ public static class ContextQueries
             BusinessDomain, Sensitivity, DataSource, ValidationRules,
             RetentionPolicy, DataFlow, Frequency, IsDeprecated,
             DeprecationReason, ReplacedBy, LastContextUpdate,
-            ContextUpdatedBy, CreatedAt, IsContextStale
+            ContextUpdatedBy, CreatedAt
         )
         VALUES (
             @ProjectId, @EntityType, @EntityId, @EntityName,
@@ -91,7 +85,7 @@ public static class ContextQueries
             @BusinessDomain, @Sensitivity, @DataSource, @ValidationRules,
             @RetentionPolicy, @DataFlow, @Frequency, @IsDeprecated,
             @DeprecationReason, @ReplacedBy, GETUTCDATE(),
-            @UserId, GETUTCDATE(), 0
+            @UserId, GETUTCDATE()
         );
 
         SELECT * FROM EntityContext
@@ -115,8 +109,7 @@ public static class ContextQueries
             DeprecationReason = @DeprecationReason,
             ReplacedBy = @ReplacedBy,
             LastContextUpdate = GETUTCDATE(),
-            ContextUpdatedBy = @UserId,
-            IsContextStale = 0
+            ContextUpdatedBy = @UserId
         WHERE ProjectId = @ProjectId
           AND EntityType = @EntityType
           AND EntityId = @EntityId;
@@ -128,16 +121,14 @@ public static class ContextQueries
 
     public const string MarkContextStale = @"
         UPDATE EntityContext
-        SET IsContextStale = 1
+        SET LastContextUpdate = GETUTCDATE()
         WHERE ProjectId = @ProjectId 
           AND EntityType = @EntityType 
           AND EntityId = @EntityId;";
 
     public const string MarkContextFresh = @"
         UPDATE EntityContext
-        SET IsContextStale = 0,
-            LastReviewedAt = GETUTCDATE(),
-            ReviewedBy = @UserId
+        SET LastContextUpdate = GETUTCDATE()
         WHERE ProjectId = @ProjectId 
           AND EntityType = @EntityType 
           AND EntityId = @EntityId;";
@@ -362,11 +353,9 @@ public static class ContextQueries
             ec.EntityId,
             ec.EntityName,
             ec.LastContextUpdate,
-            ec.LastReviewedAt,
             DATEDIFF(day, ec.LastContextUpdate, GETUTCDATE()) as DaysSinceUpdate
         FROM EntityContext ec
         WHERE ec.ProjectId = @ProjectId 
-          AND ec.IsContextStale = 1
         ORDER BY DaysSinceUpdate DESC;";
 
     public const string GetTopDocumentedEntities = @"
@@ -454,46 +443,6 @@ public static class ContextQueries
           AND ISNULL(sv.VersionCount, 0) >= 3
         
         ORDER BY ReferenceCount DESC;";
-
-    #endregion
-
-    #region Review Requests
-
-    public const string CreateReviewRequest = @"
-        INSERT INTO ContextReviewRequests (
-            ProjectId, EntityType, EntityId, RequestedBy, AssignedTo,
-            Reason, Status, CreatedAt
-        )
-        VALUES (
-            @ProjectId, @EntityType, @EntityId, @RequestedBy, @AssignedTo,
-            @Reason, 'PENDING', GETUTCDATE()
-        );
-
-        SELECT SCOPE_IDENTITY();";
-
-    public const string GetPendingReviewRequests = @"
-        SELECT
-            crr.*,
-            ec.EntityName,
-            ec.Purpose,
-            u1.Username as RequestedByName,
-            u2.Username as AssignedToName
-        FROM ContextReviewRequests crr
-        LEFT JOIN EntityContext ec ON
-            crr.EntityType = ec.EntityType AND
-            crr.EntityId = ec.EntityId AND
-            crr.ProjectId = ec.ProjectId
-        JOIN Users u1 ON crr.RequestedBy = u1.UserID
-        LEFT JOIN Users u2 ON crr.AssignedTo = u2.UserID
-        WHERE crr.Status = 'PENDING'
-          AND (crr.AssignedTo = @UserId OR @UserId IS NULL)
-        ORDER BY crr.CreatedAt DESC;";
-
-    public const string CompleteReviewRequest = @"
-        UPDATE ContextReviewRequests
-        SET Status = 'COMPLETED',
-            CompletedAt = GETUTCDATE()
-        WHERE RequestId = @RequestId;";
 
     #endregion
 

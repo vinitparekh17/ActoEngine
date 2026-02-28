@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
-import { useBulkImportContext } from "@/hooks/useContext";
+import {
+  useBulkImportContext,
+} from "@/hooks/useContext";
 import { utcToLocal } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -14,7 +16,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -26,7 +27,6 @@ import {
 } from "@/components/ui/table";
 import {
   FileText,
-  AlertTriangle,
   TrendingUp,
   Users,
   CheckCircle2,
@@ -38,19 +38,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Upload,
-  Mail,
   Crown,
   Star,
-  GitCommit,
   LayoutDashboard,
   Calendar,
-  Search,
   ArrowUpRight,
   Sparkles,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ExpertSummary } from "@/types/context";
-import { GridSkeleton, PageHeaderSkeleton } from "@/components/ui/skeletons";
+import { GridSkeleton } from "@/components/ui/skeletons";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +63,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { BulkContextEntry } from "@/types/context";
 import { toast } from "sonner";
+import { useAuthorization } from "@/hooks/useAuth";
 
 // Types
 interface CoverageItem {
@@ -92,15 +90,6 @@ function getGapPriority(item: CriticalGapItem): "HIGH" | "MEDIUM" | "LOW" {
   return "LOW";
 }
 
-interface StaleItem {
-  entityType: "TABLE" | "COLUMN" | "SP";
-  entityId: number;
-  entityName: string;
-  lastContextUpdate: string;
-  daysSinceUpdate: number;
-  schemaChanged: boolean;
-}
-
 interface WellDocumentedItem {
   entityType: "TABLE" | "COLUMN" | "SP";
   entityId: number;
@@ -112,10 +101,8 @@ interface WellDocumentedItem {
 
 interface DashboardData {
   coverage: CoverageItem[];
-  staleEntities: StaleItem[];
   topDocumented: WellDocumentedItem[];
   criticalUndocumented: CriticalGapItem[];
-  staleCount: number;
   lastUpdated: string;
   trends?: {
     coverageChange: number;
@@ -225,12 +212,15 @@ const EmptyState = ({
 
 export const ContextDashboard: React.FC = () => {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [gapsPage, setGapsPage] = React.useState(1);
-  const [stalePage, setStalePage] = React.useState(1);
   const [topPage, setTopPage] = React.useState(1);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [bulkImportJson, setBulkImportJson] = useState("");
   const pageSize = 10;
+  const [activeTab, setActiveTab] = useState(() =>
+    "coverage"
+  );
 
   // Fetch dashboard data
   const {
@@ -266,6 +256,20 @@ export const ContextDashboard: React.FC = () => {
     toast.success("Bulk context import completed successfully");
   });
 
+  React.useEffect(() => {
+    if (activeTab === "experts" && (!expertSummary || expertSummary.length === 0)) {
+      setActiveTab("coverage");
+    }
+  }, [activeTab, expertSummary]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("tab");
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const handleBulkImport = () => {
     try {
       const entries: BulkContextEntry[] = JSON.parse(bulkImportJson);
@@ -286,7 +290,6 @@ export const ContextDashboard: React.FC = () => {
   };
 
   const coverage = dashboard?.coverage || [];
-  const staleEntities = dashboard?.staleEntities || [];
   const topDocumented = dashboard?.topDocumented || [];
   const criticalUndocumented = dashboard?.criticalUndocumented || [];
 
@@ -295,12 +298,6 @@ export const ContextDashboard: React.FC = () => {
     const start = (gapsPage - 1) * pageSize;
     return criticalUndocumented.slice(start, start + pageSize);
   }, [criticalUndocumented, gapsPage, pageSize]);
-
-  const staleTotalPages = Math.ceil(staleEntities.length / pageSize);
-  const paginatedStale = useMemo(() => {
-    const start = (stalePage - 1) * pageSize;
-    return staleEntities.slice(start, start + pageSize);
-  }, [staleEntities, stalePage, pageSize]);
 
   const topTotalPages = Math.ceil(topDocumented.length / pageSize);
   const paginatedTop = useMemo(() => {
@@ -405,7 +402,7 @@ export const ContextDashboard: React.FC = () => {
                     Knowledge Base Health
                   </h1>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    Overview of documentation coverage and stale context.
+                    Overview of documentation coverage and completeness.
                   </p>
                 </div>
                 {dashboard?.lastUpdated && (
@@ -416,7 +413,7 @@ export const ContextDashboard: React.FC = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <DashboardMetric
                   title="Overall Coverage"
                   value={`${Math.round(overallCoverage)}%`}
@@ -425,14 +422,6 @@ export const ContextDashboard: React.FC = () => {
                   trend={dashboard?.trends?.coverageChange}
                   colorClass="text-blue-600 dark:text-blue-400"
                   bgClass="bg-blue-50 dark:bg-blue-950/40"
-                />
-                <DashboardMetric
-                  title="Needs Review"
-                  value={dashboard?.staleCount || 0}
-                  description="Stale due to schema changes"
-                  icon={AlertTriangle}
-                  colorClass="text-amber-600 dark:text-amber-400"
-                  bgClass="bg-amber-50 dark:bg-amber-950/40"
                 />
                 <DashboardMetric
                   title="Critical Gaps"
@@ -450,13 +439,25 @@ export const ContextDashboard: React.FC = () => {
                   colorClass="text-emerald-600 dark:text-emerald-400"
                   bgClass="bg-emerald-50 dark:bg-emerald-950/40"
                 />
+                <DashboardMetric
+                  title="Total Experts"
+                  value={expertSummary?.length || 0}
+                  description="Assigned subject matter experts"
+                  icon={Users}
+                  colorClass="text-indigo-600 dark:text-indigo-400"
+                  bgClass="bg-indigo-50 dark:bg-indigo-950/40"
+                />
               </div>
             </div>
           </div>
 
           {/* Main Tabs Section */}
           <div className="p-8 max-w-[1920px] mx-auto w-full">
-            <Tabs defaultValue="coverage" className="space-y-6">
+            <Tabs
+              value={activeTab}
+              onValueChange={handleTabChange}
+              className="space-y-6"
+            >
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <TabsList className="bg-muted/50 p-1 h-11">
                   <TabsTrigger value="coverage" className="gap-2 text-xs">
@@ -467,17 +468,6 @@ export const ContextDashboard: React.FC = () => {
                     {criticalUndocumented.length > 0 && (
                       <Badge variant="destructive" className="ml-1 h-5 px-1.5">
                         {criticalUndocumented.length}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="stale" className="gap-2 text-xs">
-                    <AlertTriangle className="w-3.5 h-3.5" /> Stale
-                    {(dashboard?.staleCount || 0) > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="ml-1 h-5 px-1.5 border-amber-500 text-amber-600 bg-amber-50"
-                      >
-                        {dashboard?.staleCount}
                       </Badge>
                     )}
                   </TabsTrigger>
@@ -721,159 +711,7 @@ export const ContextDashboard: React.FC = () => {
                 </Card>
               </TabsContent>
 
-              {/* Stale Tab */}
-              <TabsContent
-                value="stale"
-                className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500"
-              >
-                <Card className="border-border/60">
-                  <CardHeader className="border-b bg-muted/20 pb-4">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" /> Stale
-                      Documentation
-                    </CardTitle>
-                    <CardDescription>
-                      Entities where schema changes may have invalidated the
-                      context.
-                    </CardDescription>
-                  </CardHeader>
-                  <div className="p-0">
-                    {staleEntities.length === 0 ? (
-                      <div className="p-6">
-                        <EmptyState
-                          icon={CheckCircle2}
-                          title="Up to Date"
-                          description="No stale documentation found. Everything is synced."
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <Table>
-                          <TableHeader className="bg-muted/10">
-                            <TableRow>
-                              <TableHead className="w-[100px]">Type</TableHead>
-                              <TableHead>Entity Name</TableHead>
-                              <TableHead>Last Updated</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Schema Changed</TableHead>
-                              <TableHead className="text-right">
-                                Action
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {paginatedStale.map((item) => (
-                              <TableRow
-                                key={`${item.entityType}-${item.entityId}`}
-                                className="group hover:bg-muted/30"
-                              >
-                                <TableCell>
-                                  <Badge
-                                    variant="outline"
-                                    className="font-mono text-[10px] bg-background"
-                                  >
-                                    {item.entityType}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  {item.entityName}
-                                </TableCell>
-                                <TableCell className="text-muted-foreground text-sm">
-                                  {utcToLocal(item.lastContextUpdate, "PPP")}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    variant={
-                                      item.daysSinceUpdate > 30
-                                        ? "destructive"
-                                        : "secondary"
-                                    }
-                                    className="text-[10px]"
-                                  >
-                                    {item.daysSinceUpdate} days ago
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  {item.schemaChanged ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-rose-600 bg-rose-50 border-rose-200"
-                                    >
-                                      Changed
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground text-xs">
-                                      -
-                                    </span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 text-xs hover:text-primary"
-                                    asChild
-                                  >
-                                    <Link
-                                      to={getEntityRoute(
-                                        item.entityType,
-                                        item.entityId,
-                                        projectId,
-                                      )}
-                                    >
-                                      Review
-                                    </Link>
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        {staleEntities.length > pageSize && (
-                          <div className="flex items-center justify-between p-4 border-t">
-                            <div className="text-xs text-muted-foreground">
-                              Showing {(stalePage - 1) * pageSize + 1}-
-                              {Math.min(
-                                stalePage * pageSize,
-                                staleEntities.length,
-                              )}{" "}
-                              of {staleEntities.length}
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() =>
-                                  setStalePage((p) => Math.max(1, p - 1))
-                                }
-                                disabled={stalePage === 1}
-                              >
-                                <ChevronLeft className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() =>
-                                  setStalePage((p) =>
-                                    Math.min(staleTotalPages, p + 1),
-                                  )
-                                }
-                                disabled={stalePage === staleTotalPages}
-                              >
-                                <ChevronRight className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </Card>
-              </TabsContent>
-
-              {/* Top Documented & Experts Tabs follow similar patterns - abbreviated for brevity but styling is consistent */}
+              {/* Top Documented Tab */}
               <TabsContent
                 value="top"
                 className="mt-0 focus-visible:outline-none animate-in fade-in slide-in-from-bottom-2 duration-500"
@@ -888,7 +726,6 @@ export const ContextDashboard: React.FC = () => {
                     </CardDescription>
                   </CardHeader>
                   <div className="p-0">
-                    {/* Table structure same as above with paginatedTop */}
                     {topDocumented.length === 0 ? (
                       <div className="p-6">
                         <EmptyState
@@ -973,7 +810,41 @@ export const ContextDashboard: React.FC = () => {
                             ))}
                           </TableBody>
                         </Table>
-                        {/* Pagination controls for top... */}
+                        {topDocumented.length > pageSize && (
+                          <div className="flex items-center justify-between p-4 border-t">
+                            <div className="text-xs text-muted-foreground">
+                              Showing {(topPage - 1) * pageSize + 1}-
+                              {Math.min(topPage * pageSize, topDocumented.length)}{" "}
+                              of {topDocumented.length}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  setTopPage((p) => Math.max(1, p - 1))
+                                }
+                                disabled={topPage === 1}
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  setTopPage((p) =>
+                                    Math.min(topTotalPages, p + 1),
+                                  )
+                                }
+                                disabled={topPage === topTotalPages}
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -1161,4 +1032,3 @@ function getEntityRoute(
   const typeSlug = entityType.toLowerCase();
   return `/project/${projectId}/entities/${typeSlug}/${entityId}/overview`;
 }
-

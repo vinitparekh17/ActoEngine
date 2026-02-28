@@ -51,7 +51,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useApi } from "@/hooks/useApi";
 import { useProject } from "@/hooks/useProject";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
 import { ImpactDecisionResponse, ImpactPath } from "@/types/impact-analysis";
 
 // --- HELPER FUNCTIONS ---
@@ -83,6 +82,23 @@ function getEntityTypeLabel(type: string): string {
     default:
       return type;
   }
+}
+
+function toContextEntityType(
+  type?: string,
+): "TABLE" | "COLUMN" | "SP" | "FUNCTION" | "VIEW" | null {
+  if (!type) return null;
+  const normalized = type.toUpperCase();
+  if (
+    normalized === "TABLE" ||
+    normalized === "COLUMN" ||
+    normalized === "SP" ||
+    normalized === "FUNCTION" ||
+    normalized === "VIEW"
+  ) {
+    return normalized;
+  }
+  return null;
 }
 
 function getDependencyTypeLabel(depType: number | string): string {
@@ -471,28 +487,6 @@ export default function ImpactReportPage() {
                       </span>
                       . Review the reasoning below before proceeding.
                     </p>
-                  </div>
-                  <div className="flex items-center gap-3 pt-2">
-                    <div
-                      className={cn(
-                        "flex items-center text-xs font-medium px-2.5 py-1 rounded border",
-                        verdict.requiresApproval
-                          ? "bg-red-50 text-red-700 border-red-200"
-                          : "bg-green-50 text-green-700 border-green-200",
-                      )}
-                    >
-                      {verdict.requiresApproval ? (
-                        <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
-                      ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                      )}
-                      {verdict.requiresApproval
-                        ? "Approval Required"
-                        : "Auto-Approval Eligible"}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      ID: #AE-{projectId}-{entityId}
-                    </span>
                   </div>
                 </div>
 
