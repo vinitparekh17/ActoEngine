@@ -507,6 +507,8 @@ const EntityDetailPage: React.FC = () => {
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => copyToClipboard(fullName)}
+                  aria-label="Copy full name"
+                  title="Copy full name"
                 >
                   <Copy className="h-4 w-4 text-muted-foreground" />
                 </Button>
@@ -522,6 +524,8 @@ const EntityDetailPage: React.FC = () => {
                     size="icon"
                     className="h-8 w-8"
                     onClick={toggleFullscreen}
+                    aria-label="Exit fullscreen"
+                    title="Exit fullscreen"
                   >
                     <Minimize2 className="h-4 w-4 text-muted-foreground" />
                   </Button>
@@ -760,6 +764,8 @@ const EntityDetailPage: React.FC = () => {
                                     size="icon"
                                     className="h-7 w-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
                                     onClick={toggleFullscreen}
+                                    aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                    title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                                   >
                                     {isFullscreen ? (
                                       <Minimize2 className="h-3.5 w-3.5" />
@@ -778,6 +784,8 @@ const EntityDetailPage: React.FC = () => {
                                     size="sm"
                                     className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
                                     onClick={() => copyToClipboard(definition || "")}
+                                    aria-label="Copy SQL"
+                                    title="Copy SQL"
                                   >
                                     <Copy className="h-3.5 w-3.5 mr-1.5" />
                                   </Button>
@@ -798,6 +806,8 @@ const EntityDetailPage: React.FC = () => {
                                     size="sm"
                                     className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
                                     onClick={() => copyToClipboard(definition || "")}
+                                    aria-label="Copy SQL"
+                                    title="Copy SQL"
                                   >
                                     <Copy className="h-3.5 w-3.5 mr-1.5" />
                                   </Button>
@@ -807,6 +817,8 @@ const EntityDetailPage: React.FC = () => {
                                     size="sm"
                                     className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
                                     onClick={toggleFullscreen}
+                                    aria-label="Exit fullscreen"
+                                    title="Exit fullscreen"
                                   >
                                     <Minimize2 className="h-3.5 w-3.5 mr-1.5" />
                                   </Button>

@@ -414,6 +414,8 @@ export default function ERDiagramPage() {
                         onClick={toggleFullscreen}
                         className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                         title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                        aria-pressed={isFullscreen}
                     >
                         {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
                     </button>
