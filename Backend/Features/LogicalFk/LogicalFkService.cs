@@ -11,6 +11,7 @@ namespace ActoEngine.WebApi.Features.LogicalFk;
 public interface ILogicalFkService
 {
     Task<List<LogicalFkDto>> GetByProjectAsync(int projectId, string? statusFilter = null, CancellationToken cancellationToken = default);
+    Task<List<PendingFkCount>> GetPendingCountsAsync(int projectId, CancellationToken cancellationToken = default);
     Task<LogicalFkDto?> GetByIdAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default);
     Task<List<LogicalFkDto>> GetByTableAsync(int projectId, int tableId, CancellationToken cancellationToken = default);
     Task<LogicalFkDto> CreateManualAsync(int projectId, CreateLogicalFkRequest request, int userId, CancellationToken cancellationToken = default);
@@ -50,6 +51,9 @@ public partial class LogicalFkService(
 
     public async Task<List<LogicalFkDto>> GetByProjectAsync(int projectId, string? statusFilter = null, CancellationToken cancellationToken = default)
         => await logicalFkRepository.GetByProjectAsync(projectId, statusFilter, cancellationToken);
+
+    public async Task<List<PendingFkCount>> GetPendingCountsAsync(int projectId, CancellationToken cancellationToken = default)
+        => await logicalFkRepository.GetPendingCountsByProjectAsync(projectId, cancellationToken);
 
     public async Task<LogicalFkDto?> GetByIdAsync(int projectId, int logicalFkId, CancellationToken cancellationToken = default)
         => await logicalFkRepository.GetByIdAsync(projectId, logicalFkId, cancellationToken);

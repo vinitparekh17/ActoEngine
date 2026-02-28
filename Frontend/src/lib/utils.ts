@@ -68,3 +68,38 @@ export function safeFormatDate(
 ): string {
   return formatDate(dateValue, "PPpp", fallback);
 }
+
+/**
+ * Converts a UTC date value to a formatted local time string.
+ * Use this when displaying timestamps stored as UTC in the database.
+ *
+ * @param dateValue - UTC date string (e.g. "2026-02-26T15:00:00Z"), Date object, or null/undefined
+ * @param formatString - date-fns format string (default: "PPpp" → "Feb 26, 2026, 8:30 PM")
+ * @param fallback - Fallback string if date is invalid (default: "-")
+ * @returns Formatted local time string or fallback
+ */
+export function utcToLocal(
+  dateValue: DateValue,
+  formatString: string = "PPpp",
+  fallback: string = "-",
+): string {
+  if (!dateValue) return fallback;
+
+  // Ensure UTC strings without a trailing "Z" are treated as UTC
+  const timezoneSuffix = /([Zz]|[+\-]\d{2}:\d{2})$/;
+  const raw =
+    typeof dateValue === "string"
+      ? (() => {
+          const trimmed = dateValue.trim();
+          return timezoneSuffix.test(trimmed) ? trimmed : `${trimmed}Z`;
+        })()
+      : dateValue;
+
+  const date = typeof raw === "string" ? new Date(raw) : raw;
+
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  return format(date, formatString);
+}

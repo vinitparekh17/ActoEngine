@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle, RefreshCw, X } from "lucide-react";
-import { format } from "date-fns";
+import { utcToLocal } from "@/lib/utils";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { useState } from "react";
 
@@ -119,7 +119,7 @@ export function SyncProgressPanel({
             <p className={`font-medium ${getStatusColor()}`}>{status}</p>
             {lastSyncAttempt && (
               <p className="text-sm text-muted-foreground">
-                Last updated: {format(new Date(lastSyncAttempt), "PPp")}
+                Last updated: {utcToLocal(lastSyncAttempt, "PPp")}
               </p>
             )}
           </div>

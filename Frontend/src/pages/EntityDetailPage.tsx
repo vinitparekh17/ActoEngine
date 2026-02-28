@@ -25,7 +25,7 @@ import {
   Table,
 } from "@/components/ui/table";
 import { useApi } from "@/hooks/useApi";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatRelativeTime, utcToLocal } from "@/lib/utils";
 import { getDefaultSchema } from "@/lib/schema-utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -56,13 +56,19 @@ import {
   Users,
   Clock,
   Link2,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import React, { lazy } from "react";
 import { useProject } from "@/hooks/useProject";
+import { useFullscreen } from "@/hooks/useFullscreen";
 import LogicalFkPanel from "@/components/er-diagram/LogicalFkPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { ExpertManagement } from "@/components/context/ExpertManagement";
+import { ContextEditor } from "@/components/context/ContextEditorPanel";
 
 const Editor = lazy(() => import("@monaco-editor/react"));
 
@@ -273,8 +279,9 @@ const ExpertCard: React.FC<{ expert: Expert }> = ({ expert }) => {
   );
 };
 
-export const EmptyExpertsState: React.FC<{ entityName: string }> = ({
+export const EmptyExpertsState: React.FC<{ entityName: string, onAddClick?: () => void }> = ({
   entityName,
+  onAddClick,
 }) => (
   <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg bg-muted/10">
     <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -287,15 +294,18 @@ export const EmptyExpertsState: React.FC<{ entityName: string }> = ({
       Help your team by identifying who knows about{" "}
       <span className="font-medium text-foreground">{entityName}</span>.
     </p>
-    <Button variant="outline" size="sm">
-      <UserIcon className="h-4 w-4 mr-2" />
-      Assign Expert
-    </Button>
+    {onAddClick && (
+      <Button variant="outline" size="sm" onClick={onAddClick}>
+        <UserIcon className="h-4 w-4 mr-2" />
+        Assign Expert
+      </Button>
+    )}
   </div>
 );
 
-const DocumentationEmptyState: React.FC<{ entityName: string }> = ({
+const DocumentationEmptyState: React.FC<{ entityName: string, onAddClick?: () => void }> = ({
   entityName,
+  onAddClick,
 }) => (
   <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg bg-muted/10">
     <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -308,10 +318,12 @@ const DocumentationEmptyState: React.FC<{ entityName: string }> = ({
       Document the business purpose and usage patterns for{" "}
       <span className="font-medium text-foreground">{entityName}</span>.
     </p>
-    <Button size="sm">
-      <FileText className="h-4 w-4 mr-2" />
-      Add Documentation
-    </Button>
+    {onAddClick && (
+      <Button size="sm" onClick={onAddClick}>
+        <FileText className="h-4 w-4 mr-2" />
+        Add Documentation
+      </Button>
+    )}
   </div>
 );
 
@@ -324,6 +336,15 @@ const EntityDetailPage: React.FC = () => {
     entityId: string;
     entityType: string;
   }>();
+
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
+
+  const [isExpertSheetOpen, setIsExpertSheetOpen] = React.useState(false);
+  const [isDocSheetOpen, setIsDocSheetOpen] = React.useState(false);
+  const [isEditorFullscreen, setIsEditorFullscreen] = React.useState(false);
+  const toggleEditorFullscreen = React.useCallback(() => {
+    setIsEditorFullscreen((prev) => !prev);
+  }, []);
 
   const parsedProjectId = parseInt(projectIdParam ?? "", 10);
   const parsedEntityId = parseInt(entityIdParam ?? "", 10);
@@ -346,7 +367,7 @@ const EntityDetailPage: React.FC = () => {
   } = useApi<TableDetails | SPDetails>(structureEndpoint);
 
   // Fetch Context & Experts
-  const { data: contextData, isLoading: isLoadingContext } =
+  const { data: contextData, isLoading: isLoadingContext, refetch: refetchContext } =
     useApi<ContextResponse>(
       entityType ? `/projects/${parsedProjectId}/context/${entityType}/${parsedEntityId}` : "",
       { staleTime: 30 * 1000, retry: 1 },
@@ -462,7 +483,7 @@ const EntityDetailPage: React.FC = () => {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-[calc(100vh-114px)] bg-background overflow-hidden">
+      <div className={`flex flex-col overflow-hidden bg-background ${isFullscreen ? "h-screen" : "h-[calc(100vh-114px)]"}`}>
         {/* 1. Sticky Top Bar */}
         <div className="px-6 py-3 border-b flex items-center justify-between bg-background/95 backdrop-blur z-30 sticky top-0 supports-[backdrop-filter]:bg-background/60">
           <Breadcrumb>
@@ -490,13 +511,35 @@ const EntityDetailPage: React.FC = () => {
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => copyToClipboard(fullName)}
+                  aria-label="Copy full name"
+                  title="Copy full name"
                 >
                   <Copy className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Copy name</TooltipContent>
             </Tooltip>
+
+            {isFullscreen && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={toggleFullscreen}
+                    aria-label="Exit fullscreen"
+                    title="Exit fullscreen"
+                  >
+                    <Minimize2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Exit fullscreen</TooltipContent>
+              </Tooltip>
+            )}
+
             <Separator orientation="vertical" className="h-4 mx-1" />
+
             <Button size="sm" variant="default" asChild className="h-8">
               <Link
                 to={`/project/${parsedProjectId}/impact/${entityType}/${parsedEntityId}`}
@@ -567,15 +610,6 @@ const EntityDetailPage: React.FC = () => {
                     icon={<Layers className="h-3 w-3" />}
                   />
                 </div>
-                {isTable && (
-                  <div className="px-6 py-3 hover:bg-muted/50 transition-colors">
-                    <StatItem
-                      label="Rows"
-                      value={formatRowCount(rowCount)}
-                      icon={<Database className="h-3 w-3" />}
-                    />
-                  </div>
-                )}
                 <div className="px-6 py-3 hover:bg-muted/50 transition-colors">
                   <StatItem
                     label="Experts"
@@ -717,18 +751,78 @@ const EntityDetailPage: React.FC = () => {
                               <CardTitle className="text-sm font-semibold">Source Definition</CardTitle>
                               <CardDescription className="text-xs">SQL used to create this entity</CardDescription>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
-                              onClick={() => copyToClipboard(definition || "")}
-                            >
-                              <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy SQL
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-7 w-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
+                                    onClick={toggleEditorFullscreen}
+                                    aria-label={isEditorFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                    title={isEditorFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                  >
+                                    {isEditorFullscreen ? (
+                                      <Minimize2 className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <Maximize2 className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {isEditorFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                                </TooltipContent>
+                              </Tooltip>
+
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
+                                    onClick={() => copyToClipboard(definition || "")}
+                                    aria-label="Copy SQL"
+                                    title="Copy SQL"
+                                  >
+                                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Copy SQL</TooltipContent>
+                              </Tooltip>
+                            </div>
                           </CardHeader>
-                          <div className="bg-[#1e1e1e] p-0">
-                            {/* Applied a wrapper with min-height logic here instead of hardcoding min-h on the parent flex */}
-                            <div className="h-[500px] w-full">
+                          <div className={isEditorFullscreen ? "fixed inset-0 z-[100] bg-background flex flex-col" : "bg-[#1e1e1e] p-0"}>
+                            {isEditorFullscreen && (
+                              <div className="py-3 px-5 border-b bg-muted/5 flex flex-row items-center justify-between">
+                                <div className="space-y-1">
+                                  <h3 className="text-sm font-semibold">Source Definition: {name}</h3>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
+                                    onClick={() => copyToClipboard(definition || "")}
+                                    aria-label="Copy SQL"
+                                    title="Copy SQL"
+                                  >
+                                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                                  </Button>
+
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs bg-background hover:bg-accent hover:text-accent-foreground"
+                                    onClick={toggleEditorFullscreen}
+                                    aria-label="Exit fullscreen"
+                                    title="Exit fullscreen"
+                                  >
+                                    <Minimize2 className="h-3.5 w-3.5 mr-1.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                            <div className={isEditorFullscreen ? "flex-1 w-full" : "h-[500px] w-full"}>
                               <Editor
                                 height="100%"
                                 defaultLanguage="sql"
@@ -772,7 +866,7 @@ const EntityDetailPage: React.FC = () => {
                             <div className="flex items-center gap-2 p-2 rounded-md bg-muted/40 border border-border/50">
                               <Clock className="h-4 w-4 text-muted-foreground" />
                               <span className="text-sm font-medium">
-                                {entityData.modifiedDate ? new Date(entityData.modifiedDate).toLocaleDateString() : "Never"}
+                                {utcToLocal(entityData.modifiedDate, "PPP", "Never")}
                               </span>
                             </div>
                           </div>
@@ -840,47 +934,69 @@ const EntityDetailPage: React.FC = () => {
                       ))}
                     </div>
                   ) : experts.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {experts.map((expert) => (
-                        <ExpertCard key={expert.userId} expert={expert} />
-                      ))}
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">
+                          {experts.length} expert{experts.length !== 1 && "s"} assigned to this entity.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => setIsExpertSheetOpen(true)}>
+                          <UserIcon className="h-4 w-4 mr-2" />
+                          Manage Experts
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {experts.map((expert) => (
+                          <ExpertCard key={expert.userId} expert={expert} />
+                        ))}
+                      </div>
                     </div>
                   ) : (
-                    <EmptyExpertsState entityName={name || "this entity"} />
+                    <EmptyExpertsState entityName={name || "this entity"} onAddClick={() => setIsExpertSheetOpen(true)} />
                   )}
                 </TabsContent>
 
                 {/* Documentation Tab */}
                 <TabsContent value="documentation" className="mt-0 focus-visible:outline-none">
                   {context?.purpose || context?.businessImpact ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {context.purpose && (
-                        <Card className="h-full border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2 text-primary">
-                              <Sparkles className="h-4 w-4" /> Business Purpose
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <p className="text-sm text-muted-foreground leading-7">{context.purpose}</p>
-                          </CardContent>
-                        </Card>
-                      )}
-                      {context.businessImpact && (
-                        <Card className="h-full border-l-4 border-l-orange-500 shadow-sm hover:shadow-md transition-shadow">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2 text-orange-600 dark:text-orange-400">
-                              <AlertCircle className="h-4 w-4" /> Operational Impact
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <p className="text-sm text-muted-foreground leading-7">{context.businessImpact}</p>
-                          </CardContent>
-                        </Card>
-                      )}
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">
+                          Context and documentation for this entity.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => setIsDocSheetOpen(true)}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Edit Documentation
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {context.purpose && (
+                          <Card className="h-full border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center gap-2 text-primary">
+                                <Sparkles className="h-4 w-4" /> Business Purpose
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-sm text-muted-foreground leading-7">{context.purpose}</p>
+                            </CardContent>
+                          </Card>
+                        )}
+                        {context.businessImpact && (
+                          <Card className="h-full border-l-4 border-l-orange-500 shadow-sm hover:shadow-md transition-shadow">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                                <AlertCircle className="h-4 w-4" /> Operational Impact
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-sm text-muted-foreground leading-7">{context.businessImpact}</p>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <DocumentationEmptyState entityName={name || "this entity"} />
+                    <DocumentationEmptyState entityName={name || "this entity"} onAddClick={() => setIsDocSheetOpen(true)} />
                   )}
                 </TabsContent>
               </Tabs>
@@ -889,6 +1005,29 @@ const EntityDetailPage: React.FC = () => {
 
         </ScrollArea>
       </div>
+
+      {/* Sheets for pop-out editing */}
+      <Sheet open={isExpertSheetOpen} onOpenChange={setIsExpertSheetOpen}>
+        <SheetContent className="sm:max-w-md p-0 overflow-y-auto w-full">
+          <ExpertManagement
+            entityType={entityType}
+            entityId={parsedEntityId}
+            entityName={name || ""}
+          />
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={isDocSheetOpen} onOpenChange={setIsDocSheetOpen}>
+        <SheetContent className="sm:max-w-xl md:max-w-2xl p-0 overflow-y-auto w-full">
+          <ContextEditor
+            projectId={parsedProjectId}
+            entityType={entityType}
+            entityId={parsedEntityId}
+            entityName={name || ""}
+            onSave={() => refetchContext()}
+          />
+        </SheetContent>
+      </Sheet>
     </TooltipProvider>
   );
 };

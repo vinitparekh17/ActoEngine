@@ -11,7 +11,7 @@ import {
 import { Key } from "lucide-react";
 import type { UserDto, UserDetailResponse } from "../../types/user-management";
 import { getActiveBadgeClass, getInactiveBadgeClass } from "./helpers";
-import { safeFormatDate } from "../../lib/utils";
+import { utcToLocal } from "../../lib/utils";
 
 interface UserDetailModalProps {
   readonly isOpen: boolean;
@@ -26,6 +26,13 @@ export function UserDetailModal({
   onClose,
   onChangePassword,
 }: UserDetailModalProps) {
+  const formattedCreatedAt = userDetail?.user?.createdAt
+    ? utcToLocal(userDetail.user.createdAt, "PPpp", "")
+    : "";
+  const formattedUpdatedAt = userDetail?.user?.updatedAt
+    ? utcToLocal(userDetail.user.updatedAt, "PPpp", "")
+    : "";
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -64,23 +71,22 @@ export function UserDetailModal({
                   {userDetail.user.isActive ? "Active" : "Inactive"}
                 </span>
               </div>
-              {safeFormatDate(userDetail.user.createdAt, "") && (
+              {formattedCreatedAt && (
                 <div>
                   <Label className="text-muted-foreground">Created At</Label>
                   <p className="font-medium">
-                    {safeFormatDate(userDetail.user.createdAt)}
+                    {formattedCreatedAt}
                   </p>
                 </div>
               )}
-              {userDetail.user.updatedAt &&
-                safeFormatDate(userDetail.user.updatedAt, "") && (
-                  <div>
-                    <Label className="text-muted-foreground">Updated At</Label>
-                    <p className="font-medium">
-                      {safeFormatDate(userDetail.user.updatedAt)}
-                    </p>
-                  </div>
-                )}
+              {formattedUpdatedAt && (
+                <div>
+                  <Label className="text-muted-foreground">Updated At</Label>
+                  <p className="font-medium">
+                    {formattedUpdatedAt}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

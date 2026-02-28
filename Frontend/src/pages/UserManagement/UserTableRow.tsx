@@ -3,7 +3,7 @@ import { TableCell, TableRow } from "../../components/ui/table";
 import { Pencil, Trash2, Eye, Key, FolderKanban } from "lucide-react";
 import type { UserDto } from "../../types/user-management";
 import { getActiveBadgeClass, getInactiveBadgeClass } from "./helpers";
-import { formatDate } from "../../lib/utils";
+import { utcToLocal } from "../../lib/utils";
 
 interface UserTableRowProps {
   readonly user: UserDto;
@@ -35,7 +35,7 @@ export function UserTableRow({
           {user.isActive ? "Active" : "Inactive"}
         </span>
       </TableCell>
-      <TableCell>{formatDate(user.createdAt)}</TableCell>
+      <TableCell>{utcToLocal(user.createdAt, "PPP")}</TableCell>
       <TableCell>
         <div className="flex gap-2">
           <Button

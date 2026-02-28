@@ -216,12 +216,16 @@ function AppRoutes() {
   );
 }
 
+import { FullscreenProvider } from "./hooks/useFullscreen";
+
 function App() {
   return (
     <QueryProvider>
       <BrowserRouter>
-        <AppRoutes />
-        <Toaster position="top-right" richColors />
+        <FullscreenProvider>
+          <AppRoutes />
+          <Toaster position="top-right" richColors />
+        </FullscreenProvider>
       </BrowserRouter>
     </QueryProvider>
   );

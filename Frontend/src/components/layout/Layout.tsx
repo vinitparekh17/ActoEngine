@@ -4,23 +4,27 @@ import AppSidebar from "./AppSidebar";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SidebarProvider, SidebarInset } from "../ui/sidebar";
 
+import { useFullscreen } from "@/hooks/useFullscreen";
+
 // components/layout/AppLayout.tsx
 export default function AppLayout() {
+  const { isFullscreen } = useFullscreen();
+
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="min-h-screen flex w-full">
+      <div className="flex min-h-screen w-full">
         {/* Global Sidebar - Navigation between features */}
-        <AppSidebar />
+        {!isFullscreen && <AppSidebar />}
 
         {/* Main content area */}
         <SidebarInset>
           {/* Global Header */}
-          <AppHeader />
+          {!isFullscreen && <AppHeader />}
 
           {/* Feature content area */}
           <main className="flex-1">
             <ConfirmDialog />
-            <div className="p-6">
+            <div className={isFullscreen ? "" : "p-6"}>
               <Outlet />
             </div>
           </main>

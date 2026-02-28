@@ -35,6 +35,20 @@ public static class LogicalFkQueries
         WHERE lfk.ProjectId = @ProjectId AND lfk.Status = @Status
         ORDER BY lfk.ConfidenceScore DESC;";
 
+    /// <summary>
+    /// Counts SUGGESTED FKs per table (union of source + target sides)
+    /// </summary>
+    public const string GetPendingCountsByProject = @"
+        SELECT TableId, COUNT(*) AS PendingCount
+        FROM (
+            SELECT LogicalFkId, SourceTableId AS TableId FROM LogicalForeignKeys
+            WHERE ProjectId = @ProjectId AND Status = 'SUGGESTED'
+            UNION
+            SELECT LogicalFkId, TargetTableId AS TableId FROM LogicalForeignKeys
+            WHERE ProjectId = @ProjectId AND Status = 'SUGGESTED'
+        ) x
+        GROUP BY TableId;";
+
     public const string GetById = @"
         SELECT 
             lfk.LogicalFkId, lfk.ProjectId,

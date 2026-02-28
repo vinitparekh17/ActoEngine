@@ -4,15 +4,9 @@ on:
   push:
     paths:
       - Backend/**
-      - ActoEngine.Tests/**
-      - ActoEngine.sln
-      - .github/workflows/**
   pull_request:
     paths:
       - Backend/**
-      - ActoEngine.Tests/**
-      - ActoEngine.sln
-      - .github/workflows/**
 
 jobs:
   test:

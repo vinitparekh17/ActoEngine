@@ -1,5 +1,5 @@
 // pages/EntityExplorer.tsx
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useProject } from "@/hooks/useProject";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   type EntityTab,
 } from "@/components/explorer";
 import { useApi } from "@/hooks/useApi";
+import type { PendingFkCount } from "@/types/er-diagram";
 import { TableMetadataDto, StoredProcedureMetadataDto } from "@/types/context";
 
 // Map URL slugs to entity types
@@ -152,11 +153,34 @@ export default function EntityExplorer() {
     },
   );
 
+  // Fetch pending FK counts
+  const {
+    data: pendingFkData,
+    refetch: refetchPendingFks,
+  } = useApi<PendingFkCount[]>(
+    `/logical-fks/${selectedProjectId}/pending-counts`,
+    {
+      enabled: hasProject && !!selectedProjectId,
+      staleTime: 2 * 60 * 1000, // 2 mins
+    }
+  );
+
+  const pendingFkMap = useMemo(() => {
+    const map = new Map<number, number>();
+    if (pendingFkData) {
+      pendingFkData.forEach((item) => {
+        map.set(item.tableId, item.pendingCount);
+      });
+    }
+    return map;
+  }, [pendingFkData]);
+
   // Handle manual refresh
   const handleRefresh = useCallback(() => {
     refetchTables();
     refetchProcedures();
-  }, [refetchTables, refetchProcedures]);
+    refetchPendingFks();
+  }, [refetchTables, refetchProcedures, refetchPendingFks]);
 
   // Sync URL params to selected entity state
   useEffect(() => {
@@ -279,6 +303,7 @@ export default function EntityExplorer() {
             keepSelectedVisible={true}
             tablesData={tablesData}
             proceduresData={proceduresData}
+            pendingFkCounts={pendingFkMap}
             isLoadingTables={isLoadingTables}
             isLoadingSPs={isLoadingSPs}
             onRefresh={handleRefresh}

@@ -97,3 +97,8 @@ export interface PhysicalFkDto {
     onDeleteAction?: string;
     onUpdateAction?: string;
 }
+
+export interface PendingFkCount {
+    tableId: number;
+    pendingCount: number;
+}
