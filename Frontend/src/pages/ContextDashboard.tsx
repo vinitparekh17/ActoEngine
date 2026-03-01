@@ -217,7 +217,9 @@ export const ContextDashboard: React.FC = () => {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [bulkImportJson, setBulkImportJson] = useState("");
   const pageSize = 10;
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "coverage");
+  const ALLOWED_TABS = ["coverage", "experts", "gaps", "top"];
+  const rawTab = searchParams.get("tab");
+  const activeTab = rawTab && ALLOWED_TABS.includes(rawTab) ? rawTab : "coverage";
 
   // Fetch dashboard data
   const {
@@ -255,13 +257,13 @@ export const ContextDashboard: React.FC = () => {
 
   React.useEffect(() => {
     if (!isLoadingExperts && activeTab === "experts" && (!expertSummary || expertSummary.length === 0)) {
-      setActiveTab("coverage");
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("tab");
+      setSearchParams(nextParams, { replace: true });
     }
-  }, [activeTab, expertSummary, isLoadingExperts]);
+  }, [activeTab, expertSummary, isLoadingExperts, searchParams, setSearchParams]);
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value);
-
     const nextParams = new URLSearchParams(searchParams);
     if (value === "coverage") {
       nextParams.delete("tab");
@@ -301,6 +303,10 @@ export const ContextDashboard: React.FC = () => {
   }, [criticalUndocumented, gapsPage, pageSize]);
 
   const topTotalPages = Math.ceil(topDocumented.length / pageSize);
+
+  React.useEffect(() => {
+    setTopPage((p) => Math.max(1, Math.min(p, topTotalPages)));
+  }, [topDocumented.length, pageSize, topTotalPages]);
   const paginatedTop = useMemo(() => {
     const start = (topPage - 1) * pageSize;
     return topDocumented.slice(start, start + pageSize);
