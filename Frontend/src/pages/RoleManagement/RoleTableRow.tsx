@@ -31,14 +31,12 @@ export function RoleTableRow({
         </div>
       </TableCell>
       <TableCell>{role.description || "-"}</TableCell>
-      <TableCell></TableCell>
       <TableCell>
         <span
-          className={`px-2 py-1 rounded-full text-xs ${
-            role.isActive
+          className={`px-2 py-1 rounded-full text-xs ${role.isActive
               ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
               : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-          }`}
+            }`}
         >
           {role.isActive ? "Active" : "Inactive"}
         </span>

@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace ActoEngine.WebApi.Features.SpBuilder;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SpType
 {
     Cud,       // Create, Update, Delete in ONE SP
@@ -10,10 +13,11 @@ public class SpGenerationRequest
 {
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
+    public string SchemaName { get; set; } = "dbo";
     public SpType Type { get; set; }
     public required List<SpColumnConfig> Columns { get; set; }
-    public required CudSpOptions CudOptions { get; set; }
-    public required SelectSpOptions SelectOptions { get; set; }
+    public CudSpOptions? CudOptions { get; set; }
+    public SelectSpOptions? SelectOptions { get; set; }
 }
 
 public class CudSpOptions
@@ -87,7 +91,8 @@ public class QuickGenerateRequest
 {
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
+    public string SchemaName { get; set; } = "dbo";
     public SpType Type { get; set; }
-    public required CudSpOptions CudOptions { get; set; }
-    public required SelectSpOptions SelectOptions { get; set; }
+    public CudSpOptions? CudOptions { get; set; }
+    public SelectSpOptions? SelectOptions { get; set; }
 }

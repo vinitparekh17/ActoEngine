@@ -169,7 +169,7 @@ export function ProjectMembershipModal({
         </div>
 
         <div className="border rounded-lg bg-card overflow-hidden">
-          <ScrollArea className="h-[400px]">
+          <ScrollArea className="max-h-[60vh]">
             {isLoadingProjects || isLoadingMemberships ? (
               <div className="divide-y">
                 {Array.from({ length: 6 }).map((_, i) => (

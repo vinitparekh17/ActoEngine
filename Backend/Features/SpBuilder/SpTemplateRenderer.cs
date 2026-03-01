@@ -4,9 +4,9 @@ namespace ActoEngine.WebApi.Features.SpBuilder;
 
 public class SpTemplateRenderer
 {
-    public string RenderCud(string tableName, List<SpColumnConfig> cols, CudSpOptions opts)
+    public string RenderCud(string schemaName, string tableName, List<SpColumnConfig> cols, CudSpOptions opts)
     {
-        var spName = $"{opts.SpPrefix}_{tableName}_CUD";
+        var spName = $"[{schemaName}].[{opts.SpPrefix}_{tableName}_CUD]";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
         var createCols = cols.Where(c => c.IncludeInCreate && !c.IsIdentity).ToList();
         var updateCols = cols.Where(c => c.IncludeInUpdate && !c.IsIdentity && !c.IsPrimaryKey).ToList();
@@ -23,7 +23,7 @@ public class SpTemplateRenderer
 
         template = template.Replace("{SP_NAME}", spName);
         template = template.Replace("{ACTION_PARAM}", opts.ActionParamName);
-        template = template.Replace("{TABLE_NAME}", tableName);
+        template = template.Replace("{TABLE_NAME}", BracketQualifiedName($"{schemaName}.{tableName}"));
         template = template.Replace("{PARAMETERS}", BuildParameters(allParams));
         template = template.Replace("{INSERT_COLUMNS}", BuildInsertColumns(createCols));
         template = template.Replace("{INSERT_VALUES}", BuildInsertValues(createCols));
@@ -37,14 +37,14 @@ public class SpTemplateRenderer
         return template;
     }
 
-    public string RenderSelect(string tableName, List<SpColumnConfig> cols, SelectSpOptions opts)
+    public string RenderSelect(string schemaName, string tableName, List<SpColumnConfig> cols, SelectSpOptions opts)
     {
         if (cols == null || cols.Count == 0)
         {
             throw new ArgumentException("Columns collection cannot be empty when rendering SELECT stored procedure.", nameof(cols));
         }
 
-        var spName = $"{opts.SpPrefix}_{tableName}_Select";
+        var spName = $"[{schemaName}].[{opts.SpPrefix}_{tableName}_Select]";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
         var orderByCols = opts.OrderByColumns.Count != 0
             ? opts.OrderByColumns
@@ -60,12 +60,10 @@ public class SpTemplateRenderer
         // Determine the exact table identifier used by the main SELECT's FROM clause,
         // so the TOTAL COUNT query uses the same source. If the provided tableName is
         // already schema-qualified (schema.Table), use that; otherwise default to dbo.
-        string mainFromIdentifier = tableName.Contains('.')
-            ? BracketQualifiedName(tableName)
-            : $"{BracketIdentifier("dbo")}.{BracketIdentifier(tableName)}";
+        string mainFromIdentifier = BracketQualifiedName($"{schemaName}.{tableName}");
 
         template = template.Replace("{SP_NAME}", spName);
-        template = template.Replace("{TABLE_NAME}", tableName);
+        template = template.Replace("{TABLE_NAME}", mainFromIdentifier);
         template = template.Replace("{SELECT_COLUMNS}", BuildSelectColumns(cols));
         template = template.Replace("{ORDER_BY_CLAUSE}", BuildOrderByClause(orderByCols));
 
