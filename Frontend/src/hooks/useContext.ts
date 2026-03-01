@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useApi, useApiPost, useApiPut, useApiDelete, api } from "./useApi";
 import { useProject } from "./useProject";
 import { toast } from "sonner";
-import { EntityContext, SaveContextRequest } from "../types/context";
+import {
+  EntityContext,
+  SaveContextRequest,
+} from "../types/context";
 
 // Types
 export interface ContextData {
@@ -42,9 +45,7 @@ export interface ContextResponse {
     businessImpact?: string;
   };
   completenessScore: number;
-  isStale: boolean;
   dependencyCount: number;
-  lastReviewed?: string;
 }
 
 export interface CoverageStats {
@@ -70,14 +71,6 @@ export interface DashboardData {
     coveragePercentage: number;
     avgCompleteness?: number;
   }>;
-  staleEntities: Array<{
-    entityType: "TABLE" | "COLUMN" | "SP";
-    entityId: number;
-    entityName: string;
-    lastContextUpdate: string;
-    daysSinceUpdate: number;
-    schemaChanged: boolean;
-  }>;
   topDocumented: Array<{
     entityType: "TABLE" | "COLUMN" | "SP";
     entityId: number;
@@ -95,7 +88,6 @@ export interface DashboardData {
     priority: "HIGH" | "MEDIUM" | "LOW";
     lastSchemaChange?: string;
   }>;
-  staleCount: number;
   lastUpdated: string;
   trends?: {
     coverageChange: number;
@@ -151,13 +143,12 @@ export function useEntityContext(
 export function useSaveContext(
   entityType: string,
   entityId: number,
-  onSuccess?: (data: EntityContext) => void, // ← Fixed type
+  onSuccess?: (data: EntityContext) => void,
 ) {
   const { selectedProjectId } = useProject();
 
   const handleSuccess = useCallback(
     (data: EntityContext) => {
-      // ← Fixed type
       toast.success("Context saved", {
         description: "Documentation updated successfully",
       });
@@ -175,22 +166,22 @@ export function useSaveContext(
       invalidateKeys:
         selectedProjectId != null
           ? [
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                entityType,
-                String(entityId),
-              ],
-              ["projects", String(selectedProjectId), "context", "dashboard"],
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                "statistics",
-                "coverage",
-              ],
-            ]
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              entityType,
+              String(entityId),
+            ],
+            ["projects", String(selectedProjectId), "context", "dashboard"],
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              "statistics",
+              "coverage",
+            ],
+          ]
           : [],
     },
   );
@@ -219,7 +210,7 @@ export function useQuickSaveContext(onSuccess?: (data: EntityContext) => void) {
       criticalityLevel?: number;
     }
   >(
-    `/projects/${selectedProjectId}/context/quick-save`, // ← New endpoint
+    `/projects/${selectedProjectId}/context/quick-save`,
     {
       showSuccessToast: false,
       showErrorToast: true,
@@ -227,15 +218,15 @@ export function useQuickSaveContext(onSuccess?: (data: EntityContext) => void) {
       invalidateKeys:
         selectedProjectId != null
           ? [
-              ["projects", String(selectedProjectId), "context", "dashboard"],
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                "statistics",
-                "coverage",
-              ],
-            ]
+            ["projects", String(selectedProjectId), "context", "dashboard"],
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              "statistics",
+              "coverage",
+            ],
+          ]
           : [],
     },
   );
@@ -383,14 +374,14 @@ export function useAddExpert(
       invalidateKeys:
         selectedProjectId != null
           ? [
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                entityType,
-                String(entityId),
-              ],
-            ]
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              entityType,
+              String(entityId),
+            ],
+          ]
           : [],
     },
   );
@@ -423,61 +414,14 @@ export function useRemoveExpert(
       invalidateKeys:
         selectedProjectId != null
           ? [
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                entityType,
-                String(entityId),
-              ],
-            ]
-          : [],
-    },
-  );
-}
-
-/**
- * Hook to mark context as reviewed
- */
-export function useMarkContextReviewed(
-  entityType: string,
-  entityId: number,
-  onSuccess?: () => void,
-) {
-  const { selectedProjectId } = useProject();
-
-  const handleSuccess = useCallback(() => {
-    toast.success("Marked as reviewed", {
-      description: "Context has been marked as up to date",
-    });
-    onSuccess?.();
-  }, [onSuccess]);
-
-  return useApiPost<void, void>(
-    `/projects/${selectedProjectId}/context/${entityType}/${entityId}/mark-reviewed`,
-    {
-      showSuccessToast: false, // We handle it manually
-      showErrorToast: true,
-      onSuccess: handleSuccess,
-      invalidateKeys:
-        selectedProjectId != null
-          ? [
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                entityType,
-                String(entityId),
-              ],
-              [
-                "projects",
-                String(selectedProjectId),
-                "context",
-                "statistics",
-                "stale",
-              ],
-              ["projects", String(selectedProjectId), "context", "dashboard"],
-            ]
+            [
+              "projects",
+              String(selectedProjectId),
+              "context",
+              entityType,
+              String(entityId),
+            ],
+          ]
           : [],
     },
   );
@@ -519,15 +463,15 @@ export function useBulkImportContext(
     invalidateKeys:
       selectedProjectId != null
         ? [
-            ["projects", String(selectedProjectId), "context", "dashboard"],
-            [
-              "projects",
-              String(selectedProjectId),
-              "context",
-              "statistics",
-              "coverage",
-            ],
-          ]
+          ["projects", String(selectedProjectId), "context", "dashboard"],
+          [
+            "projects",
+            String(selectedProjectId),
+            "context",
+            "statistics",
+            "coverage",
+          ],
+        ]
         : [],
   });
 }
@@ -559,7 +503,6 @@ export function useContextStats() {
     totalEntities: number;
     documentedEntities: number;
     overallCoverage: number;
-    staleCount: number;
     criticalUndocumentedCount: number;
     expertCount: number;
     lastUpdated: string;
@@ -595,9 +538,8 @@ export function useContextSearch(
     searchParams.append("minCompleteness", options.minCompleteness.toString());
   }
 
-  const endpoint = `/projects/${selectedProjectId}/context/search${
-    searchParams.toString() ? `?${searchParams.toString()}` : ""
-  }`;
+  const endpoint = `/projects/${selectedProjectId}/context/search${searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`;
 
   return useApi<
     Array<{

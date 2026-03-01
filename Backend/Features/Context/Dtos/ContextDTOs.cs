@@ -34,7 +34,6 @@ public class ContextResponse
     public List<EntityExpert> Experts { get; set; } = [];
     public ContextSuggestions? Suggestions { get; set; }
     public int CompletenessScore { get; set; }
-    public bool IsStale { get; set; }
     public int DependencyCount { get; set; }
 }
 
@@ -89,20 +88,6 @@ public class BulkImportResult
     public string? Error { get; set; }
 }
 
-public class CreateReviewRequestModel
-{
-    [Required]
-    public required string EntityType { get; set; }
-
-    [Required]
-    [Range(1, int.MaxValue)]
-    public int EntityId { get; set; }
-
-    public int? AssignedTo { get; set; }
-
-    [StringLength(500)]
-    public string? Reason { get; set; }
-}
 
 public class ContextCoverageStats
 {
@@ -164,7 +149,6 @@ public class StaleContextEntity
     public int EntityId { get; set; }
     public required string EntityName { get; set; }
     public DateTime? LastContextUpdate { get; set; }
-    public DateTime? LastReviewedAt { get; set; }
     public int DaysSinceUpdate { get; set; }
 }
 

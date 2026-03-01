@@ -14,6 +14,9 @@ export interface TableSchemaResponse {
   tableName: string;
   schemaName: string;
   description?: string;
+  schema: {
+    columns: ColumnSchema[];
+  };
   columns: ColumnSchema[];
   primaryKeys: string[];
 }
@@ -310,11 +313,28 @@ export function useTableSchema(
     retry: 2,
   });
 
+  // Normalize the response so that callers never have to worry about
+  // `columns` being undefined. Some backend endpoints historically returned
+  // `null` when hitting errors, which would break consumers with
+  // "cannot read properties of undefined" bugs. This defensive transform
+  // mirrors the guard logic in SpBuilder.
+  const normalizedColumns = schema?.columns || [];
+  const normalizedSchema = schema
+    ? {
+      ...schema,
+      columns: normalizedColumns,
+      schema: {
+        ...schema.schema,
+        columns: schema.schema?.columns || normalizedColumns,
+      },
+    }
+    : undefined;
+
   return {
-    schema,
+    schema: normalizedSchema,
     isLoading,
     error,
-    hasSchema: !!schema,
+    hasSchema: !!normalizedSchema,
   } as const;
 }
 

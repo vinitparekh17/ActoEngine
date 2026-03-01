@@ -24,7 +24,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Info, Check, AlertCircle, Edit, X, AlertTriangle } from "lucide-react";
+import { Info, Check, AlertCircle, Edit, X } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useSaveContext } from "@/hooks/useContext";
 import type { SaveContextRequest } from "@/types/context";
@@ -67,10 +67,8 @@ interface ContextData {
 
     criticalityLevel?: number;
     sensitivity?: string;
-    reviewedBy?: string;
   };
   completenessScore: number;
-  isStale: boolean;
   suggestions?: {
     purpose?: string;
     businessDomain?: string;
@@ -93,7 +91,6 @@ interface ContextData {
       username: string;
     };
   }>;
-  lastReviewed?: string;
 }
 
 interface ContextEditorProps {
@@ -146,7 +143,6 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
         businessDomain: savedData.businessDomain,
         criticalityLevel: savedData.criticalityLevel,
         sensitivity: savedData.sensitivity,
-        reviewedBy: savedData.reviewedBy?.toString(),
       });
       hasUnsavedChanges.current = false;
       onSave?.();
@@ -221,7 +217,6 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
   );
 
   const completeness = contextData?.completenessScore || 0;
-  const isStale = contextData?.isStale || false;
 
   // Error state
   if (error) {
@@ -267,15 +262,6 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                 >
                   {completeness}% Complete
                 </Badge>
-                {isStale && (
-                  <Badge
-                    variant="outline"
-                    className="border-orange-500 text-orange-600"
-                  >
-                    <AlertTriangle className="w-3 h-3 mr-1" />
-                    Needs Review
-                  </Badge>
-                )}
                 {isSaving && (
                   <Badge
                     variant="outline"
@@ -313,16 +299,6 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
         </CardHeader>
 
         <CardContent>
-          {isStale && (
-            <Alert className="mb-4 border-orange-200 bg-orange-50">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <AlertDescription>
-                The schema has changed since this context was last updated.
-                Please review.
-              </AlertDescription>
-            </Alert>
-          )}
-
           <div className="space-y-6">
             {/* Purpose - Always shown */}
             <div className="space-y-2">
@@ -572,11 +548,6 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                       <Badge variant="outline" className="text-xs">
                         {expert.expertiseLevel}
                       </Badge>
-                      {isEditing && (
-                        <Button variant="ghost" size="sm">
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -619,18 +590,6 @@ export const ContextEditor: React.FC<ContextEditorProps> = ({
                   )}
               </div>
             )}
-
-            {/* Last Updated Info */}
-            {contextData?.lastReviewed && (
-              <div className="pt-4 border-t">
-                <p className="text-xs text-muted-foreground">
-                  Last reviewed{" "}
-                  {formatRelativeTime(contextData.lastReviewed, "unknown")}
-                  {contextData?.context?.reviewedBy &&
-                    ` by ${contextData.context.reviewedBy}`}
-                </p>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -661,7 +620,6 @@ function getPurposePlaceholder(entityType: string): string {
  * - Returns uppercased initials or '?' when no valid characters found
  */
 function getInitials(name?: string): string {
-  console.log(name);
   if (!name) return "?";
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = parts.map((p) => p[0]).filter(Boolean);

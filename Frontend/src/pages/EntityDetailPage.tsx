@@ -135,7 +135,6 @@ interface ContextResponse {
   };
   experts: Expert[];
   completenessScore: number;
-  isStale: boolean;
 }
 
 type EntityType = "TABLE" | "SP";

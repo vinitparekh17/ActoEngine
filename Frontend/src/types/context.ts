@@ -113,9 +113,6 @@ export interface EntityContext {
   replacedBy?: string;
 
   // Metadata
-  isContextStale: boolean;
-  lastReviewedAt?: string;
-  reviewedBy?: number;
   lastContextUpdate?: string;
   contextUpdatedBy?: number;
   createdAt: string;
@@ -155,18 +152,6 @@ export interface ContextHistory {
   changeReason?: string;
 }
 
-export interface ContextReviewRequest {
-  requestId: number;
-  entityType: EntityType;
-  entityId: number;
-  requestedBy: number;
-  assignedTo?: number;
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
-  reason?: string;
-  createdAt: string;
-  completedAt?: string;
-}
-
 // Request/Response DTOs
 
 export interface SaveContextRequest {
@@ -192,7 +177,6 @@ export interface ContextResponse {
   experts: EntityExpert[];
   suggestions?: ContextSuggestions;
   completenessScore: number;
-  isStale: boolean;
   dependencyCount: number;
 }
 
@@ -241,20 +225,9 @@ export interface ContextCoverageStats {
 
 export interface DashboardData {
   coverage: ContextCoverageStats[];
-  staleCount: number;
-  staleEntities: StaleEntity[];
   topDocumented: DocumentedEntity[];
   criticalUndocumented: UndocumentedEntity[];
   lastUpdated: string;
-}
-
-export interface StaleEntity {
-  entityType: EntityType;
-  entityId: number;
-  entityName: string;
-  lastContextUpdate: string;
-  lastReviewedAt?: string;
-  daysSinceUpdate: number;
 }
 
 export interface DocumentedEntity {

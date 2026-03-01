@@ -220,41 +220,12 @@ public class ContextController(
     {
         var fields = new[]
         {
-        context.Purpose,
-        context.BusinessImpact,
-        context.BusinessDomain
-    };
+            context.Purpose,
+            context.BusinessImpact,
+            context.BusinessDomain
+        };
         var filled = fields.Count(f => !string.IsNullOrWhiteSpace(f));
         return (int)Math.Round((filled / (double)fields.Length) * 100);
-    }
-    /// <summary>
-    /// Mark context as reviewed (fresh)
-    /// </summary>
-    [HttpPost("{entityType:regex(^(TABLE|COLUMN|SP|FUNCTION|VIEW)$)}/{entityId:int}/mark-reviewed")]
-    [RequirePermission("Contexts:Update")]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> MarkContextReviewed(
-        int projectId,
-        string entityType,
-        int entityId)
-    {
-        try
-        {
-            var userId = HttpContext.GetUserId();
-            if (userId == null)
-            {
-                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
-            }
-
-            await _contextService.MarkContextFreshAsync(projectId, entityType, entityId, userId.Value);
-
-            return Ok(ApiResponse<object>.Success(new { }, "Context marked as reviewed"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error marking context as reviewed");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
-        }
     }
 
     #endregion
@@ -418,72 +389,6 @@ public class ContextController(
         {
             _logger.LogError(ex, "Error bulk importing context");
             return StatusCode(500, ApiResponse<object>.Failure("An error occurred during bulk import"));
-        }
-    }
-
-    #endregion
-
-    #region Review Management
-
-    /// <summary>
-    /// Create review request
-    /// </summary>
-    [HttpPost("review-requests")]
-    [RequirePermission("Contexts:Update")]
-    [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreateReviewRequest(
-        int projectId,
-        [FromBody] CreateReviewRequestModel request)
-    {
-        try
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
-            }
-
-            var userId = HttpContext.GetUserId();
-            if (userId == null)
-            {
-                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
-            }
-
-            var requestId = await _contextService.CreateReviewRequestAsync(
-                projectId,
-                request.EntityType,
-                request.EntityId,
-                userId.Value,
-                request.AssignedTo,
-                request.Reason);
-
-            return Ok(ApiResponse<object>.Success(new { requestId }, "Review request created successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating review request");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
-        }
-    }
-
-    /// <summary>
-    /// Get pending review requests
-    /// </summary>
-    [HttpGet("review-requests/pending")]
-    [RequirePermission("Contexts:Read")]
-    [ProducesResponseType(typeof(List<ContextReviewRequest>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetPendingReviewRequests(
-        [FromQuery] int? assignedTo = null)
-    {
-        try
-        {
-            var requests = await _contextService.GetPendingReviewRequestsAsync(assignedTo);
-            return Ok(ApiResponse<IEnumerable<ContextReviewRequest>>.Success(requests, "Pending review requests retrieved successfully"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting review requests");
-            return StatusCode(500, ApiResponse<object>.Failure("An error occurred"));
         }
     }
 

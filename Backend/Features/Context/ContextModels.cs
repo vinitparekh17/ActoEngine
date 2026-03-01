@@ -107,29 +107,6 @@ public class BulkImportResult
     public string? Error { get; set; }
 }
 
-/// <summary>
-/// Request model for creating a review request for an entity's context
-/// </summary>
-public class CreateReviewRequestModel
-{
-    [Required]
-    public required string EntityType { get; set; }
-
-    [Required]
-    [Range(1, int.MaxValue)]
-    public int EntityId { get; set; }
-
-    /// <summary>
-    /// Optional: Assign the review to a specific user
-    /// </summary>
-    public int? AssignedTo { get; set; }
-
-    /// <summary>
-    /// Optional: Reason or context for the review
-    /// </summary>
-    [StringLength(500)]
-    public string? Reason { get; set; }
-}
 
 /// <summary>
 /// Context coverage statistics
@@ -203,7 +180,6 @@ public class StaleContextEntity
     public int EntityId { get; set; }
     public required string EntityName { get; set; }
     public DateTime? LastContextUpdate { get; set; }
-    public DateTime? LastReviewedAt { get; set; }
     public int DaysSinceUpdate { get; set; }
 }
 
