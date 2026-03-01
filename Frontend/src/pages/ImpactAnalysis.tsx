@@ -84,22 +84,7 @@ function getEntityTypeLabel(type: string): string {
   }
 }
 
-function toContextEntityType(
-  type?: string,
-): "TABLE" | "COLUMN" | "SP" | "FUNCTION" | "VIEW" | null {
-  if (!type) return null;
-  const normalized = type.toUpperCase();
-  if (
-    normalized === "TABLE" ||
-    normalized === "COLUMN" ||
-    normalized === "SP" ||
-    normalized === "FUNCTION" ||
-    normalized === "VIEW"
-  ) {
-    return normalized;
-  }
-  return null;
-}
+
 
 function getDependencyTypeLabel(depType: number | string): string {
   const labels: Record<number, string> = {

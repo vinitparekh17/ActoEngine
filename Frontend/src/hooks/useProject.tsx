@@ -318,8 +318,16 @@ export function useTableSchema(
   // `null` when hitting errors, which would break consumers with
   // "cannot read properties of undefined" bugs. This defensive transform
   // mirrors the guard logic in SpBuilder.
+  const normalizedColumns = schema?.columns || [];
   const normalizedSchema = schema
-    ? { ...schema, columns: schema.columns || [] }
+    ? {
+      ...schema,
+      columns: normalizedColumns,
+      schema: {
+        ...schema.schema,
+        columns: schema.schema?.columns || normalizedColumns,
+      },
+    }
     : undefined;
 
   return {

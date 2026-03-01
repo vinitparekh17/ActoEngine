@@ -119,14 +119,7 @@ public static class ContextQueries
           AND EntityType = @EntityType
           AND EntityId = @EntityId;";
 
-    public const string MarkContextStale = @"
-        UPDATE EntityContext
-        SET LastContextUpdate = GETUTCDATE()
-        WHERE ProjectId = @ProjectId 
-          AND EntityType = @EntityType 
-          AND EntityId = @EntityId;";
-
-    public const string MarkContextFresh = @"
+    public const string MarkContextUpdated = @"
         UPDATE EntityContext
         SET LastContextUpdate = GETUTCDATE()
         WHERE ProjectId = @ProjectId 

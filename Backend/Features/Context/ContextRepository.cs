@@ -16,8 +16,7 @@ public interface IContextRepository
     Task<IEnumerable<EntityContext>> GetContextBatchAsync(int projectId, List<EntityKey> entities, CancellationToken cancellationToken = default);
     Task<EntityContext?> GetContextByNameAsync(int projectId, string entityType, string entityName, CancellationToken cancellationToken = default);
     Task<EntityContext> UpsertContextAsync(int projectId, string entityType, int entityId, string entityName, SaveContextRequest request, int userId, CancellationToken cancellationToken = default);
-    Task MarkContextStaleAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
-    Task MarkContextFreshAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
+    Task MarkContextUpdatedAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
 
     // Entity Experts
     Task<List<EntityExpert>> GetExpertsAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default);
@@ -196,27 +195,15 @@ public class ContextRepository(
         return context;
     }
 
-    public async Task MarkContextStaleAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default)
+    public async Task MarkContextUpdatedAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default)
     {
         var rows = await ExecuteAsync(
-            ContextQueries.MarkContextStale,
+            ContextQueries.MarkContextUpdated,
             new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
             cancellationToken);
         if (rows == 0)
         {
-            _logger.LogWarning("No rows marked stale for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
-        }
-    }
-
-    public async Task MarkContextFreshAsync(int projectId, string entityType, int entityId, CancellationToken cancellationToken = default)
-    {
-        var rows = await ExecuteAsync(
-            ContextQueries.MarkContextFresh,
-            new { ProjectId = projectId, EntityType = entityType, EntityId = entityId },
-            cancellationToken);
-        if (rows == 0)
-        {
-            _logger.LogWarning("No rows marked fresh for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
+            _logger.LogWarning("No rows updated for {EntityType} {EntityId} in project {ProjectId}", entityType, entityId, projectId);
         }
     }
 

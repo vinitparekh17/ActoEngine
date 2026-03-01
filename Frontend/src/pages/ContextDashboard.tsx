@@ -63,7 +63,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { BulkContextEntry } from "@/types/context";
 import { toast } from "sonner";
-import { useAuthorization } from "@/hooks/useAuth";
 
 // Types
 interface CoverageItem {
@@ -218,9 +217,7 @@ export const ContextDashboard: React.FC = () => {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [bulkImportJson, setBulkImportJson] = useState("");
   const pageSize = 10;
-  const [activeTab, setActiveTab] = useState(() =>
-    "coverage"
-  );
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "coverage");
 
   // Fetch dashboard data
   const {
@@ -257,16 +254,20 @@ export const ContextDashboard: React.FC = () => {
   });
 
   React.useEffect(() => {
-    if (activeTab === "experts" && (!expertSummary || expertSummary.length === 0)) {
+    if (!isLoadingExperts && activeTab === "experts" && (!expertSummary || expertSummary.length === 0)) {
       setActiveTab("coverage");
     }
-  }, [activeTab, expertSummary]);
+  }, [activeTab, expertSummary, isLoadingExperts]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
 
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete("tab");
+    if (value === "coverage") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", value);
+    }
     setSearchParams(nextParams, { replace: true });
   };
 
