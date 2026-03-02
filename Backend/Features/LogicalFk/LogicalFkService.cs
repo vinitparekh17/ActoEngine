@@ -606,17 +606,31 @@ public partial class LogicalFkService(
     {
         var parts = new List<string>();
 
+        // helper to preview SP names while respecting policy limits
+        static string PreviewSpNames(SpJoinEvidence evidence)
+        {
+            var total = evidence.SpNames.Count;
+            if (total <= LogicalFkDetectionReasonPolicy.SpNamesPreviewCount)
+            {
+                return string.Join(", ", evidence.SpNames);
+            }
+
+            var preview = string.Join(", ", evidence.SpNames
+                .Take(LogicalFkDetectionReasonPolicy.SpNamesPreviewCount));
+            return preview + $" (+{total - LogicalFkDetectionReasonPolicy.SpNamesPreviewCount} more)";
+        }
+
         if (signals.Corroborated)
         {
             parts.Add($"Corroborated: Column '{sourceCol.ColumnName}' matches naming convention " +
                        $"AND is joined to '{targetCol.TableName}.{targetCol.ColumnName}' " +
-                       $"in {spEvidence!.SpNames.Count} SP(s): {string.Join(", ", spEvidence.SpNames)}");
+                       $"in {spEvidence!.SpNames.Count} SP(s): {PreviewSpNames(spEvidence)}");
         }
         else if (signals.SpJoinDetected)
         {
             parts.Add($"SP JOIN: '{sourceCol.TableName}.{sourceCol.ColumnName}' joined to " +
                        $"'{targetCol.TableName}.{targetCol.ColumnName}' " +
-                       $"in {spEvidence!.SpNames.Count} SP(s): {string.Join(", ", spEvidence.SpNames)}");
+                       $"in {spEvidence!.SpNames.Count} SP(s): {PreviewSpNames(spEvidence)}");
         }
         else if (signals.NamingDetected)
         {
@@ -634,7 +648,9 @@ public partial class LogicalFkService(
             parts.Add($"Caps applied: {string.Join(", ", result.CapsApplied)}");
         }
 
-        return string.Join(". ", parts);
+        var reason = string.Join(". ", parts);
+        // ensure we don't exceed storage capacity
+        return LogicalFkDetectionReasonPolicy.Clamp(reason);
     }
 
     /// <summary>

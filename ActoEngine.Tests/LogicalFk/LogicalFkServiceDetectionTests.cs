@@ -179,6 +179,52 @@ public class LogicalFkServiceDetectionTests
     }
 
     [Fact]
+    public async Task T06A_Reason_Truncates_SpList_WhenManyProcedures()
+    {
+        // arrange: create detection with more procedures than preview policy
+        List<DetectionColumnInfo> columns =
+        [
+            Col(10, 1, "Orders", "cust_id", "int"),
+            Col(20, 2, "Customers", "id", "int", isPk: true, isUnique: true)
+        ];
+
+        List<JoinConditionInfo> joinConditions =
+        [
+            new JoinConditionInfo
+            {
+                LeftTable = "Orders",
+                LeftColumn = "cust_id",
+                RightTable = "Customers",
+                RightColumn = "id"
+            }
+        ];
+
+        // exceed preview count by a large margin
+        var service = LogicalFkServiceBuilder.Create()
+            .WithColumns(columns)
+            .WithProcedures(LogicalFkDetectionReasonPolicy.SpNamesPreviewCount + 40)
+            .WithJoinConditions(joinConditions)
+            .Build();
+
+        // act
+        var candidates = await service.DetectCandidatesAsync(1);
+        var candidate = Assert.Single(candidates);
+
+        // assert
+        Assert.Contains("+", candidate.Reason); // truncated indicator present
+
+        // total SP count should still be in the message (preview count + 40)
+        var total = LogicalFkDetectionReasonPolicy.SpNamesPreviewCount + 40;
+        Assert.Contains($"in {total} SP(s)", candidate.Reason);
+
+        // ensure the remainder indicator shows the correct number
+        Assert.Contains($"(+{total - LogicalFkDetectionReasonPolicy.SpNamesPreviewCount} more)", candidate.Reason);
+
+        Assert.True(candidate.Reason.Length <= LogicalFkDetectionReasonPolicy.DetectionReasonMaxChars,
+            "Reason should not exceed configured max length");
+    }
+
+    [Fact]
     public async Task T07_Service_Corroborated_TypeMismatch_Returns075()
     {
         List<DetectionColumnInfo> columns =
