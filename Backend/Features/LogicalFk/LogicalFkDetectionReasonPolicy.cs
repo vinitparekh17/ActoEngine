@@ -14,9 +14,14 @@ public static class LogicalFkDetectionReasonPolicy
         {
             return string.Empty;
         }
+        if (reason.Length <= DetectionReasonMaxChars)
+        {
+            return reason;
+        }
 
-        return reason.Length <= DetectionReasonMaxChars
-            ? reason
-            : reason[..DetectionReasonMaxChars];
+        const string ellipsis = "...";
+        int cutIndex = DetectionReasonMaxChars - ellipsis.Length;
+    
+        return reason[..cutIndex] + ellipsis;
     }
 }
