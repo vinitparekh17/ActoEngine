@@ -124,7 +124,7 @@ export default function StepperHeader({
                     )}
                 </div>
 
-                {current >= 1 && (
+                {spType && (
                     <>
                         <div className="w-px h-4 bg-border hidden sm:block" />
                         <Badge

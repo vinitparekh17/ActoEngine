@@ -131,12 +131,15 @@ export default function SpBuilder() {
       }
       setIsGenerating(true);
 
-      let schemaName = (tableSchema.schemaName || "dbo").trim() || "dbo";
+      let schemaName = (tableSchema.schemaName || "").trim();
       let actualTableName = tableSchema.tableName || selectedTable;
-      if (selectedTable.includes(".")) {
+      if (!schemaName && selectedTable.includes(".")) {
         const parts = selectedTable.split(".");
         schemaName = parts[0];
         actualTableName = parts.slice(1).join(".");
+      }
+      if (!schemaName) {
+        schemaName = "dbo";
       }
 
       const requestData = {
@@ -232,7 +235,8 @@ export default function SpBuilder() {
         )}
 
         {/* Step 1 — Configure */}
-        <div className={cn("h-full overflow-y-auto custom-scrollbar", step !== 1 && "hidden")}>
+        {step === 1 && (
+        <div className="h-full overflow-y-auto custom-scrollbar">
           <div className="max-w-6xl mx-auto w-full py-8 px-4 sm:px-6">
             <div className="mb-8 animate-in fade-in slide-in-from-left-4 duration-300">
               <Button
@@ -274,6 +278,7 @@ export default function SpBuilder() {
             )}
           </div>
         </div>
+        )}
 
         {/* Step 2 — Preview */}
         {step === 2 && (
