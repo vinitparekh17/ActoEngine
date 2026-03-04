@@ -15,6 +15,7 @@ import {
 import SPTypeCard, { type SPType } from "./SPTypeCard";
 import TableSchemaViewer, { type TableSchema } from "@/components/database/TableSchemaViewer";
 import type { SPConfigValues } from "@/schema/spBuilderSchema";
+import { getDefaultSpConfig } from "./spConfigDefaults";
 
 const getDefaultColumnConfigs = (schema: TableSchema) => {
   return schema.columns.reduce(
@@ -57,25 +58,9 @@ export default function SPConfigPanel({
   // Full reset only when the SP type is switched (CUD ↔ SELECT)
   useEffect(() => {
     if (spType === "CUD") {
-      form.reset({
-        mode: "CUD",
-        generateCreate: true,
-        generateUpdate: true,
-        generateDelete: true,
-        spPrefix: "usp",
-        includeErrorHandling: true,
-        includeTransaction: true,
-        actionParamName: "Action",
-        includeInCreate: {},
-        includeInUpdate: {},
-      } as any);
+      form.reset(getDefaultSpConfig("CUD") as any);
     } else {
-      form.reset({
-        mode: "SELECT",
-        includePagination: true,
-        orderBy: [],
-        filters: [],
-      } as any);
+      form.reset(getDefaultSpConfig("SELECT") as any);
     }
   }, [spType]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -295,7 +280,7 @@ export default function SPConfigPanel({
                       >
                         <SelectTrigger className="rounded-lg bg-background h-10 border-border/60 shadow-sm font-mono text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {["=", "LIKE", ">", "<", "BETWEEN"].map((op) => (
+                          {["=", "LIKE", ">", "<", "BETWEEN", "IN"].map((op) => (
                             <SelectItem key={op} value={op} className="font-mono">{op}</SelectItem>
                           ))}
                         </SelectContent>
@@ -315,6 +300,7 @@ export default function SPConfigPanel({
                         type="button" size="icon" variant="ghost"
                         className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg h-10 w-10 transition-colors"
                         onClick={() => remove(idx)}
+                        aria-label={`Remove filter ${idx + 1}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

@@ -26,7 +26,7 @@ export const CUDSchema = z.object({
 
 export const FilterSchema = z.object({
     column: z.string().min(1, "Column required"),
-    operator: z.enum(["=", "LIKE", ">", "<", "BETWEEN"]),
+    operator: z.enum(["=", "LIKE", ">", "<", "BETWEEN", "IN"]),
     optional: z.boolean().default(false),
 });
 

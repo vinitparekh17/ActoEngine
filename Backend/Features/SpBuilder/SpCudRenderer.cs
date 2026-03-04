@@ -6,9 +6,13 @@ public class SpCudRenderer
 {
     public string RenderCud(string tableName, List<SpColumnConfig> cols, CudSpOptions opts)
     {
+        var validatedActionParamName = SpTemplateRendererUtilities.ValidateSqlIdentifier(
+            opts.ActionParamName,
+            nameof(opts.ActionParamName));
         var escapedObjectName = ExtractObjectName(tableName);
         var escapedPrefix = opts.SpPrefix?.Replace("]", "]]") ?? "usp";
         var spName = $"[{escapedPrefix}_{escapedObjectName.Trim('[', ']')}_CUD]";
+        var escapedQualifiedTableName = SpTemplateRendererUtilities.BracketQualifiedName(tableName);
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
         var createCols = opts.GenerateCreate ? cols.Where(c => c.IncludeInCreate && !c.IsIdentity).ToList() : [];
         var updateCols = opts.GenerateUpdate ? cols.Where(c => c.IncludeInUpdate && !c.IsIdentity && !c.IsPrimaryKey).ToList() : [];
@@ -16,9 +20,9 @@ public class SpCudRenderer
 
         // Build action comment from enabled operations
         var activeActions = new List<string>();
-        if (opts.GenerateCreate) activeActions.Add("'C' = Create");
-        if (opts.GenerateUpdate) activeActions.Add("'U' = Update");
-        if (opts.GenerateDelete) activeActions.Add("'D' = Delete");
+        if (opts.GenerateCreate && createCols.Count > 0) activeActions.Add("'C' = Create");
+        if (opts.GenerateUpdate && updateCols.Count > 0 && pkCols.Count > 0) activeActions.Add("'U' = Update");
+        if (opts.GenerateDelete && pkCols.Count > 0) activeActions.Add("'D' = Delete");
         if (activeActions.Count == 0)
         {
             throw new ArgumentException("No CUD operations enabled; at least one of GenerateCreate/GenerateUpdate/GenerateDelete must be true");
@@ -38,13 +42,13 @@ public class SpCudRenderer
         if (opts.GenerateCreate && createCols.Count > 0)
         {
             var returnIdentity = identityCol != null
-                ? $"\n        SELECT SCOPE_IDENTITY() AS [{identityCol.ColumnName}];"
+                ? $"\n        SELECT SCOPE_IDENTITY() AS {SpTemplateRendererUtilities.BracketIdentifier(identityCol.ColumnName)};"
                 : "";
             bodySections.Add(
                 $"    -- CREATE\n" +
-                $"    IF @{opts.ActionParamName} = 'C'\n" +
+                $"    IF @{validatedActionParamName} = 'C'\n" +
                 $"    BEGIN\n" +
-                $"        INSERT INTO {tableName} (\n" +
+                $"        INSERT INTO {escapedQualifiedTableName} (\n" +
                 $"{BuildInsertColumns(createCols)}\n" +
                 $"        )\n" +
                 $"        VALUES (\n" +
@@ -58,9 +62,9 @@ public class SpCudRenderer
             var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
             bodySections.Add(
                 $"    -- UPDATE\n" +
-                $"{keyword} @{opts.ActionParamName} = 'U'\n" +
+                $"{keyword} @{validatedActionParamName} = 'U'\n" +
                 $"    BEGIN\n" +
-                $"        UPDATE {tableName}\n" +
+                $"        UPDATE {escapedQualifiedTableName}\n" +
                 $"        SET\n" +
                 $"{BuildUpdateSetClause(updateCols)}\n" +
                 $"        WHERE\n" +
@@ -73,9 +77,9 @@ public class SpCudRenderer
             var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
             bodySections.Add(
                 $"    -- DELETE\n" +
-                $"{keyword} @{opts.ActionParamName} = 'D'\n" +
+                $"{keyword} @{validatedActionParamName} = 'D'\n" +
                 $"    BEGIN\n" +
-                $"        DELETE FROM {tableName}\n" +
+                $"        DELETE FROM {escapedQualifiedTableName}\n" +
                 $"        WHERE\n" +
                 $"{BuildWhereClause(pkCols)};\n" +
                 $"    END");
@@ -88,7 +92,7 @@ public class SpCudRenderer
 
         var sb = new StringBuilder();
         sb.AppendLine($"CREATE PROCEDURE {spName}");
-        sb.AppendLine($"    @{opts.ActionParamName} CHAR(1), -- {actionComment}");
+        sb.AppendLine($"    @{validatedActionParamName} CHAR(1), -- {actionComment}");
         sb.AppendLine(BuildParameters(allParams));
         sb.AppendLine("AS");
         sb.AppendLine("BEGIN");
@@ -141,7 +145,8 @@ public class SpCudRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             var col = cols[i];
-            sb.Append($"    @{col.ColumnName} {SpTemplateRendererUtilities.GetSqlType(col)}");
+            var paramName = SpTemplateRendererUtilities.ValidateSqlIdentifier(col.ColumnName, nameof(col.ColumnName));
+            sb.Append($"    @{paramName} {SpTemplateRendererUtilities.GetSqlType(col)}");
             if (col.IsNullable)
             {
                 sb.Append(" = NULL");
@@ -158,7 +163,7 @@ public class SpCudRenderer
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
-            sb.Append($"            [{cols[i].ColumnName}]");
+            sb.Append($"            {SpTemplateRendererUtilities.BracketIdentifier(cols[i].ColumnName)}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -174,7 +179,8 @@ public class SpCudRenderer
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
-            sb.Append($"            @{cols[i].ColumnName}");
+            var paramName = SpTemplateRendererUtilities.ValidateSqlIdentifier(cols[i].ColumnName, nameof(SpColumnConfig.ColumnName));
+            sb.Append($"            @{paramName}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -191,7 +197,8 @@ public class SpCudRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             var col = cols[i];
-            sb.Append($"            [{col.ColumnName}] = @{col.ColumnName}");
+            var paramName = SpTemplateRendererUtilities.ValidateSqlIdentifier(col.ColumnName, nameof(col.ColumnName));
+            sb.Append($"            {SpTemplateRendererUtilities.BracketIdentifier(col.ColumnName)} = @{paramName}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -208,7 +215,8 @@ public class SpCudRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             var col = cols[i];
-            sb.Append($"            [{col.ColumnName}] = @{col.ColumnName}");
+            var paramName = SpTemplateRendererUtilities.ValidateSqlIdentifier(col.ColumnName, nameof(col.ColumnName));
+            sb.Append($"            {SpTemplateRendererUtilities.BracketIdentifier(col.ColumnName)} = @{paramName}");
             if (i < cols.Count - 1)
             {
                 sb.Append(" AND");

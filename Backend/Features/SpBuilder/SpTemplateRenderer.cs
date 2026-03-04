@@ -6,9 +6,17 @@ public class SpTemplateRenderer
 {
     public string RenderCud(string schemaName, string tableName, List<SpColumnConfig> cols, CudSpOptions opts)
     {
-        var escapedPrefix = opts.SpPrefix?.Replace("]", "]]") ?? "usp";
-        var escapedTableName = tableName.Replace("]", "]]");
-        var escapedSchema = schemaName.Replace("]", "]]");
+        var validatedActionParamName = SpTemplateRendererUtilities.ValidateSqlIdentifier(
+            opts.ActionParamName,
+            nameof(opts.ActionParamName));
+        var validatedPrefix = SpTemplateRendererUtilities.ValidateSqlIdentifier(
+            opts.SpPrefix ?? "usp",
+            nameof(opts.SpPrefix));
+        var validatedSchema = SpTemplateRendererUtilities.ValidateSqlIdentifier(schemaName, nameof(schemaName));
+        var validatedTableName = SpTemplateRendererUtilities.ValidateSqlIdentifier(tableName, nameof(tableName));
+        var escapedPrefix = validatedPrefix.Replace("]", "]]");
+        var escapedTableName = validatedTableName.Replace("]", "]]");
+        var escapedSchema = validatedSchema.Replace("]", "]]");
         var spName = $"[{escapedSchema}].[{escapedPrefix}_{escapedTableName}_CUD]";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
         var createCols = opts.GenerateCreate ? cols.Where(c => c.IncludeInCreate && !c.IsIdentity).ToList() : [];
@@ -35,19 +43,16 @@ public class SpTemplateRenderer
 
         // Build the conditional body sections
         var bodySections = new List<string>();
-        var fullTableName = tableName.Contains(".") || tableName.StartsWith("[dbo]") || tableName.StartsWith($"[{schemaName}]") 
-            ? tableName 
-            : $"{schemaName}.{tableName}";
-        var escapedQualifiedTableName = BracketQualifiedName(fullTableName);
+        var escapedQualifiedTableName = SpTemplateRendererUtilities.BracketQualifiedName($"{validatedSchema}.{validatedTableName}");
 
         if (opts.GenerateCreate && createCols.Count > 0)
         {
             var returnIdentity = identityCol != null
-                ? $"\n        SELECT SCOPE_IDENTITY() AS [{identityCol.ColumnName}];"
+                ? $"\n        SELECT SCOPE_IDENTITY() AS {SpTemplateRendererUtilities.BracketIdentifier(identityCol.ColumnName)};"
                 : "";
             bodySections.Add(
                 $"    -- CREATE\n" +
-                $"    IF @{opts.ActionParamName} = 'C'\n" +
+                $"    IF @{validatedActionParamName} = 'C'\n" +
                 $"    BEGIN\n" +
                 $"        INSERT INTO {escapedQualifiedTableName} (\n" +
                 $"{BuildInsertColumns(createCols)}\n" +
@@ -63,7 +68,7 @@ public class SpTemplateRenderer
             var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
             bodySections.Add(
                 $"    -- UPDATE\n" +
-                $"{keyword} @{opts.ActionParamName} = 'U'\n" +
+                $"{keyword} @{validatedActionParamName} = 'U'\n" +
                 $"    BEGIN\n" +
                 $"        UPDATE {escapedQualifiedTableName}\n" +
                 $"        SET\n" +
@@ -78,12 +83,25 @@ public class SpTemplateRenderer
             var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
             bodySections.Add(
                 $"    -- DELETE\n" +
-                $"{keyword} @{opts.ActionParamName} = 'D'\n" +
+                $"{keyword} @{validatedActionParamName} = 'D'\n" +
                 $"    BEGIN\n" +
                 $"        DELETE FROM {escapedQualifiedTableName}\n" +
                 $"        WHERE\n" +
                 $"{BuildWhereClause(pkCols)};\n" +
                 $"    END");
+        }
+
+        if (bodySections.Count == 0)
+        {
+            var missingPrereqs = new List<string>();
+            if (opts.GenerateCreate && createCols.Count == 0) missingPrereqs.Add("Create requested but no creatable columns are available.");
+            if (opts.GenerateUpdate && pkCols.Count == 0) missingPrereqs.Add("Update requested but no primary key columns are available.");
+            if (opts.GenerateUpdate && updateCols.Count == 0) missingPrereqs.Add("Update requested but no updatable columns are available.");
+            if (opts.GenerateDelete && pkCols.Count == 0) missingPrereqs.Add("Delete requested but no primary key columns are available.");
+
+            var requestedFlags = $"Requested flags: Create={opts.GenerateCreate}, Update={opts.GenerateUpdate}, Delete={opts.GenerateDelete}.";
+            var reasons = missingPrereqs.Count == 0 ? "No executable C/U/D branches can be produced." : string.Join(" ", missingPrereqs);
+            throw new InvalidOperationException($"{requestedFlags} {reasons}");
         }
 
         var body = string.Join("\n    \n", bodySections);
@@ -93,7 +111,7 @@ public class SpTemplateRenderer
 
         var sb = new StringBuilder();
         sb.AppendLine($"CREATE PROCEDURE {spName}");
-        sb.AppendLine($"    @{opts.ActionParamName} CHAR(1), -- {actionComment}");
+        sb.AppendLine($"    @{validatedActionParamName} CHAR(1), -- {actionComment}");
         sb.AppendLine(BuildParameters(allParams));
         sb.AppendLine("AS");
         sb.AppendLine("BEGIN");
@@ -128,9 +146,12 @@ public class SpTemplateRenderer
             throw new ArgumentException("Columns collection cannot be empty when rendering SELECT stored procedure.", nameof(cols));
         }
 
-        var escapedPrefix = opts.SpPrefix?.Replace("]", "]]") ?? "usp";
-        var escapedTableName = tableName.Replace("]", "]]");
-        var escapedSchema = schemaName.Replace("]", "]]");
+        var validatedPrefix = SpTemplateRendererUtilities.ValidateSqlIdentifier(opts.SpPrefix ?? "usp", nameof(opts.SpPrefix));
+        var validatedTableName = SpTemplateRendererUtilities.ValidateSqlIdentifier(tableName, nameof(tableName));
+        var validatedSchema = SpTemplateRendererUtilities.ValidateSqlIdentifier(schemaName, nameof(schemaName));
+        var escapedPrefix = validatedPrefix.Replace("]", "]]");
+        var escapedTableName = validatedTableName.Replace("]", "]]");
+        var escapedSchema = validatedSchema.Replace("]", "]]");
         var spName = $"[{escapedSchema}].[{escapedPrefix}_{escapedTableName}_Select]";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
         var orderByCols = opts.OrderByColumns.Count != 0
@@ -147,10 +168,7 @@ public class SpTemplateRenderer
         // Determine the exact table identifier used by the main SELECT's FROM clause,
         // so the TOTAL COUNT query uses the same source. If the provided tableName is
         // already schema-qualified (schema.Table), use that; otherwise default to dbo.
-        var fullTableName = tableName.Contains(".") || tableName.StartsWith("[dbo]") || tableName.StartsWith($"[{schemaName}]") 
-            ? tableName 
-            : $"{schemaName}.{tableName}";
-        string mainFromIdentifier = BracketQualifiedName(fullTableName);
+        string mainFromIdentifier = SpTemplateRendererUtilities.BracketQualifiedName($"{validatedSchema}.{validatedTableName}");
 
         template = template.Replace("{SP_NAME}", spName);
         template = template.Replace("{TABLE_NAME}", mainFromIdentifier);
@@ -201,7 +219,8 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             var col = cols[i];
-            sb.Append($"    @{col.ColumnName} {GetSqlType(col)}");
+            var paramName = SpTemplateRendererUtilities.ValidateSqlIdentifier(col.ColumnName, nameof(col.ColumnName));
+            sb.Append($"    @{paramName} {SpTemplateRendererUtilities.GetSqlType(col)}");
             if (col.IsNullable)
             {
                 sb.Append(" = NULL");
@@ -218,7 +237,7 @@ public class SpTemplateRenderer
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
-            sb.Append($"            [{cols[i].ColumnName}]");
+            sb.Append($"            {SpTemplateRendererUtilities.BracketIdentifier(cols[i].ColumnName)}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -234,7 +253,8 @@ public class SpTemplateRenderer
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
-            sb.Append($"            @{cols[i].ColumnName}");
+            var paramName = SpTemplateRendererUtilities.ValidateSqlIdentifier(cols[i].ColumnName, nameof(SpColumnConfig.ColumnName));
+            sb.Append($"            @{paramName}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -251,7 +271,8 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             var col = cols[i];
-            sb.Append($"            [{col.ColumnName}] = @{col.ColumnName}");
+            var paramName = SpTemplateRendererUtilities.ValidateSqlIdentifier(col.ColumnName, nameof(col.ColumnName));
+            sb.Append($"            {SpTemplateRendererUtilities.BracketIdentifier(col.ColumnName)} = @{paramName}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -268,7 +289,8 @@ public class SpTemplateRenderer
         for (int i = 0; i < cols.Count; i++)
         {
             var col = cols[i];
-            sb.Append($"            [{col.ColumnName}] = @{col.ColumnName}");
+            var paramName = SpTemplateRendererUtilities.ValidateSqlIdentifier(col.ColumnName, nameof(col.ColumnName));
+            sb.Append($"            {SpTemplateRendererUtilities.BracketIdentifier(col.ColumnName)} = @{paramName}");
             if (i < cols.Count - 1)
             {
                 sb.Append(" AND");
@@ -284,7 +306,7 @@ public class SpTemplateRenderer
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
-            sb.Append($"        [{cols[i].ColumnName}]");
+            sb.Append($"        {SpTemplateRendererUtilities.BracketIdentifier(cols[i].ColumnName)}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -300,7 +322,8 @@ public class SpTemplateRenderer
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
-            sb.Append($"        [{cols[i]}]");
+            var orderByCol = SpTemplateRendererUtilities.ValidateSqlIdentifier(cols[i], "orderByColumns");
+            sb.Append($"        {SpTemplateRendererUtilities.BracketIdentifier(orderByCol)}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -329,15 +352,27 @@ public class SpTemplateRenderer
 
             if (filter.Operator == FilterOperator.Between)
             {
+                var parameterName = SpTemplateRendererUtilities.ValidateSqlIdentifier(filter.ColumnName, nameof(filter.ColumnName));
                 // BETWEEN requires two parameters: Start and End
-                sb.Append($"    @{filter.ColumnName}Start {GetSqlType(col)}");
+                sb.Append($"    @{parameterName}Start {SpTemplateRendererUtilities.GetSqlType(col)}");
                 if (filter.IsOptional)
                 {
                     sb.Append(" = NULL");
                 }
 
                 sb.AppendLine(",");
-                sb.Append($"    @{filter.ColumnName}End {GetSqlType(col)}");
+                sb.Append($"    @{parameterName}End {SpTemplateRendererUtilities.GetSqlType(col)}");
+                if (filter.IsOptional)
+                {
+                    sb.Append(" = NULL");
+                }
+
+                sb.AppendLine(",");
+            }
+            else if (filter.Operator == FilterOperator.In)
+            {
+                var parameterName = SpTemplateRendererUtilities.ValidateSqlIdentifier(filter.ColumnName, nameof(filter.ColumnName));
+                sb.Append($"    @{parameterName} NVARCHAR(MAX)");
                 if (filter.IsOptional)
                 {
                     sb.Append(" = NULL");
@@ -347,7 +382,8 @@ public class SpTemplateRenderer
             }
             else
             {
-                sb.Append($"    @{filter.ColumnName} {GetSqlType(col)}");
+                var parameterName = SpTemplateRendererUtilities.ValidateSqlIdentifier(filter.ColumnName, nameof(filter.ColumnName));
+                sb.Append($"    @{parameterName} {SpTemplateRendererUtilities.GetSqlType(col)}");
                 if (filter.IsOptional)
                 {
                     sb.Append(" = NULL");
@@ -371,15 +407,21 @@ public class SpTemplateRenderer
 
         foreach (var filter in filters)
         {
+            var parameterName = SpTemplateRendererUtilities.ValidateSqlIdentifier(filter.ColumnName, nameof(filter.ColumnName));
+            var columnIdentifier = SpTemplateRendererUtilities.BracketIdentifier(parameterName);
             if (filter.IsOptional)
             {
                 if (filter.Operator == FilterOperator.Between)
                 {
-                    sb.Append($"        AND (@{filter.ColumnName}Start IS NULL OR @{filter.ColumnName}End IS NULL OR ");
+                    sb.Append($"        AND (@{parameterName}Start IS NULL OR @{parameterName}End IS NULL OR ");
+                }
+                else if (filter.Operator == FilterOperator.In)
+                {
+                    sb.Append($"        AND (@{parameterName} IS NULL OR LTRIM(RTRIM(@{parameterName})) = '' OR ");
                 }
                 else
                 {
-                    sb.Append($"        AND (@{filter.ColumnName} IS NULL OR ");
+                    sb.Append($"        AND (@{parameterName} IS NULL OR ");
                 }
             }
             else
@@ -390,19 +432,22 @@ public class SpTemplateRenderer
             switch (filter.Operator)
             {
                 case FilterOperator.Equals:
-                    sb.Append($"[{filter.ColumnName}] = @{filter.ColumnName}");
+                    sb.Append($"{columnIdentifier} = @{parameterName}");
                     break;
                 case FilterOperator.Like:
-                    sb.Append($"[{filter.ColumnName}] LIKE CONCAT('%', COALESCE(@{filter.ColumnName}, ''), '%')");
+                    sb.Append($"{columnIdentifier} LIKE CONCAT('%', COALESCE(@{parameterName}, ''), '%')");
                     break;
                 case FilterOperator.GreaterThan:
-                    sb.Append($"[{filter.ColumnName}] > @{filter.ColumnName}");
+                    sb.Append($"{columnIdentifier} > @{parameterName}");
                     break;
                 case FilterOperator.LessThan:
-                    sb.Append($"[{filter.ColumnName}] < @{filter.ColumnName}");
+                    sb.Append($"{columnIdentifier} < @{parameterName}");
                     break;
                 case FilterOperator.Between:
-                    sb.Append($"[{filter.ColumnName}] BETWEEN @{filter.ColumnName}Start AND @{filter.ColumnName}End");
+                    sb.Append($"{columnIdentifier} BETWEEN @{parameterName}Start AND @{parameterName}End");
+                    break;
+                case FilterOperator.In:
+                    sb.Append($"{columnIdentifier} IN (SELECT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@{parameterName}, ',') WHERE LTRIM(RTRIM(value)) <> '')");
                     break;
             }
 
@@ -440,82 +485,4 @@ public class SpTemplateRenderer
         return $"\n    \n    -- Total count\n    SELECT COUNT(*) AS TotalRecords\n    FROM {fromIdentifier}\n{whereClause};";
     }
 
-    /// <summary>
-    /// Brackets and escapes a possibly schema-qualified identifier like "schema.Table" or "Table".
-    /// If the parts are already bracketed, they will be normalized.
-    /// </summary>
-    /// <exception cref="ArgumentException">Thrown when name is null, empty, or whitespace.</exception>
-    private static string BracketQualifiedName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new ArgumentException("Identifier name cannot be null, empty, or whitespace.", nameof(name));
-        }
-
-        // Split on '.' to handle schema-qualified names; simple approach assuming 2 parts max.
-        var parts = name.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length == 1)
-        {
-            return BracketIdentifier(parts[0]);
-        }
-        else if (parts.Length >= 2)
-        {
-            // Only use the first two parts (schema.table); if more, join remaining as table segment
-            var schema = parts[0];
-            var table = string.Join('.', parts.Skip(1));
-            return $"{BracketIdentifier(schema)}.{BracketIdentifier(table)}";
-        }
-
-        return BracketIdentifier(name);
-    }
-
-    /// <summary>
-    /// Wraps the identifier in brackets and escapes any closing bracket characters.
-    /// Accepts identifiers that may already be bracketed and normalizes them.
-    /// </summary>
-    /// <exception cref="ArgumentException">Thrown when identifier is null, empty, or whitespace.</exception>
-    private static string BracketIdentifier(string identifier)
-    {
-        if (string.IsNullOrWhiteSpace(identifier))
-        {
-            throw new ArgumentException("Identifier cannot be null, empty, or whitespace.", nameof(identifier));
-        }
-
-        var trimmed = identifier.Trim();
-        // Remove outer brackets if present
-        if (trimmed.StartsWith("[") && trimmed.EndsWith("]") && trimmed.Length >= 2)
-        {
-            trimmed = trimmed.Substring(1, trimmed.Length - 2);
-        }
-
-        // Escape any closing brackets inside the name
-        trimmed = trimmed.Replace("]", "]]");
-
-        return $"[{trimmed}]";
-    }
-
-
-
-    private static string GetSqlType(SpColumnConfig col)
-    {
-        var dt = col.DataType.ToUpper();
-
-        if (dt == "VARCHAR" || dt == "NVARCHAR" || dt == "CHAR" || dt == "NCHAR")
-        {
-            // SQL Server uses -1 to represent MAX for (VAR)CHAR/N(VARCHAR) types; also treat null as MAX
-            var len = (!col.MaxLength.HasValue || col.MaxLength.Value == -1)
-                ? "MAX"
-                : col.MaxLength.Value.ToString();
-            return $"{col.DataType}({len})";
-        }
-
-        if (dt == "DECIMAL" || dt == "NUMERIC")
-        {
-            var precision = col.Precision ?? 18; // Default precision
-            var scale = col.Scale ?? 2; // Default scale
-            return $"{col.DataType}({precision},{scale})";
-        }
-
-        return col.DataType;
-    }
 }

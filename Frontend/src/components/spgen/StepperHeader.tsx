@@ -2,6 +2,7 @@ import { Table2, SlidersHorizontal, Code2, Check, ChevronRight } from "lucide-re
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { SPType } from "./SPTypeCard";
+import { Card } from "../ui/card";
 
 export type Step = 0 | 1 | 2;
 
@@ -26,7 +27,7 @@ export default function StepperHeader({
 }) {
     return (
         <div className="shrink-0 border-b border-border/40 bg-card/95 backdrop-blur-md sticky top-0 z-20 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center justify-between max-w-7xl mx-auto px-4 sm:px-6">
+            <Card className="flex flex-col md:flex-row md:items-center justify-between max-w-7xl mx-auto px-4 sm:px-6">
                 <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar py-2">
                     {STEPS.map((step, i) => {
                         const Icon = step.icon;
@@ -43,7 +44,8 @@ export default function StepperHeader({
                                         "flex items-center gap-3 py-3 px-4 relative transition-all rounded-lg text-left",
                                         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                                         isCurrent ? "bg-primary/5 text-foreground" : "hover:bg-muted/50",
-                                        !isCurrent && !isCompleted && "opacity-50 cursor-not-allowed",
+                                        !isClickable && "opacity-50 cursor-not-allowed",
+                                        isClickable && "cursor-pointer",
                                     )}
                                 >
                                     {/* Step circle */}
@@ -108,7 +110,7 @@ export default function StepperHeader({
                         </Badge>
                     )}
                 </div>
-            </div>
+            </Card>
         </div>
     );
 }

@@ -73,7 +73,7 @@ public class SpSelectRenderer
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
-            sb.Append($"        [{cols[i].ColumnName}]");
+            sb.Append($"        {SpTemplateRendererUtilities.BracketIdentifier(cols[i].ColumnName)}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -89,7 +89,8 @@ public class SpSelectRenderer
         var sb = new StringBuilder();
         for (int i = 0; i < cols.Count; i++)
         {
-            sb.Append($"        [{cols[i]}]");
+            var orderByCol = SpTemplateRendererUtilities.ValidateSqlIdentifier(cols[i], "orderByColumns");
+            sb.Append($"        {SpTemplateRendererUtilities.BracketIdentifier(orderByCol)}");
             if (i < cols.Count - 1)
             {
                 sb.Append(',');
@@ -118,15 +119,27 @@ public class SpSelectRenderer
 
             if (filter.Operator == FilterOperator.Between)
             {
+                var parameterName = SpTemplateRendererUtilities.ValidateSqlIdentifier(filter.ColumnName, nameof(filter.ColumnName));
                 // BETWEEN requires two parameters: Start and End
-                sb.Append($"    @{filter.ColumnName}Start {SpTemplateRendererUtilities.GetSqlType(col)}");
+                sb.Append($"    @{parameterName}Start {SpTemplateRendererUtilities.GetSqlType(col)}");
                 if (filter.IsOptional)
                 {
                     sb.Append(" = NULL");
                 }
 
                 sb.AppendLine(",");
-                sb.Append($"    @{filter.ColumnName}End {SpTemplateRendererUtilities.GetSqlType(col)}");
+                sb.Append($"    @{parameterName}End {SpTemplateRendererUtilities.GetSqlType(col)}");
+                if (filter.IsOptional)
+                {
+                    sb.Append(" = NULL");
+                }
+
+                sb.AppendLine(",");
+            }
+            else if (filter.Operator == FilterOperator.In)
+            {
+                var parameterName = SpTemplateRendererUtilities.ValidateSqlIdentifier(filter.ColumnName, nameof(filter.ColumnName));
+                sb.Append($"    @{parameterName} NVARCHAR(MAX)");
                 if (filter.IsOptional)
                 {
                     sb.Append(" = NULL");
@@ -136,7 +149,8 @@ public class SpSelectRenderer
             }
             else
             {
-                sb.Append($"    @{filter.ColumnName} {SpTemplateRendererUtilities.GetSqlType(col)}");
+                var parameterName = SpTemplateRendererUtilities.ValidateSqlIdentifier(filter.ColumnName, nameof(filter.ColumnName));
+                sb.Append($"    @{parameterName} {SpTemplateRendererUtilities.GetSqlType(col)}");
                 if (filter.IsOptional)
                 {
                     sb.Append(" = NULL");
@@ -160,15 +174,21 @@ public class SpSelectRenderer
 
         foreach (var filter in filters)
         {
+            var parameterName = SpTemplateRendererUtilities.ValidateSqlIdentifier(filter.ColumnName, nameof(filter.ColumnName));
+            var columnIdentifier = SpTemplateRendererUtilities.BracketIdentifier(parameterName);
             if (filter.IsOptional)
             {
                 if (filter.Operator == FilterOperator.Between)
                 {
-                    sb.Append($"        AND (@{filter.ColumnName}Start IS NULL OR @{filter.ColumnName}End IS NULL OR ");
+                    sb.Append($"        AND (@{parameterName}Start IS NULL OR @{parameterName}End IS NULL OR ");
+                }
+                else if (filter.Operator == FilterOperator.In)
+                {
+                    sb.Append($"        AND (@{parameterName} IS NULL OR LTRIM(RTRIM(@{parameterName})) = '' OR ");
                 }
                 else
                 {
-                    sb.Append($"        AND (@{filter.ColumnName} IS NULL OR ");
+                    sb.Append($"        AND (@{parameterName} IS NULL OR ");
                 }
             }
             else
@@ -179,19 +199,22 @@ public class SpSelectRenderer
             switch (filter.Operator)
             {
                 case FilterOperator.Equals:
-                    sb.Append($"[{filter.ColumnName}] = @{filter.ColumnName}");
+                    sb.Append($"{columnIdentifier} = @{parameterName}");
                     break;
                 case FilterOperator.Like:
-                    sb.Append($"[{filter.ColumnName}] LIKE CONCAT('%', COALESCE(@{filter.ColumnName}, ''), '%')");
+                    sb.Append($"{columnIdentifier} LIKE CONCAT('%', COALESCE(@{parameterName}, ''), '%')");
                     break;
                 case FilterOperator.GreaterThan:
-                    sb.Append($"[{filter.ColumnName}] > @{filter.ColumnName}");
+                    sb.Append($"{columnIdentifier} > @{parameterName}");
                     break;
                 case FilterOperator.LessThan:
-                    sb.Append($"[{filter.ColumnName}] < @{filter.ColumnName}");
+                    sb.Append($"{columnIdentifier} < @{parameterName}");
                     break;
                 case FilterOperator.Between:
-                    sb.Append($"[{filter.ColumnName}] BETWEEN @{filter.ColumnName}Start AND @{filter.ColumnName}End");
+                    sb.Append($"{columnIdentifier} BETWEEN @{parameterName}Start AND @{parameterName}End");
+                    break;
+                case FilterOperator.In:
+                    sb.Append($"{columnIdentifier} IN (SELECT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@{parameterName}, ',') WHERE LTRIM(RTRIM(value)) <> '')");
                     break;
             }
 

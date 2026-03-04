@@ -65,15 +65,14 @@ export default function TableSchemaViewer({
     const d = constraints.find((s) => s.toUpperCase().startsWith("DEFAULT"));
     return d ? d.replace(/^DEFAULT\s*/i, "") : "NULL";
   };
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 p-4">
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           {selectedTable ? `Selected: ${selectedTable}` : "Select a table to view schema"}
         </div>
         <Badge variant="outline" className="rounded-full">
-          {schema.schemaName ?? "dbo"}
+          {schema.schemaName || schema.schemaName === "" ? "dbo" : schema.schemaName}
         </Badge>
       </div>
 

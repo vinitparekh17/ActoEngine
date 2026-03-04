@@ -17,6 +17,7 @@ import StepperHeader, { type Step } from "@/components/spgen/StepperHeader";
 import StepSelectTable from "@/components/spgen/StepSelectTable";
 import SPConfigPanel from "@/components/spgen/SPConfigPanel";
 import SPPreviewPane from "@/components/spgen/SPPreviewPanel";
+import { getDefaultSpConfig } from "@/components/spgen/spConfigDefaults";
 import type { SPConfigValues, TreeNode } from "@/schema/spBuilderSchema";
 
 export default function SpBuilder() {
@@ -50,18 +51,7 @@ export default function SpBuilder() {
     },
   });
 
-  const [config, setConfig] = useState<SPConfigValues>({
-    mode: "CUD",
-    generateCreate: true,
-    generateUpdate: true,
-    generateDelete: true,
-    spPrefix: "usp",
-    includeErrorHandling: true,
-    includeTransaction: true,
-    actionParamName: "Action",
-    includeInCreate: {},
-    includeInUpdate: {},
-  });
+  const [config, setConfig] = useState<SPConfigValues>(getDefaultSpConfig("CUD"));
 
   const treeData = useMemo<TreeNode[]>(() => {
     if (!selectedProject || !tables.length) return [];
@@ -154,10 +144,12 @@ export default function SpBuilder() {
         tableName: actualTableName,
         schemaName: schemaName,
         type: values.mode === "CUD" ? "Cud" : "Select",
-        columns: (tableSchema.schema?.columns || []).map((col: any) => ({
+        columns: (tableSchema.schema?.columns || tableSchema.columns || []).map((col: any) => ({
           columnName: col.columnName,
           dataType: col.dataType,
           maxLength: col.maxLength,
+          precision: col.precision,
+          scale: col.scale,
           isNullable: col.isNullable,
           isPrimaryKey: col.isPrimaryKey,
           isIdentity: col.isIdentity,
@@ -178,7 +170,18 @@ export default function SpBuilder() {
           spPrefix: "usp",
           filters: (values as any).filters?.map((f: any) => ({
             columnName: f.column,
-            operator: f.operator === "=" ? "Equals" : f.operator === "LIKE" ? "Like" : f.operator === ">" ? "GreaterThan" : f.operator === "<" ? "LessThan" : "Between",
+            operator:
+              f.operator === "="
+                ? "Equals"
+                : f.operator === "LIKE"
+                  ? "Like"
+                  : f.operator === ">"
+                    ? "GreaterThan"
+                    : f.operator === "<"
+                      ? "LessThan"
+                      : f.operator === "IN"
+                        ? "In"
+                        : "Between",
             isOptional: f.optional,
           })) || [],
           orderByColumns: (values as any).orderBy || [],
@@ -197,11 +200,7 @@ export default function SpBuilder() {
 
   const onChangeType = useCallback((t: SPType) => {
     setSpType(t);
-    setConfig(
-      t === "CUD"
-        ? { mode: "CUD", generateCreate: true, generateUpdate: true, generateDelete: true, spPrefix: "usp", includeErrorHandling: true, includeTransaction: true, actionParamName: "Action", includeInCreate: {}, includeInUpdate: {} }
-        : { mode: "SELECT", includePagination: true, orderBy: [], filters: [] }
-    );
+    setConfig(getDefaultSpConfig(t));
   }, []);
 
   return (

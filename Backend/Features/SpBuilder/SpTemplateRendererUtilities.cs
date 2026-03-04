@@ -1,7 +1,29 @@
+using System.Text.RegularExpressions;
+
 namespace ActoEngine.WebApi.Features.SpBuilder;
 
 public static class SpTemplateRendererUtilities
 {
+    private static readonly Regex SafeIdentifierRegex = new("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
+
+    public static string ValidateSqlIdentifier(string identifier, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(identifier))
+        {
+            throw new ArgumentException("Identifier cannot be null, empty, or whitespace.", paramName);
+        }
+
+        var trimmed = identifier.Trim();
+        if (!SafeIdentifierRegex.IsMatch(trimmed))
+        {
+            throw new ArgumentException(
+                $"Invalid SQL identifier '{identifier}'. Use letters, digits, and underscore, and start with a letter or underscore.",
+                paramName);
+        }
+
+        return trimmed;
+    }
+
     /// <summary>
     /// Brackets and escapes a possibly schema-qualified identifier like "schema.Table" or "Table".
     /// If the parts are already bracketed, they will be normalized.
