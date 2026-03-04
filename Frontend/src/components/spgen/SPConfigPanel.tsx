@@ -1,54 +1,35 @@
-"use client";
-
 import { useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { z } from "zod";
-// import { zodResolver } from "@hookform/resolvers/zod"
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
-import { Checkbox } from "../ui/checkbox";
-import { Label } from "../ui/label";
+import { Settings2, ArrowRight, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
-import type { SPType } from "./SPTypeCard";
-import { Trash2, Plus } from "lucide-react";
-import SPTypeCard from "./SPTypeCard";
-import TableSchemaViewer, {
-  type TableSchema,
-} from "../database/TableSchemaViewer";
+} from "@/components/ui/select";
+import SPTypeCard, { type SPType } from "./SPTypeCard";
+import TableSchemaViewer, { type TableSchema } from "@/components/database/TableSchemaViewer";
+import type { SPConfigValues } from "@/schema/spBuilderSchema";
 
-const CUDSchema = z.object({
-  mode: z.literal("CUD"),
-  generateCreate: z.boolean().default(true),
-  generateUpdate: z.boolean().default(true),
-  generateDelete: z.boolean().default(true),
-  spPrefix: z.string().min(1).default("usp"),
-  includeErrorHandling: z.boolean().default(true),
-  includeTransaction: z.boolean().default(true),
-  actionParamName: z.string().min(1).default("Action"),
-});
+const getDefaultColumnConfigs = (schema: TableSchema) => {
+  return schema.columns.reduce(
+    (acc, col) => {
+      const isPK = (col.constraints || []).some((s) => s.toUpperCase().includes("PK"));
+      const isIdentity = (col.constraints || []).some((s) => s.toUpperCase().includes("IDENTITY"));
+      const include = !isPK && !isIdentity;
 
-const FilterSchema = z.object({
-  column: z.string().min(1, "Column required"),
-  operator: z.enum(["=", "LIKE", ">", "<", "BETWEEN"]),
-  optional: z.boolean().default(false),
-});
-
-const SELECTSchema = z.object({
-  mode: z.literal("SELECT"),
-  includePagination: z.boolean().default(true),
-  orderBy: z.array(z.string()).default([]),
-  filters: z.array(FilterSchema).default([]),
-});
-
-const ConfigSchema = z.discriminatedUnion("mode", [CUDSchema, SELECTSchema]);
-
-export type SPConfigValues = z.infer<typeof ConfigSchema>;
+      acc.create[col.name] = include;
+      acc.update[col.name] = include;
+      return acc;
+    },
+    { create: {} as Record<string, boolean>, update: {} as Record<string, boolean> }
+  );
+};
 
 export default function SPConfigPanel({
   spType,
@@ -64,18 +45,16 @@ export default function SPConfigPanel({
   onChangeType: (type: SPType) => void;
 }) {
   const form = useForm<SPConfigValues>({
-    // resolver: zodResolver(ConfigSchema),
     defaultValues: config,
     mode: "onBlur",
   });
 
-  // For SELECT: field array for filters
   const { fields, append, remove } = useFieldArray({
     control: form.control as any,
     name: "filters" as any,
   });
 
-  // Reset form to correct mode defaults whenever spType changes
+  // Full reset only when the SP type is switched (CUD ↔ SELECT)
   useEffect(() => {
     if (spType === "CUD") {
       form.reset({
@@ -87,6 +66,8 @@ export default function SPConfigPanel({
         includeErrorHandling: true,
         includeTransaction: true,
         actionParamName: "Action",
+        includeInCreate: {},
+        includeInUpdate: {},
       } as any);
     } else {
       form.reset({
@@ -96,314 +77,244 @@ export default function SPConfigPanel({
         filters: [],
       } as any);
     }
-  }, [spType, form.reset]);
+  }, [spType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Only refresh column include-maps when the selected table actually changes.
+  useEffect(() => {
+    if (spType === "CUD" && schema.columns.length > 0) {
+      const defaultCols = getDefaultColumnConfigs(schema);
+      form.setValue("includeInCreate" as any, defaultCols.create);
+      form.setValue("includeInUpdate" as any, defaultCols.update);
+    }
+  }, [schema.tableName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = form.handleSubmit((values) => {
-    // Normalize orderBy if user typed comma-separated string into hidden field
     if (values.mode === "SELECT") {
       const ob = (form.getValues("orderBy") || []) as string[];
-      const normalized = ob
-        .flatMap((v) => v.split(","))
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const normalized = ob.flatMap((v) => v.split(",")).map((s) => s.trim()).filter(Boolean);
       onSubmit({ ...values, orderBy: normalized });
     } else {
-      onSubmit(values);
+      onSubmit(values); // This will now naturally include includeInCreate/includeInUpdate!
     }
   });
 
   const availableColumns = schema.columns.map((c) => c.name);
+
   return (
-    <>
-      <TableSchemaViewer schema={schema} selectedTable={schema.tableName} />
-      <div className="mb-6">
-        <label className="text-sm font-medium mb-3 block">Procedure Type</label>
-        <div className="grid grid-cols-2 gap-3">
-          <SPTypeCard
-            type="CUD"
-            selected={spType === "CUD"}
-            onChange={onChangeType}
-          />
-          <SPTypeCard
-            type="SELECT"
-            selected={spType === "SELECT"}
-            onChange={onChangeType}
-          />
+    <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {/* Schema Viewer Section */}
+      <div className="bg-card rounded-2xl border border-border/40 p-1 shadow-sm overflow-hidden">
+        <TableSchemaViewer
+          schema={schema}
+          selectedTable={schema.tableName}
+          showCrudCheckboxes={spType === "CUD"}
+          includeInCreate={(form.watch("includeInCreate") as Record<string, boolean>) || {}}
+          includeInUpdate={(form.watch("includeInUpdate") as Record<string, boolean>) || {}}
+          onToggleCreate={(colName, checked) => {
+            const current = (form.getValues("includeInCreate") as Record<string, boolean>) || {};
+            form.setValue("includeInCreate" as any, { ...current, [colName]: checked }, { shouldDirty: true });
+          }}
+          onToggleUpdate={(colName, checked) => {
+            const current = (form.getValues("includeInUpdate") as Record<string, boolean>) || {};
+            form.setValue("includeInUpdate" as any, { ...current, [colName]: checked }, { shouldDirty: true });
+          }}
+        />
+      </div>
+
+      {/* Procedure Type Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 border-b border-border/40 pb-2">
+          <Settings2 className="h-5 w-5 text-primary" />
+          <h3 className="text-base font-semibold tracking-tight">Procedure Type</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <SPTypeCard type="CUD" selected={spType === "CUD"} onChange={onChangeType} />
+          <SPTypeCard type="SELECT" selected={spType === "SELECT"} onChange={onChangeType} />
         </div>
       </div>
-      <form onSubmit={submit} className="space-y-6">
+
+      {/* Form Configuration */}
+      <form onSubmit={submit} className="space-y-8">
         {form.watch("mode") === "CUD" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm" htmlFor="spPrefix">
-                  SP Prefix
-                </Label>
-                <Input
-                  id="spPrefix"
-                  value={(form.watch("spPrefix") as string) ?? ""}
-                  onChange={(e) =>
-                    form.setValue("spPrefix" as any, e.target.value as any)
-                  }
-                />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* General Settings */}
+            <div className="bg-card border border-border/40 shadow-sm rounded-2xl p-6 space-y-6">
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">General Configuration</h4>
+                <p className="text-xs text-muted-foreground/80">Configure naming conventions and wrappers.</p>
               </div>
 
-              <div className="flex flex-wrap gap-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={
-                      (form.watch("includeErrorHandling") as boolean) ?? false
-                    }
-                    onCheckedChange={(v) =>
-                      form.setValue(
-                        "includeErrorHandling" as any,
-                        Boolean(v) as any,
-                      )
-                    }
-                    id="includeErrorHandling"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-foreground/80" htmlFor="spPrefix">SP Prefix</Label>
+                  <Input
+                    id="spPrefix"
+                    className="bg-background h-10 transition-colors focus-visible:ring-primary/30"
+                    value={(form.watch("spPrefix") as string) ?? ""}
+                    onChange={(e) => form.setValue("spPrefix" as any, e.target.value as any)}
                   />
-                  <Label htmlFor="includeErrorHandling" className="text-sm">
-                    Include Error Handling
-                  </Label>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={
-                      (form.watch("includeTransaction") as boolean) ?? false
-                    }
-                    onCheckedChange={(v) =>
-                      form.setValue(
-                        "includeTransaction" as any,
-                        Boolean(v) as any,
-                      )
-                    }
-                    id="includeTransaction"
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-foreground/80" htmlFor="actionParamName">Action Param Name</Label>
+                  <Input
+                    id="actionParamName"
+                    className="bg-background h-10 transition-colors focus-visible:ring-primary/30"
+                    value={(form.watch("actionParamName") as string) ?? ""}
+                    onChange={(e) => form.setValue("actionParamName" as any, e.target.value as any)}
                   />
-                  <Label htmlFor="includeTransaction" className="text-sm">
-                    Include Transaction
-                  </Label>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <Label className="text-sm">Operations to Generate</Label>
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={
-                        (form.watch("generateCreate") as boolean) ?? true
-                      }
-                      onCheckedChange={(v) =>
-                        form.setValue(
-                          "generateCreate" as any,
-                          Boolean(v) as any,
-                        )
-                      }
-                      id="generateCreate"
-                    />
-                    <Label htmlFor="generateCreate" className="text-sm">
-                      Create
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={
-                        (form.watch("generateUpdate") as boolean) ?? true
-                      }
-                      onCheckedChange={(v) =>
-                        form.setValue(
-                          "generateUpdate" as any,
-                          Boolean(v) as any,
-                        )
-                      }
-                      id="generateUpdate"
-                    />
-                    <Label htmlFor="generateUpdate" className="text-sm">
-                      Update
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={
-                        (form.watch("generateDelete") as boolean) ?? true
-                      }
-                      onCheckedChange={(v) =>
-                        form.setValue(
-                          "generateDelete" as any,
-                          Boolean(v) as any,
-                        )
-                      }
-                      id="generateDelete"
-                    />
-                    <Label htmlFor="generateDelete" className="text-sm">
-                      Delete
-                    </Label>
-                  </div>
-                </div>
+              <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                <label className="flex flex-1 items-center gap-3 p-3 rounded-xl border border-border/40 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group">
+                  <Checkbox
+                    checked={(form.watch("includeErrorHandling") as boolean) ?? false}
+                    onCheckedChange={(v) => form.setValue("includeErrorHandling" as any, Boolean(v) as any)}
+                  />
+                  <span className="text-sm font-medium group-hover:text-primary transition-colors">Error Handling</span>
+                </label>
+                <label className="flex flex-1 items-center gap-3 p-3 rounded-xl border border-border/40 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group">
+                  <Checkbox
+                    checked={(form.watch("includeTransaction") as boolean) ?? false}
+                    onCheckedChange={(v) => form.setValue("includeTransaction" as any, Boolean(v) as any)}
+                  />
+                  <span className="text-sm font-medium group-hover:text-primary transition-colors">Transaction Wrap</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Operations */}
+            <div className="bg-card border border-border/40 shadow-sm rounded-2xl p-6 space-y-6">
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Operations to Generate</h4>
+                <p className="text-xs text-muted-foreground/80">Select which statements to include in the CUD.</p>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm" htmlFor="actionParamName">
-                  Action Parameter Name
-                </Label>
-                <Input
-                  id="actionParamName"
-                  value={(form.watch("actionParamName") as string) ?? ""}
-                  onChange={(e) =>
-                    form.setValue(
-                      "actionParamName" as any,
-                      e.target.value as any,
-                    )
-                  }
-                />
+              <div className="flex flex-col gap-3">
+                {(["generateCreate", "generateUpdate", "generateDelete"] as const).map((key) => {
+                  const labels: Record<string, { title: string; desc: string }> = {
+                    generateCreate: { title: "Create Operation", desc: "Include INSERT statement logic" },
+                    generateUpdate: { title: "Update Operation", desc: "Include UPDATE statement logic" },
+                    generateDelete: { title: "Delete Operation", desc: "Include DELETE statement logic" },
+                  };
+                  return (
+                    <label key={key} className="flex items-start gap-3 p-4 rounded-xl border border-border/40 bg-background hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer group">
+                      <Checkbox
+                        className="mt-0.5 data-[state=checked]:bg-primary"
+                        checked={(form.watch(key as any) as boolean) ?? true}
+                        onCheckedChange={(v) => form.setValue(key as any, Boolean(v) as any)}
+                      />
+                      <div className="space-y-1">
+                        <span className="text-sm font-bold block leading-none group-hover:text-primary transition-colors">{labels[key].title}</span>
+                        <span className="text-xs text-muted-foreground block">{labels[key].desc}</span>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={
-                    (form.watch("includePagination") as boolean) ?? false
-                  }
-                  onCheckedChange={(v) =>
-                    form.setValue("includePagination" as any, Boolean(v) as any)
-                  }
-                  id="includePagination"
-                />
-                <Label htmlFor="includePagination" className="text-sm">
-                  Include Pagination
+            {/* SELECT Configuration */}
+            <div className="bg-card border border-border/40 shadow-sm rounded-2xl p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <Label className="text-sm font-bold text-foreground" htmlFor="orderBy">
+                  Order By Clause
                 </Label>
+                <div className="relative">
+                  <Input
+                    id="orderBy"
+                    className="bg-background h-10 pl-4 pr-4 transition-colors focus-visible:ring-primary/30"
+                    placeholder="e.g. created_at DESC, email ASC"
+                    value={(form.watch("orderBy") as string[]).join(", ")}
+                    onChange={(e) => form.setValue("orderBy" as any, [e.target.value] as any)}
+                  />
+                  <span className="absolute right-3 top-2.5 text-[10px] text-muted-foreground uppercase font-semibold pointer-events-none">CSV</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Separate multiple columns with commas.</p>
               </div>
 
-              <div className="space-y-2 min-w-[260px]">
-                <Label className="text-sm" htmlFor="orderBy">
-                  Order By Columns (comma-separated)
-                </Label>
-                <Input
-                  id="orderBy"
-                  placeholder="e.g. created_at DESC, email ASC"
-                  value={(form.watch("orderBy") as string[]).join(", ")}
-                  onChange={(e) =>
-                    form.setValue(
-                      "orderBy" as any,
-                      [e.target.value] as any, // store raw, will normalize on submit
-                    )
-                  }
-                />
+              <div className="flex flex-col justify-center pt-2 md:pt-6">
+                <label className="flex items-start gap-4 p-4 w-full rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 hover:border-primary/40 transition-all cursor-pointer group">
+                  <Checkbox
+                    className="mt-0.5"
+                    checked={(form.watch("includePagination") as boolean) ?? false}
+                    onCheckedChange={(v) => form.setValue("includePagination" as any, Boolean(v) as any)}
+                  />
+                  <div className="space-y-1">
+                    <span className="text-sm font-bold block leading-none group-hover:text-primary transition-colors">Include Pagination</span>
+                    <span className="text-xs text-muted-foreground block">Appends OFFSET and FETCH NEXT logic to the query.</span>
+                  </div>
+                </label>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">Filters</Label>
+            {/* Filters */}
+            <div className="bg-card border border-border/40 shadow-sm rounded-2xl p-6 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/40">
+                <div className="space-y-1">
+                  <Label className="text-base font-bold text-foreground">Query Filters</Label>
+                  <p className="text-xs text-muted-foreground">Define WHERE clause parameters.</p>
+                </div>
                 <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    append({
-                      column: availableColumns[0] ?? "",
-                      operator: "=",
-                      optional: false,
-                    })
-                  }
+                  type="button" size="sm" variant="secondary" className="h-9 px-4 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                  onClick={() => append({ column: availableColumns[0] ?? "", operator: "=", optional: false })}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="h-4 w-4 mr-1.5" />
                   Add Filter
                 </Button>
               </div>
 
-              <div className="space-y-2">
-                {fields.length === 0 && (
-                  <div className="text-sm text-muted-foreground">
-                    No filters added.
+              <div className="space-y-3 pt-2">
+                {fields.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-10 text-center border-2 border-dashed border-border/60 rounded-xl bg-muted/10 flex flex-col items-center justify-center gap-2">
+                    <SlidersHorizontal className="h-8 w-8 text-muted-foreground/40" />
+                    <p>No filters defined. Click "Add Filter" to create search parameters.</p>
                   </div>
-                )}
-                {fields.map((field, idx) => (
-                  <div
-                    key={field.id}
-                    className="grid grid-cols-1 md:grid-cols-[1fr_160px_110px_40px] items-end gap-3"
-                  >
-                    <div className="space-y-1">
-                      <Label className="text-xs">Column</Label>
+                ) : fields.map((field, idx) => (
+                  <div key={field.id} className="grid grid-cols-1 md:grid-cols-[1fr_180px_120px_auto] items-end gap-4 bg-muted/20 p-4 rounded-xl border border-border/40 hover:border-border/80 transition-colors">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Column</Label>
                       <Select
-                        value={
-                          (form.watch(`filters.${idx}.column`) as string) ?? ""
-                        }
-                        onValueChange={(v) =>
-                          form.setValue(
-                            `filters.${idx}.column` as any,
-                            v as any,
-                          )
-                        }
+                        value={(form.watch(`filters.${idx}.column`) as string) ?? ""}
+                        onValueChange={(v) => form.setValue(`filters.${idx}.column` as any, v as any)}
                       >
-                        <SelectTrigger className="rounded-xl">
-                          <SelectValue placeholder="Select column" />
-                        </SelectTrigger>
+                        <SelectTrigger className="rounded-lg bg-background h-10 border-border/60 shadow-sm"><SelectValue placeholder="Select column" /></SelectTrigger>
                         <SelectContent>
-                          {availableColumns.map((c) => (
-                            <SelectItem key={c} value={c}>
-                              {c}
-                            </SelectItem>
+                          {availableColumns.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Operator</Label>
+                      <Select
+                        value={(form.watch(`filters.${idx}.operator`) as any) ?? "="}
+                        onValueChange={(v) => form.setValue(`filters.${idx}.operator` as any, v as any)}
+                      >
+                        <SelectTrigger className="rounded-lg bg-background h-10 border-border/60 shadow-sm font-mono text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["=", "LIKE", ">", "<", "BETWEEN"].map((op) => (
+                            <SelectItem key={op} value={op} className="font-mono">{op}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-xs">Operator</Label>
-                      <Select
-                        value={
-                          (form.watch(`filters.${idx}.operator`) as any) ?? "="
-                        }
-                        onValueChange={(v) =>
-                          form.setValue(
-                            `filters.${idx}.operator` as any,
-                            v as any,
-                          )
-                        }
-                      >
-                        <SelectTrigger className="rounded-xl">
-                          <SelectValue placeholder="Op" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="=">=</SelectItem>
-                          <SelectItem value="LIKE">LIKE</SelectItem>
-                          <SelectItem value=">">{">"}</SelectItem>
-                          <SelectItem value="<">{"<"}</SelectItem>
-                          <SelectItem value="BETWEEN">BETWEEN</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="flex h-10 items-center pl-2">
+                      <label className="flex items-center gap-2.5 cursor-pointer group">
+                        <Checkbox
+                          checked={(form.watch(`filters.${idx}.optional`) as boolean) ?? false}
+                          onCheckedChange={(v) => form.setValue(`filters.${idx}.optional` as any, Boolean(v) as any)}
+                        />
+                        <span className="text-sm font-medium group-hover:text-primary transition-colors">Optional</span>
+                      </label>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={
-                          (form.watch(`filters.${idx}.optional`) as boolean) ??
-                          false
-                        }
-                        onCheckedChange={(v) =>
-                          form.setValue(
-                            `filters.${idx}.optional` as any,
-                            Boolean(v) as any,
-                          )
-                        }
-                        id={`optional-${idx}`}
-                      />
-                      <Label htmlFor={`optional-${idx}`} className="text-xs">
-                        Optional
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center justify-end">
+                    <div className="flex h-10 items-center justify-end">
                       <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
+                        type="button" size="icon" variant="ghost"
+                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg h-10 w-10 transition-colors"
                         onClick={() => remove(idx)}
-                        aria-label="Remove filter"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -415,12 +326,16 @@ export default function SPConfigPanel({
           </div>
         )}
 
-        <div className="pt-2">
-          <Button type="submit" className="rounded-xl">
-            Apply
+        <div className="pt-6 flex justify-between items-center border-t border-border/40">
+          <p className="text-sm text-muted-foreground hidden sm:block">
+            Review your settings before generating the SQL script.
+          </p>
+          <Button type="submit" size="lg" className="rounded-xl px-8 h-12 gap-2 shadow-md w-full sm:w-auto transition-all hover:scale-[1.02] active:scale-[0.98]">
+            Generate Procedure
+            <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </form>
-    </>
+    </div>
   );
 }

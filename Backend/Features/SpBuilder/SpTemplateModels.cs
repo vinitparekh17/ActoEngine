@@ -26,6 +26,9 @@ public class CudSpOptions
     public bool IncludeErrorHandling { get; set; } = true;
     public bool IncludeTransaction { get; set; } = true;
     public string ActionParamName { get; set; } = "Action"; // 'C', 'U', 'D'
+    public bool GenerateCreate { get; set; } = true;
+    public bool GenerateUpdate { get; set; } = true;
+    public bool GenerateDelete { get; set; } = true;
 }
 
 public class SelectSpOptions
@@ -43,6 +46,7 @@ public class FilterColumn
     public bool IsOptional { get; set; } = true; // NULL means skip filter
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum FilterOperator
 {
     Equals,

@@ -8,33 +8,106 @@ public class SpCudRenderer
     {
         var spName = $"{opts.SpPrefix}_{tableName}_CUD";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
-        var createCols = cols.Where(c => c.IncludeInCreate && !c.IsIdentity).ToList();
-        var updateCols = cols.Where(c => c.IncludeInUpdate && !c.IsIdentity && !c.IsPrimaryKey).ToList();
+        var createCols = opts.GenerateCreate ? cols.Where(c => c.IncludeInCreate && !c.IsIdentity).ToList() : [];
+        var updateCols = opts.GenerateUpdate ? cols.Where(c => c.IncludeInUpdate && !c.IsIdentity && !c.IsPrimaryKey).ToList() : [];
         var identityCol = cols.FirstOrDefault(c => c.IsIdentity);
 
-        // All params needed: PK + create + update (union to avoid duplicates)
+        // Build action comment from enabled operations
+        var activeActions = new List<string>();
+        if (opts.GenerateCreate) activeActions.Add("'C' = Create");
+        if (opts.GenerateUpdate) activeActions.Add("'U' = Update");
+        if (opts.GenerateDelete) activeActions.Add("'D' = Delete");
+        var actionComment = string.Join(", ", activeActions);
+
+        // All params needed: PK + create columns + update columns (union to avoid duplicates)
         var allParams = pkCols
             .Union(createCols.Where(c => !c.IsPrimaryKey))
             .Union(updateCols)
             .Distinct()
             .ToList();
 
-        var template = SpTemplateStore.CudTemplate;
+        // Build the conditional body sections
+        var bodySections = new List<string>();
 
-        template = template.Replace("{SP_NAME}", spName);
-        template = template.Replace("{ACTION_PARAM}", opts.ActionParamName);
-        template = template.Replace("{TABLE_NAME}", tableName);
-        template = template.Replace("{PARAMETERS}", BuildParameters(allParams));
-        template = template.Replace("{INSERT_COLUMNS}", BuildInsertColumns(createCols));
-        template = template.Replace("{INSERT_VALUES}", BuildInsertValues(createCols));
-        template = template.Replace("{RETURN_IDENTITY}", identityCol != null
-            ? $"        SELECT SCOPE_IDENTITY() AS [{identityCol.ColumnName}];"
-            : "");
-        template = template.Replace("{UPDATE_SET_CLAUSE}", BuildUpdateSetClause(updateCols));
-        template = template.Replace("{WHERE_CLAUSE}", BuildWhereClause(pkCols));
-        template = ReplaceErrorHandling(template, opts);
+        if (opts.GenerateCreate)
+        {
+            var returnIdentity = identityCol != null
+                ? $"\n        SELECT SCOPE_IDENTITY() AS [{identityCol.ColumnName}];"
+                : "";
+            bodySections.Add(
+                $"    -- CREATE\n" +
+                $"    IF @{opts.ActionParamName} = 'C'\n" +
+                $"    BEGIN\n" +
+                $"        INSERT INTO {tableName} (\n" +
+                $"{BuildInsertColumns(createCols)}\n" +
+                $"        )\n" +
+                $"        VALUES (\n" +
+                $"{BuildInsertValues(createCols)}\n" +
+                $"        );{returnIdentity}\n" +
+                $"    END");
+        }
 
-        return template;
+        if (opts.GenerateUpdate)
+        {
+            var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
+            bodySections.Add(
+                $"    -- UPDATE\n" +
+                $"{keyword} @{opts.ActionParamName} = 'U'\n" +
+                $"    BEGIN\n" +
+                $"        UPDATE {tableName}\n" +
+                $"        SET\n" +
+                $"{BuildUpdateSetClause(updateCols)}\n" +
+                $"        WHERE\n" +
+                $"{BuildWhereClause(pkCols)};\n" +
+                $"    END");
+        }
+
+        if (opts.GenerateDelete)
+        {
+            var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
+            bodySections.Add(
+                $"    -- DELETE\n" +
+                $"{keyword} @{opts.ActionParamName} = 'D'\n" +
+                $"    BEGIN\n" +
+                $"        DELETE FROM {tableName}\n" +
+                $"        WHERE\n" +
+                $"{BuildWhereClause(pkCols)};\n" +
+                $"    END");
+        }
+
+        var body = string.Join("\n    \n", bodySections);
+
+        // Build the error-handling wrapper around the body
+        var (ehStart, ehEnd) = BuildErrorHandling(opts);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"CREATE PROCEDURE {spName}");
+        sb.AppendLine($"    @{opts.ActionParamName} CHAR(1), -- {actionComment}");
+        sb.AppendLine(BuildParameters(allParams));
+        sb.AppendLine("AS");
+        sb.AppendLine("BEGIN");
+        sb.Append(ehStart);
+        sb.AppendLine(body);
+        sb.Append(ehEnd);
+        sb.AppendLine("END");
+
+        return sb.ToString();
+    }
+
+    private static (string Start, string End) BuildErrorHandling(CudSpOptions opts)
+    {
+        if (!opts.IncludeErrorHandling)
+            return ("    SET NOCOUNT ON;\n\n", "");
+
+        var start = opts.IncludeTransaction
+            ? SpTemplateStore.ErrorHandlingStart
+            : SpTemplateStore.ErrorHandlingStartNoTrans;
+
+        var end = opts.IncludeTransaction
+            ? SpTemplateStore.ErrorHandlingEnd
+            : SpTemplateStore.ErrorHandlingEndNoTrans;
+
+        return (start, end + "\n");
     }
 
     private static string BuildParameters(List<SpColumnConfig> cols)
@@ -124,28 +197,6 @@ public class SpCudRenderer
             sb.AppendLine();
         }
         return sb.ToString().TrimEnd();
-    }
-
-    private static string ReplaceErrorHandling(string template, CudSpOptions opts)
-    {
-        if (!opts.IncludeErrorHandling)
-        {
-            return template
-                .Replace("{ERROR_HANDLING_START}", "    SET NOCOUNT ON;\n")
-                .Replace("{ERROR_HANDLING_END}", "");
-        }
-
-        var start = opts.IncludeTransaction
-            ? SpTemplateStore.ErrorHandlingStart
-            : SpTemplateStore.ErrorHandlingStartNoTrans;
-
-        var end = opts.IncludeTransaction
-            ? SpTemplateStore.ErrorHandlingEnd
-            : SpTemplateStore.ErrorHandlingEndNoTrans;
-
-        return template
-            .Replace("{ERROR_HANDLING_START}", start)
-            .Replace("{ERROR_HANDLING_END}", end);
     }
 }
 
