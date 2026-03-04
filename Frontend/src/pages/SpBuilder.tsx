@@ -84,13 +84,14 @@ export default function SpBuilder() {
   }, [selectedProject, tables]);
 
   const schema = useMemo(() => {
-    if (!tableSchema || !selectedTable || !tableSchema.columns) {
+    const colsSource = tableSchema?.schema?.columns ?? tableSchema?.columns ?? [];
+    if (!tableSchema || !selectedTable || colsSource.length === 0) {
       return { tableName: selectedTable || "", schemaName: "", columns: [] };
     }
     return {
       tableName: tableSchema.tableName || selectedTable || "",
       schemaName: tableSchema.schemaName || "",
-      columns: tableSchema.schema.columns.map((col) => {
+      columns: colsSource.map((col: any) => {
         let dataType = col.dataType;
         if (col.maxLength && col.maxLength > 0 && col.maxLength !== -1) {
           dataType += `(${col.maxLength})`;

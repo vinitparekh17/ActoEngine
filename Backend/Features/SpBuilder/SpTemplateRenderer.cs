@@ -6,7 +6,10 @@ public class SpTemplateRenderer
 {
     public string RenderCud(string schemaName, string tableName, List<SpColumnConfig> cols, CudSpOptions opts)
     {
-        var spName = $"[{schemaName}].[{opts.SpPrefix}_{tableName}_CUD]";
+        var escapedPrefix = opts.SpPrefix?.Replace("]", "]]") ?? "usp";
+        var escapedTableName = tableName.Replace("]", "]]");
+        var escapedSchema = schemaName.Replace("]", "]]");
+        var spName = $"[{escapedSchema}].[{escapedPrefix}_{escapedTableName}_CUD]";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
         var createCols = opts.GenerateCreate ? cols.Where(c => c.IncludeInCreate && !c.IsIdentity).ToList() : [];
         var updateCols = opts.GenerateUpdate ? cols.Where(c => c.IncludeInUpdate && !c.IsIdentity && !c.IsPrimaryKey).ToList() : [];
@@ -17,6 +20,10 @@ public class SpTemplateRenderer
         if (opts.GenerateCreate) activeActions.Add("'C' = Create");
         if (opts.GenerateUpdate) activeActions.Add("'U' = Update");
         if (opts.GenerateDelete) activeActions.Add("'D' = Delete");
+        if (activeActions.Count == 0)
+        {
+            throw new ArgumentException("No CUD operations enabled; at least one of GenerateCreate/GenerateUpdate/GenerateDelete must be true");
+        }
         var actionComment = string.Join(", ", activeActions);
 
         // All params needed: PK + create columns + update columns (union to avoid duplicates)
@@ -28,9 +35,12 @@ public class SpTemplateRenderer
 
         // Build the conditional body sections
         var bodySections = new List<string>();
-        var escapedTableName = BracketQualifiedName($"{schemaName}.{tableName}");
+        var fullTableName = tableName.Contains(".") || tableName.StartsWith("[dbo]") || tableName.StartsWith($"[{schemaName}]") 
+            ? tableName 
+            : $"{schemaName}.{tableName}";
+        var escapedQualifiedTableName = BracketQualifiedName(fullTableName);
 
-        if (opts.GenerateCreate)
+        if (opts.GenerateCreate && createCols.Count > 0)
         {
             var returnIdentity = identityCol != null
                 ? $"\n        SELECT SCOPE_IDENTITY() AS [{identityCol.ColumnName}];"
@@ -39,7 +49,7 @@ public class SpTemplateRenderer
                 $"    -- CREATE\n" +
                 $"    IF @{opts.ActionParamName} = 'C'\n" +
                 $"    BEGIN\n" +
-                $"        INSERT INTO {escapedTableName} (\n" +
+                $"        INSERT INTO {escapedQualifiedTableName} (\n" +
                 $"{BuildInsertColumns(createCols)}\n" +
                 $"        )\n" +
                 $"        VALUES (\n" +
@@ -48,14 +58,14 @@ public class SpTemplateRenderer
                 $"    END");
         }
 
-        if (opts.GenerateUpdate)
+        if (opts.GenerateUpdate && updateCols.Count > 0 && pkCols.Count > 0)
         {
             var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
             bodySections.Add(
                 $"    -- UPDATE\n" +
                 $"{keyword} @{opts.ActionParamName} = 'U'\n" +
                 $"    BEGIN\n" +
-                $"        UPDATE {escapedTableName}\n" +
+                $"        UPDATE {escapedQualifiedTableName}\n" +
                 $"        SET\n" +
                 $"{BuildUpdateSetClause(updateCols)}\n" +
                 $"        WHERE\n" +
@@ -63,14 +73,14 @@ public class SpTemplateRenderer
                 $"    END");
         }
 
-        if (opts.GenerateDelete)
+        if (opts.GenerateDelete && pkCols.Count > 0)
         {
             var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
             bodySections.Add(
                 $"    -- DELETE\n" +
                 $"{keyword} @{opts.ActionParamName} = 'D'\n" +
                 $"    BEGIN\n" +
-                $"        DELETE FROM {escapedTableName}\n" +
+                $"        DELETE FROM {escapedQualifiedTableName}\n" +
                 $"        WHERE\n" +
                 $"{BuildWhereClause(pkCols)};\n" +
                 $"    END");
@@ -118,7 +128,10 @@ public class SpTemplateRenderer
             throw new ArgumentException("Columns collection cannot be empty when rendering SELECT stored procedure.", nameof(cols));
         }
 
-        var spName = $"[{schemaName}].[{opts.SpPrefix}_{tableName}_Select]";
+        var escapedPrefix = opts.SpPrefix?.Replace("]", "]]") ?? "usp";
+        var escapedTableName = tableName.Replace("]", "]]");
+        var escapedSchema = schemaName.Replace("]", "]]");
+        var spName = $"[{escapedSchema}].[{escapedPrefix}_{escapedTableName}_Select]";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
         var orderByCols = opts.OrderByColumns.Count != 0
             ? opts.OrderByColumns
@@ -134,7 +147,10 @@ public class SpTemplateRenderer
         // Determine the exact table identifier used by the main SELECT's FROM clause,
         // so the TOTAL COUNT query uses the same source. If the provided tableName is
         // already schema-qualified (schema.Table), use that; otherwise default to dbo.
-        string mainFromIdentifier = BracketQualifiedName($"{schemaName}.{tableName}");
+        var fullTableName = tableName.Contains(".") || tableName.StartsWith("[dbo]") || tableName.StartsWith($"[{schemaName}]") 
+            ? tableName 
+            : $"{schemaName}.{tableName}";
+        string mainFromIdentifier = BracketQualifiedName(fullTableName);
 
         template = template.Replace("{SP_NAME}", spName);
         template = template.Replace("{TABLE_NAME}", mainFromIdentifier);

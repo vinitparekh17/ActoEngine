@@ -3,6 +3,8 @@ import { Skeleton } from "@/components/ui/skeletons";
 
 const MonacoEditor = lazy(() => import("@monaco-editor/react"));
 
+const SKELETON_WIDTHS = [65, 82, 45, 78, 56, 90, 40, 70, 85, 50, 75, 60];
+
 export default function SPPreviewPane({
   sqlCode,
   onChange,
@@ -20,7 +22,7 @@ export default function SPPreviewPane({
             <Skeleton
               key={i}
               className="h-4 opacity-10 bg-primary"
-              style={{ width: `${Math.random() * 40 + 40}%` }}
+              style={{ width: `${SKELETON_WIDTHS[i % SKELETON_WIDTHS.length]}%` }}
             />
           ))}
         </div>
@@ -39,7 +41,7 @@ export default function SPPreviewPane({
             scrollBeyondLastLine: false,
             padding: { top: 24, bottom: 24 },
             renderLineHighlight: "all",
-            lineHeight: 1.6,
+            lineHeight: 21,
           }}
         />
       )}

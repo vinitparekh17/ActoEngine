@@ -132,7 +132,7 @@ export default function TableSchemaViewer({
                   const isPk = upper.some((s) => s.includes("PK"));
                   const isIdentity = upper.some((s) => s.includes("IDENTITY"));
                   const disableCreate = isPk || isIdentity;
-                  const disableUpdate = isPk;
+                  const disableUpdate = isPk || isIdentity;
                   return (
                     <>
                       <TableCell className="text-center">

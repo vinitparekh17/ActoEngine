@@ -6,7 +6,9 @@ public class SpCudRenderer
 {
     public string RenderCud(string tableName, List<SpColumnConfig> cols, CudSpOptions opts)
     {
-        var spName = $"{opts.SpPrefix}_{tableName}_CUD";
+        var escapedObjectName = ExtractObjectName(tableName);
+        var escapedPrefix = opts.SpPrefix?.Replace("]", "]]") ?? "usp";
+        var spName = $"[{escapedPrefix}_{escapedObjectName.Trim('[', ']')}_CUD]";
         var pkCols = cols.Where(c => c.IsPrimaryKey).ToList();
         var createCols = opts.GenerateCreate ? cols.Where(c => c.IncludeInCreate && !c.IsIdentity).ToList() : [];
         var updateCols = opts.GenerateUpdate ? cols.Where(c => c.IncludeInUpdate && !c.IsIdentity && !c.IsPrimaryKey).ToList() : [];
@@ -17,6 +19,10 @@ public class SpCudRenderer
         if (opts.GenerateCreate) activeActions.Add("'C' = Create");
         if (opts.GenerateUpdate) activeActions.Add("'U' = Update");
         if (opts.GenerateDelete) activeActions.Add("'D' = Delete");
+        if (activeActions.Count == 0)
+        {
+            throw new ArgumentException("No CUD operations enabled; at least one of GenerateCreate/GenerateUpdate/GenerateDelete must be true");
+        }
         var actionComment = string.Join(", ", activeActions);
 
         // All params needed: PK + create columns + update columns (union to avoid duplicates)
@@ -29,7 +35,7 @@ public class SpCudRenderer
         // Build the conditional body sections
         var bodySections = new List<string>();
 
-        if (opts.GenerateCreate)
+        if (opts.GenerateCreate && createCols.Count > 0)
         {
             var returnIdentity = identityCol != null
                 ? $"\n        SELECT SCOPE_IDENTITY() AS [{identityCol.ColumnName}];"
@@ -47,7 +53,7 @@ public class SpCudRenderer
                 $"    END");
         }
 
-        if (opts.GenerateUpdate)
+        if (opts.GenerateUpdate && updateCols.Count > 0 && pkCols.Count > 0)
         {
             var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
             bodySections.Add(
@@ -62,7 +68,7 @@ public class SpCudRenderer
                 $"    END");
         }
 
-        if (opts.GenerateDelete)
+        if (opts.GenerateDelete && pkCols.Count > 0)
         {
             var keyword = bodySections.Count > 0 ? "    ELSE IF" : "    IF";
             bodySections.Add(
@@ -108,6 +114,20 @@ public class SpCudRenderer
             : SpTemplateStore.ErrorHandlingEndNoTrans;
 
         return (start, end + "\n");
+    }
+
+    private static string ExtractObjectName(string tableName)
+    {
+        if (string.IsNullOrWhiteSpace(tableName))
+            throw new ArgumentException("Table name cannot be empty.", nameof(tableName));
+            
+        var parts = tableName.Split('.');
+        var lastPart = parts.Last().Trim('[', ']');
+        
+        if (string.IsNullOrWhiteSpace(lastPart))
+            throw new ArgumentException("Invalid table name.", nameof(tableName));
+            
+        return $"[{lastPart.Replace("]", "]]")}]";
     }
 
     private static string BuildParameters(List<SpColumnConfig> cols)

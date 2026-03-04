@@ -86,7 +86,7 @@ export default function SPConfigPanel({
       form.setValue("includeInCreate" as any, defaultCols.create);
       form.setValue("includeInUpdate" as any, defaultCols.update);
     }
-  }, [schema.tableName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [schema.tableName, spType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = form.handleSubmit((values) => {
     if (values.mode === "SELECT") {
