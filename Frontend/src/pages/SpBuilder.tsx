@@ -131,8 +131,8 @@ export default function SpBuilder() {
       }
       setIsGenerating(true);
 
-      let schemaName = "dbo";
-      let actualTableName = selectedTable;
+      let schemaName = (tableSchema.schemaName || "dbo").trim() || "dbo";
+      let actualTableName = tableSchema.tableName || selectedTable;
       if (selectedTable.includes(".")) {
         const parts = selectedTable.split(".");
         schemaName = parts[0];

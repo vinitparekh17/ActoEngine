@@ -72,7 +72,7 @@ export default function TableSchemaViewer({
           {selectedTable ? `Selected: ${selectedTable}` : "Select a table to view schema"}
         </div>
         <Badge variant="outline" className="rounded-full">
-          {schema.schemaName || schema.schemaName === "" ? "dbo" : schema.schemaName}
+          {schema.schemaName && schema.schemaName.trim() !== "" ? schema.schemaName : "dbo"}
         </Badge>
       </div>
 
@@ -130,7 +130,7 @@ export default function TableSchemaViewer({
                   const upper = (col.constraints || []).map((s) => s.toUpperCase());
                   const isPk = upper.some((s) => s.includes("PK"));
                   const isIdentity = upper.some((s) => s.includes("IDENTITY"));
-                  const disableCreate = isPk || isIdentity;
+                  const disableCreate = isIdentity;
                   const disableUpdate = isPk || isIdentity;
                   return (
                     <>
