@@ -237,7 +237,6 @@ export default function RoleManagementPage() {
                   <TableHead>Role ID</TableHead>
                   <TableHead>Role Name</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Permissions</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -263,10 +262,10 @@ export default function RoleManagementPage() {
             defaultValues={
               editingRole
                 ? {
-                    roleName: editingRole.roleName,
-                    description: editingRole.description || "",
-                    permissionIds: editingRolePermissions,
-                  }
+                  roleName: editingRole.roleName,
+                  description: editingRole.description || "",
+                  permissionIds: editingRolePermissions,
+                }
                 : undefined
             }
             permissionGroups={permissionGroups}

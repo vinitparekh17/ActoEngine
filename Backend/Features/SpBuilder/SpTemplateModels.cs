@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace ActoEngine.WebApi.Features.SpBuilder;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SpType
 {
     Cud,       // Create, Update, Delete in ONE SP
@@ -10,10 +13,16 @@ public class SpGenerationRequest
 {
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
+    private string _schemaName = "dbo";
+    public string SchemaName 
+    { 
+        get => _schemaName; 
+        set => _schemaName = string.IsNullOrWhiteSpace(value) ? "dbo" : value.Trim(); 
+    }
     public SpType Type { get; set; }
     public required List<SpColumnConfig> Columns { get; set; }
-    public required CudSpOptions CudOptions { get; set; }
-    public required SelectSpOptions SelectOptions { get; set; }
+    public CudSpOptions? CudOptions { get; set; }
+    public SelectSpOptions? SelectOptions { get; set; }
 }
 
 public class CudSpOptions
@@ -22,6 +31,9 @@ public class CudSpOptions
     public bool IncludeErrorHandling { get; set; } = true;
     public bool IncludeTransaction { get; set; } = true;
     public string ActionParamName { get; set; } = "Action"; // 'C', 'U', 'D'
+    public bool GenerateCreate { get; set; } = true;
+    public bool GenerateUpdate { get; set; } = true;
+    public bool GenerateDelete { get; set; } = true;
 }
 
 public class SelectSpOptions
@@ -39,6 +51,7 @@ public class FilterColumn
     public bool IsOptional { get; set; } = true; // NULL means skip filter
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum FilterOperator
 {
     Equals,
@@ -87,7 +100,13 @@ public class QuickGenerateRequest
 {
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
+    private string _schemaName = "dbo";
+    public string SchemaName 
+    { 
+        get => _schemaName; 
+        set => _schemaName = string.IsNullOrWhiteSpace(value) ? "dbo" : value.Trim(); 
+    }
     public SpType Type { get; set; }
-    public required CudSpOptions CudOptions { get; set; }
-    public required SelectSpOptions SelectOptions { get; set; }
+    public CudSpOptions? CudOptions { get; set; }
+    public SelectSpOptions? SelectOptions { get; set; }
 }

@@ -286,14 +286,24 @@ export function useProjectTables() {
 // Hook - useTableSchema (with connection string)
 // ============================================
 export function useTableSchema(
-  tableName: string | undefined,
-  schemaName?: string,
+  rawTableString: string | undefined,
+  fallbackSchemaName?: string,
 ) {
   const { selectedProjectId, hasProject } = useProject();
+
+  let tableName = rawTableString;
+  let schemaName = fallbackSchemaName;
+
+  if (rawTableString?.includes(".")) {
+    const parts = rawTableString.split(".");
+    schemaName = parts[0];
+    tableName = parts.slice(1).join(".");
+  }
+
   const effectiveSchemaName = schemaName || "dbo";
   const schemaUrl =
     tableName && selectedProjectId
-      ? `/DatabaseBrowser/projects/${selectedProjectId}/tables/${tableName}/schema?schemaName=${encodeURIComponent(effectiveSchemaName)}`
+      ? `/DatabaseBrowser/projects/${selectedProjectId}/tables/${encodeURIComponent(tableName)}/schema?schemaName=${encodeURIComponent(effectiveSchemaName)}`
       : "";
   const {
     data: schema,

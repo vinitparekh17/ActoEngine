@@ -59,11 +59,11 @@ public class SpBuilderService(ISchemaRepository schemaRepo, IProjectRepository p
     private GeneratedSpItem GenerateCudSp(SpGenerationRequest req)
     {
         var opts = req.CudOptions ?? new CudSpOptions();
-        var code = _renderer.RenderCud(req.TableName, req.Columns, opts);
+        var code = _renderer.RenderCud(req.SchemaName, req.TableName, req.Columns, opts);
 
         return new GeneratedSpItem
         {
-            SpName = $"{opts.SpPrefix}_{req.TableName}_CUD",
+            SpName = $"[{req.SchemaName}].[{opts.SpPrefix}_{req.TableName}_CUD]",
             SpType = "CUD",
             Code = code,
             FileName = $"{opts.SpPrefix}_{req.TableName}_CUD.sql",
@@ -74,7 +74,7 @@ public class SpBuilderService(ISchemaRepository schemaRepo, IProjectRepository p
     private GeneratedSpItem GenerateSelectSp(SpGenerationRequest req)
     {
         var opts = req.SelectOptions ?? new SelectSpOptions();
-        var code = _renderer.RenderSelect(req.TableName, req.Columns, opts);
+        var code = _renderer.RenderSelect(req.SchemaName, req.TableName, req.Columns, opts);
 
         var desc = opts.IncludePagination
             ? "Select with filters and pagination"
@@ -87,7 +87,7 @@ public class SpBuilderService(ISchemaRepository schemaRepo, IProjectRepository p
 
         return new GeneratedSpItem
         {
-            SpName = $"{opts.SpPrefix}_{req.TableName}_Select",
+            SpName = $"[{req.SchemaName}].[{opts.SpPrefix}_{req.TableName}_Select]",
             SpType = "Select",
             Code = code,
             FileName = $"{opts.SpPrefix}_{req.TableName}_Select.sql",

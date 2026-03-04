@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Api.ApiModels;
 using ActoEngine.WebApi.Api.Attributes;
+using ActoEngine.WebApi.Features.Permissions;
 using ActoEngine.WebApi.Features.Projects.Dtos.Requests;
 using ActoEngine.WebApi.Features.Projects.Dtos.Responses;
 using ActoEngine.WebApi.Features.Schema;
@@ -413,23 +414,24 @@ namespace ActoEngine.WebApi.Features.Projects
         [HttpGet("user/{userId}")]
         [RequirePermission("Projects:Read")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<int>>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetUserProjectMemberships(int userId)
+        public async Task<IActionResult> GetUserProjectMemberships(int userId, [FromServices] IPermissionService permissionService)
         {
             // IDOR Prevention: Only allow users to query their own memberships
-            // unless they have elevated permissions
+            // unless they have elevated permissions (Users:Read)
             var callerId = HttpContext.GetUserId();
             if (callerId == null)
             {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
             }
 
-            // If caller is not querying their own memberships, they need Projects:ReadAll permission
+            // If caller is not querying their own memberships, check if they have Users:Read permission
             if (callerId.Value != userId)
             {
-                // Check if user has elevated permission to read all project memberships
-                // For now, we simply forbid cross-user queries unless you're querying yourself
-                // TODO: Add "Projects:ReadAll" permission check here if needed for admin users
-                return Forbid();
+                bool hasAdminAccess = await permissionService.UserHasPermissionAsync(callerId.Value, "Users:Read");
+                if (!hasAdminAccess)
+                {
+                    return Forbid();
+                }
             }
 
             var projectIds = await _projectService.GetUserProjectMembershipsAsync(userId);

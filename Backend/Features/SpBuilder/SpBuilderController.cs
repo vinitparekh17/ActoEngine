@@ -99,7 +99,7 @@ public class SpBuilderController(
 
             // Use cached metadata instead of querying the target database
             var tablesMetadata = await schemaRepo.GetTablesListAsync(projectId);
-            var tables = tablesMetadata.Select(t => t.TableName).ToList();
+            var tables = tablesMetadata.Select(t => $"{(string.IsNullOrWhiteSpace(t.SchemaName) ? "dbo" : t.SchemaName)}.{t.TableName}").ToList();
 
             return Ok(ApiResponse<List<string>>.Success(
                 tables,
@@ -134,7 +134,8 @@ public class SpBuilderController(
             var schema = await spBuilder.GetTableSchema(new TableSchemaRequest
             {
                 ProjectId = req.ProjectId,
-                TableName = req.TableName
+                TableName = req.TableName,
+                SchemaName = req.SchemaName
             });
 
             var cols = MapSchemaToColumns(schema);
@@ -143,6 +144,7 @@ public class SpBuilderController(
             {
                 ProjectId = req.ProjectId,
                 TableName = req.TableName,
+                SchemaName = req.SchemaName,
                 Type = SpType.Cud,
                 Columns = cols,
                 CudOptions = req.CudOptions ?? new CudSpOptions(),
@@ -176,7 +178,8 @@ public class SpBuilderController(
             var schema = await spBuilder.GetTableSchema(new TableSchemaRequest
             {
                 ProjectId = req.ProjectId,
-                TableName = req.TableName
+                TableName = req.TableName,
+                SchemaName = req.SchemaName
             });
 
             var cols = MapSchemaToColumns(schema);
@@ -185,6 +188,7 @@ public class SpBuilderController(
             {
                 ProjectId = req.ProjectId,
                 TableName = req.TableName,
+                SchemaName = req.SchemaName,
                 Type = SpType.Select,
                 Columns = cols,
                 CudOptions = new CudSpOptions(), // Required but not used for SELECT

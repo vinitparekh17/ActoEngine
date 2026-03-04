@@ -48,7 +48,7 @@ export function RoleDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Role Details</DialogTitle>
           <DialogDescription>
@@ -86,8 +86,8 @@ export function RoleDetailModal({
                 <Label className="text-muted-foreground">Status</Label>
                 <span
                   className={`px-2 py-1 rounded-full text-xs inline-block ${roleDetail.role.isActive
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                     }`}
                 >
                   {roleDetail.role.isActive ? "Active" : "Inactive"}

@@ -3,7 +3,7 @@ namespace ActoEngine.WebApi.Features.SpBuilder;
 public static class SpTemplateStore
 {
     // CUD Template - Create, Update, Delete in ONE SP
-    public const string CudTemplate = @"CREATE PROCEDURE [dbo].[{SP_NAME}]
+    public const string CudTemplate = @"CREATE PROCEDURE {SP_NAME}
     @{ACTION_PARAM} CHAR(1), -- 'C' = Create, 'U' = Update, 'D' = Delete
 {PARAMETERS}
 AS
@@ -12,7 +12,7 @@ BEGIN
     -- CREATE
     IF @{ACTION_PARAM} = 'C'
     BEGIN
-        INSERT INTO [dbo].[{TABLE_NAME}] (
+        INSERT INTO {TABLE_NAME} (
 {INSERT_COLUMNS}
         )
         VALUES (
@@ -24,7 +24,7 @@ BEGIN
     -- UPDATE
     ELSE IF @{ACTION_PARAM} = 'U'
     BEGIN
-        UPDATE [dbo].[{TABLE_NAME}]
+        UPDATE {TABLE_NAME}
         SET
 {UPDATE_SET_CLAUSE}
         WHERE
@@ -34,7 +34,7 @@ BEGIN
     -- DELETE
     ELSE IF @{ACTION_PARAM} = 'D'
     BEGIN
-        DELETE FROM [dbo].[{TABLE_NAME}]
+        DELETE FROM {TABLE_NAME}
         WHERE
 {WHERE_CLAUSE};
     END
@@ -42,7 +42,7 @@ BEGIN
 END";
 
     // SELECT Template - with filters and optional pagination
-    public const string SelectTemplate = @"CREATE PROCEDURE [dbo].[{SP_NAME}]
+    public const string SelectTemplate = @"CREATE PROCEDURE {SP_NAME}
 {FILTER_PARAMETERS}{PAGINATION_PARAMS}
 AS
 BEGIN
@@ -50,7 +50,7 @@ BEGIN
 {PAGINATION_LOGIC}
     SELECT
 {SELECT_COLUMNS}
-    FROM [dbo].[{TABLE_NAME}]
+    FROM {TABLE_NAME}
 {WHERE_FILTERS}
     ORDER BY
 {ORDER_BY_CLAUSE}{PAGINATION_FETCH};
