@@ -351,13 +351,13 @@ public class ProjectRepository(
     {
         // Count tables
         var tableCount = await ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM TablesMetadata WHERE ProjectId = @ProjectId",
+            "SELECT COUNT(*) FROM TablesMetadata WHERE ProjectId = @ProjectId AND IsDeleted = 0",
             new { ProjectId = projectId },
             cancellationToken);
 
         // Count stored procedures by unique SpId (not by name, as names can duplicate across schemas)
         var spCount = await ExecuteScalarAsync<int>(
-            "SELECT COUNT(DISTINCT SpId) FROM SpMetadata WHERE ProjectId = @ProjectId",
+            "SELECT COUNT(DISTINCT SpId) FROM SpMetadata WHERE ProjectId = @ProjectId AND IsDeleted = 0",
             new { ProjectId = projectId },
             cancellationToken);
 

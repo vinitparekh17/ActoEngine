@@ -5,6 +5,37 @@ public static class SchemaSyncQueries
     // Server detection
     public const string GetServerName = @"SELECT @@SERVERNAME";
 
+    // Used for SP hash detection and diff
+    public const string GetTargetSpModifyDates = @"
+        SELECT 
+            SCHEMA_NAME(schema_id) AS SchemaName,
+            name AS ProcedureName,
+            modify_date AS SourceModifyDate
+        FROM sys.procedures
+        WHERE type = 'P' AND name NOT LIKE 'sp_%'";
+
+    public const string GetSpHashes = @"
+        SELECT 
+            SpId,
+            SchemaName,
+            ProcedureName,
+            DefinitionHash,
+            SourceModifyDate
+        FROM SpMetadata
+        WHERE ProjectId = @ProjectId AND IsDeleted = 0";
+
+    public const string UpdateSpDefinitionAndHash = @"
+        UPDATE SpMetadata
+        SET Definition = @Definition,
+            DefinitionHash = @DefinitionHash,
+            SourceModifyDate = @SourceModifyDate
+        WHERE SpId = @SpId AND ProjectId = @ProjectId";
+
+    public const string SoftDeleteSp = @"
+        UPDATE SpMetadata
+        SET IsDeleted = 1, DeletedAt = GETUTCDATE()
+        WHERE SpId = @SpId AND ProjectId = @ProjectId";
+
     // Progress tracking
     public const string UpdateSyncStatus = @"
         UPDATE Projects
@@ -24,6 +55,12 @@ public static class SchemaSyncQueries
         FROM sys.tables 
         WHERE type = 'U' 
         ORDER BY name";
+
+    // Used for table soft deletes
+    public const string SoftDeleteTable = @"
+        UPDATE TablesMetadata 
+        SET IsDeleted = 1, DeletedAt = GETUTCDATE() 
+        WHERE TableId = @TableId AND ProjectId = @ProjectId";
 
     public const string GetTargetTablesWithSchema = @"
         SELECT DISTINCT
@@ -53,7 +90,7 @@ public static class SchemaSyncQueries
     public const string GetTableMetaByProjectId = @"
         SELECT TableId, TableName 
         FROM TablesMetadata 
-        WHERE ProjectId = @ProjectId";
+        WHERE ProjectId = @ProjectId AND IsDeleted = 0";
 
     // Column sync - Target database queries
     public const string GetTargetColumns = @"
@@ -159,11 +196,11 @@ public static class SchemaSyncQueries
         -- Resolve IDs from names and project
         DECLARE @ParentTableId INT = (
             SELECT TableId FROM TablesMetadata 
-            WHERE ProjectId = @ProjectId AND TableName = @TableName
+            WHERE ProjectId = @ProjectId AND TableName = @ParentTableName AND IsDeleted = 0
         );
         DECLARE @RefTableId INT = (
             SELECT TableId FROM TablesMetadata 
-            WHERE ProjectId = @ProjectId AND TableName = @ReferencedTable
+            WHERE ProjectId = @ProjectId AND TableName = @ReferencedTable AND IsDeleted = 0
         );
         DECLARE @ParentColumnId INT = (
             SELECT ColumnId FROM ColumnsMetadata 
@@ -237,20 +274,20 @@ public static class SchemaSyncQueries
     public const string GetTablesListMinimal = @"
         SELECT TableId, TableName, SchemaName
         FROM TablesMetadata
-        WHERE ProjectId = @ProjectId
+        WHERE ProjectId = @ProjectId AND IsDeleted = 0
         ORDER BY TableName";
 
     public const string GetStoredProceduresListMinimal = @"
         SELECT SpId, SchemaName, ProcedureName
         FROM SpMetadata
-        WHERE ProjectId = @ProjectId
+        WHERE ProjectId = @ProjectId AND IsDeleted = 0
         ORDER BY ProcedureName";
 
     // Full metadata queries (for detail views)
     public const string GetStoredTables = @"
         SELECT TableId, ProjectId, TableName, SchemaName, Description, CreatedAt
         FROM TablesMetadata
-        WHERE ProjectId = @ProjectId
+        WHERE ProjectId = @ProjectId AND IsDeleted = 0
         ORDER BY TableName";
 
     public const string GetStoredColumns = @"
@@ -265,13 +302,13 @@ public static class SchemaSyncQueries
         SELECT SpId, ProjectId, ClientId, ProcedureName, Definition,
                Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
         FROM SpMetadata
-        WHERE ProjectId = @ProjectId
+        WHERE ProjectId = @ProjectId AND IsDeleted = 0
         ORDER BY ProcedureName";
 
     public const string GetTableById = @"
         SELECT TableId, ProjectId, TableName, SchemaName, Description, CreatedAt 
         FROM TablesMetadata 
-        WHERE TableId = @TableId";
+        WHERE TableId = @TableId AND IsDeleted = 0";
 
     public const string GetColumnById = @"
         SELECT ColumnId, TableId, ColumnName, DataType, MaxLength, 
@@ -284,12 +321,12 @@ public static class SchemaSyncQueries
         SELECT SpId, ProjectId, ClientId, ProcedureName, Definition, 
                Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
         FROM SpMetadata 
-        WHERE SpId = @SpId";
+        WHERE SpId = @SpId AND IsDeleted = 0";
 
     public const string GetStoredTableByName = @"
         SELECT TableId, TableName, SchemaName
         FROM TablesMetadata
-        WHERE ProjectId = @ProjectId AND TableName = @TableName AND SchemaName = @SchemaName";
+        WHERE ProjectId = @ProjectId AND TableName = @TableName AND SchemaName = @SchemaName AND IsDeleted = 0";
 
     public const string GetStoredTableColumns = @"
         SELECT 
@@ -311,6 +348,6 @@ public static class SchemaSyncQueries
         LEFT JOIN ForeignKeyMetadata fk ON c.ColumnId = fk.ColumnId
         LEFT JOIN TablesMetadata rt ON fk.ReferencedTableId = rt.TableId
         LEFT JOIN ColumnsMetadata rc ON fk.ReferencedColumnId = rc.ColumnId
-        WHERE c.TableId = @TableId
+        WHERE c.TableId = @TableId AND (rt.IsDeleted = 0 OR rt.IsDeleted IS NULL)
         ORDER BY c.ColumnOrder";
 }

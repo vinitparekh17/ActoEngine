@@ -17,6 +17,9 @@ namespace ActoEngine.WebApi.Features.Projects
         Task<ConnectionResponse> VerifyConnectionAsync(VerifyConnectionRequest request);
         Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId);
         Task<ProjectResponse> ReSyncProjectAsync(ReSyncProjectRequest request, int userId);
+        Task<int> ReSyncEntitiesAsync(ReSyncEntitiesRequest request, int userId);
+        Task<SchemaDiffResponse> GetSchemaDiffAsync(int projectId, string connectionString);
+        Task<int> ApplyDiffAsync(ApplyDiffRequest request, int userId);
         Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId);
         Task<PublicProjectDto?> GetProjectByIdAsync(int projectId);
         Task<IEnumerable<PublicProjectDto>> GetAllProjectsAsync();
@@ -40,7 +43,8 @@ namespace ActoEngine.WebApi.Features.Projects
         ILogicalFkService logicalFkService,
         ILogger<ProjectService> logger,
         IConfiguration configuration,
-        IHostEnvironment environment) : IProjectService
+        IHostEnvironment environment,
+        IServiceScopeFactory serviceScopeFactory) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly ISchemaRepository _schemaRepository = schemaRepository;
@@ -53,6 +57,7 @@ namespace ActoEngine.WebApi.Features.Projects
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
         private readonly IHostEnvironment _environment = environment;
+        private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
 
         /// <summary>
         /// Verifies a database connection using secure credential handling.
@@ -251,6 +256,54 @@ namespace ActoEngine.WebApi.Features.Projects
                 // It's safer to wrap or just let global handler redact (but global handler doesn't know context).
                 // User asked to "replace their messages with a redacted summary... before logging or returning".
                 throw new InvalidOperationException($"Re-sync failed: {redactedMessage}", ex);
+            }
+        }
+
+        public async Task<int> ReSyncEntitiesAsync(ReSyncEntitiesRequest request, int userId)
+        {
+            try
+            {
+                using var scope = _serviceScopeFactory.CreateScope();
+                var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
+                return await scopedSyncService.ReSyncEntitiesAsync(request, userId);
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                _logger.LogError(ex, "Error starting targeted re-sync for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
+                throw new InvalidOperationException($"Targeted re-sync failed: {redactedMessage}", ex);
+            }
+        }
+
+        public async Task<SchemaDiffResponse> GetSchemaDiffAsync(int projectId, string connectionString)
+        {
+            try
+            {
+                using var scope = _serviceScopeFactory.CreateScope();
+                var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
+                return await scopedSyncService.GetSchemaDiffAsync(projectId, connectionString);
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                _logger.LogError(ex, "Error getting schema diff for project {ProjectId}. Error: {ErrorMessage}", projectId, redactedMessage);
+                throw new InvalidOperationException($"Schema diff failed: {redactedMessage}", ex);
+            }
+        }
+
+        public async Task<int> ApplyDiffAsync(ApplyDiffRequest request, int userId)
+        {
+            try
+            {
+                using var scope = _serviceScopeFactory.CreateScope();
+                var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
+                return await scopedSyncService.ApplyDiffAsync(request, userId);
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                _logger.LogError(ex, "Error applying schema diff for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
+                throw new InvalidOperationException($"Applying schema diff failed: {redactedMessage}", ex);
             }
         }
 

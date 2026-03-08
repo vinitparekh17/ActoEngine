@@ -32,6 +32,15 @@ public class StoredProcedureMetadata
     public string? Definition { get; set; }
 }
 
+public class SpHashInfo
+{
+    public int SpId { get; set; }
+    public string SchemaName { get; set; } = "dbo";
+    public required string ProcedureName { get; set; }
+    public string? DefinitionHash { get; set; }
+    public DateTime? SourceModifyDate { get; set; }
+}
+
 // Represents a scanned foreign key from the target DB using names, not IDs
 public class ForeignKeyScanResult
 {

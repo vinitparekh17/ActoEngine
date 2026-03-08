@@ -173,7 +173,7 @@ public static class LogicalFkQueries
             tm.TableName
         FROM ColumnsMetadata cm
         INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
-        WHERE tm.ProjectId = @ProjectId
+        WHERE tm.ProjectId = @ProjectId AND tm.IsDeleted = 0
         ORDER BY tm.TableName, cm.ColumnOrder;";
 
     public const string GetPhysicalFksByTable = @"
@@ -190,7 +190,7 @@ public static class LogicalFkQueries
         INNER JOIN ColumnsMetadata sc ON fk.ColumnId = sc.ColumnId
         INNER JOIN TablesMetadata tt ON fk.ReferencedTableId = tt.TableId
         INNER JOIN ColumnsMetadata tc ON fk.ReferencedColumnId = tc.ColumnId
-        WHERE st.ProjectId = @ProjectId
+        WHERE st.ProjectId = @ProjectId AND st.IsDeleted = 0 AND tt.IsDeleted = 0
           AND (fk.TableId = @TableId OR fk.ReferencedTableId = @TableId)
         ORDER BY st.TableName, sc.ColumnOrder;";
 
@@ -213,7 +213,7 @@ public static class LogicalFkQueries
             fk.ReferencedColumnId AS TargetColumnId
         FROM ForeignKeyMetadata fk
         INNER JOIN TablesMetadata tm ON fk.TableId = tm.TableId
-        WHERE tm.ProjectId = @ProjectId;";
+        WHERE tm.ProjectId = @ProjectId AND tm.IsDeleted = 0;";
 
     /// <summary>
     /// Bulk-load canonical keys of all existing logical FKs for a project (for batch dedup)
@@ -250,7 +250,7 @@ public static class LogicalFkQueries
             ) THEN 1 ELSE 0 END AS BIT) AS IsUnique
         FROM ColumnsMetadata cm
         INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
-        WHERE tm.ProjectId = @ProjectId
+        WHERE tm.ProjectId = @ProjectId AND tm.IsDeleted = 0
         ORDER BY tm.TableName, cm.ColumnOrder;";
 
     // ── Detection persistence queries ──────────────────────────

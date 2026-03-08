@@ -96,11 +96,104 @@ namespace ActoEngine.WebApi.Features.Projects
             try
             {
                 var response = await _projectService.ReSyncProjectAsync(request, userId.Value);
+                // Return standard ApiResponse to match LinkProject format
                 return Ok(ApiResponse<ProjectResponse>.Success(response, "Project re-sync started successfully"));
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                return BadRequest(ApiResponse<object>.Failure($"Failed to re-sync project: {redactedMessage}"));
+            }
+        }
+
+        [HttpPost("resync-entities")]
+        [RequirePermission("Schema:Sync")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ReSyncEntities([FromBody] ReSyncEntitiesRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
+
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
+            try
+            {
+                var syncedCount = await _projectService.ReSyncEntitiesAsync(request, userId.Value);
+                return Ok(ApiResponse<object>.Success(new { Count = syncedCount }, $"Successfully synced {syncedCount} entities"));
             }
             catch (InvalidOperationException ex)
             {
                 return NotFound(ApiResponse<object>.Failure(ex.Message));
+            }
+        }
+
+        public class DiffQueryRequest
+        {
+            public int ProjectId { get; set; }
+            public required string ConnectionString { get; set; }
+        }
+
+        [HttpPost("schema-diff")]
+        [RequirePermission("Schema:Sync")]
+        [ProducesResponseType(typeof(ApiResponse<SchemaDiffResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetSchemaDiff([FromBody] DiffQueryRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
+
+            try
+            {
+                var diff = await _projectService.GetSchemaDiffAsync(request.ProjectId, request.ConnectionString);
+                return Ok(ApiResponse<SchemaDiffResponse>.Success(diff, "Schema diff generated successfully"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ApiResponse<object>.Failure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                return BadRequest(ApiResponse<object>.Failure($"Failed to generate schema diff: {redactedMessage}"));
+            }
+        }
+
+        [HttpPost("apply-diff")]
+        [RequirePermission("Schema:Sync")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ApplyDiff([FromBody] ApplyDiffRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
+
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
+            try
+            {
+                var count = await _projectService.ApplyDiffAsync(request, userId.Value);
+                return Ok(ApiResponse<object>.Success(new { Count = count }, $"Successfully applied {count} selected schema diff items"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ApiResponse<object>.Failure(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                return BadRequest(ApiResponse<object>.Failure($"Failed to apply schema diff: {redactedMessage}"));
             }
         }
 

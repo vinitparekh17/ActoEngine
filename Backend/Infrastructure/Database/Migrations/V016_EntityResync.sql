@@ -1,0 +1,60 @@
+-- ============================================
+-- Migration: V016_EntityResync.sql
+-- Description: Add columns for entity-level resync (soft deletes, hash detection) and Notifications table.
+-- Date: 2026-03-08
+-- ============================================
+
+BEGIN TRANSACTION;
+BEGIN TRY
+
+    -- 1. Add Soft Delete columns to TablesMetadata
+    IF NOT EXISTS (SELECT 1 FROM sys.columns 
+                   WHERE Name = N'IsDeleted' 
+                   AND Object_ID = Object_ID(N'TablesMetadata'))
+    BEGIN
+        ALTER TABLE TablesMetadata
+        ADD IsDeleted BIT NOT NULL DEFAULT 0,
+            DeletedAt DATETIME2 NULL;
+    END
+
+    -- 2. Add Hash and Soft Delete columns to SpMetadata
+    IF NOT EXISTS (SELECT 1 FROM sys.columns 
+                   WHERE Name = N'DefinitionHash' 
+                   AND Object_ID = Object_ID(N'SpMetadata'))
+    BEGIN
+        ALTER TABLE SpMetadata
+        ADD DefinitionHash VARCHAR(64) NULL,
+            SourceModifyDate DATETIME2 NULL,
+            IsDeleted BIT NOT NULL DEFAULT 0,
+            DeletedAt DATETIME2 NULL;
+    END
+
+    -- 3. Create Notifications table
+    IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Notifications]') AND type in (N'U'))
+    BEGIN
+        CREATE TABLE Notifications (
+            NotificationId INT PRIMARY KEY IDENTITY(1,1),
+            UserId INT NOT NULL,
+            ProjectId INT NULL, 
+            Type NVARCHAR(50) NOT NULL,
+            Title NVARCHAR(200) NOT NULL,
+            Message NVARCHAR(500) NOT NULL,
+            IsRead BIT NOT NULL DEFAULT 0,
+            CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+            ReadAt DATETIME2 NULL,
+
+            CONSTRAINT FK_Notifications_UserId FOREIGN KEY (UserId) REFERENCES Users(UserID),
+            CONSTRAINT FK_Notifications_ProjectId FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId)
+        );
+
+        -- Index for fast user polling (unread first)
+        CREATE INDEX IX_Notifications_UserId_IsRead ON Notifications(UserId, IsRead, CreatedAt DESC);
+        -- Index for cleanup jobs
+        CREATE INDEX IX_Notifications_IsRead_CreatedAt ON Notifications(IsRead, CreatedAt);
+    END
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;

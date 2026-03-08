@@ -12,6 +12,14 @@ public interface ISchemaService
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
     Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<string> tableNames);
 
+    // Entity Resync & Diff Core Utilities
+    Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString);
+    string NormalizeAndHashDefinition(string definition);
+    Task<List<SpHashInfo>> GetSpHashesAsync(int projectId);
+    Task<bool> UpdateSpDefinitionAndHashAsync(int projectId, int spId, string definition, string definitionHash, DateTime sourceModifyDate);
+    Task<bool> SoftDeleteTableAsync(int projectId, int tableId);
+    Task<bool> SoftDeleteSpAsync(int projectId, int spId);
+
     // Methods for stored metadata
     // Lightweight list methods (minimal bandwidth)
     Task<List<TableListDto>> GetTablesListAsync(int projectId);
@@ -134,6 +142,57 @@ public partial class SchemaService(
             _logger.LogError(ex, "Error retrieving stored procedures from database");
             throw;
         }
+    }
+
+    public async Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString)
+    {
+        try
+        {
+            return await _schemaRepository.GetStoredProcedureModifyDatesAsync(connectionString);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving stored procedure modify dates from database");
+            throw;
+        }
+    }
+
+    public string NormalizeAndHashDefinition(string definition)
+    {
+        if (string.IsNullOrWhiteSpace(definition)) return string.Empty;
+
+        // 1. Remove block comments /* ... */
+        var noBlockComments = BlockCommentRegex().Replace(definition, string.Empty);
+
+        // 2. Remove line comments -- ...
+        var noLineComments = LineCommentRegex().Replace(noBlockComments, string.Empty);
+
+        // 3. Trim and lowercase for case-insensitive and whitespace-insensitive hashing
+        var normalized = WhitespaceRegex().Replace(noLineComments, " ").ToLowerInvariant().Trim();
+
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalized));
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
+    public async Task<List<SpHashInfo>> GetSpHashesAsync(int projectId)
+    {
+        return await _schemaRepository.GetSpHashesAsync(projectId);
+    }
+
+    public async Task<bool> UpdateSpDefinitionAndHashAsync(int projectId, int spId, string definition, string definitionHash, DateTime sourceModifyDate)
+    {
+        return await _schemaRepository.UpdateSpDefinitionAndHashAsync(projectId, spId, definition, definitionHash, sourceModifyDate);
+    }
+
+    public async Task<bool> SoftDeleteTableAsync(int projectId, int tableId)
+    {
+        return await _schemaRepository.SoftDeleteTableAsync(projectId, tableId);
+    }
+
+    public async Task<bool> SoftDeleteSpAsync(int projectId, int spId)
+    {
+        return await _schemaRepository.SoftDeleteSpAsync(projectId, spId);
     }
 
     // Lightweight list methods
@@ -385,4 +444,13 @@ public partial class SchemaService(
 
     [GeneratedRegex(@"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)?$", RegexOptions.Compiled)]
     private static partial Regex MyRegex();
+
+    [GeneratedRegex(@"/\*[\s\S]*?\*/", RegexOptions.Compiled)]
+    private static partial Regex BlockCommentRegex();
+
+    [GeneratedRegex(@"--.*$", RegexOptions.Multiline | RegexOptions.Compiled)]
+    private static partial Regex LineCommentRegex();
+
+    [GeneratedRegex(@"\s+", RegexOptions.Compiled)]
+    private static partial Regex WhitespaceRegex();
 }

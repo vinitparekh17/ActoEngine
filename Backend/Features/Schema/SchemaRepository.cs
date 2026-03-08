@@ -15,6 +15,11 @@ public interface ISchemaRepository
     Task<List<string>> GetAllTablesAsync(string connectionString);
     Task<List<(string TableName, string SchemaName)>> GetAllTablesWithSchemaAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
+    Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString);
+    Task<List<SpHashInfo>> GetSpHashesAsync(int projectId);
+    Task<bool> UpdateSpDefinitionAndHashAsync(int projectId, int spId, string definition, string definitionHash, DateTime sourceModifyDate);
+    Task<bool> SoftDeleteTableAsync(int projectId, int tableId);
+    Task<bool> SoftDeleteSpAsync(int projectId, int spId);
 
     // Methods to retrieve stored metadata
     // Lightweight list methods (minimal bandwidth)
@@ -253,6 +258,69 @@ public class SchemaRepository(
             _logger.LogError(ex, "Error getting stored procedures from connection string");
             throw;
         }
+    }
+
+    public async Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString)
+    {
+        // Note: Uses external connection string, cannot use BaseRepository methods
+        try
+        {
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+            return await connection.QueryAsync<dynamic>(SchemaSyncQueries.GetTargetSpModifyDates);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting stored procedure modify dates from connection string");
+            throw;
+        }
+    }
+
+    public async Task<List<SpHashInfo>> GetSpHashesAsync(int projectId)
+    {
+        var hashes = await QueryAsync<SpHashInfo>(
+            SchemaSyncQueries.GetSpHashes,
+            new { ProjectId = projectId });
+
+        return [.. hashes];
+    }
+
+    public async Task<bool> UpdateSpDefinitionAndHashAsync(
+        int projectId,
+        int spId,
+        string definition,
+        string definitionHash,
+        DateTime sourceModifyDate)
+    {
+        var affected = await ExecuteAsync(
+            SchemaSyncQueries.UpdateSpDefinitionAndHash,
+            new
+            {
+                ProjectId = projectId,
+                SpId = spId,
+                Definition = definition,
+                DefinitionHash = definitionHash,
+                SourceModifyDate = sourceModifyDate
+            });
+
+        return affected > 0;
+    }
+
+    public async Task<bool> SoftDeleteTableAsync(int projectId, int tableId)
+    {
+        var affected = await ExecuteAsync(
+            SchemaSyncQueries.SoftDeleteTable,
+            new { ProjectId = projectId, TableId = tableId });
+
+        return affected > 0;
+    }
+
+    public async Task<bool> SoftDeleteSpAsync(int projectId, int spId)
+    {
+        var affected = await ExecuteAsync(
+            SchemaSyncQueries.SoftDeleteSp,
+            new { ProjectId = projectId, SpId = spId });
+
+        return affected > 0;
     }
 
     // Lightweight list methods

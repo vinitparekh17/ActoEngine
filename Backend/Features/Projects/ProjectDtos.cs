@@ -28,6 +28,20 @@ public class Project
     public int? UpdatedBy { get; set; }
 }
 
+public class ResyncEntityItem
+{
+    public required string EntityType { get; set; } // "TABLE" or "SP"
+    public required string SchemaName { get; set; }
+    public required string EntityName { get; set; }
+}
+
+public class ReSyncEntitiesRequest
+{
+    public int ProjectId { get; set; }
+    public required string ConnectionString { get; set; }
+    public required List<ResyncEntityItem> Entities { get; set; }
+}
+
 public class ProjectResponse
 {
     public int ProjectId { get; set; }
@@ -48,4 +62,33 @@ public class ActivityItem
     public required string Description { get; set; }
     public DateTime Timestamp { get; set; }
     public required string User { get; set; }
+}
+
+public class SchemaDiffResponse
+{
+    public EntityDiffCategory Tables { get; set; } = new();
+    public EntityDiffCategory StoredProcedures { get; set; } = new();
+}
+
+public class EntityDiffCategory
+{
+    public List<DiffEntityItem> Added { get; set; } = [];
+    public List<DiffEntityItem> Removed { get; set; } = [];
+    public List<DiffEntityItem> Modified { get; set; } = [];
+}
+
+public class DiffEntityItem
+{
+    public string SchemaName { get; set; } = string.Empty;
+    public string EntityName { get; set; } = string.Empty;
+    public string? Reason { get; set; } // e.g., "definition_changed"
+}
+
+public class ApplyDiffRequest
+{
+    public int ProjectId { get; set; }
+    public required string ConnectionString { get; set; }
+    public List<ResyncEntityItem> AddEntities { get; set; } = [];
+    public List<ResyncEntityItem> RemoveEntities { get; set; } = [];
+    public List<ResyncEntityItem> UpdateEntities { get; set; } = [];
 }
