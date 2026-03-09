@@ -47,19 +47,25 @@ public static class LogicalFkQueries
         FROM (
             SELECT lfk.LogicalFkId, lfk.SourceTableId AS TableId
             FROM LogicalForeignKeys lfk
-            INNER JOIN TablesMetadata tm ON tm.TableId = lfk.SourceTableId
+            INNER JOIN TablesMetadata stm ON stm.TableId = lfk.SourceTableId
+            INNER JOIN TablesMetadata ttm ON ttm.TableId = lfk.TargetTableId
             WHERE lfk.ProjectId = @ProjectId
               AND lfk.Status = 'SUGGESTED'
-              AND tm.ProjectId = @ProjectId
-              AND tm.IsDeleted = 0
+              AND stm.ProjectId = @ProjectId
+              AND ttm.ProjectId = @ProjectId
+              AND stm.IsDeleted = 0
+              AND ttm.IsDeleted = 0
             UNION
             SELECT lfk.LogicalFkId, lfk.TargetTableId AS TableId
             FROM LogicalForeignKeys lfk
-            INNER JOIN TablesMetadata tm ON tm.TableId = lfk.TargetTableId
+            INNER JOIN TablesMetadata stm ON stm.TableId = lfk.SourceTableId
+            INNER JOIN TablesMetadata ttm ON ttm.TableId = lfk.TargetTableId
             WHERE lfk.ProjectId = @ProjectId
               AND lfk.Status = 'SUGGESTED'
-              AND tm.ProjectId = @ProjectId
-              AND tm.IsDeleted = 0
+              AND stm.ProjectId = @ProjectId
+              AND ttm.ProjectId = @ProjectId
+              AND stm.IsDeleted = 0
+              AND ttm.IsDeleted = 0
         ) x
         GROUP BY TableId;";
 

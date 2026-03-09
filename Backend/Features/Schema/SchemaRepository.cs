@@ -10,7 +10,7 @@ public interface ISchemaRepository
     Task<int> SyncTablesAsync(int projectId, IEnumerable<(string TableName, string SchemaName)> tableNames, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncColumnsAsync(int tableId, IEnumerable<ColumnMetadata> columns, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncStoredProceduresAsync(int projectId, int clientId, IEnumerable<StoredProcedureMetadata> procedures, int userId, IDbConnection connection, IDbTransaction transaction);
-    Task<IEnumerable<(int TableId, string TableName)>> GetProjectTablesAsync(int projectId, IDbConnection connection, IDbTransaction transaction);
+    Task<IEnumerable<(int TableId, string TableName, string SchemaName)>> GetProjectTablesAsync(int projectId, IDbConnection connection, IDbTransaction transaction);
     Task<TableSchemaResponse> ReadTableSchemaAsync(string connectionString, string tableName);
     Task<List<string>> GetAllTablesAsync(string connectionString);
     Task<List<(string TableName, string SchemaName)>> GetAllTablesWithSchemaAsync(string connectionString);
@@ -167,14 +167,14 @@ public class SchemaRepository(
         }
     }
 
-    public async Task<IEnumerable<(int TableId, string TableName)>> GetProjectTablesAsync(
+    public async Task<IEnumerable<(int TableId, string TableName, string SchemaName)>> GetProjectTablesAsync(
         int projectId,
         IDbConnection connection,
         IDbTransaction transaction)
     {
         try
         {
-            return await connection.QueryAsync<(int, string)>(
+            return await connection.QueryAsync<(int, string, string)>(
                 SchemaSyncQueries.GetTableMetaByProjectId,
                 new { ProjectId = projectId },
                 transaction);

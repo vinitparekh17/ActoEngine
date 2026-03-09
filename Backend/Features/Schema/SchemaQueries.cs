@@ -88,7 +88,7 @@ public static class SchemaSyncQueries
         WHERE ProjectId = @ProjectId AND TableName = @TableName AND SchemaName = @SchemaName";
 
     public const string GetTableMetaByProjectId = @"
-        SELECT TableId, TableName 
+        SELECT TableId, TableName, SchemaName
         FROM TablesMetadata 
         WHERE ProjectId = @ProjectId AND IsDeleted = 0";
 
@@ -351,7 +351,7 @@ public static class SchemaSyncQueries
         FROM ColumnsMetadata c
         LEFT JOIN ForeignKeyMetadata fk ON c.ColumnId = fk.ColumnId
         LEFT JOIN TablesMetadata rt ON fk.ReferencedTableId = rt.TableId
-            AND (rt.IsDeleted = 0 OR rt.IsDeleted IS NULL)
+            AND rt.IsDeleted = 0
         LEFT JOIN ColumnsMetadata rc ON fk.ReferencedColumnId = rc.ColumnId
         WHERE c.TableId = @TableId
         ORDER BY c.ColumnOrder";

@@ -154,6 +154,7 @@ namespace ActoEngine.WebApi.Features.Projects
                 await targetConn.OpenAsync();
 
                 int syncedCount = 0;
+                var analyzeAfterCommit = new List<(int SpId, string Definition)>();
 
                 // Grab existing SPs / Tables from our metadata
                 var storedTables = await _schemaRepository.GetStoredTablesAsync(request.ProjectId);
@@ -222,7 +223,7 @@ namespace ActoEngine.WebApi.Features.Projects
                                     modifyDate,
                                     dbConn,
                                     transaction);
-                                await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, spInfo.SpId, definition);
+                                analyzeAfterCommit.Add((spInfo.SpId, definition));
                                 syncedCount++;
                             }
                         }
@@ -236,6 +237,11 @@ namespace ActoEngine.WebApi.Features.Projects
                     throw;
                 }
 
+                foreach (var item in analyzeAfterCommit)
+                {
+                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
+                }
+
                 // Fire throttled background detection for Logical FKs (does not block this request)
                 _lfkThrottleService.TryQueueDetection(request.ProjectId);
 
@@ -244,7 +250,7 @@ namespace ActoEngine.WebApi.Features.Projects
             catch (Exception ex)
             {
                 var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
-                _logger.LogError(ex, "Error executing targeted ReSyncEntitiesAsync for project {ProjectId}", request.ProjectId);
+                _logger.LogError("Error executing targeted ReSyncEntitiesAsync for project {ProjectId}: {Error}", request.ProjectId, redactedMessage);
                 throw new InvalidOperationException($"Targeted re-sync failed: {redactedMessage}", ex);
             }
         }
@@ -368,6 +374,7 @@ namespace ActoEngine.WebApi.Features.Projects
             var toUpsert = new List<ResyncEntityItem>();
             toUpsert.AddRange(request.AddEntities);
             toUpsert.AddRange(request.UpdateEntities);
+            var analyzeAfterCommit = new List<(int SpId, string Definition)>();
 
             using var dbConn = await _connectionFactory.CreateConnectionAsync();
             using var transaction = dbConn.BeginTransaction();
@@ -464,7 +471,7 @@ namespace ActoEngine.WebApi.Features.Projects
                                         new { request.ProjectId, ProcedureName = entity.EntityName, entity.SchemaName, Definition = definition, DefinitionHash = hash, SourceModifyDate = modifyDate },
                                         transaction);
 
-                                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, insertedSpId, definition);
+                                    analyzeAfterCommit.Add((insertedSpId, definition));
                                 }
                                 else
                                 {
@@ -477,7 +484,7 @@ namespace ActoEngine.WebApi.Features.Projects
                                         modifyDate,
                                         dbConn,
                                         transaction);
-                                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, spInfo.SpId, definition);
+                                    analyzeAfterCommit.Add((spInfo.SpId, definition));
                                 }
 
                                 appliedCount++;
@@ -492,6 +499,11 @@ namespace ActoEngine.WebApi.Features.Projects
             {
                 transaction.Rollback();
                 throw;
+            }
+
+            foreach (var item in analyzeAfterCommit)
+            {
+                await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
             }
 
             _lfkThrottleService.TryQueueDetection(request.ProjectId);
@@ -678,12 +690,15 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Fetch all table IDs in a single query
             var tables = await _schemaRepository.GetProjectTablesAsync(projectId, dbConn, transaction);
-            var tableIdMap = tables.ToDictionary(t => t.TableName, t => t.TableId);
+            var tableIdMap = tables.ToDictionary(
+                t => $"{t.SchemaName}.{t.TableName}",
+                t => t.TableId,
+                StringComparer.OrdinalIgnoreCase);
 
             // Use the table names we already have
             foreach (var (tableName, schemaName) in tablesWithSchema)
             {
-                if (tableIdMap.TryGetValue(tableName, out var tableId))
+                if (tableIdMap.TryGetValue($"{schemaName}.{tableName}", out var tableId))
                 {
                     var columns = await ReadColumnsFromTargetAsync(targetConn, schemaName, tableName);
                     var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);

@@ -264,9 +264,8 @@ namespace ActoEngine.WebApi.Features.Projects
         {
             try
             {
-                using var scope = _serviceScopeFactory.CreateScope();
-                var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
-                return await scopedSyncService.ReSyncEntitiesAsync(request, userId);
+                return await WithScopedProjectSyncServiceAsync(syncService =>
+                    syncService.ReSyncEntitiesAsync(request, userId));
             }
             catch (Exception ex)
             {
@@ -280,9 +279,8 @@ namespace ActoEngine.WebApi.Features.Projects
         {
             try
             {
-                using var scope = _serviceScopeFactory.CreateScope();
-                var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
-                return await scopedSyncService.GetSchemaDiffAsync(projectId, connectionString);
+                return await WithScopedProjectSyncServiceAsync(syncService =>
+                    syncService.GetSchemaDiffAsync(projectId, connectionString));
             }
             catch (Exception ex)
             {
@@ -296,9 +294,8 @@ namespace ActoEngine.WebApi.Features.Projects
         {
             try
             {
-                using var scope = _serviceScopeFactory.CreateScope();
-                var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
-                return await scopedSyncService.ApplyDiffAsync(request, userId);
+                return await WithScopedProjectSyncServiceAsync(syncService =>
+                    syncService.ApplyDiffAsync(request, userId));
             }
             catch (Exception ex)
             {
@@ -468,12 +465,15 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Fetch all table IDs in a single query
             var tables = await _schemaRepository.GetProjectTablesAsync(projectId, dbConn, transaction);
-            var tableIdMap = tables.ToDictionary(t => t.TableName, t => t.TableId);
+            var tableIdMap = tables.ToDictionary(
+                t => $"{t.SchemaName}.{t.TableName}",
+                t => t.TableId,
+                StringComparer.OrdinalIgnoreCase);
 
             // Use the table names we already have
             foreach (var (tableName, schemaName) in tablesWithSchema)
             {
-                if (tableIdMap.TryGetValue(tableName, out var tableId))
+                if (tableIdMap.TryGetValue($"{schemaName}.{tableName}", out var tableId))
                 {
                     var columns = await ReadColumnsFromTargetAsync(targetConn, schemaName, tableName);
                     var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
@@ -729,6 +729,13 @@ namespace ActoEngine.WebApi.Features.Projects
         {
             await _projectRepository.RemoveProjectMemberAsync(projectId, userId, cancellationToken);
             _logger.LogInformation("Removed user {UserId} from project {ProjectId}", userId, projectId);
+        }
+
+        private async Task<T> WithScopedProjectSyncServiceAsync<T>(Func<ProjectSyncService, Task<T>> work)
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
+            return await work(scopedSyncService);
         }
     }
 }

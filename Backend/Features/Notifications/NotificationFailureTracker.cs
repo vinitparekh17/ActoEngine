@@ -7,12 +7,14 @@ public interface INotificationFailureTracker
     int RecordFailure();
     void Reset();
     int FailureThreshold { get; }
+    int CurrentFailureCount { get; }
 }
 
 public class NotificationFailureTracker : INotificationFailureTracker
 {
     private int _consecutiveFailures;
     public int FailureThreshold => 5;
+    public int CurrentFailureCount => Volatile.Read(ref _consecutiveFailures);
 
     public int RecordFailure()
     {

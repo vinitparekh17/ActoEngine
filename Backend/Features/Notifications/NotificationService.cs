@@ -47,8 +47,17 @@ public class NotificationService(
             await repository.CreateAsync(userId, request, cancellationToken);
             failureTracker.Reset();
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+
             var failures = failureTracker.RecordFailure();
             logger.LogError(ex, "Failed to create notification for user {UserId}", userId);
 
@@ -85,7 +94,15 @@ public class NotificationService(
                     await semaphore.WaitAsync(cancellationToken);
                     try
                     {
-                        await repository.CreateAsync(member.UserId, request, cancellationToken);
+                        await CreateForUserAsync(member.UserId, request, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to create project-member notification for user {UserId} in project {ProjectId}", member.UserId, projectId);
                     }
                     finally
                     {
@@ -96,6 +113,10 @@ public class NotificationService(
             }
             
             logger.LogInformation("Created {Type} notification for {Count} members of project {ProjectId}", type, membersList.Count, projectId);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
