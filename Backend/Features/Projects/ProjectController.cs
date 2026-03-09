@@ -109,7 +109,7 @@ namespace ActoEngine.WebApi.Features.Projects
         [HttpPost("resync-entities")]
         [RequirePermission("Schema:Sync")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> ReSyncEntities([FromBody] ReSyncEntitiesRequest request)
+        public async Task<IActionResult> ReSyncEntities([FromBody] ResyncEntitiesRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -120,6 +120,11 @@ namespace ActoEngine.WebApi.Features.Projects
             if (userId == null)
             {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
+            if (!await IsProjectMemberAsync(request.ProjectId, userId.Value))
+            {
+                return NotFound(ApiResponse<object>.Failure("Project not found"));
             }
 
             try
@@ -133,12 +138,6 @@ namespace ActoEngine.WebApi.Features.Projects
             }
         }
 
-        public class DiffQueryRequest
-        {
-            public int ProjectId { get; set; }
-            public required string ConnectionString { get; set; }
-        }
-
         [HttpPost("schema-diff")]
         [RequirePermission("Schema:Sync")]
         [ProducesResponseType(typeof(ApiResponse<SchemaDiffResponse>), StatusCodes.Status200OK)]
@@ -147,6 +146,17 @@ namespace ActoEngine.WebApi.Features.Projects
             if (!ModelState.IsValid)
             {
                 return BadRequest(ApiResponse<object>.Failure("Invalid request data", [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
+            }
+
+            var userId = HttpContext.GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
+            if (!await IsProjectMemberAsync(request.ProjectId, userId.Value))
+            {
+                return NotFound(ApiResponse<object>.Failure("Project not found"));
             }
 
             try
@@ -179,6 +189,11 @@ namespace ActoEngine.WebApi.Features.Projects
             if (userId == null)
             {
                 return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
+            }
+
+            if (!await IsProjectMemberAsync(request.ProjectId, userId.Value))
+            {
+                return Unauthorized(ApiResponse<object>.Failure("User not a project member"));
             }
 
             try
@@ -574,6 +589,18 @@ namespace ActoEngine.WebApi.Features.Projects
             }
 
             return Ok(ApiResponse<object>.Success(new { }, "Project deleted successfully"));
+        }
+
+        private async Task<bool> IsProjectMemberAsync(int projectId, int userId)
+        {
+            var project = await _projectService.GetProjectByIdAsync(projectId);
+            if (project == null)
+            {
+                return false;
+            }
+
+            var memberships = await _projectService.GetUserProjectMembershipsAsync(userId);
+            return memberships.Contains(projectId);
         }
     }
 }

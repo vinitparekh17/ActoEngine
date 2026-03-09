@@ -111,6 +111,7 @@ public static class SchemaSyncQueries
             LEFT JOIN sys.key_constraints kc ON kc.parent_object_id = c.object_id AND kc.unique_index_id = ic.index_id AND kc.type = 'PK'
             LEFT JOIN sys.foreign_key_columns fk ON fk.parent_object_id = c.object_id AND fk.parent_column_id = c.column_id
         WHERE t.name = @TableName
+          AND SCHEMA_NAME(t.schema_id) = @SchemaName
         ORDER BY c.column_id";
 
     public const string InsertColumnMetadata = @"
@@ -167,16 +168,18 @@ public static class SchemaSyncQueries
     public const string GetForeignKeysForTables = @"
         SELECT 
             fk.name AS ForeignKeyName,
-            OBJECT_NAME(fk.parent_object_id) AS TableName,
+            CONCAT(SCHEMA_NAME(t.schema_id), '.', OBJECT_NAME(fk.parent_object_id)) AS TableName,
             COL_NAME(fkc.parent_object_id, fkc.parent_column_id) AS ColumnName,
-            OBJECT_NAME(fk.referenced_object_id) AS ReferencedTable,
+            CONCAT(SCHEMA_NAME(rt.schema_id), '.', OBJECT_NAME(fk.referenced_object_id)) AS ReferencedTable,
             COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS ReferencedColumn,
             fk.delete_referential_action_desc AS OnDeleteAction,
             fk.update_referential_action_desc AS OnUpdateAction
         FROM sys.foreign_keys fk
         INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
         INNER JOIN sys.tables t ON fk.parent_object_id = t.object_id
-        WHERE t.name IN @TableNames";
+        INNER JOIN sys.tables rt ON fk.referenced_object_id = rt.object_id
+        WHERE CONCAT(SCHEMA_NAME(t.schema_id), '.', t.name) IN @TableNames
+           OR t.name IN @TableNames";
 
     public const string InsertForeignKeyMetadata = @"
         IF NOT EXISTS (
@@ -196,11 +199,13 @@ public static class SchemaSyncQueries
         -- Resolve IDs from names and project
         DECLARE @ParentTableId INT = (
             SELECT TableId FROM TablesMetadata 
-            WHERE ProjectId = @ProjectId AND TableName = @ParentTableName AND IsDeleted = 0
+            WHERE ProjectId = @ProjectId AND TableName = @ParentTableName
+              AND SchemaName = @ParentSchemaName AND IsDeleted = 0
         );
         DECLARE @RefTableId INT = (
             SELECT TableId FROM TablesMetadata 
-            WHERE ProjectId = @ProjectId AND TableName = @ReferencedTable AND IsDeleted = 0
+            WHERE ProjectId = @ProjectId AND TableName = @ReferencedTable
+              AND SchemaName = @ReferencedSchemaName AND IsDeleted = 0
         );
         DECLARE @ParentColumnId INT = (
             SELECT ColumnId FROM ColumnsMetadata 

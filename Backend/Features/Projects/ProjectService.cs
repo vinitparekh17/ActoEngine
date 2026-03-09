@@ -17,7 +17,7 @@ namespace ActoEngine.WebApi.Features.Projects
         Task<ConnectionResponse> VerifyConnectionAsync(VerifyConnectionRequest request);
         Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId);
         Task<ProjectResponse> ReSyncProjectAsync(ReSyncProjectRequest request, int userId);
-        Task<int> ReSyncEntitiesAsync(ReSyncEntitiesRequest request, int userId);
+        Task<int> ReSyncEntitiesAsync(ResyncEntitiesRequest request, int userId);
         Task<SchemaDiffResponse> GetSchemaDiffAsync(int projectId, string connectionString);
         Task<int> ApplyDiffAsync(ApplyDiffRequest request, int userId);
         Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId);
@@ -259,7 +259,7 @@ namespace ActoEngine.WebApi.Features.Projects
             }
         }
 
-        public async Task<int> ReSyncEntitiesAsync(ReSyncEntitiesRequest request, int userId)
+        public async Task<int> ReSyncEntitiesAsync(ResyncEntitiesRequest request, int userId)
         {
             try
             {
@@ -470,11 +470,11 @@ namespace ActoEngine.WebApi.Features.Projects
             var tableIdMap = tables.ToDictionary(t => t.TableName, t => t.TableId);
 
             // Use the table names we already have
-            foreach (var (tableName, _) in tablesWithSchema)
+            foreach (var (tableName, schemaName) in tablesWithSchema)
             {
                 if (tableIdMap.TryGetValue(tableName, out var tableId))
                 {
-                    var columns = await ReadColumnsFromTargetAsync(targetConn, tableName);
+                    var columns = await ReadColumnsFromTargetAsync(targetConn, schemaName, tableName);
                     var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
                     totalColumns += count;
                 }
@@ -483,9 +483,10 @@ namespace ActoEngine.WebApi.Features.Projects
             return totalColumns;
         }
 
-        private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string tableName)
+        private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string schemaName, string tableName)
         {
             using var cmd = new SqlCommand(SchemaSyncQueries.GetTargetColumns, targetConn);
+            cmd.Parameters.AddWithValue("@SchemaName", schemaName);
             cmd.Parameters.AddWithValue("@TableName", tableName);
             using var reader = await cmd.ExecuteReaderAsync();
 

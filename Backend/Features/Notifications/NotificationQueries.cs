@@ -15,6 +15,11 @@ public static class NotificationQueries
         ORDER BY IsRead ASC, CreatedAt DESC
         OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY";
 
+    public const string GetTotalCountByUser = @"
+        SELECT COUNT(1)
+        FROM Notifications
+        WHERE UserId = @UserId";
+
     public const string GetUnreadCount = @"
         SELECT COUNT(1) 
         FROM Notifications 

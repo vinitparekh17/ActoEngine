@@ -56,11 +56,7 @@ public class NotificationService(
     {
         try
         {
-            // Get all members of the project
-            // Assuming ProjectRepository has a way to get members. Let's fetch the project to ensure it exists, 
-            // then perhaps there's a GetProjectMembersAsync or similar.
-            // Let me check IProjectRepository first.
-            var members = await projectRepository.GetProjectMembersAsync(projectId, cancellationToken);
+            var membersList = (await projectRepository.GetProjectMembersAsync(projectId, cancellationToken)).ToList();
             
             var request = new CreateNotificationRequest
             {
@@ -70,12 +66,15 @@ public class NotificationService(
                 Message = message
             };
 
-            foreach (var member in members)
+            const int chunkSize = 25;
+            for (var i = 0; i < membersList.Count; i += chunkSize)
             {
-                await repository.CreateAsync(member.UserId, request, cancellationToken);
+                var chunk = membersList.Skip(i).Take(chunkSize).ToList();
+                var tasks = chunk.Select(member => repository.CreateAsync(member.UserId, request, cancellationToken));
+                await Task.WhenAll(tasks);
             }
             
-            logger.LogInformation("Created {Type} notification for {Count} members of project {ProjectId}", type, members.Count(), projectId);
+            logger.LogInformation("Created {Type} notification for {Count} members of project {ProjectId}", type, membersList.Count, projectId);
         }
         catch (Exception ex)
         {

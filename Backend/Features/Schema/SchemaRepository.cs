@@ -17,7 +17,14 @@ public interface ISchemaRepository
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
     Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString);
     Task<List<SpHashInfo>> GetSpHashesAsync(int projectId);
-    Task<bool> UpdateSpDefinitionAndHashAsync(int projectId, int spId, string definition, string definitionHash, DateTime sourceModifyDate);
+    Task<bool> UpdateSpDefinitionAndHashAsync(
+        int projectId,
+        int spId,
+        string definition,
+        string definitionHash,
+        DateTime sourceModifyDate,
+        IDbConnection? connection = null,
+        IDbTransaction? transaction = null);
     Task<bool> SoftDeleteTableAsync(int projectId, int tableId);
     Task<bool> SoftDeleteSpAsync(int projectId, int spId);
 
@@ -289,18 +296,33 @@ public class SchemaRepository(
         int spId,
         string definition,
         string definitionHash,
-        DateTime sourceModifyDate)
+        DateTime sourceModifyDate,
+        IDbConnection? connection = null,
+        IDbTransaction? transaction = null)
     {
-        var affected = await ExecuteAsync(
-            SchemaSyncQueries.UpdateSpDefinitionAndHash,
-            new
-            {
-                ProjectId = projectId,
-                SpId = spId,
-                Definition = definition,
-                DefinitionHash = definitionHash,
-                SourceModifyDate = sourceModifyDate
-            });
+        var parameters = new
+        {
+            ProjectId = projectId,
+            SpId = spId,
+            Definition = definition,
+            DefinitionHash = definitionHash,
+            SourceModifyDate = sourceModifyDate
+        };
+
+        int affected;
+        if (connection != null)
+        {
+            affected = await connection.ExecuteAsync(
+                SchemaSyncQueries.UpdateSpDefinitionAndHash,
+                parameters,
+                transaction);
+        }
+        else
+        {
+            affected = await ExecuteAsync(
+                SchemaSyncQueries.UpdateSpDefinitionAndHash,
+                parameters);
+        }
 
         return affected > 0;
     }
@@ -453,15 +475,20 @@ public class SchemaRepository(
             var count = 0;
             foreach (var fk in foreignKeys)
             {
+                var (parentSchema, parentTable) = ParseQualifiedName(fk.TableName);
+                var (referencedSchema, referencedTable) = ParseQualifiedName(fk.ReferencedTable);
+
                 // Insert by resolving IDs from names within SQL to avoid FK issues
                 await connection.ExecuteAsync(
                     SchemaSyncQueries.InsertForeignKeyMetadataByNames,
                     new
                     {
                         ProjectId = projectId,
-                        fk.TableName,
+                        ParentSchemaName = parentSchema,
+                        ParentTableName = parentTable,
                         fk.ColumnName,
-                        fk.ReferencedTable,
+                        ReferencedSchemaName = referencedSchema,
+                        ReferencedTable = referencedTable,
                         fk.ReferencedColumn,
                         fk.ForeignKeyName,
                         fk.OnDeleteAction,
@@ -510,5 +537,16 @@ public class SchemaRepository(
             _logger.LogError(ex, "Error getting foreign keys from connection string");
             throw;
         }
+    }
+
+    private static (string SchemaName, string Name) ParseQualifiedName(string name)
+    {
+        var parts = name.Split('.', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 2)
+        {
+            return (parts[0], parts[1]);
+        }
+
+        return ("dbo", name);
     }
 }

@@ -141,7 +141,7 @@ namespace ActoEngine.WebApi.Features.Projects
             }
         }
 
-        public async Task<int> ReSyncEntitiesAsync(ReSyncEntitiesRequest request, int userId)
+        public async Task<int> ReSyncEntitiesAsync(ResyncEntitiesRequest request, int userId)
         {
             try
             {
@@ -165,7 +165,7 @@ namespace ActoEngine.WebApi.Features.Projects
                 {
                     foreach (var entity in request.Entities)
                     {
-                        if (entity.EntityType.Equals("TABLE", StringComparison.OrdinalIgnoreCase))
+                        if (entity.EntityType == ResyncEntityType.TABLE)
                         {
                             var table = storedTables.FirstOrDefault(t => t.TableName == entity.EntityName && t.SchemaName == entity.SchemaName);
                             if (table == null) continue; // Skip if table wasn't previously synced
@@ -174,7 +174,7 @@ namespace ActoEngine.WebApi.Features.Projects
                             await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { table.TableId }, transaction);
                             
                             // 1. Fetch Columns
-                            var columns = await ReadColumnsFromTargetAsync(targetConn, table.TableName);
+                            var columns = await ReadColumnsFromTargetAsync(targetConn, table.SchemaName ?? "dbo", table.TableName);
                             await _schemaRepository.SyncColumnsAsync(table.TableId, columns, dbConn, transaction);
 
                             // 2. Clear FKs involving this table and re-sync
@@ -182,22 +182,29 @@ namespace ActoEngine.WebApi.Features.Projects
                                 "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId", 
                                 new { table.TableId }, transaction);
                                 
-                            var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [table.TableName]);
+                            var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(table.SchemaName ?? "dbo", table.TableName)]);
                             await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
 
                             syncedCount++;
                         }
-                        else if (entity.EntityType.Equals("SP", StringComparison.OrdinalIgnoreCase))
+                        else if (entity.EntityType == ResyncEntityType.SP)
                         {
-                            var spInfo = storedSps.FirstOrDefault(sp => sp.ProcedureName == entity.EntityName);
+                            var spInfo = storedSps.FirstOrDefault(sp =>
+                                sp.ProcedureName.Equals(entity.EntityName, StringComparison.OrdinalIgnoreCase) &&
+                                sp.SchemaName.Equals(entity.SchemaName, StringComparison.OrdinalIgnoreCase));
                             if (spInfo == null) continue;
 
                             // Scoped IA cleanup: Clear impact dependencies for this source SP only
                             await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'StoredProcedure'", new { SourceId = spInfo.SpId }, transaction);
 
                             // Fetch SP definition
-                            using var cmd = new SqlCommand("SELECT modify_date, OBJECT_DEFINITION(OBJECT_ID(@SpName))", targetConn);
-                            cmd.Parameters.AddWithValue("@SpName", $"[{entity.SchemaName}].[{entity.EntityName}]");
+                            using var cmd = new SqlCommand(@"
+                                SELECT p.modify_date, OBJECT_DEFINITION(p.object_id) AS Definition
+                                FROM sys.procedures p
+                                INNER JOIN sys.schemas s ON p.schema_id = s.schema_id
+                                WHERE p.name = @SpName AND s.name = @SchemaName", targetConn);
+                            cmd.Parameters.AddWithValue("@SchemaName", entity.SchemaName);
+                            cmd.Parameters.AddWithValue("@SpName", entity.EntityName);
                             using var reader = await cmd.ExecuteReaderAsync();
                             
                             if (await reader.ReadAsync() && !reader.IsDBNull(1))
@@ -207,7 +214,15 @@ namespace ActoEngine.WebApi.Features.Projects
                                 var hash = _schemaService.NormalizeAndHashDefinition(definition);
 
                                 // Always update to reflect the fresh resync and dependency wipe
-                                await _schemaService.UpdateSpDefinitionAndHashAsync(request.ProjectId, spInfo.SpId, definition, hash, modifyDate);
+                                await _schemaService.UpdateSpDefinitionAndHashAsync(
+                                    request.ProjectId,
+                                    spInfo.SpId,
+                                    definition,
+                                    hash,
+                                    modifyDate,
+                                    dbConn,
+                                    transaction);
+                                await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, spInfo.SpId, definition);
                                 syncedCount++;
                             }
                         }
@@ -243,7 +258,9 @@ namespace ActoEngine.WebApi.Features.Projects
             // 1. Fetch source items
             var sourceTables = await targetConn.QueryAsync<dynamic>(SchemaSyncQueries.GetTargetTablesWithSchema);
             var sourceSpDates = await _schemaService.GetStoredProcedureModifyDatesAsync(connectionString);
-            var sourceSpNames = sourceSpDates.Select(x => (string)x.ProcedureName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var sourceSpNames = sourceSpDates
+                .Select(x => $"{(string)x.SchemaName}.{(string)x.ProcedureName}")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             // 2. Fetch our stored items (excluding soft-deleted)
             var storedTables = await _schemaRepository.GetStoredTablesAsync(projectId);
@@ -265,25 +282,37 @@ namespace ActoEngine.WebApi.Features.Projects
             {
                 if (!sourceTableKeys.Contains($"{st.SchemaName}.{st.TableName}"))
                 {
-                    diffResponse.Tables.Removed.Add(new DiffEntityItem { SchemaName = st.SchemaName, EntityName = st.TableName });
+                    diffResponse.Tables.Removed.Add(new DiffEntityItem { SchemaName = st.SchemaName ?? "dbo", EntityName = st.TableName });
                 }
             }
 
             // 4. Diff SPs (Add / Remove / Modify via Timestamp + Hash)
-            var storedSpKeys = storedSps.Select(sp => sp.ProcedureName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var storedSpKeys = storedSps
+                .Select(sp => $"{sp.SchemaName}.{sp.ProcedureName}")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var srcSp in sourceSpDates)
             {
                 string spName = (string)srcSp.ProcedureName;
-                string spSchema = (string)srcSp.SchemaName;
-                if (!storedSpKeys.Contains(spName))
+                string spSchema = (string?)srcSp.SchemaName ?? "dbo";
+                var spKey = $"{spSchema}.{spName}";
+                if (!storedSpKeys.Contains(spKey))
                 {
                     diffResponse.StoredProcedures.Added.Add(new DiffEntityItem { SchemaName = spSchema, EntityName = spName });
                 }
                 else
                 {
-                    var stSp = storedSps.First(x => x.ProcedureName.Equals(spName, StringComparison.OrdinalIgnoreCase));
-                    if ((DateTime)srcSp.SourceModifyDate > stSp.SourceModifyDate)
+                    var stSp = storedSps.First(x =>
+                        x.ProcedureName.Equals(spName, StringComparison.OrdinalIgnoreCase) &&
+                        x.SchemaName.Equals(spSchema, StringComparison.OrdinalIgnoreCase));
+
+                    if (srcSp.SourceModifyDate == null)
+                    {
+                        continue;
+                    }
+
+                    var sourceModifyDate = (DateTime)srcSp.SourceModifyDate;
+                    if (!stSp.SourceModifyDate.HasValue || sourceModifyDate > stSp.SourceModifyDate.Value)
                     {
                         // Timestamp is newer -> fetch definition from target and check hash
                         using var cmd = new SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(@SpName))", targetConn);
@@ -294,7 +323,11 @@ namespace ActoEngine.WebApi.Features.Projects
                         if (!string.IsNullOrEmpty(rawDef))
                         {
                             var newHash = _schemaService.NormalizeAndHashDefinition(rawDef);
-                            if (newHash != stSp.DefinitionHash)
+                            if (string.IsNullOrWhiteSpace(stSp.DefinitionHash))
+                            {
+                                await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, sourceModifyDate);
+                            }
+                            else if (newHash != stSp.DefinitionHash)
                             {
                                 diffResponse.StoredProcedures.Modified.Add(new DiffEntityItem 
                                 { 
@@ -307,7 +340,7 @@ namespace ActoEngine.WebApi.Features.Projects
                             {
                                 // Edge Case: Timestamp changed (e.g., recompilation or trivial change), but actual normalized code didn't.
                                 // We silently update the ModifyDate so we don't keep checking it on every diff!
-                                await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, (DateTime)srcSp.SourceModifyDate);
+                                await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, sourceModifyDate);
                             }
                         }
                     }
@@ -316,7 +349,7 @@ namespace ActoEngine.WebApi.Features.Projects
 
             foreach (var stSp in storedSps)
             {
-                if (!sourceSpNames.Contains(stSp.ProcedureName))
+                if (!sourceSpNames.Contains($"{stSp.SchemaName}.{stSp.ProcedureName}"))
                 {
                     diffResponse.StoredProcedures.Removed.Add(new DiffEntityItem { SchemaName = stSp.SchemaName, EntityName = stSp.ProcedureName });
                 }
@@ -335,7 +368,7 @@ namespace ActoEngine.WebApi.Features.Projects
 
             foreach (var removal in request.RemoveEntities)
             {
-                if (removal.EntityType.Equals("TABLE", StringComparison.OrdinalIgnoreCase))
+                if (removal.EntityType == ResyncEntityType.TABLE)
                 {
                     var targetTable = storedTables.FirstOrDefault(x => x.TableName == removal.EntityName && x.SchemaName == removal.SchemaName);
                     if (targetTable != null)
@@ -344,7 +377,7 @@ namespace ActoEngine.WebApi.Features.Projects
                          appliedCount++;
                     }
                 }
-                else if (removal.EntityType.Equals("SP", StringComparison.OrdinalIgnoreCase))
+                else if (removal.EntityType == ResyncEntityType.SP)
                 {
                     var targetSp = storedSps.FirstOrDefault(x => x.ProcedureName == removal.EntityName && x.SchemaName == removal.SchemaName);
                     if (targetSp != null)
@@ -363,13 +396,6 @@ namespace ActoEngine.WebApi.Features.Projects
 
             if (toUpsert.Count > 0)
             {
-                var upsertRequest = new ReSyncEntitiesRequest 
-                { 
-                    ProjectId = request.ProjectId, 
-                    ConnectionString = request.ConnectionString, 
-                    Entities = toUpsert 
-                };
-
                 // Because AddEntities might be completely new (no IDs in DB yet),
                 // we should ensure ReSyncEntitiesAsync doesn't skip them if `storedTables.FirstOrDefault()` is null.
                 // Wait, ReSyncEntitiesAsync *does* skip them if they aren't in `storedTables`! 
@@ -387,7 +413,7 @@ namespace ActoEngine.WebApi.Features.Projects
                     
                     foreach (var entity in toUpsert)
                     {
-                        if (entity.EntityType.Equals("TABLE", StringComparison.OrdinalIgnoreCase))
+                        if (entity.EntityType == ResyncEntityType.TABLE)
                         {
                             var tInfo = storedTables.FirstOrDefault(t => t.TableName == entity.EntityName && t.SchemaName == entity.SchemaName);
                             int tableId;
@@ -400,11 +426,11 @@ namespace ActoEngine.WebApi.Features.Projects
                             }
                             else
                             {
-                                tableId = tInfo.TableId;
-                                await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { tableId }, transaction);
-                            }
+                                    tableId = tInfo.TableId;
+                                    await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { tableId }, transaction);
+                                }
 
-                            var columns = await ReadColumnsFromTargetAsync(targetConn, entity.EntityName);
+                            var columns = await ReadColumnsFromTargetAsync(targetConn, entity.SchemaName, entity.EntityName);
                             await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
 
                             // Re-sync FKs
@@ -412,16 +438,21 @@ namespace ActoEngine.WebApi.Features.Projects
                                 "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId", 
                                 new { tableId }, transaction);
                                 
-                            var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [entity.EntityName]);
+                            var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(entity.SchemaName, entity.EntityName)]);
                             await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
                             appliedCount++;
                         }
-                        else if (entity.EntityType.Equals("SP", StringComparison.OrdinalIgnoreCase))
+                        else if (entity.EntityType == ResyncEntityType.SP)
                         {
                             var spInfo = storedSps.FirstOrDefault(sp => sp.ProcedureName == entity.EntityName && sp.SchemaName == entity.SchemaName);
                             
-                            using var cmd = new SqlCommand("SELECT modify_date, OBJECT_DEFINITION(OBJECT_ID(@SpName))", targetConn);
-                            cmd.Parameters.AddWithValue("@SpName", $"[{entity.SchemaName}].[{entity.EntityName}]");
+                            using var cmd = new SqlCommand(@"
+                                SELECT p.modify_date, OBJECT_DEFINITION(p.object_id) AS Definition
+                                FROM sys.procedures p
+                                INNER JOIN sys.schemas s ON p.schema_id = s.schema_id
+                                WHERE p.name = @SpName AND s.name = @SchemaName", targetConn);
+                            cmd.Parameters.AddWithValue("@SchemaName", entity.SchemaName);
+                            cmd.Parameters.AddWithValue("@SpName", entity.EntityName);
                             using var reader = await cmd.ExecuteReaderAsync();
                             
                             if (await reader.ReadAsync() && !reader.IsDBNull(1))
@@ -433,17 +464,27 @@ namespace ActoEngine.WebApi.Features.Projects
                                 if (spInfo == null)
                                 {
                                     // Insert NEW SP
-                                    await dbConn.ExecuteAsync(
+                                    var insertedSpId = await dbConn.ExecuteScalarAsync<int>(
                                         "INSERT INTO SpMetadata (ProjectId, ProcedureName, SchemaName, Definition, CreatedDate, DefinitionHash, SourceModifyDate) " +
-                                        "VALUES (@ProjectId, @ProcedureName, @SchemaName, @Definition, GETUTCDATE(), @DefinitionHash, @SourceModifyDate)",
+                                        "OUTPUT INSERTED.SpId VALUES (@ProjectId, @ProcedureName, @SchemaName, @Definition, GETUTCDATE(), @DefinitionHash, @SourceModifyDate)",
                                         new { request.ProjectId, ProcedureName = entity.EntityName, entity.SchemaName, Definition = definition, DefinitionHash = hash, SourceModifyDate = modifyDate },
                                         transaction);
+
+                                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, insertedSpId, definition);
                                 }
                                 else
                                 {
                                     // Update EXISTING SP
                                     await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'StoredProcedure'", new { SourceId = spInfo.SpId }, transaction);
-                                    await _schemaService.UpdateSpDefinitionAndHashAsync(request.ProjectId, spInfo.SpId, definition, hash, modifyDate);
+                                    await _schemaService.UpdateSpDefinitionAndHashAsync(
+                                        request.ProjectId,
+                                        spInfo.SpId,
+                                        definition,
+                                        hash,
+                                        modifyDate,
+                                        dbConn,
+                                        transaction);
+                                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, spInfo.SpId, definition);
                                 }
                                 appliedCount++;
                             }
@@ -586,7 +627,7 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Step 3: Sync Foreign Keys
             await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 67);
-            var tables = tablesWithSchema.Select(t => t.TableName);
+            var tables = tablesWithSchema.Select(t => $"{t.SchemaName}.{t.TableName}");
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
             var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, dbConn, transaction);
             await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
@@ -645,11 +686,11 @@ namespace ActoEngine.WebApi.Features.Projects
             var tableIdMap = tables.ToDictionary(t => t.TableName, t => t.TableId);
 
             // Use the table names we already have
-            foreach (var (tableName, _) in tablesWithSchema)
+            foreach (var (tableName, schemaName) in tablesWithSchema)
             {
                 if (tableIdMap.TryGetValue(tableName, out var tableId))
                 {
-                    var columns = await ReadColumnsFromTargetAsync(targetConn, tableName);
+                    var columns = await ReadColumnsFromTargetAsync(targetConn, schemaName, tableName);
                     var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
                     totalColumns += count;
                 }
@@ -658,9 +699,10 @@ namespace ActoEngine.WebApi.Features.Projects
             return totalColumns;
         }
 
-        private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string tableName)
+        private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string schemaName, string tableName)
         {
             using var cmd = new SqlCommand(SchemaSyncQueries.GetTargetColumns, targetConn);
+            cmd.Parameters.AddWithValue("@SchemaName", schemaName);
             cmd.Parameters.AddWithValue("@TableName", tableName);
             using var reader = await cmd.ExecuteReaderAsync();
 

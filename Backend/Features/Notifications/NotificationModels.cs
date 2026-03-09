@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace ActoEngine.WebApi.Features.Notifications;
 
 public class NotificationDto
@@ -16,8 +18,14 @@ public class NotificationDto
 public class CreateNotificationRequest
 {
     public int? ProjectId { get; set; }
+    [Required]
+    [MaxLength(50)]
     public required string Type { get; set; }
+    [Required]
+    [MaxLength(200)]
     public required string Title { get; set; }
+    [Required]
+    [MaxLength(500)]
     public required string Message { get; set; }
 }
 

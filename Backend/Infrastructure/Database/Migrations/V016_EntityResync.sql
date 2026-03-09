@@ -10,7 +10,7 @@ BEGIN TRY
     -- 1. Add Soft Delete columns to TablesMetadata
     IF NOT EXISTS (SELECT 1 FROM sys.columns 
                    WHERE Name = N'IsDeleted' 
-                   AND Object_ID = Object_ID(N'TablesMetadata'))
+                   AND Object_ID = Object_ID(N'dbo.TablesMetadata'))
     BEGIN
         ALTER TABLE TablesMetadata
         ADD IsDeleted BIT NOT NULL DEFAULT 0,
@@ -20,13 +20,25 @@ BEGIN TRY
     -- 2. Add Hash and Soft Delete columns to SpMetadata
     IF NOT EXISTS (SELECT 1 FROM sys.columns 
                    WHERE Name = N'DefinitionHash' 
-                   AND Object_ID = Object_ID(N'SpMetadata'))
+                   AND Object_ID = Object_ID(N'dbo.SpMetadata'))
     BEGIN
         ALTER TABLE SpMetadata
         ADD DefinitionHash VARCHAR(64) NULL,
             SourceModifyDate DATETIME2 NULL,
             IsDeleted BIT NOT NULL DEFAULT 0,
             DeletedAt DATETIME2 NULL;
+    END
+
+    IF EXISTS (SELECT 1 FROM sys.columns
+               WHERE Name = N'SourceModifyDate'
+                 AND Object_ID = Object_ID(N'dbo.SpMetadata'))
+    BEGIN
+        UPDATE SpMetadata
+        SET SourceModifyDate = GETUTCDATE()
+        WHERE SourceModifyDate IS NULL;
+
+        ALTER TABLE SpMetadata
+        ALTER COLUMN SourceModifyDate DATETIME2 NOT NULL;
     END
 
     -- 3. Create Notifications table
@@ -43,14 +55,33 @@ BEGIN TRY
             CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
             ReadAt DATETIME2 NULL,
 
-            CONSTRAINT FK_Notifications_UserId FOREIGN KEY (UserId) REFERENCES Users(UserID),
-            CONSTRAINT FK_Notifications_ProjectId FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId)
+            CONSTRAINT FK_Notifications_UserId FOREIGN KEY (UserId) REFERENCES Users(UserID) ON DELETE CASCADE,
+            CONSTRAINT FK_Notifications_ProjectId FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId) ON DELETE CASCADE
         );
 
         -- Index for fast user polling (unread first)
         CREATE INDEX IX_Notifications_UserId_IsRead ON Notifications(UserId, IsRead, CreatedAt DESC);
         -- Index for cleanup jobs
         CREATE INDEX IX_Notifications_IsRead_CreatedAt ON Notifications(IsRead, CreatedAt);
+    END
+
+    IF EXISTS (SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Notifications]') AND type in (N'U'))
+    BEGIN
+        IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Notifications_UserId')
+        BEGIN
+            ALTER TABLE Notifications DROP CONSTRAINT FK_Notifications_UserId;
+        END
+
+        IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Notifications_ProjectId')
+        BEGIN
+            ALTER TABLE Notifications DROP CONSTRAINT FK_Notifications_ProjectId;
+        END
+
+        ALTER TABLE Notifications
+            ADD CONSTRAINT FK_Notifications_UserId FOREIGN KEY (UserId) REFERENCES Users(UserID) ON DELETE CASCADE;
+
+        ALTER TABLE Notifications
+            ADD CONSTRAINT FK_Notifications_ProjectId FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId) ON DELETE CASCADE;
     END
     COMMIT TRANSACTION;
 END TRY

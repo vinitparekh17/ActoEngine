@@ -18,6 +18,8 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         WHERE lfk.ProjectId = @ProjectId
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
         ORDER BY lfk.CreatedAt DESC;";
 
     public const string GetByProjectFiltered = @"
@@ -33,6 +35,8 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         WHERE lfk.ProjectId = @ProjectId AND lfk.Status = @Status
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
         ORDER BY lfk.ConfidenceScore DESC;";
 
     /// <summary>
@@ -62,7 +66,9 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         WHERE lfk.LogicalFkId = @LogicalFkId
-          AND lfk.ProjectId = @ProjectId;";
+          AND lfk.ProjectId = @ProjectId
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0;";
 
     public const string GetByTable = @"
         SELECT 
@@ -77,6 +83,8 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         WHERE lfk.ProjectId = @ProjectId
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
           AND (lfk.SourceTableId = @TableId OR lfk.TargetTableId = @TableId)
         ORDER BY lfk.CreatedAt DESC;";
 
@@ -277,6 +285,8 @@ public static class LogicalFkQueries
         LEFT JOIN ColumnsMetadata tc ON tc.ColumnId = JSON_VALUE(lfk.TargetColumnIds, '$[0]')
         WHERE lfk.ProjectId = @ProjectId
           AND lfk.Status = 'SUGGESTED'
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
         ORDER BY lfk.ConfidenceScore DESC;";
 
     /// <summary>

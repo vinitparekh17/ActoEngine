@@ -1,3 +1,5 @@
+using System.Data;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Features.Schema;
@@ -11,12 +13,20 @@ public interface ISchemaService
     Task<List<DatabaseTableInfo>> GetDatabaseStructureAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
     Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<string> tableNames);
+    Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<(string SchemaName, string TableName)> tables);
 
     // Entity Resync & Diff Core Utilities
     Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString);
     string NormalizeAndHashDefinition(string definition);
     Task<List<SpHashInfo>> GetSpHashesAsync(int projectId);
-    Task<bool> UpdateSpDefinitionAndHashAsync(int projectId, int spId, string definition, string definitionHash, DateTime sourceModifyDate);
+    Task<bool> UpdateSpDefinitionAndHashAsync(
+        int projectId,
+        int spId,
+        string definition,
+        string definitionHash,
+        DateTime sourceModifyDate,
+        IDbConnection? connection = null,
+        IDbTransaction? transaction = null);
     Task<bool> SoftDeleteTableAsync(int projectId, int tableId);
     Task<bool> SoftDeleteSpAsync(int projectId, int spId);
 
@@ -161,14 +171,7 @@ public partial class SchemaService(
     {
         if (string.IsNullOrWhiteSpace(definition)) return string.Empty;
 
-        // 1. Remove block comments /* ... */
-        var noBlockComments = BlockCommentRegex().Replace(definition, string.Empty);
-
-        // 2. Remove line comments -- ...
-        var noLineComments = LineCommentRegex().Replace(noBlockComments, string.Empty);
-
-        // 3. Trim and lowercase for case-insensitive and whitespace-insensitive hashing
-        var normalized = WhitespaceRegex().Replace(noLineComments, " ").ToLowerInvariant().Trim();
+        var normalized = NormalizeSqlOutsideLiterals(definition);
 
         using var sha256 = System.Security.Cryptography.SHA256.Create();
         var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(normalized));
@@ -180,9 +183,23 @@ public partial class SchemaService(
         return await _schemaRepository.GetSpHashesAsync(projectId);
     }
 
-    public async Task<bool> UpdateSpDefinitionAndHashAsync(int projectId, int spId, string definition, string definitionHash, DateTime sourceModifyDate)
+    public async Task<bool> UpdateSpDefinitionAndHashAsync(
+        int projectId,
+        int spId,
+        string definition,
+        string definitionHash,
+        DateTime sourceModifyDate,
+        IDbConnection? connection = null,
+        IDbTransaction? transaction = null)
     {
-        return await _schemaRepository.UpdateSpDefinitionAndHashAsync(projectId, spId, definition, definitionHash, sourceModifyDate);
+        return await _schemaRepository.UpdateSpDefinitionAndHashAsync(
+            projectId,
+            spId,
+            definition,
+            definitionHash,
+            sourceModifyDate,
+            connection,
+            transaction);
     }
 
     public async Task<bool> SoftDeleteTableAsync(int projectId, int tableId)
@@ -403,6 +420,179 @@ public partial class SchemaService(
         }
     }
 
+    public async Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(
+        string connectionString,
+        IEnumerable<(string SchemaName, string TableName)> tables)
+    {
+        var qualifiedNames = tables
+            .Select(t => $"{t.SchemaName}.{t.TableName}")
+            .ToList();
+
+        return await GetForeignKeysAsync(connectionString, qualifiedNames);
+    }
+
+    private static string NormalizeSqlOutsideLiterals(string definition)
+    {
+        var output = new StringBuilder(definition.Length);
+        var outside = new StringBuilder(definition.Length);
+
+        var i = 0;
+        while (i < definition.Length)
+        {
+            var c = definition[i];
+
+            if (c == '\'')
+            {
+                FlushOutsideSegment(outside, output);
+                AppendSingleQuotedLiteral(definition, ref i, output);
+                continue;
+            }
+
+            if (c == '"')
+            {
+                FlushOutsideSegment(outside, output);
+                AppendDoubleQuotedLiteral(definition, ref i, output);
+                continue;
+            }
+
+            if (c == '[')
+            {
+                FlushOutsideSegment(outside, output);
+                AppendBracketedIdentifier(definition, ref i, output);
+                continue;
+            }
+
+            outside.Append(c);
+            i++;
+        }
+
+        FlushOutsideSegment(outside, output);
+        return output.ToString().Trim();
+    }
+
+    private static void FlushOutsideSegment(StringBuilder outside, StringBuilder output)
+    {
+        if (outside.Length == 0)
+        {
+            return;
+        }
+
+        var noComments = StripSqlComments(outside.ToString());
+        var collapsed = WhitespaceRegex().Replace(noComments, " ").ToLowerInvariant();
+        output.Append(collapsed);
+        outside.Clear();
+    }
+
+    private static string StripSqlComments(string input)
+    {
+        var result = new StringBuilder(input.Length);
+        var i = 0;
+
+        while (i < input.Length)
+        {
+            if (i + 1 < input.Length && input[i] == '/' && input[i + 1] == '*')
+            {
+                i += 2;
+                while (i + 1 < input.Length && !(input[i] == '*' && input[i + 1] == '/'))
+                {
+                    i++;
+                }
+
+                if (i + 1 < input.Length)
+                {
+                    i += 2;
+                }
+
+                continue;
+            }
+
+            if (i + 1 < input.Length && input[i] == '-' && input[i + 1] == '-')
+            {
+                i += 2;
+                while (i < input.Length && input[i] != '\n' && input[i] != '\r')
+                {
+                    i++;
+                }
+
+                continue;
+            }
+
+            result.Append(input[i]);
+            i++;
+        }
+
+        return result.ToString();
+    }
+
+    private static void AppendSingleQuotedLiteral(string text, ref int index, StringBuilder output)
+    {
+        output.Append(text[index++]);
+        while (index < text.Length)
+        {
+            output.Append(text[index]);
+            if (text[index] == '\'')
+            {
+                if (index + 1 < text.Length && text[index + 1] == '\'')
+                {
+                    output.Append(text[index + 1]);
+                    index += 2;
+                    continue;
+                }
+
+                index++;
+                break;
+            }
+
+            index++;
+        }
+    }
+
+    private static void AppendDoubleQuotedLiteral(string text, ref int index, StringBuilder output)
+    {
+        output.Append(text[index++]);
+        while (index < text.Length)
+        {
+            output.Append(text[index]);
+            if (text[index] == '"')
+            {
+                if (index + 1 < text.Length && text[index + 1] == '"')
+                {
+                    output.Append(text[index + 1]);
+                    index += 2;
+                    continue;
+                }
+
+                index++;
+                break;
+            }
+
+            index++;
+        }
+    }
+
+    private static void AppendBracketedIdentifier(string text, ref int index, StringBuilder output)
+    {
+        output.Append(text[index++]);
+        while (index < text.Length)
+        {
+            output.Append(text[index]);
+            if (text[index] == ']')
+            {
+                if (index + 1 < text.Length && text[index + 1] == ']')
+                {
+                    output.Append(text[index + 1]);
+                    index += 2;
+                    continue;
+                }
+
+                index++;
+                break;
+            }
+
+            index++;
+        }
+    }
+
     public async Task<TableMetadataDto?> GetTableByIdAsync(int tableId)
     {
         try
@@ -444,12 +634,6 @@ public partial class SchemaService(
 
     [GeneratedRegex(@"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)?$", RegexOptions.Compiled)]
     private static partial Regex MyRegex();
-
-    [GeneratedRegex(@"/\*[\s\S]*?\*/", RegexOptions.Compiled)]
-    private static partial Regex BlockCommentRegex();
-
-    [GeneratedRegex(@"--.*$", RegexOptions.Multiline | RegexOptions.Compiled)]
-    private static partial Regex LineCommentRegex();
 
     [GeneratedRegex(@"\s+", RegexOptions.Compiled)]
     private static partial Regex WhitespaceRegex();

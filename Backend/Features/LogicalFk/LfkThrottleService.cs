@@ -45,7 +45,9 @@ public class LfkThrottleService(
         logger.LogInformation("Queueing auto LFK detection for project {ProjectId}.", projectId);
 
         // Fire and forget in the background
-        _ = Task.Run(async () => await RunDetectionAsync(projectId));
+        _ = Task.Run(() => RunDetectionAsync(projectId)).ContinueWith(
+            t => logger.LogError(t.Exception, "RunDetectionAsync failed for project {ProjectId}", projectId),
+            TaskContinuationOptions.OnlyOnFaulted);
     }
 
     private async Task RunDetectionAsync(int projectId)
@@ -54,16 +56,15 @@ public class LfkThrottleService(
         using var scope = scopeFactory.CreateScope();
         var logicalFkService = scope.ServiceProvider.GetRequiredService<ILogicalFkService>();
         var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-        var loggerInScope = scope.ServiceProvider.GetRequiredService<ILogger<LfkThrottleService>>();
 
         try
         {
-            loggerInScope.LogInformation("Starting background LFK detection for project {ProjectId}", projectId);
+            logger.LogInformation("Starting background LFK detection for project {ProjectId}", projectId);
             
             // Execute the heavy detection
             var candidates = await logicalFkService.DetectAndPersistCandidatesAsync(projectId, CancellationToken.None);
             
-            loggerInScope.LogInformation("Background LFK detection completed for project {ProjectId}. Yielded {Count} candidates.", projectId, candidates.Count);
+            logger.LogInformation("Background LFK detection completed for project {ProjectId}. Yielded {Count} candidates.", projectId, candidates.Count);
 
             // Notify project members
             var title = "Logical FK Detection Complete";
@@ -80,7 +81,7 @@ public class LfkThrottleService(
         }
         catch (Exception ex)
         {
-            loggerInScope.LogError(ex, "Background LFK detection failed for project {ProjectId}", projectId);
+            logger.LogError(ex, "Background LFK detection failed for project {ProjectId}", projectId);
             
             // On failure, clear the throttle timestamp so the next attempt can try immediately
             _lastDetectionTimes.TryRemove(projectId, out _);

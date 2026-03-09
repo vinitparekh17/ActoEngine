@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ActoEngine.WebApi.Features.Projects;
 
 public class Project
@@ -28,14 +30,21 @@ public class Project
     public int? UpdatedBy { get; set; }
 }
 
+ [JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ResyncEntityType
+{
+    TABLE,
+    SP
+}
+
 public class ResyncEntityItem
 {
-    public required string EntityType { get; set; } // "TABLE" or "SP"
+    public ResyncEntityType EntityType { get; set; }
     public required string SchemaName { get; set; }
     public required string EntityName { get; set; }
 }
 
-public class ReSyncEntitiesRequest
+public class ResyncEntitiesRequest
 {
     public int ProjectId { get; set; }
     public required string ConnectionString { get; set; }
