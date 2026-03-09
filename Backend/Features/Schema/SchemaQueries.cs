@@ -24,6 +24,39 @@ public static class SchemaSyncQueries
         FROM SpMetadata
         WHERE ProjectId = @ProjectId AND IsDeleted = 0";
 
+    /// <summary>
+    /// Same as GetSpHashes but returns ALL rows (including soft-deleted).
+    /// Use this to detect whether a missing SP was previously registered and
+    /// soft-deleted, so the caller can restore it rather than inserting a duplicate.
+    /// </summary>
+    public const string GetSpHashesIncludeDeleted = @"
+        SELECT 
+            SpId,
+            SchemaName,
+            ProcedureName,
+            DefinitionHash,
+            SourceModifyDate,
+            IsDeleted
+        FROM SpMetadata
+        WHERE ProjectId = @ProjectId";
+
+    /// <summary>
+    /// Restores a soft-deleted stored-procedure row and updates its definition data.
+    /// Matches on ProjectId + SchemaName + ProcedureName regardless of IsDeleted flag,
+    /// so re-adding a previously deleted SP restores the existing row instead of
+    /// creating a duplicate.
+    /// </summary>
+    public const string RestoreOrUpsertSp = @"
+        UPDATE SpMetadata
+        SET IsDeleted = 0,
+            DeletedAt = NULL,
+            Definition = @Definition,
+            DefinitionHash = @DefinitionHash,
+            SourceModifyDate = @SourceModifyDate
+        WHERE ProjectId = @ProjectId
+          AND SchemaName = @SchemaName
+          AND ProcedureName = @ProcedureName";
+
     public const string UpdateSpDefinitionAndHash = @"
         UPDATE SpMetadata
         SET Definition = @Definition,

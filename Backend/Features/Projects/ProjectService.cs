@@ -270,7 +270,7 @@ namespace ActoEngine.WebApi.Features.Projects
             catch (Exception ex)
             {
                 var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
-                _logger.LogError(ex, "Error starting targeted re-sync for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
+                _logger.LogError("Error starting targeted re-sync for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
                 throw new InvalidOperationException($"Targeted re-sync failed: {redactedMessage}", ex);
             }
         }
@@ -285,7 +285,7 @@ namespace ActoEngine.WebApi.Features.Projects
             catch (Exception ex)
             {
                 var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
-                _logger.LogError(ex, "Error getting schema diff for project {ProjectId}. Error: {ErrorMessage}", projectId, redactedMessage);
+                _logger.LogError("Error getting schema diff for project {ProjectId}. Error: {ErrorMessage}", projectId, redactedMessage);
                 throw new InvalidOperationException($"Schema diff failed: {redactedMessage}", ex);
             }
         }
@@ -300,7 +300,7 @@ namespace ActoEngine.WebApi.Features.Projects
             catch (Exception ex)
             {
                 var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
-                _logger.LogError(ex, "Error applying schema diff for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
+                _logger.LogError("Error applying schema diff for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
                 throw new InvalidOperationException($"Applying schema diff failed: {redactedMessage}", ex);
             }
         }

@@ -178,9 +178,12 @@ namespace ActoEngine.WebApi.Features.Projects
                             var columns = await ReadColumnsFromTargetAsync(targetConn, table.SchemaName ?? "dbo", table.TableName);
                             await _schemaRepository.SyncColumnsAsync(table.TableId, columns, dbConn, transaction);
 
-                            // 2. Clear FKs involving this table and re-sync
+                            // 2. Clear parent-side FKs for this table and re-sync
+                            // Only delete rows where this table is the parent (owner of the FK constraint).
+                            // Deleting rows where ReferencedTableId = @TableId would silently drop
+                            // inbound references (e.g., Order -> Customer) that belong to other tables.
                             await dbConn.ExecuteAsync(
-                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId", 
+                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId", 
                                 new { table.TableId }, transaction);
                                 
                             var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(table.SchemaName ?? "dbo", table.TableName)]);
@@ -237,13 +240,21 @@ namespace ActoEngine.WebApi.Features.Projects
                     throw;
                 }
 
-                foreach (var item in analyzeAfterCommit)
+                // Post-commit work is best-effort: failures here must not turn a successful commit into an API error.
+                try
                 {
-                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
-                }
+                    foreach (var item in analyzeAfterCommit)
+                    {
+                        await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
+                    }
 
-                // Fire throttled background detection for Logical FKs (does not block this request)
-                _lfkThrottleService.TryQueueDetection(request.ProjectId);
+                    // Fire throttled background detection for Logical FKs (does not block this request)
+                    _lfkThrottleService.TryQueueDetection(request.ProjectId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Post-commit analysis failed for project {ProjectId}. Sync result is unaffected.", request.ProjectId);
+                }
 
                 return syncedCount;
             }
@@ -465,10 +476,16 @@ namespace ActoEngine.WebApi.Features.Projects
 
                                 if (spInfo == null)
                                 {
+                                    // Resolve the Default Client so ClientId is populated consistently with SyncViaCrossServerAsync.
+                                    // If the Default Client doesn't exist yet, fall back to a sentinel of 0 so the insert
+                                    // doesn't leave ClientId NULL, which would violate the SpMetadata contract.
+                                    var defaultClient = await _clientRepository.GetByNameAsync("Default Client");
+                                    var clientId = defaultClient?.ClientId ?? 0;
+
                                     var insertedSpId = await dbConn.ExecuteScalarAsync<int>(
-                                        "INSERT INTO SpMetadata (ProjectId, ProcedureName, SchemaName, Definition, CreatedDate, DefinitionHash, SourceModifyDate) " +
-                                        "OUTPUT INSERTED.SpId VALUES (@ProjectId, @ProcedureName, @SchemaName, @Definition, GETUTCDATE(), @DefinitionHash, @SourceModifyDate)",
-                                        new { request.ProjectId, ProcedureName = entity.EntityName, entity.SchemaName, Definition = definition, DefinitionHash = hash, SourceModifyDate = modifyDate },
+                                        "INSERT INTO SpMetadata (ProjectId, ClientId, ProcedureName, SchemaName, Definition, CreatedAt, CreatedBy, DefinitionHash, SourceModifyDate) " +
+                                        "OUTPUT INSERTED.SpId VALUES (@ProjectId, @ClientId, @ProcedureName, @SchemaName, @Definition, GETUTCDATE(), @CreatedBy, @DefinitionHash, @SourceModifyDate)",
+                                        new { request.ProjectId, ClientId = clientId, ProcedureName = entity.EntityName, entity.SchemaName, Definition = definition, CreatedBy = userId, DefinitionHash = hash, SourceModifyDate = modifyDate },
                                         transaction);
 
                                     analyzeAfterCommit.Add((insertedSpId, definition));
