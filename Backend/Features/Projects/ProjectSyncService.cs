@@ -362,55 +362,52 @@ namespace ActoEngine.WebApi.Features.Projects
         {
             int appliedCount = 0;
 
-            // 1. Process Removals (Soft Delete)
             var storedTables = await _schemaRepository.GetStoredTablesAsync(request.ProjectId);
             var storedSps = await _schemaService.GetSpHashesAsync(request.ProjectId);
 
-            foreach (var removal in request.RemoveEntities)
-            {
-                if (removal.EntityType == ResyncEntityType.TABLE)
-                {
-                    var targetTable = storedTables.FirstOrDefault(x => x.TableName == removal.EntityName && x.SchemaName == removal.SchemaName);
-                    if (targetTable != null)
-                    {
-                         await _schemaService.SoftDeleteTableAsync(request.ProjectId, targetTable.TableId);
-                         appliedCount++;
-                    }
-                }
-                else if (removal.EntityType == ResyncEntityType.SP)
-                {
-                    var targetSp = storedSps.FirstOrDefault(x => x.ProcedureName == removal.EntityName && x.SchemaName == removal.SchemaName);
-                    if (targetSp != null)
-                    {
-                         await _schemaService.SoftDeleteSpAsync(request.ProjectId, targetSp.SpId);
-                         appliedCount++;
-                    }
-                }
-            }
-
-            // 2. Process Additions and Updates
-            // Both can be safely handled by our ReSyncEntitiesAsync which does the targeted fetch + Upsert metadata logic!
             var toUpsert = new List<ResyncEntityItem>();
             toUpsert.AddRange(request.AddEntities);
             toUpsert.AddRange(request.UpdateEntities);
 
-            if (toUpsert.Count > 0)
+            using var dbConn = await _connectionFactory.CreateConnectionAsync();
+            using var transaction = dbConn.BeginTransaction();
+            try
             {
-                // Because AddEntities might be completely new (no IDs in DB yet),
-                // we should ensure ReSyncEntitiesAsync doesn't skip them if `storedTables.FirstOrDefault()` is null.
-                // Wait, ReSyncEntitiesAsync *does* skip them if they aren't in `storedTables`! 
-                // We must handle Adds explicitly if they are new to the metadata!
-                
-                // Fetch actual target objects
-                using var targetConn = new SqlConnection(request.ConnectionString);
-                await targetConn.OpenAsync();
-                
-                using var dbConn = await _connectionFactory.CreateConnectionAsync();
-                using var transaction = dbConn.BeginTransaction();
-                try
+                // 1. Process Removals (Soft Delete) in the same transaction
+                foreach (var removal in request.RemoveEntities)
                 {
-                    var newTables = await targetConn.QueryAsync<dynamic>(SchemaSyncQueries.GetTargetTablesWithSchema);
-                    
+                    if (removal.EntityType == ResyncEntityType.TABLE)
+                    {
+                        var targetTable = storedTables.FirstOrDefault(x => x.TableName == removal.EntityName && x.SchemaName == removal.SchemaName);
+                        if (targetTable != null)
+                        {
+                            await dbConn.ExecuteAsync(
+                                SchemaSyncQueries.SoftDeleteTable,
+                                new { request.ProjectId, targetTable.TableId },
+                                transaction);
+                            appliedCount++;
+                        }
+                    }
+                    else if (removal.EntityType == ResyncEntityType.SP)
+                    {
+                        var targetSp = storedSps.FirstOrDefault(x => x.ProcedureName == removal.EntityName && x.SchemaName == removal.SchemaName);
+                        if (targetSp != null)
+                        {
+                            await dbConn.ExecuteAsync(
+                                SchemaSyncQueries.SoftDeleteSp,
+                                new { request.ProjectId, targetSp.SpId },
+                                transaction);
+                            appliedCount++;
+                        }
+                    }
+                }
+
+                // 2. Process Additions and Updates
+                if (toUpsert.Count > 0)
+                {
+                    using var targetConn = new SqlConnection(request.ConnectionString);
+                    await targetConn.OpenAsync();
+
                     foreach (var entity in toUpsert)
                     {
                         if (entity.EntityType == ResyncEntityType.TABLE)
@@ -419,25 +416,23 @@ namespace ActoEngine.WebApi.Features.Projects
                             int tableId;
                             if (tInfo == null)
                             {
-                                // Insert the new table record first
                                 tableId = await dbConn.ExecuteScalarAsync<int>(
                                     "INSERT INTO TablesMetadata (ProjectId, TableName, SchemaName) OUTPUT INSERTED.TableId VALUES (@ProjectId, @TableName, @SchemaName)",
                                     new { request.ProjectId, entity.EntityName, entity.SchemaName }, transaction);
                             }
                             else
                             {
-                                    tableId = tInfo.TableId;
-                                    await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { tableId }, transaction);
-                                }
+                                tableId = tInfo.TableId;
+                                await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { tableId }, transaction);
+                            }
 
                             var columns = await ReadColumnsFromTargetAsync(targetConn, entity.SchemaName, entity.EntityName);
                             await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
 
-                            // Re-sync FKs
                             await dbConn.ExecuteAsync(
-                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId", 
+                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId",
                                 new { tableId }, transaction);
-                                
+
                             var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(entity.SchemaName, entity.EntityName)]);
                             await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
                             appliedCount++;
@@ -445,7 +440,7 @@ namespace ActoEngine.WebApi.Features.Projects
                         else if (entity.EntityType == ResyncEntityType.SP)
                         {
                             var spInfo = storedSps.FirstOrDefault(sp => sp.ProcedureName == entity.EntityName && sp.SchemaName == entity.SchemaName);
-                            
+
                             using var cmd = new SqlCommand(@"
                                 SELECT p.modify_date, OBJECT_DEFINITION(p.object_id) AS Definition
                                 FROM sys.procedures p
@@ -454,7 +449,7 @@ namespace ActoEngine.WebApi.Features.Projects
                             cmd.Parameters.AddWithValue("@SchemaName", entity.SchemaName);
                             cmd.Parameters.AddWithValue("@SpName", entity.EntityName);
                             using var reader = await cmd.ExecuteReaderAsync();
-                            
+
                             if (await reader.ReadAsync() && !reader.IsDBNull(1))
                             {
                                 var modifyDate = reader.GetDateTime(0);
@@ -463,7 +458,6 @@ namespace ActoEngine.WebApi.Features.Projects
 
                                 if (spInfo == null)
                                 {
-                                    // Insert NEW SP
                                     var insertedSpId = await dbConn.ExecuteScalarAsync<int>(
                                         "INSERT INTO SpMetadata (ProjectId, ProcedureName, SchemaName, Definition, CreatedDate, DefinitionHash, SourceModifyDate) " +
                                         "OUTPUT INSERTED.SpId VALUES (@ProjectId, @ProcedureName, @SchemaName, @Definition, GETUTCDATE(), @DefinitionHash, @SourceModifyDate)",
@@ -474,7 +468,6 @@ namespace ActoEngine.WebApi.Features.Projects
                                 }
                                 else
                                 {
-                                    // Update EXISTING SP
                                     await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'StoredProcedure'", new { SourceId = spInfo.SpId }, transaction);
                                     await _schemaService.UpdateSpDefinitionAndHashAsync(
                                         request.ProjectId,
@@ -486,20 +479,22 @@ namespace ActoEngine.WebApi.Features.Projects
                                         transaction);
                                     await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, spInfo.SpId, definition);
                                 }
+
                                 appliedCount++;
                             }
                         }
                     }
-                    transaction.Commit();
-                }
-                catch
-                {
-                    transaction.Rollback();
-                    throw;
                 }
 
-                _lfkThrottleService.TryQueueDetection(request.ProjectId);
+                transaction.Commit();
             }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+
+            _lfkThrottleService.TryQueueDetection(request.ProjectId);
 
             return appliedCount;
         }

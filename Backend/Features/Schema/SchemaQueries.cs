@@ -12,7 +12,7 @@ public static class SchemaSyncQueries
             name AS ProcedureName,
             modify_date AS SourceModifyDate
         FROM sys.procedures
-        WHERE type = 'P' AND name NOT LIKE 'sp_%'";
+        WHERE type = 'P' AND is_ms_shipped = 0";
 
     public const string GetSpHashes = @"
         SELECT 
@@ -178,8 +178,7 @@ public static class SchemaSyncQueries
         INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
         INNER JOIN sys.tables t ON fk.parent_object_id = t.object_id
         INNER JOIN sys.tables rt ON fk.referenced_object_id = rt.object_id
-        WHERE CONCAT(SCHEMA_NAME(t.schema_id), '.', t.name) IN @TableNames
-           OR t.name IN @TableNames";
+        WHERE CONCAT(SCHEMA_NAME(t.schema_id), '.', t.name) IN @TableNames";
 
     public const string InsertForeignKeyMetadata = @"
         IF NOT EXISTS (
@@ -352,7 +351,8 @@ public static class SchemaSyncQueries
         FROM ColumnsMetadata c
         LEFT JOIN ForeignKeyMetadata fk ON c.ColumnId = fk.ColumnId
         LEFT JOIN TablesMetadata rt ON fk.ReferencedTableId = rt.TableId
+            AND (rt.IsDeleted = 0 OR rt.IsDeleted IS NULL)
         LEFT JOIN ColumnsMetadata rc ON fk.ReferencedColumnId = rc.ColumnId
-        WHERE c.TableId = @TableId AND (rt.IsDeleted = 0 OR rt.IsDeleted IS NULL)
+        WHERE c.TableId = @TableId
         ORDER BY c.ColumnOrder";
 }

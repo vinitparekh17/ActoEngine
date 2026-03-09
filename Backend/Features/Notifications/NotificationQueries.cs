@@ -12,7 +12,7 @@ public static class NotificationQueries
             NotificationId, UserId, ProjectId, Type, Title, Message, IsRead, CreatedAt, ReadAt
         FROM Notifications
         WHERE UserId = @UserId
-        ORDER BY IsRead ASC, CreatedAt DESC
+        ORDER BY IsRead ASC, CreatedAt DESC, NotificationId DESC
         OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY";
 
     public const string GetTotalCountByUser = @"

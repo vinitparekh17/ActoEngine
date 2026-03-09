@@ -17,6 +17,7 @@ public interface INotificationService
 public class NotificationService(
     INotificationRepository repository,
     IProjectRepository projectRepository,
+    INotificationFailureTracker failureTracker,
     ILogger<NotificationService> logger) : INotificationService
 {
     public async Task<IEnumerable<NotificationDto>> GetUserNotificationsAsync(int userId, int limit = 50, int offset = 0, CancellationToken cancellationToken = default)
@@ -44,11 +45,18 @@ public class NotificationService(
         try
         {
             await repository.CreateAsync(userId, request, cancellationToken);
+            failureTracker.Reset();
         }
         catch (Exception ex)
         {
+            var failures = failureTracker.RecordFailure();
             logger.LogError(ex, "Failed to create notification for user {UserId}", userId);
-            // Fire and forget usually, don't throw to break main flows
+
+            if (failures >= failureTracker.FailureThreshold)
+            {
+                logger.LogCritical("Notification creation failure threshold reached ({FailureCount})", failures);
+                throw;
+            }
         }
     }
 
@@ -67,10 +75,23 @@ public class NotificationService(
             };
 
             const int chunkSize = 25;
+            const int maxConcurrency = 5;
+            using var semaphore = new SemaphoreSlim(maxConcurrency, maxConcurrency);
             for (var i = 0; i < membersList.Count; i += chunkSize)
             {
                 var chunk = membersList.Skip(i).Take(chunkSize).ToList();
-                var tasks = chunk.Select(member => repository.CreateAsync(member.UserId, request, cancellationToken));
+                var tasks = chunk.Select(async member =>
+                {
+                    await semaphore.WaitAsync(cancellationToken);
+                    try
+                    {
+                        await repository.CreateAsync(member.UserId, request, cancellationToken);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                });
                 await Task.WhenAll(tasks);
             }
             

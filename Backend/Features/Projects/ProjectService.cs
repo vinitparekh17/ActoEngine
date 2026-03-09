@@ -28,6 +28,7 @@ namespace ActoEngine.WebApi.Features.Projects
         Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId);
         Task<IEnumerable<ProjectMemberDto>> GetProjectMembersAsync(int projectId, CancellationToken cancellationToken = default);
         Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default);
+        Task<bool> IsUserMemberOfProjectAsync(int projectId, int userId, CancellationToken cancellationToken = default);
         Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default);
         Task RemoveProjectMemberAsync(int projectId, int userId, CancellationToken cancellationToken = default);
     }
@@ -411,7 +412,7 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Step 3: Sync Foreign Keys
             await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 67);
-            var tables = tablesWithSchema.Select(t => t.TableName);
+            var tables = tablesWithSchema.Select(t => $"{t.SchemaName}.{t.TableName}");
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
             var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, dbConn, transaction);
             await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
@@ -711,6 +712,11 @@ namespace ActoEngine.WebApi.Features.Projects
         public async Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default)
         {
             return await _projectRepository.GetUserProjectMembershipsAsync(userId, cancellationToken);
+        }
+
+        public async Task<bool> IsUserMemberOfProjectAsync(int projectId, int userId, CancellationToken cancellationToken = default)
+        {
+            return await _projectRepository.IsUserMemberOfProjectAsync(projectId, userId, cancellationToken);
         }
 
         public async Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default)

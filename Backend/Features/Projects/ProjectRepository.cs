@@ -44,6 +44,7 @@ public interface IProjectRepository
     Task UpdateIsLinkedAsync(int projectId, bool isLinked, CancellationToken cancellationToken = default);
     Task<IEnumerable<ProjectMemberDto>> GetProjectMembersAsync(int projectId, CancellationToken cancellationToken = default);
     Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default);
+    Task<bool> IsUserMemberOfProjectAsync(int projectId, int userId, CancellationToken cancellationToken = default);
     Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default);
     Task RemoveProjectMemberAsync(int projectId, int userId, CancellationToken cancellationToken = default);
     Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId, CancellationToken cancellationToken = default);
@@ -324,6 +325,14 @@ public class ProjectRepository(
         return await QueryAsync<int>(
             ProjectSqlQueries.GetUserProjectMemberships,
             new { UserId = userId },
+            cancellationToken);
+    }
+
+    public async Task<bool> IsUserMemberOfProjectAsync(int projectId, int userId, CancellationToken cancellationToken = default)
+    {
+        return await ExecuteScalarAsync<bool>(
+            ProjectSqlQueries.IsUserMemberOfProject,
+            new { ProjectId = projectId, UserId = userId },
             cancellationToken);
     }
 

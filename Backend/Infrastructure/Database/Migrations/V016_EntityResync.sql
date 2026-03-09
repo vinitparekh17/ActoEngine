@@ -7,26 +7,42 @@
 BEGIN TRANSACTION;
 BEGIN TRY
 
-    -- 1. Add Soft Delete columns to TablesMetadata
-    IF NOT EXISTS (SELECT 1 FROM sys.columns 
-                   WHERE Name = N'IsDeleted' 
-                   AND Object_ID = Object_ID(N'dbo.TablesMetadata'))
+    -- 1. Add Soft Delete columns to TablesMetadata (column-by-column idempotency)
+    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'IsDeleted' AND Object_ID = Object_ID(N'dbo.TablesMetadata'))
     BEGIN
         ALTER TABLE TablesMetadata
-        ADD IsDeleted BIT NOT NULL DEFAULT 0,
-            DeletedAt DATETIME2 NULL;
+        ADD IsDeleted BIT NOT NULL DEFAULT 0;
     END
 
-    -- 2. Add Hash and Soft Delete columns to SpMetadata
-    IF NOT EXISTS (SELECT 1 FROM sys.columns 
-                   WHERE Name = N'DefinitionHash' 
-                   AND Object_ID = Object_ID(N'dbo.SpMetadata'))
+    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'DeletedAt' AND Object_ID = Object_ID(N'dbo.TablesMetadata'))
+    BEGIN
+        ALTER TABLE TablesMetadata
+        ADD DeletedAt DATETIME2 NULL;
+    END
+
+    -- 2. Add Hash and Soft Delete columns to SpMetadata (column-by-column idempotency)
+    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'DefinitionHash' AND Object_ID = Object_ID(N'dbo.SpMetadata'))
     BEGIN
         ALTER TABLE SpMetadata
-        ADD DefinitionHash VARCHAR(64) NULL,
-            SourceModifyDate DATETIME2 NULL,
-            IsDeleted BIT NOT NULL DEFAULT 0,
-            DeletedAt DATETIME2 NULL;
+        ADD DefinitionHash VARCHAR(64) NULL;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'SourceModifyDate' AND Object_ID = Object_ID(N'dbo.SpMetadata'))
+    BEGIN
+        ALTER TABLE SpMetadata
+        ADD SourceModifyDate DATETIME2 NULL;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'IsDeleted' AND Object_ID = Object_ID(N'dbo.SpMetadata'))
+    BEGIN
+        ALTER TABLE SpMetadata
+        ADD IsDeleted BIT NOT NULL DEFAULT 0;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE Name = N'DeletedAt' AND Object_ID = Object_ID(N'dbo.SpMetadata'))
+    BEGIN
+        ALTER TABLE SpMetadata
+        ADD DeletedAt DATETIME2 NULL;
     END
 
     IF EXISTS (SELECT 1 FROM sys.columns
@@ -82,6 +98,24 @@ BEGIN TRY
 
         ALTER TABLE Notifications
             ADD CONSTRAINT FK_Notifications_ProjectId FOREIGN KEY (ProjectId) REFERENCES Projects(ProjectId) ON DELETE CASCADE;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = N'IX_Notifications_UserId_IsRead'
+              AND object_id = OBJECT_ID(N'dbo.Notifications'))
+        BEGIN
+            CREATE INDEX IX_Notifications_UserId_IsRead ON Notifications(UserId, IsRead, CreatedAt DESC);
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = N'IX_Notifications_IsRead_CreatedAt'
+              AND object_id = OBJECT_ID(N'dbo.Notifications'))
+        BEGIN
+            CREATE INDEX IX_Notifications_IsRead_CreatedAt ON Notifications(IsRead, CreatedAt);
+        END
     END
     COMMIT TRANSACTION;
 END TRY

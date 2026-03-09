@@ -45,11 +45,21 @@ public static class LogicalFkQueries
     public const string GetPendingCountsByProject = @"
         SELECT TableId, COUNT(*) AS PendingCount
         FROM (
-            SELECT LogicalFkId, SourceTableId AS TableId FROM LogicalForeignKeys
-            WHERE ProjectId = @ProjectId AND Status = 'SUGGESTED'
+            SELECT lfk.LogicalFkId, lfk.SourceTableId AS TableId
+            FROM LogicalForeignKeys lfk
+            INNER JOIN TablesMetadata tm ON tm.TableId = lfk.SourceTableId
+            WHERE lfk.ProjectId = @ProjectId
+              AND lfk.Status = 'SUGGESTED'
+              AND tm.ProjectId = @ProjectId
+              AND tm.IsDeleted = 0
             UNION
-            SELECT LogicalFkId, TargetTableId AS TableId FROM LogicalForeignKeys
-            WHERE ProjectId = @ProjectId AND Status = 'SUGGESTED'
+            SELECT lfk.LogicalFkId, lfk.TargetTableId AS TableId
+            FROM LogicalForeignKeys lfk
+            INNER JOIN TablesMetadata tm ON tm.TableId = lfk.TargetTableId
+            WHERE lfk.ProjectId = @ProjectId
+              AND lfk.Status = 'SUGGESTED'
+              AND tm.ProjectId = @ProjectId
+              AND tm.IsDeleted = 0
         ) x
         GROUP BY TableId;";
 
@@ -221,7 +231,11 @@ public static class LogicalFkQueries
             fk.ReferencedColumnId AS TargetColumnId
         FROM ForeignKeyMetadata fk
         INNER JOIN TablesMetadata tm ON fk.TableId = tm.TableId
-        WHERE tm.ProjectId = @ProjectId AND tm.IsDeleted = 0;";
+        INNER JOIN TablesMetadata rtm ON fk.ReferencedTableId = rtm.TableId
+        WHERE tm.ProjectId = @ProjectId
+          AND rtm.ProjectId = @ProjectId
+          AND tm.IsDeleted = 0
+          AND rtm.IsDeleted = 0;";
 
     /// <summary>
     /// Bulk-load canonical keys of all existing logical FKs for a project (for batch dedup)
@@ -234,9 +248,13 @@ public static class LogicalFkQueries
             lfk.TargetTableId,
             tgt.value AS TargetColumnId
         FROM LogicalForeignKeys lfk
+        INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
+        INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         CROSS APPLY OPENJSON(lfk.SourceColumnIds) src
         CROSS APPLY OPENJSON(lfk.TargetColumnIds) tgt
         WHERE lfk.ProjectId = @ProjectId
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
           AND lfk.Status = 'CONFIRMED'
           AND src.[key] = tgt.[key];";
 

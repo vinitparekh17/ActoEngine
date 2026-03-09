@@ -193,7 +193,7 @@ namespace ActoEngine.WebApi.Features.Projects
 
             if (!await IsProjectMemberAsync(request.ProjectId, userId.Value))
             {
-                return Unauthorized(ApiResponse<object>.Failure("User not a project member"));
+                return NotFound(ApiResponse<object>.Failure("Project not found"));
             }
 
             try
@@ -593,14 +593,7 @@ namespace ActoEngine.WebApi.Features.Projects
 
         private async Task<bool> IsProjectMemberAsync(int projectId, int userId)
         {
-            var project = await _projectService.GetProjectByIdAsync(projectId);
-            if (project == null)
-            {
-                return false;
-            }
-
-            var memberships = await _projectService.GetUserProjectMembershipsAsync(userId);
-            return memberships.Contains(projectId);
+            return await _projectService.IsUserMemberOfProjectAsync(projectId, userId);
         }
     }
 }

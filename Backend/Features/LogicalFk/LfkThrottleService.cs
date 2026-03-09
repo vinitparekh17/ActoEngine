@@ -20,34 +20,44 @@ public class LfkThrottleService(
 {
     // Tracks the last time a detection successfully STARTED for a given projectId
     private readonly ConcurrentDictionary<int, DateTime> _lastDetectionTimes = new();
+    private readonly ConcurrentDictionary<int, byte> _inFlight = new();
     
     // Throttle window (configurable, defaulting to 5 minutes)
     private static readonly TimeSpan ThrottleWindow = TimeSpan.FromMinutes(5);
 
     public void TryQueueDetection(int projectId)
     {
-        var now = DateTime.UtcNow;
-
-        // Check if we ran it recently
-        if (_lastDetectionTimes.TryGetValue(projectId, out var lastTime))
+        if (!_inFlight.TryAdd(projectId, 0))
         {
-            if (now - lastTime < ThrottleWindow)
-            {
-                logger.LogInformation("Skipping auto LFK detection for project {ProjectId}. Last run was {MinutesAgo} minutes ago (throttle window: {Throttle} mins).", 
-                    projectId, (now - lastTime).TotalMinutes.ToString("F1"), ThrottleWindow.TotalMinutes);
-                return;
-            }
+            logger.LogInformation("Skipping auto LFK detection for project {ProjectId}. Detection already in-flight.", projectId);
+            return;
         }
 
-        // Update the timestamp immediately to block concurrent burst requests from re-triggering this
-        _lastDetectionTimes[projectId] = now;
-        
-        logger.LogInformation("Queueing auto LFK detection for project {ProjectId}.", projectId);
+        var now = DateTime.UtcNow;
+        try
+        {
+            if (_lastDetectionTimes.TryGetValue(projectId, out var lastTime) &&
+                now - lastTime < ThrottleWindow)
+            {
+                logger.LogInformation("Skipping auto LFK detection for project {ProjectId}. Last run was {MinutesAgo} minutes ago (throttle window: {Throttle} mins).",
+                    projectId, (now - lastTime).TotalMinutes.ToString("F1"), ThrottleWindow.TotalMinutes);
+                _inFlight.TryRemove(projectId, out _);
+                return;
+            }
 
-        // Fire and forget in the background
-        _ = Task.Run(() => RunDetectionAsync(projectId)).ContinueWith(
-            t => logger.LogError(t.Exception, "RunDetectionAsync failed for project {ProjectId}", projectId),
-            TaskContinuationOptions.OnlyOnFaulted);
+            _lastDetectionTimes.AddOrUpdate(projectId, now, static (_, _) => DateTime.UtcNow);
+            logger.LogInformation("Queueing auto LFK detection for project {ProjectId}.", projectId);
+
+            // Fire and forget in the background
+            _ = Task.Run(() => RunDetectionAsync(projectId)).ContinueWith(
+                t => logger.LogError(t.Exception, "RunDetectionAsync failed for project {ProjectId}", projectId),
+                TaskContinuationOptions.OnlyOnFaulted);
+        }
+        catch
+        {
+            _inFlight.TryRemove(projectId, out _);
+            throw;
+        }
     }
 
     private async Task RunDetectionAsync(int projectId)
@@ -85,6 +95,10 @@ public class LfkThrottleService(
             
             // On failure, clear the throttle timestamp so the next attempt can try immediately
             _lastDetectionTimes.TryRemove(projectId, out _);
+        }
+        finally
+        {
+            _inFlight.TryRemove(projectId, out _);
         }
     }
 }

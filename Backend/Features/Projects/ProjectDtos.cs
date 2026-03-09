@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace ActoEngine.WebApi.Features.Projects;
@@ -30,7 +31,7 @@ public class Project
     public int? UpdatedBy { get; set; }
 }
 
- [JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ResyncEntityType
 {
     TABLE,
@@ -93,11 +94,24 @@ public class DiffEntityItem
     public string? Reason { get; set; } // e.g., "definition_changed"
 }
 
-public class ApplyDiffRequest
+public class ApplyDiffRequest : IValidatableObject
 {
+    [Range(1, int.MaxValue)]
     public int ProjectId { get; set; }
+    [Required]
     public required string ConnectionString { get; set; }
     public List<ResyncEntityItem> AddEntities { get; set; } = [];
     public List<ResyncEntityItem> RemoveEntities { get; set; } = [];
     public List<ResyncEntityItem> UpdateEntities { get; set; } = [];
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var hasChanges = AddEntities.Count != 0 || RemoveEntities.Count != 0 || UpdateEntities.Count != 0;
+        if (!hasChanges)
+        {
+            yield return new ValidationResult(
+                "At least one of AddEntities, RemoveEntities, or UpdateEntities must contain items.",
+                [nameof(AddEntities), nameof(RemoveEntities), nameof(UpdateEntities)]);
+        }
+    }
 }

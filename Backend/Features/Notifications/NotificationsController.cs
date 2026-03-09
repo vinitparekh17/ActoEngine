@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ActoEngine.WebApi.Shared.Extensions;
 using System.ComponentModel.DataAnnotations;
-using System.Security.Claims;
 
 namespace ActoEngine.WebApi.Features.Notifications;
 
@@ -12,13 +12,13 @@ public class NotificationsController(INotificationService notificationService) :
 {
     private bool TryGetUserId(out int userId)
     {
-        userId = 0;
-        var claimValue = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return int.TryParse(claimValue, out userId) && userId > 0;
+        var resolved = HttpContext.GetUserId();
+        userId = resolved ?? 0;
+        return resolved.HasValue;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications([FromQuery][Range(0, int.MaxValue)] int limit = 50, [FromQuery][Range(0, int.MaxValue)] int offset = 0, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IEnumerable<NotificationDto>>> GetNotifications([FromQuery][Range(1, 100)] int limit = 50, [FromQuery][Range(0, int.MaxValue)] int offset = 0, CancellationToken cancellationToken = default)
     {
         if (!TryGetUserId(out var userId))
         {
