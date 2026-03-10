@@ -9,30 +9,33 @@ using ActoEngine.WebApi.Infrastructure.Security;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using System.Data;
+using Dapper;
 namespace ActoEngine.WebApi.Features.Projects
 {
     public class ProjectSyncService(
-        ProjectRepository projectRepository,
-        SchemaRepository schemaRepository,
+        IProjectRepository projectRepository,
+        ISchemaRepository schemaRepository,
         IDbConnectionFactory connectionFactory,
-        SchemaService schemaService,
-        ClientRepository clientRepository,
-        ProjectClientRepository projectClientRepository,
-        DependencyOrchestrationService dependencyOrchestrationService,
+        ISchemaService schemaService,
+        IClientRepository clientRepository,
+        IProjectClientRepository projectClientRepository,
+        IDependencyOrchestrationService dependencyOrchestrationService,
         ILogicalFkService logicalFkService,
+        ILfkThrottleService lfkThrottleService,
         ILogger<ProjectSyncService> logger,
         IConfiguration configuration,
         IHostEnvironment environment,
         IServiceScopeFactory serviceScopeFactory)
     {
-        private readonly ProjectRepository _projectRepository = projectRepository;
-        private readonly SchemaRepository _schemaRepository = schemaRepository;
+        private readonly IProjectRepository _projectRepository = projectRepository;
+        private readonly ISchemaRepository _schemaRepository = schemaRepository;
         private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
-        private readonly SchemaService _schemaService = schemaService;
-        private readonly ClientRepository _clientRepository = clientRepository;
-        private readonly ProjectClientRepository _projectClientRepository = projectClientRepository;
-        private readonly DependencyOrchestrationService _dependencyOrchestrationService = dependencyOrchestrationService;
+        private readonly ISchemaService _schemaService = schemaService;
+        private readonly IClientRepository _clientRepository = clientRepository;
+        private readonly IProjectClientRepository _projectClientRepository = projectClientRepository;
+        private readonly IDependencyOrchestrationService _dependencyOrchestrationService = dependencyOrchestrationService;
         private readonly ILogicalFkService _logicalFkService = logicalFkService;
+        private readonly ILfkThrottleService _lfkThrottleService = lfkThrottleService;
         private readonly ILogger<ProjectSyncService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
         private readonly IHostEnvironment _environment = environment;
@@ -136,6 +139,414 @@ namespace ActoEngine.WebApi.Features.Projects
                 // User asked to "replace their messages with a redacted summary... before logging or returning".
                 throw new InvalidOperationException($"Re-sync failed: {redactedMessage}", ex);
             }
+        }
+
+        public async Task<int> ReSyncEntitiesAsync(ResyncEntitiesRequest request, int userId)
+        {
+            try
+            {
+                var project = await _projectRepository.GetByIdAsync(request.ProjectId) 
+                    ?? throw new InvalidOperationException($"Project {request.ProjectId} not found.");
+
+                // Keep it synchronous (Tier 1 is designed to map only to specific entity targets)
+                using var dbConn = await _connectionFactory.CreateConnectionAsync();
+                using var targetConn = new SqlConnection(request.ConnectionString);
+                await targetConn.OpenAsync();
+
+                int syncedCount = 0;
+                var analyzeAfterCommit = new List<(int SpId, string Definition)>();
+
+                // Grab existing SPs / Tables from our metadata
+                var storedTables = await _schemaRepository.GetStoredTablesAsync(request.ProjectId);
+                var storedSps = await _schemaService.GetSpHashesAsync(request.ProjectId);
+                
+                using var transaction = dbConn.BeginTransaction();
+                
+                try
+                {
+                    foreach (var entity in request.Entities)
+                    {
+                        if (entity.EntityType == ResyncEntityType.TABLE)
+                        {
+                            var table = storedTables.FirstOrDefault(t => t.TableName == entity.EntityName && t.SchemaName == entity.SchemaName);
+                            if (table == null) continue; // Skip if table wasn't previously synced
+
+                            // Clear existing columns & constraints manually inside the transaction
+                            await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { table.TableId }, transaction);
+                            
+                            // 1. Fetch Columns
+                            var columns = await ReadColumnsFromTargetAsync(targetConn, table.SchemaName ?? "dbo", table.TableName);
+                            await _schemaRepository.SyncColumnsAsync(table.TableId, columns, dbConn, transaction);
+
+                            // 2. Clear parent-side FKs for this table and re-sync
+                            // Only delete rows where this table is the parent (owner of the FK constraint).
+                            // Deleting rows where ReferencedTableId = @TableId would silently drop
+                            // inbound references (e.g., Order -> Customer) that belong to other tables.
+                            await dbConn.ExecuteAsync(
+                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId", 
+                                new { table.TableId }, transaction);
+                                
+                            var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(table.SchemaName ?? "dbo", table.TableName)]);
+                            await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
+
+                            syncedCount++;
+                        }
+                        else if (entity.EntityType == ResyncEntityType.SP)
+                        {
+                            var spInfo = storedSps.FirstOrDefault(sp =>
+                                sp.ProcedureName.Equals(entity.EntityName, StringComparison.OrdinalIgnoreCase) &&
+                                sp.SchemaName.Equals(entity.SchemaName, StringComparison.OrdinalIgnoreCase));
+                            if (spInfo == null) continue;
+
+                            // Scoped IA cleanup: Clear impact dependencies for this source SP only
+                            await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'StoredProcedure'", new { SourceId = spInfo.SpId }, transaction);
+
+                            // Fetch SP definition
+                            using var cmd = new SqlCommand(@"
+                                SELECT p.modify_date, OBJECT_DEFINITION(p.object_id) AS Definition
+                                FROM sys.procedures p
+                                INNER JOIN sys.schemas s ON p.schema_id = s.schema_id
+                                WHERE p.name = @SpName AND s.name = @SchemaName", targetConn);
+                            cmd.Parameters.AddWithValue("@SchemaName", entity.SchemaName);
+                            cmd.Parameters.AddWithValue("@SpName", entity.EntityName);
+                            using var reader = await cmd.ExecuteReaderAsync();
+                            
+                            if (await reader.ReadAsync() && !reader.IsDBNull(1))
+                            {
+                                var modifyDate = reader.GetDateTime(0);
+                                var definition = reader.GetString(1);
+                                var hash = _schemaService.NormalizeAndHashDefinition(definition);
+
+                                // Always update to reflect the fresh resync and dependency wipe
+                                await _schemaService.UpdateSpDefinitionAndHashAsync(
+                                    request.ProjectId,
+                                    spInfo.SpId,
+                                    definition,
+                                    hash,
+                                    modifyDate,
+                                    dbConn,
+                                    transaction);
+                                analyzeAfterCommit.Add((spInfo.SpId, definition));
+                                syncedCount++;
+                            }
+                        }
+                    }
+
+                    transaction.Commit();
+                }
+                catch
+                {
+                    transaction.Rollback();
+                    throw;
+                }
+
+                // Post-commit work is best-effort: failures here must not turn a successful commit into an API error.
+                try
+                {
+                    foreach (var item in analyzeAfterCommit)
+                    {
+                        await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
+                    }
+
+                    // Fire throttled background detection for Logical FKs (does not block this request)
+                    _lfkThrottleService.TryQueueDetection(request.ProjectId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Post-commit analysis failed for project {ProjectId}. Sync result is unaffected.", request.ProjectId);
+                }
+
+                return syncedCount;
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                _logger.LogError("Error executing targeted ReSyncEntitiesAsync for project {ProjectId}: {Error}", request.ProjectId, redactedMessage);
+                throw new InvalidOperationException($"Targeted re-sync failed: {redactedMessage}", ex);
+            }
+        }
+
+        public async Task<SchemaDiffResponse> GetSchemaDiffAsync(int projectId, string connectionString)
+        {
+            var diffResponse = new SchemaDiffResponse();
+            using var targetConn = new SqlConnection(connectionString);
+            await targetConn.OpenAsync();
+            using var dbConn = await _connectionFactory.CreateConnectionAsync();
+            using var metadataTransaction = dbConn.BeginTransaction();
+
+            try
+            {
+                // 1. Fetch source items
+                var sourceTables = await targetConn.QueryAsync<dynamic>(SchemaSyncQueries.GetTargetTablesWithSchema);
+                var sourceSpDates = await _schemaService.GetStoredProcedureModifyDatesAsync(connectionString);
+                var sourceSpNames = sourceSpDates
+                    .Select(x => $"{(string)x.SchemaName}.{(string)x.ProcedureName}")
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                // 2. Fetch our stored items (excluding soft-deleted)
+                var storedTables = await _schemaRepository.GetStoredTablesAsync(projectId);
+                var storedSps = await _schemaService.GetSpHashesAsync(projectId);
+
+                // 3. Diff Tables (Only Add / Remove for now)
+                var storedTableKeys = storedTables.Select(t => $"{t.SchemaName}.{t.TableName}").ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var sourceTableKeys = sourceTables.Select(t => $"{t.SchemaName}.{t.TableName}").ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var src in sourceTables)
+                {
+                    if (!storedTableKeys.Contains($"{src.SchemaName}.{src.TableName}"))
+                    {
+                        diffResponse.Tables.Added.Add(new DiffEntityItem { SchemaName = src.SchemaName, EntityName = src.TableName });
+                    }
+                }
+
+                foreach (var st in storedTables)
+                {
+                    if (!sourceTableKeys.Contains($"{st.SchemaName}.{st.TableName}"))
+                    {
+                        diffResponse.Tables.Removed.Add(new DiffEntityItem { SchemaName = st.SchemaName ?? "dbo", EntityName = st.TableName });
+                    }
+                }
+
+                // 4. Diff SPs (Add / Remove / Modify via Timestamp + Hash)
+                var storedSpKeys = storedSps
+                    .Select(sp => $"{sp.SchemaName}.{sp.ProcedureName}")
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var srcSp in sourceSpDates)
+                {
+                    string spName = (string)srcSp.ProcedureName;
+                    string spSchema = (string?)srcSp.SchemaName ?? "dbo";
+                    var spKey = $"{spSchema}.{spName}";
+                    if (!storedSpKeys.Contains(spKey))
+                    {
+                        diffResponse.StoredProcedures.Added.Add(new DiffEntityItem { SchemaName = spSchema, EntityName = spName });
+                    }
+                    else
+                    {
+                        var stSp = storedSps.First(x =>
+                            x.ProcedureName.Equals(spName, StringComparison.OrdinalIgnoreCase) &&
+                            x.SchemaName.Equals(spSchema, StringComparison.OrdinalIgnoreCase));
+
+                        if (srcSp.SourceModifyDate == null)
+                        {
+                            continue;
+                        }
+
+                        var sourceModifyDate = (DateTime)srcSp.SourceModifyDate;
+                        if (!stSp.SourceModifyDate.HasValue || sourceModifyDate > stSp.SourceModifyDate.Value)
+                        {
+                            // Timestamp is newer -> fetch definition from target and check hash
+                            using var cmd = new SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(@SpName))", targetConn);
+                            cmd.Parameters.AddWithValue("@SpName", $"[{spSchema}].[{spName}]");
+                            var rawDefObj = await cmd.ExecuteScalarAsync();
+                            var rawDef = rawDefObj as string;
+
+                            if (!string.IsNullOrEmpty(rawDef))
+                            {
+                                var newHash = _schemaService.NormalizeAndHashDefinition(rawDef);
+                                if (string.IsNullOrWhiteSpace(stSp.DefinitionHash))
+                                {
+                                    await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, sourceModifyDate, dbConn, metadataTransaction);
+                                }
+                                else if (newHash != stSp.DefinitionHash)
+                                {
+                                    diffResponse.StoredProcedures.Modified.Add(new DiffEntityItem
+                                    {
+                                        SchemaName = spSchema,
+                                        EntityName = spName,
+                                        Reason = "definition_changed"
+                                    });
+                                }
+                                else
+                                {
+                                    // Edge Case: Timestamp changed (e.g., recompilation or trivial change), but actual normalized code didn't.
+                                    // We silently update the ModifyDate so we don't keep checking it on every diff!
+                                    await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, sourceModifyDate, dbConn, metadataTransaction);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                foreach (var stSp in storedSps)
+                {
+                    if (!sourceSpNames.Contains($"{stSp.SchemaName}.{stSp.ProcedureName}"))
+                    {
+                        diffResponse.StoredProcedures.Removed.Add(new DiffEntityItem { SchemaName = stSp.SchemaName, EntityName = stSp.ProcedureName });
+                    }
+                }
+
+                metadataTransaction.Commit();
+            }
+            catch
+            {
+                metadataTransaction.Rollback();
+                throw;
+            }
+
+            return diffResponse;
+        }
+
+        public async Task<int> ApplyDiffAsync(ApplyDiffRequest request, int userId)
+        {
+            int appliedCount = 0;
+
+            var storedTables = await _schemaRepository.GetStoredTablesAsync(request.ProjectId);
+            var storedSps = await _schemaService.GetSpHashesAsync(request.ProjectId);
+
+            var toUpsert = new List<ResyncEntityItem>();
+            toUpsert.AddRange(request.AddEntities);
+            toUpsert.AddRange(request.UpdateEntities);
+            var analyzeAfterCommit = new List<(int SpId, string Definition)>();
+
+            using var dbConn = await _connectionFactory.CreateConnectionAsync();
+            using var transaction = dbConn.BeginTransaction();
+            try
+            {
+                // 1. Process Removals (Soft Delete) in the same transaction
+                foreach (var removal in request.RemoveEntities)
+                {
+                    if (removal.EntityType == ResyncEntityType.TABLE)
+                    {
+                        var targetTable = storedTables.FirstOrDefault(x => x.TableName == removal.EntityName && x.SchemaName == removal.SchemaName);
+                        if (targetTable != null)
+                        {
+                            await dbConn.ExecuteAsync(
+                                SchemaSyncQueries.SoftDeleteTable,
+                                new { request.ProjectId, targetTable.TableId },
+                                transaction);
+                            appliedCount++;
+                        }
+                    }
+                    else if (removal.EntityType == ResyncEntityType.SP)
+                    {
+                        var targetSp = storedSps.FirstOrDefault(x => x.ProcedureName == removal.EntityName && x.SchemaName == removal.SchemaName);
+                        if (targetSp != null)
+                        {
+                            await dbConn.ExecuteAsync(
+                                SchemaSyncQueries.SoftDeleteSp,
+                                new { request.ProjectId, targetSp.SpId },
+                                transaction);
+                            appliedCount++;
+                        }
+                    }
+                }
+
+                // 2. Process Additions and Updates
+                if (toUpsert.Count > 0)
+                {
+                    using var targetConn = new SqlConnection(request.ConnectionString);
+                    await targetConn.OpenAsync();
+
+                    foreach (var entity in toUpsert)
+                    {
+                        if (entity.EntityType == ResyncEntityType.TABLE)
+                        {
+                            var tInfo = storedTables.FirstOrDefault(t => t.TableName == entity.EntityName && t.SchemaName == entity.SchemaName);
+                            int tableId;
+                            if (tInfo == null)
+                            {
+                                tableId = await dbConn.ExecuteScalarAsync<int>(
+                                    "INSERT INTO TablesMetadata (ProjectId, TableName, SchemaName) OUTPUT INSERTED.TableId VALUES (@ProjectId, @TableName, @SchemaName)",
+                                    new { request.ProjectId, entity.EntityName, entity.SchemaName }, transaction);
+                            }
+                            else
+                            {
+                                tableId = tInfo.TableId;
+                                await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { tableId }, transaction);
+                            }
+
+                            var columns = await ReadColumnsFromTargetAsync(targetConn, entity.SchemaName, entity.EntityName);
+                            await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
+
+                            await dbConn.ExecuteAsync(
+                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId",
+                                new { tableId }, transaction);
+
+                            var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(entity.SchemaName, entity.EntityName)]);
+                            await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
+                            appliedCount++;
+                        }
+                        else if (entity.EntityType == ResyncEntityType.SP)
+                        {
+                            var spInfo = storedSps.FirstOrDefault(sp => sp.ProcedureName == entity.EntityName && sp.SchemaName == entity.SchemaName);
+
+                            using var cmd = new SqlCommand(@"
+                                SELECT p.modify_date, OBJECT_DEFINITION(p.object_id) AS Definition
+                                FROM sys.procedures p
+                                INNER JOIN sys.schemas s ON p.schema_id = s.schema_id
+                                WHERE p.name = @SpName AND s.name = @SchemaName", targetConn);
+                            cmd.Parameters.AddWithValue("@SchemaName", entity.SchemaName);
+                            cmd.Parameters.AddWithValue("@SpName", entity.EntityName);
+                            using var reader = await cmd.ExecuteReaderAsync();
+
+                            if (await reader.ReadAsync() && !reader.IsDBNull(1))
+                            {
+                                var modifyDate = reader.GetDateTime(0);
+                                var definition = reader.GetString(1);
+                                var hash = _schemaService.NormalizeAndHashDefinition(definition);
+
+                                if (spInfo == null)
+                                {
+                                    // Resolve the Default Client so ClientId is populated consistently with SyncViaCrossServerAsync.
+                                    // If the Default Client doesn't exist yet, fall back to a sentinel of 0 so the insert
+                                    // doesn't leave ClientId NULL, which would violate the SpMetadata contract.
+                                    var defaultClient = await _clientRepository.GetByNameAsync("Default Client");
+                                    var clientId = defaultClient?.ClientId ?? 0;
+
+                                    var insertedSpId = await dbConn.ExecuteScalarAsync<int>(
+                                        "INSERT INTO SpMetadata (ProjectId, ClientId, ProcedureName, SchemaName, Definition, CreatedAt, CreatedBy, DefinitionHash, SourceModifyDate) " +
+                                        "OUTPUT INSERTED.SpId VALUES (@ProjectId, @ClientId, @ProcedureName, @SchemaName, @Definition, GETUTCDATE(), @CreatedBy, @DefinitionHash, @SourceModifyDate)",
+                                        new { request.ProjectId, ClientId = clientId, ProcedureName = entity.EntityName, entity.SchemaName, Definition = definition, CreatedBy = userId, DefinitionHash = hash, SourceModifyDate = modifyDate },
+                                        transaction);
+
+                                    analyzeAfterCommit.Add((insertedSpId, definition));
+                                }
+                                else
+                                {
+                                    await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'StoredProcedure'", new { SourceId = spInfo.SpId }, transaction);
+                                    await _schemaService.UpdateSpDefinitionAndHashAsync(
+                                        request.ProjectId,
+                                        spInfo.SpId,
+                                        definition,
+                                        hash,
+                                        modifyDate,
+                                        dbConn,
+                                        transaction);
+                                    analyzeAfterCommit.Add((spInfo.SpId, definition));
+                                }
+
+                                appliedCount++;
+                            }
+                        }
+                    }
+                }
+
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+
+            // Post-commit work is best-effort: failures here must not turn a successful commit into an API error.
+            try
+            {
+                foreach (var item in analyzeAfterCommit)
+                {
+                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
+                }
+
+                // Fire throttled background detection for Logical FKs (does not block this request)
+                _lfkThrottleService.TryQueueDetection(request.ProjectId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Post-commit analysis failed for project {ProjectId}. Sync result is unaffected.", request.ProjectId);
+            }
+
+            return appliedCount;
         }
 
         public async Task<SyncStatus?> GetSyncStatusAsync(int projectId)
@@ -261,7 +672,7 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Step 3: Sync Foreign Keys
             await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 67);
-            var tables = tablesWithSchema.Select(t => t.TableName);
+            var tables = tablesWithSchema.Select(t => $"{t.SchemaName}.{t.TableName}");
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
             var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, dbConn, transaction);
             await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
@@ -317,14 +728,17 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Fetch all table IDs in a single query
             var tables = await _schemaRepository.GetProjectTablesAsync(projectId, dbConn, transaction);
-            var tableIdMap = tables.ToDictionary(t => t.TableName, t => t.TableId);
+            var tableIdMap = tables.ToDictionary(
+                t => $"{t.SchemaName}.{t.TableName}",
+                t => t.TableId,
+                StringComparer.OrdinalIgnoreCase);
 
             // Use the table names we already have
-            foreach (var (tableName, _) in tablesWithSchema)
+            foreach (var (tableName, schemaName) in tablesWithSchema)
             {
-                if (tableIdMap.TryGetValue(tableName, out var tableId))
+                if (tableIdMap.TryGetValue($"{schemaName}.{tableName}", out var tableId))
                 {
-                    var columns = await ReadColumnsFromTargetAsync(targetConn, tableName);
+                    var columns = await ReadColumnsFromTargetAsync(targetConn, schemaName, tableName);
                     var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
                     totalColumns += count;
                 }
@@ -333,9 +747,10 @@ namespace ActoEngine.WebApi.Features.Projects
             return totalColumns;
         }
 
-        private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string tableName)
+        private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string schemaName, string tableName)
         {
             using var cmd = new SqlCommand(SchemaSyncQueries.GetTargetColumns, targetConn);
+            cmd.Parameters.AddWithValue("@SchemaName", schemaName);
             cmd.Parameters.AddWithValue("@TableName", tableName);
             using var reader = await cmd.ExecuteReaderAsync();
 

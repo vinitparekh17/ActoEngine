@@ -12,6 +12,7 @@ using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Pathing;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Scoring;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
 using ActoEngine.WebApi.Features.LogicalFk;
+using ActoEngine.WebApi.Features.Notifications;
 using ActoEngine.WebApi.Features.Permissions;
 using ActoEngine.WebApi.Features.ProjectClients;
 using ActoEngine.WebApi.Features.Projects;
@@ -51,6 +52,7 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<IProjectClientRepository, ProjectClientRepository>();
             services.AddScoped<IContextRepository, ContextRepository>();
             services.AddScoped<IDependencyRepository, DependencyRepository>();
+            services.AddScoped<INotificationRepository, NotificationRepository>();
 
             // Role & Permission Repositories
             services.AddScoped<IRoleRepository, RoleRepository>();
@@ -64,10 +66,12 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<IClientService, ClientService>();
             services.AddScoped<IProjectClientService, ProjectClientService>();
             services.AddScoped<IContextService, ContextService>();
+            services.AddScoped<INotificationService, NotificationService>();
 
             // Logical FK Services
             services.AddScoped<ILogicalFkRepository, LogicalFkRepository>();
             services.AddScoped<ILogicalFkService, LogicalFkService>();
+            services.AddSingleton<ILfkThrottleService, LfkThrottleService>();
             services.AddSingleton(configuration.GetSection("DetectionConfig").Get<DetectionConfig>() ?? new DetectionConfig());
             services.AddScoped<ConfidenceCalculator>();
 

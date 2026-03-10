@@ -18,6 +18,8 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         WHERE lfk.ProjectId = @ProjectId
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
         ORDER BY lfk.CreatedAt DESC;";
 
     public const string GetByProjectFiltered = @"
@@ -33,6 +35,8 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         WHERE lfk.ProjectId = @ProjectId AND lfk.Status = @Status
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
         ORDER BY lfk.ConfidenceScore DESC;";
 
     /// <summary>
@@ -41,11 +45,27 @@ public static class LogicalFkQueries
     public const string GetPendingCountsByProject = @"
         SELECT TableId, COUNT(*) AS PendingCount
         FROM (
-            SELECT LogicalFkId, SourceTableId AS TableId FROM LogicalForeignKeys
-            WHERE ProjectId = @ProjectId AND Status = 'SUGGESTED'
+            SELECT lfk.LogicalFkId, lfk.SourceTableId AS TableId
+            FROM LogicalForeignKeys lfk
+            INNER JOIN TablesMetadata stm ON stm.TableId = lfk.SourceTableId
+            INNER JOIN TablesMetadata ttm ON ttm.TableId = lfk.TargetTableId
+            WHERE lfk.ProjectId = @ProjectId
+              AND lfk.Status = 'SUGGESTED'
+              AND stm.ProjectId = @ProjectId
+              AND ttm.ProjectId = @ProjectId
+              AND stm.IsDeleted = 0
+              AND ttm.IsDeleted = 0
             UNION
-            SELECT LogicalFkId, TargetTableId AS TableId FROM LogicalForeignKeys
-            WHERE ProjectId = @ProjectId AND Status = 'SUGGESTED'
+            SELECT lfk.LogicalFkId, lfk.TargetTableId AS TableId
+            FROM LogicalForeignKeys lfk
+            INNER JOIN TablesMetadata stm ON stm.TableId = lfk.SourceTableId
+            INNER JOIN TablesMetadata ttm ON ttm.TableId = lfk.TargetTableId
+            WHERE lfk.ProjectId = @ProjectId
+              AND lfk.Status = 'SUGGESTED'
+              AND stm.ProjectId = @ProjectId
+              AND ttm.ProjectId = @ProjectId
+              AND stm.IsDeleted = 0
+              AND ttm.IsDeleted = 0
         ) x
         GROUP BY TableId;";
 
@@ -62,7 +82,9 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         WHERE lfk.LogicalFkId = @LogicalFkId
-          AND lfk.ProjectId = @ProjectId;";
+          AND lfk.ProjectId = @ProjectId
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0;";
 
     public const string GetByTable = @"
         SELECT 
@@ -77,6 +99,8 @@ public static class LogicalFkQueries
         INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
         INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         WHERE lfk.ProjectId = @ProjectId
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
           AND (lfk.SourceTableId = @TableId OR lfk.TargetTableId = @TableId)
         ORDER BY lfk.CreatedAt DESC;";
 
@@ -173,7 +197,7 @@ public static class LogicalFkQueries
             tm.TableName
         FROM ColumnsMetadata cm
         INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
-        WHERE tm.ProjectId = @ProjectId
+        WHERE tm.ProjectId = @ProjectId AND tm.IsDeleted = 0
         ORDER BY tm.TableName, cm.ColumnOrder;";
 
     public const string GetPhysicalFksByTable = @"
@@ -190,7 +214,7 @@ public static class LogicalFkQueries
         INNER JOIN ColumnsMetadata sc ON fk.ColumnId = sc.ColumnId
         INNER JOIN TablesMetadata tt ON fk.ReferencedTableId = tt.TableId
         INNER JOIN ColumnsMetadata tc ON fk.ReferencedColumnId = tc.ColumnId
-        WHERE st.ProjectId = @ProjectId
+        WHERE st.ProjectId = @ProjectId AND st.IsDeleted = 0 AND tt.IsDeleted = 0
           AND (fk.TableId = @TableId OR fk.ReferencedTableId = @TableId)
         ORDER BY st.TableName, sc.ColumnOrder;";
 
@@ -213,7 +237,11 @@ public static class LogicalFkQueries
             fk.ReferencedColumnId AS TargetColumnId
         FROM ForeignKeyMetadata fk
         INNER JOIN TablesMetadata tm ON fk.TableId = tm.TableId
-        WHERE tm.ProjectId = @ProjectId;";
+        INNER JOIN TablesMetadata rtm ON fk.ReferencedTableId = rtm.TableId
+        WHERE tm.ProjectId = @ProjectId
+          AND rtm.ProjectId = @ProjectId
+          AND tm.IsDeleted = 0
+          AND rtm.IsDeleted = 0;";
 
     /// <summary>
     /// Bulk-load canonical keys of all existing logical FKs for a project (for batch dedup)
@@ -226,9 +254,13 @@ public static class LogicalFkQueries
             lfk.TargetTableId,
             tgt.value AS TargetColumnId
         FROM LogicalForeignKeys lfk
+        INNER JOIN TablesMetadata st ON lfk.SourceTableId = st.TableId
+        INNER JOIN TablesMetadata tt ON lfk.TargetTableId = tt.TableId
         CROSS APPLY OPENJSON(lfk.SourceColumnIds) src
         CROSS APPLY OPENJSON(lfk.TargetColumnIds) tgt
         WHERE lfk.ProjectId = @ProjectId
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
           AND lfk.Status = 'CONFIRMED'
           AND src.[key] = tgt.[key];";
 
@@ -250,7 +282,7 @@ public static class LogicalFkQueries
             ) THEN 1 ELSE 0 END AS BIT) AS IsUnique
         FROM ColumnsMetadata cm
         INNER JOIN TablesMetadata tm ON cm.TableId = tm.TableId
-        WHERE tm.ProjectId = @ProjectId
+        WHERE tm.ProjectId = @ProjectId AND tm.IsDeleted = 0
         ORDER BY tm.TableName, cm.ColumnOrder;";
 
     // ── Detection persistence queries ──────────────────────────
@@ -277,6 +309,8 @@ public static class LogicalFkQueries
         LEFT JOIN ColumnsMetadata tc ON tc.ColumnId = JSON_VALUE(lfk.TargetColumnIds, '$[0]')
         WHERE lfk.ProjectId = @ProjectId
           AND lfk.Status = 'SUGGESTED'
+          AND st.IsDeleted = 0
+          AND tt.IsDeleted = 0
         ORDER BY lfk.ConfidenceScore DESC;";
 
     /// <summary>

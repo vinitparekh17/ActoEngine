@@ -9,6 +9,7 @@ public interface IDependencyOrchestrationService
     /// Run this AFTER a schema sync is committed.
     /// </summary>
     Task AnalyzeProjectAsync(int projectId);
+    Task AnalyzeStoredProcedureAsync(int projectId, int spId, string definition);
 }
 
 public class DependencyOrchestrationService(
@@ -83,6 +84,25 @@ public class DependencyOrchestrationService(
             // Log the critical failure and rethrow so the caller (ProjectService) 
             // can observe and handle it appropriately.
             _logger.LogError(ex, "Critical failure during dependency analysis for project {ProjectId}", projectId);
+            throw;
+        }
+    }
+
+    public async Task AnalyzeStoredProcedureAsync(int projectId, int spId, string definition)
+    {
+        if (string.IsNullOrWhiteSpace(definition))
+        {
+            return;
+        }
+
+        try
+        {
+            var deps = _analysisService.ExtractDependencies(definition, spId, "SP");
+            await _resolutionService.ResolveAndSaveDependenciesAsync(projectId, deps);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to analyze dependencies for SP {SpId} in project {ProjectId}", spId, projectId);
             throw;
         }
     }

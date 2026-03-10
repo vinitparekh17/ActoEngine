@@ -125,7 +125,7 @@ public class DependencyResolutionService(
 
     private async Task<Dictionary<string, int>> LoadTableMapAsync(IDbConnection conn, int projectId)
     {
-        var sql = @"SELECT TableName, SchemaName, TableId FROM TablesMetadata WHERE ProjectId = @ProjectId";
+        var sql = @"SELECT TableName, SchemaName, TableId FROM TablesMetadata WHERE ProjectId = @ProjectId AND IsDeleted = 0";
         var rows = await conn.QueryAsync<dynamic>(sql, new { ProjectId = projectId });
 
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -193,7 +193,7 @@ public class DependencyResolutionService(
 
     private async Task<Dictionary<string, int>> LoadSpMapAsync(IDbConnection conn, int projectId)
     {
-        var sql = @"SELECT ProcedureName, SchemaName, SpId FROM SpMetadata WHERE ProjectId = @ProjectId";
+        var sql = @"SELECT ProcedureName, SchemaName, SpId FROM SpMetadata WHERE ProjectId = @ProjectId AND IsDeleted = 0";
         var rows = await conn.QueryAsync<dynamic>(sql, new { ProjectId = projectId });
 
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);

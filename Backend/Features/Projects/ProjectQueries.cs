@@ -121,4 +121,14 @@ public static class ProjectSqlQueries
         FROM ProjectMembers pm
         INNER JOIN Projects p ON pm.ProjectId = p.ProjectId
         WHERE pm.UserId = @UserId AND p.IsActive = 1";
+
+    public const string IsUserMemberOfProject = @"
+        SELECT CASE WHEN EXISTS (
+            SELECT 1
+            FROM ProjectMembers pm
+            INNER JOIN Projects p ON pm.ProjectId = p.ProjectId
+            WHERE pm.ProjectId = @ProjectId
+              AND pm.UserId = @UserId
+              AND p.IsActive = 1
+        ) THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END";
 }

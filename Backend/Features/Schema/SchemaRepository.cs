@@ -10,11 +10,23 @@ public interface ISchemaRepository
     Task<int> SyncTablesAsync(int projectId, IEnumerable<(string TableName, string SchemaName)> tableNames, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncColumnsAsync(int tableId, IEnumerable<ColumnMetadata> columns, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncStoredProceduresAsync(int projectId, int clientId, IEnumerable<StoredProcedureMetadata> procedures, int userId, IDbConnection connection, IDbTransaction transaction);
-    Task<IEnumerable<(int TableId, string TableName)>> GetProjectTablesAsync(int projectId, IDbConnection connection, IDbTransaction transaction);
+    Task<IEnumerable<(int TableId, string TableName, string SchemaName)>> GetProjectTablesAsync(int projectId, IDbConnection connection, IDbTransaction transaction);
     Task<TableSchemaResponse> ReadTableSchemaAsync(string connectionString, string tableName);
     Task<List<string>> GetAllTablesAsync(string connectionString);
     Task<List<(string TableName, string SchemaName)>> GetAllTablesWithSchemaAsync(string connectionString);
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
+    Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString);
+    Task<List<SpHashInfo>> GetSpHashesAsync(int projectId);
+    Task<bool> UpdateSpDefinitionAndHashAsync(
+        int projectId,
+        int spId,
+        string definition,
+        string definitionHash,
+        DateTime sourceModifyDate,
+        IDbConnection? connection = null,
+        IDbTransaction? transaction = null);
+    Task<bool> SoftDeleteTableAsync(int projectId, int tableId);
+    Task<bool> SoftDeleteSpAsync(int projectId, int spId);
 
     // Methods to retrieve stored metadata
     // Lightweight list methods (minimal bandwidth)
@@ -57,10 +69,19 @@ public class SchemaRepository(
             var count = 0;
             foreach (var (tableName, schemaName) in tableSchemas)
             {
-                await connection.ExecuteAsync(
-                    SchemaSyncQueries.InsertTableMetadata,
+                var restored = await connection.ExecuteAsync(
+                    SchemaSyncQueries.RestoreOrUpsertTable,
                     new { ProjectId = projectId, TableName = tableName, SchemaName = schemaName },
                     transaction);
+
+                if (restored == 0)
+                {
+                    await connection.ExecuteAsync(
+                        SchemaSyncQueries.InsertTableMetadata,
+                        new { ProjectId = projectId, TableName = tableName, SchemaName = schemaName },
+                        transaction);
+                }
+
                 count++;
             }
             return count;
@@ -155,14 +176,14 @@ public class SchemaRepository(
         }
     }
 
-    public async Task<IEnumerable<(int TableId, string TableName)>> GetProjectTablesAsync(
+    public async Task<IEnumerable<(int TableId, string TableName, string SchemaName)>> GetProjectTablesAsync(
         int projectId,
         IDbConnection connection,
         IDbTransaction transaction)
     {
         try
         {
-            return await connection.QueryAsync<(int, string)>(
+            return await connection.QueryAsync<(int, string, string)>(
                 SchemaSyncQueries.GetTableMetaByProjectId,
                 new { ProjectId = projectId },
                 transaction);
@@ -253,6 +274,84 @@ public class SchemaRepository(
             _logger.LogError(ex, "Error getting stored procedures from connection string");
             throw;
         }
+    }
+
+    public async Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString)
+    {
+        // Note: Uses external connection string, cannot use BaseRepository methods
+        try
+        {
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+            return await connection.QueryAsync<dynamic>(SchemaSyncQueries.GetTargetSpModifyDates);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting stored procedure modify dates from connection string");
+            throw;
+        }
+    }
+
+    public async Task<List<SpHashInfo>> GetSpHashesAsync(int projectId)
+    {
+        var hashes = await QueryAsync<SpHashInfo>(
+            SchemaSyncQueries.GetSpHashes,
+            new { ProjectId = projectId });
+
+        return [.. hashes];
+    }
+
+    public async Task<bool> UpdateSpDefinitionAndHashAsync(
+        int projectId,
+        int spId,
+        string definition,
+        string definitionHash,
+        DateTime sourceModifyDate,
+        IDbConnection? connection = null,
+        IDbTransaction? transaction = null)
+    {
+        var parameters = new
+        {
+            ProjectId = projectId,
+            SpId = spId,
+            Definition = definition,
+            DefinitionHash = definitionHash,
+            SourceModifyDate = sourceModifyDate
+        };
+
+        int affected;
+        if (connection != null)
+        {
+            affected = await connection.ExecuteAsync(
+                SchemaSyncQueries.UpdateSpDefinitionAndHash,
+                parameters,
+                transaction);
+        }
+        else
+        {
+            affected = await ExecuteAsync(
+                SchemaSyncQueries.UpdateSpDefinitionAndHash,
+                parameters);
+        }
+
+        return affected > 0;
+    }
+
+    public async Task<bool> SoftDeleteTableAsync(int projectId, int tableId)
+    {
+        var affected = await ExecuteAsync(
+            SchemaSyncQueries.SoftDeleteTable,
+            new { ProjectId = projectId, TableId = tableId });
+
+        return affected > 0;
+    }
+
+    public async Task<bool> SoftDeleteSpAsync(int projectId, int spId)
+    {
+        var affected = await ExecuteAsync(
+            SchemaSyncQueries.SoftDeleteSp,
+            new { ProjectId = projectId, SpId = spId });
+
+        return affected > 0;
     }
 
     // Lightweight list methods
@@ -385,15 +484,20 @@ public class SchemaRepository(
             var count = 0;
             foreach (var fk in foreignKeys)
             {
+                var (parentSchema, parentTable) = ParseQualifiedName(fk.TableName);
+                var (referencedSchema, referencedTable) = ParseQualifiedName(fk.ReferencedTable);
+
                 // Insert by resolving IDs from names within SQL to avoid FK issues
                 await connection.ExecuteAsync(
                     SchemaSyncQueries.InsertForeignKeyMetadataByNames,
                     new
                     {
                         ProjectId = projectId,
-                        fk.TableName,
+                        ParentSchemaName = parentSchema,
+                        ParentTableName = parentTable,
                         fk.ColumnName,
-                        fk.ReferencedTable,
+                        ReferencedSchemaName = referencedSchema,
+                        ReferencedTable = referencedTable,
                         fk.ReferencedColumn,
                         fk.ForeignKeyName,
                         fk.OnDeleteAction,
@@ -442,5 +546,16 @@ public class SchemaRepository(
             _logger.LogError(ex, "Error getting foreign keys from connection string");
             throw;
         }
+    }
+
+    private static (string SchemaName, string Name) ParseQualifiedName(string name)
+    {
+        var parts = name.Split('.', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 2)
+        {
+            return (parts[0], parts[1]);
+        }
+
+        return ("dbo", name);
     }
 }

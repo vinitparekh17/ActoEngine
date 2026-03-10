@@ -17,6 +17,9 @@ namespace ActoEngine.WebApi.Features.Projects
         Task<ConnectionResponse> VerifyConnectionAsync(VerifyConnectionRequest request);
         Task<ProjectResponse> LinkProjectAsync(LinkProjectRequest request, int userId);
         Task<ProjectResponse> ReSyncProjectAsync(ReSyncProjectRequest request, int userId);
+        Task<int> ReSyncEntitiesAsync(ResyncEntitiesRequest request, int userId);
+        Task<SchemaDiffResponse> GetSchemaDiffAsync(int projectId, string connectionString);
+        Task<int> ApplyDiffAsync(ApplyDiffRequest request, int userId);
         Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, int userId);
         Task<PublicProjectDto?> GetProjectByIdAsync(int projectId);
         Task<IEnumerable<PublicProjectDto>> GetAllProjectsAsync();
@@ -25,6 +28,7 @@ namespace ActoEngine.WebApi.Features.Projects
         Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId);
         Task<IEnumerable<ProjectMemberDto>> GetProjectMembersAsync(int projectId, CancellationToken cancellationToken = default);
         Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default);
+        Task<bool> IsUserMemberOfProjectAsync(int projectId, int userId, CancellationToken cancellationToken = default);
         Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default);
         Task RemoveProjectMemberAsync(int projectId, int userId, CancellationToken cancellationToken = default);
     }
@@ -40,7 +44,8 @@ namespace ActoEngine.WebApi.Features.Projects
         ILogicalFkService logicalFkService,
         ILogger<ProjectService> logger,
         IConfiguration configuration,
-        IHostEnvironment environment) : IProjectService
+        IHostEnvironment environment,
+        IServiceScopeFactory serviceScopeFactory) : IProjectService
     {
         private readonly IProjectRepository _projectRepository = projectRepository;
         private readonly ISchemaRepository _schemaRepository = schemaRepository;
@@ -53,6 +58,7 @@ namespace ActoEngine.WebApi.Features.Projects
         private readonly ILogger<ProjectService> _logger = logger;
         private readonly IConfiguration _configuration = configuration;
         private readonly IHostEnvironment _environment = environment;
+        private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
 
         /// <summary>
         /// Verifies a database connection using secure credential handling.
@@ -254,6 +260,51 @@ namespace ActoEngine.WebApi.Features.Projects
             }
         }
 
+        public async Task<int> ReSyncEntitiesAsync(ResyncEntitiesRequest request, int userId)
+        {
+            try
+            {
+                return await WithScopedProjectSyncServiceAsync(syncService =>
+                    syncService.ReSyncEntitiesAsync(request, userId));
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                _logger.LogError("Error starting targeted re-sync for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
+                throw;
+            }
+        }
+
+        public async Task<SchemaDiffResponse> GetSchemaDiffAsync(int projectId, string connectionString)
+        {
+            try
+            {
+                return await WithScopedProjectSyncServiceAsync(syncService =>
+                    syncService.GetSchemaDiffAsync(projectId, connectionString));
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                _logger.LogError("Error getting schema diff for project {ProjectId}. Error: {ErrorMessage}", projectId, redactedMessage);
+                throw new InvalidOperationException($"Schema diff failed: {redactedMessage}", ex);
+            }
+        }
+
+        public async Task<int> ApplyDiffAsync(ApplyDiffRequest request, int userId)
+        {
+            try
+            {
+                return await WithScopedProjectSyncServiceAsync(syncService =>
+                    syncService.ApplyDiffAsync(request, userId));
+            }
+            catch (Exception ex)
+            {
+                var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
+                _logger.LogError("Error applying schema diff for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
+                throw new InvalidOperationException($"Applying schema diff failed: {redactedMessage}", ex);
+            }
+        }
+
         public async Task<SyncStatus?> GetSyncStatusAsync(int projectId)
         {
             return await _projectRepository.GetSyncStatusAsync(projectId);
@@ -358,7 +409,7 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Step 3: Sync Foreign Keys
             await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 67);
-            var tables = tablesWithSchema.Select(t => t.TableName);
+            var tables = tablesWithSchema.Select(t => $"{t.SchemaName}.{t.TableName}");
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
             var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, dbConn, transaction);
             await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
@@ -414,14 +465,17 @@ namespace ActoEngine.WebApi.Features.Projects
 
             // Fetch all table IDs in a single query
             var tables = await _schemaRepository.GetProjectTablesAsync(projectId, dbConn, transaction);
-            var tableIdMap = tables.ToDictionary(t => t.TableName, t => t.TableId);
+            var tableIdMap = tables.ToDictionary(
+                t => $"{t.SchemaName}.{t.TableName}",
+                t => t.TableId,
+                StringComparer.OrdinalIgnoreCase);
 
             // Use the table names we already have
-            foreach (var (tableName, _) in tablesWithSchema)
+            foreach (var (tableName, schemaName) in tablesWithSchema)
             {
-                if (tableIdMap.TryGetValue(tableName, out var tableId))
+                if (tableIdMap.TryGetValue($"{schemaName}.{tableName}", out var tableId))
                 {
-                    var columns = await ReadColumnsFromTargetAsync(targetConn, tableName);
+                    var columns = await ReadColumnsFromTargetAsync(targetConn, schemaName, tableName);
                     var count = await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
                     totalColumns += count;
                 }
@@ -430,9 +484,10 @@ namespace ActoEngine.WebApi.Features.Projects
             return totalColumns;
         }
 
-        private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string tableName)
+        private static async Task<IEnumerable<ColumnMetadata>> ReadColumnsFromTargetAsync(SqlConnection targetConn, string schemaName, string tableName)
         {
             using var cmd = new SqlCommand(SchemaSyncQueries.GetTargetColumns, targetConn);
+            cmd.Parameters.AddWithValue("@SchemaName", schemaName);
             cmd.Parameters.AddWithValue("@TableName", tableName);
             using var reader = await cmd.ExecuteReaderAsync();
 
@@ -659,6 +714,11 @@ namespace ActoEngine.WebApi.Features.Projects
             return await _projectRepository.GetUserProjectMembershipsAsync(userId, cancellationToken);
         }
 
+        public async Task<bool> IsUserMemberOfProjectAsync(int projectId, int userId, CancellationToken cancellationToken = default)
+        {
+            return await _projectRepository.IsUserMemberOfProjectAsync(projectId, userId, cancellationToken);
+        }
+
         public async Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default)
         {
             await _projectRepository.AddProjectMemberAsync(projectId, userId, addedBy, cancellationToken);
@@ -669,6 +729,13 @@ namespace ActoEngine.WebApi.Features.Projects
         {
             await _projectRepository.RemoveProjectMemberAsync(projectId, userId, cancellationToken);
             _logger.LogInformation("Removed user {UserId} from project {ProjectId}", userId, projectId);
+        }
+
+        private async Task<T> WithScopedProjectSyncServiceAsync<T>(Func<ProjectSyncService, Task<T>> work)
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var scopedSyncService = ActivatorUtilities.CreateInstance<ProjectSyncService>(scope.ServiceProvider);
+            return await work(scopedSyncService);
         }
     }
 }

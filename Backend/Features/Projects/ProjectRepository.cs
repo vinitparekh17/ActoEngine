@@ -44,6 +44,7 @@ public interface IProjectRepository
     Task UpdateIsLinkedAsync(int projectId, bool isLinked, CancellationToken cancellationToken = default);
     Task<IEnumerable<ProjectMemberDto>> GetProjectMembersAsync(int projectId, CancellationToken cancellationToken = default);
     Task<IEnumerable<int>> GetUserProjectMembershipsAsync(int userId, CancellationToken cancellationToken = default);
+    Task<bool> IsUserMemberOfProjectAsync(int projectId, int userId, CancellationToken cancellationToken = default);
     Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default);
     Task RemoveProjectMemberAsync(int projectId, int userId, CancellationToken cancellationToken = default);
     Task<ProjectStatsResponse?> GetProjectStatsAsync(int projectId, CancellationToken cancellationToken = default);
@@ -327,6 +328,14 @@ public class ProjectRepository(
             cancellationToken);
     }
 
+    public async Task<bool> IsUserMemberOfProjectAsync(int projectId, int userId, CancellationToken cancellationToken = default)
+    {
+        return await ExecuteScalarAsync<bool>(
+            ProjectSqlQueries.IsUserMemberOfProject,
+            new { ProjectId = projectId, UserId = userId },
+            cancellationToken);
+    }
+
     public async Task AddProjectMemberAsync(int projectId, int userId, int addedBy, CancellationToken cancellationToken = default)
     {
         await ExecuteAsync(
@@ -351,13 +360,13 @@ public class ProjectRepository(
     {
         // Count tables
         var tableCount = await ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM TablesMetadata WHERE ProjectId = @ProjectId",
+            "SELECT COUNT(*) FROM TablesMetadata WHERE ProjectId = @ProjectId AND IsDeleted = 0",
             new { ProjectId = projectId },
             cancellationToken);
 
         // Count stored procedures by unique SpId (not by name, as names can duplicate across schemas)
         var spCount = await ExecuteScalarAsync<int>(
-            "SELECT COUNT(DISTINCT SpId) FROM SpMetadata WHERE ProjectId = @ProjectId",
+            "SELECT COUNT(DISTINCT SpId) FROM SpMetadata WHERE ProjectId = @ProjectId AND IsDeleted = 0",
             new { ProjectId = projectId },
             cancellationToken);
 
