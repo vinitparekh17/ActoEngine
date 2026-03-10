@@ -271,7 +271,7 @@ namespace ActoEngine.WebApi.Features.Projects
             {
                 var redactedMessage = SecurityHelper.RedactConnectionString(ex.Message);
                 _logger.LogError("Error starting targeted re-sync for project {ProjectId}. Error: {ErrorMessage}", request.ProjectId, redactedMessage);
-                throw new InvalidOperationException($"Targeted re-sync failed: {redactedMessage}", ex);
+                throw;
             }
         }
 

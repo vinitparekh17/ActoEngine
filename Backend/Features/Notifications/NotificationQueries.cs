@@ -34,8 +34,4 @@ public static class NotificationQueries
         UPDATE Notifications
         SET IsRead = 1, ReadAt = GETUTCDATE()
         WHERE UserId = @UserId AND IsRead = 0";
-
-    public const string CleanupOldNotifications = @"
-        DELETE FROM Notifications
-        WHERE IsRead = 1 AND ReadAt < DATEADD(day, -@RetentionDays, GETUTCDATE())";
 }

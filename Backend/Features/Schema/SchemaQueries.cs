@@ -103,6 +103,13 @@ public static class SchemaSyncQueries
         JOIN sys.schemas s ON t.schema_id = s.schema_id
         WHERE t.type = 'U'
         ORDER BY s.name, t.name;";
+    public const string RestoreOrUpsertTable = @"
+        UPDATE TablesMetadata
+        SET IsDeleted = 0,
+            DeletedAt = NULL
+        WHERE ProjectId = @ProjectId
+          AND TableName = @TableName
+          AND SchemaName = @SchemaName;";
     public const string InsertTableMetadata = @"
         SET NOCOUNT ON;
 

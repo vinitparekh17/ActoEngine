@@ -11,7 +11,6 @@ public interface INotificationRepository
     Task<int> GetUnreadCountAsync(int userId, CancellationToken cancellationToken = default);
     Task<bool> MarkAsReadAsync(int userId, int notificationId, CancellationToken cancellationToken = default);
     Task<int> MarkAllAsReadAsync(int userId, CancellationToken cancellationToken = default);
-    Task<int> CleanupOldReadNotificationsAsync(int retentionDays, CancellationToken cancellationToken = default);
 }
 
 public class NotificationRepository(IDbConnectionFactory connectionFactory, ILogger<NotificationRepository> logger) 
@@ -50,10 +49,5 @@ public class NotificationRepository(IDbConnectionFactory connectionFactory, ILog
     public async Task<int> MarkAllAsReadAsync(int userId, CancellationToken cancellationToken = default)
     {
         return await ExecuteAsync(NotificationQueries.MarkAllAsRead, new { UserId = userId }, cancellationToken);
-    }
-
-    public async Task<int> CleanupOldReadNotificationsAsync(int retentionDays, CancellationToken cancellationToken = default)
-    {
-        return await ExecuteAsync(NotificationQueries.CleanupOldNotifications, new { RetentionDays = retentionDays }, cancellationToken);
     }
 }

@@ -69,10 +69,19 @@ public class SchemaRepository(
             var count = 0;
             foreach (var (tableName, schemaName) in tableSchemas)
             {
-                await connection.ExecuteAsync(
-                    SchemaSyncQueries.InsertTableMetadata,
+                var restored = await connection.ExecuteAsync(
+                    SchemaSyncQueries.RestoreOrUpsertTable,
                     new { ProjectId = projectId, TableName = tableName, SchemaName = schemaName },
                     transaction);
+
+                if (restored == 0)
+                {
+                    await connection.ExecuteAsync(
+                        SchemaSyncQueries.InsertTableMetadata,
+                        new { ProjectId = projectId, TableName = tableName, SchemaName = schemaName },
+                        transaction);
+                }
+
                 count++;
             }
             return count;

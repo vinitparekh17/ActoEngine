@@ -67,7 +67,6 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<IProjectClientService, ProjectClientService>();
             services.AddScoped<IContextService, ContextService>();
             services.AddScoped<INotificationService, NotificationService>();
-            services.AddSingleton<INotificationFailureTracker, NotificationFailureTracker>();
 
             // Logical FK Services
             services.AddScoped<ILogicalFkRepository, LogicalFkRepository>();

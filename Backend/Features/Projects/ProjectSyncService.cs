@@ -271,105 +271,117 @@ namespace ActoEngine.WebApi.Features.Projects
             var diffResponse = new SchemaDiffResponse();
             using var targetConn = new SqlConnection(connectionString);
             await targetConn.OpenAsync();
+            using var dbConn = await _connectionFactory.CreateConnectionAsync();
+            using var metadataTransaction = dbConn.BeginTransaction();
 
-            // 1. Fetch source items
-            var sourceTables = await targetConn.QueryAsync<dynamic>(SchemaSyncQueries.GetTargetTablesWithSchema);
-            var sourceSpDates = await _schemaService.GetStoredProcedureModifyDatesAsync(connectionString);
-            var sourceSpNames = sourceSpDates
-                .Select(x => $"{(string)x.SchemaName}.{(string)x.ProcedureName}")
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            // 2. Fetch our stored items (excluding soft-deleted)
-            var storedTables = await _schemaRepository.GetStoredTablesAsync(projectId);
-            var storedSps = await _schemaService.GetSpHashesAsync(projectId);
-
-            // 3. Diff Tables (Only Add / Remove for now)
-            var storedTableKeys = storedTables.Select(t => $"{t.SchemaName}.{t.TableName}").ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var sourceTableKeys = sourceTables.Select(t => $"{t.SchemaName}.{t.TableName}").ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var src in sourceTables)
+            try
             {
-                if (!storedTableKeys.Contains($"{src.SchemaName}.{src.TableName}"))
-                {
-                    diffResponse.Tables.Added.Add(new DiffEntityItem { SchemaName = src.SchemaName, EntityName = src.TableName });
-                }
-            }
+                // 1. Fetch source items
+                var sourceTables = await targetConn.QueryAsync<dynamic>(SchemaSyncQueries.GetTargetTablesWithSchema);
+                var sourceSpDates = await _schemaService.GetStoredProcedureModifyDatesAsync(connectionString);
+                var sourceSpNames = sourceSpDates
+                    .Select(x => $"{(string)x.SchemaName}.{(string)x.ProcedureName}")
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var st in storedTables)
-            {
-                if (!sourceTableKeys.Contains($"{st.SchemaName}.{st.TableName}"))
-                {
-                    diffResponse.Tables.Removed.Add(new DiffEntityItem { SchemaName = st.SchemaName ?? "dbo", EntityName = st.TableName });
-                }
-            }
+                // 2. Fetch our stored items (excluding soft-deleted)
+                var storedTables = await _schemaRepository.GetStoredTablesAsync(projectId);
+                var storedSps = await _schemaService.GetSpHashesAsync(projectId);
 
-            // 4. Diff SPs (Add / Remove / Modify via Timestamp + Hash)
-            var storedSpKeys = storedSps
-                .Select(sp => $"{sp.SchemaName}.{sp.ProcedureName}")
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                // 3. Diff Tables (Only Add / Remove for now)
+                var storedTableKeys = storedTables.Select(t => $"{t.SchemaName}.{t.TableName}").ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var sourceTableKeys = sourceTables.Select(t => $"{t.SchemaName}.{t.TableName}").ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var srcSp in sourceSpDates)
-            {
-                string spName = (string)srcSp.ProcedureName;
-                string spSchema = (string?)srcSp.SchemaName ?? "dbo";
-                var spKey = $"{spSchema}.{spName}";
-                if (!storedSpKeys.Contains(spKey))
+                foreach (var src in sourceTables)
                 {
-                    diffResponse.StoredProcedures.Added.Add(new DiffEntityItem { SchemaName = spSchema, EntityName = spName });
-                }
-                else
-                {
-                    var stSp = storedSps.First(x =>
-                        x.ProcedureName.Equals(spName, StringComparison.OrdinalIgnoreCase) &&
-                        x.SchemaName.Equals(spSchema, StringComparison.OrdinalIgnoreCase));
-
-                    if (srcSp.SourceModifyDate == null)
+                    if (!storedTableKeys.Contains($"{src.SchemaName}.{src.TableName}"))
                     {
-                        continue;
+                        diffResponse.Tables.Added.Add(new DiffEntityItem { SchemaName = src.SchemaName, EntityName = src.TableName });
                     }
+                }
 
-                    var sourceModifyDate = (DateTime)srcSp.SourceModifyDate;
-                    if (!stSp.SourceModifyDate.HasValue || sourceModifyDate > stSp.SourceModifyDate.Value)
+                foreach (var st in storedTables)
+                {
+                    if (!sourceTableKeys.Contains($"{st.SchemaName}.{st.TableName}"))
                     {
-                        // Timestamp is newer -> fetch definition from target and check hash
-                        using var cmd = new SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(@SpName))", targetConn);
-                        cmd.Parameters.AddWithValue("@SpName", $"[{spSchema}].[{spName}]");
-                        var rawDefObj = await cmd.ExecuteScalarAsync();
-                        var rawDef = rawDefObj as string;
+                        diffResponse.Tables.Removed.Add(new DiffEntityItem { SchemaName = st.SchemaName ?? "dbo", EntityName = st.TableName });
+                    }
+                }
 
-                        if (!string.IsNullOrEmpty(rawDef))
+                // 4. Diff SPs (Add / Remove / Modify via Timestamp + Hash)
+                var storedSpKeys = storedSps
+                    .Select(sp => $"{sp.SchemaName}.{sp.ProcedureName}")
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var srcSp in sourceSpDates)
+                {
+                    string spName = (string)srcSp.ProcedureName;
+                    string spSchema = (string?)srcSp.SchemaName ?? "dbo";
+                    var spKey = $"{spSchema}.{spName}";
+                    if (!storedSpKeys.Contains(spKey))
+                    {
+                        diffResponse.StoredProcedures.Added.Add(new DiffEntityItem { SchemaName = spSchema, EntityName = spName });
+                    }
+                    else
+                    {
+                        var stSp = storedSps.First(x =>
+                            x.ProcedureName.Equals(spName, StringComparison.OrdinalIgnoreCase) &&
+                            x.SchemaName.Equals(spSchema, StringComparison.OrdinalIgnoreCase));
+
+                        if (srcSp.SourceModifyDate == null)
                         {
-                            var newHash = _schemaService.NormalizeAndHashDefinition(rawDef);
-                            if (string.IsNullOrWhiteSpace(stSp.DefinitionHash))
+                            continue;
+                        }
+
+                        var sourceModifyDate = (DateTime)srcSp.SourceModifyDate;
+                        if (!stSp.SourceModifyDate.HasValue || sourceModifyDate > stSp.SourceModifyDate.Value)
+                        {
+                            // Timestamp is newer -> fetch definition from target and check hash
+                            using var cmd = new SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(@SpName))", targetConn);
+                            cmd.Parameters.AddWithValue("@SpName", $"[{spSchema}].[{spName}]");
+                            var rawDefObj = await cmd.ExecuteScalarAsync();
+                            var rawDef = rawDefObj as string;
+
+                            if (!string.IsNullOrEmpty(rawDef))
                             {
-                                await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, sourceModifyDate);
-                            }
-                            else if (newHash != stSp.DefinitionHash)
-                            {
-                                diffResponse.StoredProcedures.Modified.Add(new DiffEntityItem 
-                                { 
-                                    SchemaName = spSchema, 
-                                    EntityName = spName, 
-                                    Reason = "definition_changed" 
-                                });
-                            }
-                            else
-                            {
-                                // Edge Case: Timestamp changed (e.g., recompilation or trivial change), but actual normalized code didn't.
-                                // We silently update the ModifyDate so we don't keep checking it on every diff!
-                                await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, sourceModifyDate);
+                                var newHash = _schemaService.NormalizeAndHashDefinition(rawDef);
+                                if (string.IsNullOrWhiteSpace(stSp.DefinitionHash))
+                                {
+                                    await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, sourceModifyDate, dbConn, metadataTransaction);
+                                }
+                                else if (newHash != stSp.DefinitionHash)
+                                {
+                                    diffResponse.StoredProcedures.Modified.Add(new DiffEntityItem
+                                    {
+                                        SchemaName = spSchema,
+                                        EntityName = spName,
+                                        Reason = "definition_changed"
+                                    });
+                                }
+                                else
+                                {
+                                    // Edge Case: Timestamp changed (e.g., recompilation or trivial change), but actual normalized code didn't.
+                                    // We silently update the ModifyDate so we don't keep checking it on every diff!
+                                    await _schemaService.UpdateSpDefinitionAndHashAsync(projectId, stSp.SpId, rawDef, newHash, sourceModifyDate, dbConn, metadataTransaction);
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            foreach (var stSp in storedSps)
-            {
-                if (!sourceSpNames.Contains($"{stSp.SchemaName}.{stSp.ProcedureName}"))
+                foreach (var stSp in storedSps)
                 {
-                    diffResponse.StoredProcedures.Removed.Add(new DiffEntityItem { SchemaName = stSp.SchemaName, EntityName = stSp.ProcedureName });
+                    if (!sourceSpNames.Contains($"{stSp.SchemaName}.{stSp.ProcedureName}"))
+                    {
+                        diffResponse.StoredProcedures.Removed.Add(new DiffEntityItem { SchemaName = stSp.SchemaName, EntityName = stSp.ProcedureName });
+                    }
                 }
+
+                metadataTransaction.Commit();
+            }
+            catch
+            {
+                metadataTransaction.Rollback();
+                throw;
             }
 
             return diffResponse;
@@ -448,7 +460,7 @@ namespace ActoEngine.WebApi.Features.Projects
                             await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
 
                             await dbConn.ExecuteAsync(
-                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId",
+                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId",
                                 new { tableId }, transaction);
 
                             var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(entity.SchemaName, entity.EntityName)]);
@@ -518,12 +530,21 @@ namespace ActoEngine.WebApi.Features.Projects
                 throw;
             }
 
-            foreach (var item in analyzeAfterCommit)
+            // Post-commit work is best-effort: failures here must not turn a successful commit into an API error.
+            try
             {
-                await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
-            }
+                foreach (var item in analyzeAfterCommit)
+                {
+                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
+                }
 
-            _lfkThrottleService.TryQueueDetection(request.ProjectId);
+                // Fire throttled background detection for Logical FKs (does not block this request)
+                _lfkThrottleService.TryQueueDetection(request.ProjectId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Post-commit analysis failed for project {ProjectId}. Sync result is unaffected.", request.ProjectId);
+            }
 
             return appliedCount;
         }
