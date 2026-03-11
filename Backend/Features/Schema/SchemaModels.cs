@@ -150,7 +150,6 @@ public class TableMetadataDto
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
     public string? SchemaName { get; set; }
-    public string? Description { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -167,7 +166,6 @@ public class ColumnMetadataDto
     public bool IsPrimaryKey { get; set; }
     public bool IsForeignKey { get; set; }
     public string? DefaultValue { get; set; }
-    public string? Description { get; set; }
     public int? ColumnOrder { get; set; }
 }
 
@@ -179,7 +177,6 @@ public class StoredProcedureMetadataDto
     public string? SchemaName { get; set; }
     public required string ProcedureName { get; set; }
     public required string Definition { get; set; }
-    public string? Description { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -205,7 +202,6 @@ public class DatabaseTableInfo
 {
     public required string SchemaName { get; set; }
     public required string TableName { get; set; }
-    public string? Description { get; set; } // Optional description for UI/metadata
 }
 
 // Response DTOs for detail pages that match frontend expectations
@@ -254,7 +250,6 @@ public class StoredProcedureDetailResponse
     public List<ParameterDetailInfo>? Parameters { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? ModifiedDate { get; set; }
-    public string? Description { get; set; }
 }
 
 public class ParameterDetailInfo
@@ -283,7 +278,6 @@ public class ColumnDetailResponse
     public bool IsIdentity { get; set; }
     public string? DefaultValue { get; set; }
     public List<string>? Constraints { get; set; }
-    public string? Description { get; set; }
     public ForeignKeyReferenceInfo? ForeignKeyReference { get; set; }
 }
 

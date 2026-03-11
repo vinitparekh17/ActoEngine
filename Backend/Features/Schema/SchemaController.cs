@@ -78,8 +78,7 @@ public class DatabaseBrowserController(
             var structure = tables.Select(t => new DatabaseTableInfo
             {
                 TableName = t.TableName,
-                SchemaName = GetSchemaNameWithFallback(t.SchemaName, project.DatabaseType),
-                Description = t.Description,
+                SchemaName = GetSchemaNameWithFallback(t.SchemaName, project.DatabaseType)
                 // Add more fields as needed from metadata
             }).ToList();
             return Ok(ApiResponse<List<DatabaseTableInfo>>.Success(structure));
@@ -487,8 +486,7 @@ public class DatabaseBrowserController(
                 Definition = procedure.Definition,
                 Parameters = null, // Can be populated from parameter metadata if available
                 CreatedDate = procedure.CreatedAt,
-                ModifiedDate = procedure.UpdatedAt,
-                Description = procedure.Description
+                ModifiedDate = procedure.UpdatedAt
             };
 
             return Ok(ApiResponse<StoredProcedureDetailResponse>.Success(response));
@@ -556,7 +554,6 @@ public class DatabaseBrowserController(
                 IsIdentity = false, // Can be enhanced from metadata
                 DefaultValue = column.DefaultValue,
                 Constraints = BuildConstraints(column),
-                Description = column.Description,
                 ForeignKeyReference = null // Can be populated from FK metadata if needed
             };
 
@@ -634,7 +631,6 @@ public class DatabaseBrowserController(
                 IsIdentity = false, // Can be enhanced from metadata
                 DefaultValue = column.DefaultValue,
                 Constraints = BuildConstraints(column),
-                Description = column.Description,
                 ForeignKeyReference = null // Can be populated from FK metadata if needed
             };
 
