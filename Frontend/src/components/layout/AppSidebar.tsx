@@ -14,6 +14,7 @@ import {
   Binary,
   Key,
   GitBranch,
+  Code,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -49,6 +50,7 @@ const SIDEBAR_ITEMS = [
   { icon: Sparkles, label: "Projects", href: "/projects" },
   { icon: Binary, label: "SP Generator", href: "/sp-builder" },
   { icon: Palette, label: "Form Builder", href: "/form-builder" },
+  { icon: Code, label: "JS Render Generator", href: "/js-render-generator" },
   { icon: Users, label: "Client Management", href: "/clients" },
   {
     icon: UserCog,

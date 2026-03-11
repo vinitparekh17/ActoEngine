@@ -1,11 +1,11 @@
-// components/explorer/EntityListPanel.tsx
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback, memo, useRef, useEffect, useState } from "react";
 import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
 import { useContextBatch } from "@/hooks/useContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getDefaultSchema } from "@/lib/schema-utils";
 import {
@@ -39,6 +39,13 @@ import {
 import { TableMetadataDto, StoredProcedureMetadataDto } from "@/types/context";
 import { Skeleton, TableSkeleton } from "@/components/ui/skeletons";
 
+// --- Fix 4: Move icon maps outside component ---
+const ENTITY_ICONS = {
+  TABLE: <TableIcon className="h-4 w-4 text-green-600" />,
+  SP: <Code2 className="h-4 w-4 text-indigo-600" />,
+  COLUMN: <Database className="h-4 w-4 text-blue-600" />,
+};
+
 // Types
 export type EntityType = "TABLE" | "SP" | "COLUMN";
 export type FilterType = "ALL" | EntityType;
@@ -59,10 +66,15 @@ interface EntityListPanelProps {
   selectedEntityId?: number;
   selectedEntityType?: EntityType;
   onSelectEntity: (entity: UnifiedEntity | null) => void;
+  selectedForResync?: Set<string>;
+  onToggleResyncSelection?: (entity: UnifiedEntity, checked: boolean) => void;
+  onToggleAllFilteredResync?: (
+    entities: UnifiedEntity[],
+    checked: boolean,
+  ) => void;
   viewMode: "tree" | "list";
   onViewModeChange: (mode: "tree" | "list") => void;
   keepSelectedVisible?: boolean;
-  // Data props lifted from internal state
   tablesData?: TableMetadataDto[];
   proceduresData?: StoredProcedureMetadataDto[];
   pendingFkCounts?: Map<number, number>;
@@ -71,10 +83,97 @@ interface EntityListPanelProps {
   onRefresh: () => void;
 }
 
+interface EntityRowProps {
+  entity: UnifiedEntity;
+  index: number;
+  isFocused: boolean;
+  isSelected: boolean;
+  pendingCount: number | undefined;
+  isBulkSelectionEnabled: boolean;
+  isCheckedForResync: boolean;
+  onSelect: (entity: UnifiedEntity) => void;
+  onToggleResync?: (entity: UnifiedEntity, checked: boolean) => void;
+  itemRefs: React.MutableRefObject<(HTMLTableRowElement | null)[]>;
+  defaultSchema: string;
+  contextData: any;
+  isBatchLoading: boolean;
+}
+
+// Memoized row: only selection changes/focus changes affect specific rows
+const EntityRow = memo(function EntityRow({
+  entity,
+  index,
+  isFocused,
+  isSelected,
+  pendingCount,
+  isBulkSelectionEnabled,
+  isCheckedForResync,
+  onSelect,
+  onToggleResync,
+  itemRefs,
+  defaultSchema,
+  contextData,
+  isBatchLoading,
+}: EntityRowProps) {
+  return (
+    <TableRow
+      ref={(el) => {
+        itemRefs.current[index] = el;
+      }}
+      className={`cursor-pointer ${isSelected ? "bg-accent" : isFocused ? "bg-accent/50" : "hover:bg-accent"
+        }`}
+      onClick={() => onSelect(entity)}
+    >
+      {isBulkSelectionEnabled ? (
+        <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-center">
+            <Checkbox
+              checked={isCheckedForResync}
+              onCheckedChange={(checked) => onToggleResync?.(entity, checked === true)}
+              aria-label={`Select ${entity.entityName} for resync`}
+            />
+          </div>
+        </TableCell>
+      ) : null}
+      <TableCell className="font-medium">
+        <div className="flex items-center gap-2">
+          {ENTITY_ICONS[entity.entityType] ?? <Database className="h-4 w-4" />}
+          <div className="flex flex-col">
+            <span className="truncate max-w-[180px]">{entity.entityName}</span>
+            <span className="text-xs text-muted-foreground flex items-center gap-2">
+              <span>{entity.schemaName || defaultSchema}</span>
+              {entity.entityType === "TABLE" && pendingCount ? (
+                <span className="flex items-center text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-sm text-[10px] font-medium border border-amber-500/20">
+                  <Link2 className="w-3 h-3 mr-1" />
+                  {pendingCount} Pending
+                </span>
+              ) : null}
+            </span>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <InlineContextBadge
+          entityType={entity.entityType}
+          entityId={entity.entityId}
+          entityName={entity.entityName}
+          variant="minimal"
+          preloadedContext={contextData}
+          disableFetch={true}
+          loading={isBatchLoading}
+        />
+      </TableCell>
+    </TableRow>
+  );
+});
+
 export function EntityListPanel({
   selectedEntityId,
   selectedEntityType,
   onSelectEntity,
+  selectedForResync = new Set<string>(),
+  onToggleResyncSelection,
+  onToggleAllFilteredResync,
   viewMode,
   onViewModeChange,
   keepSelectedVisible = true,
@@ -87,18 +186,18 @@ export function EntityListPanel({
 }: EntityListPanelProps) {
   const { selectedProject, selectedProjectId, hasProject } = useProject();
 
-  // Local state
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [filterType, setFilterType] = React.useState<FilterType>("ALL");
-  const [sortBy, setSortBy] = React.useState<SortField>("name");
-  const [sortOrder, setSortOrder] = React.useState<SortOrder>("asc");
-  const [currentPage, setCurrentPage] = React.useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<FilterType>("ALL");
+  const [sortBy, setSortBy] = useState<SortField>("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const pageSize = 50;
 
-  // Ref for search input to support Ctrl+K shortcut
-  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<(HTMLTableRowElement | null)[]>([]);
 
-  // Fetch tree data for tree view
   const {
     data: treeDataResponse,
     isLoading: isLoadingTree,
@@ -110,77 +209,45 @@ export function EntityListPanel({
   });
 
   const treeData = treeDataResponse ? [treeDataResponse] : undefined;
-  const isLoading =
-    isLoadingTables || isLoadingSPs || (viewMode === "tree" && isLoadingTree);
+  const isLoading = isLoadingTables || isLoadingSPs || (viewMode === "tree" && isLoadingTree);
 
-  // Transform data to unified format
   const allEntities = useMemo(() => {
     const entities: UnifiedEntity[] = [];
-
     if (filterType === "ALL" || filterType === "TABLE") {
-      (tablesData || []).forEach((table) => {
+      tablesData.forEach((table) => {
         entities.push({
           entityType: "TABLE",
           entityId: table.tableId,
           entityName: table.tableName,
           schemaName: table.schemaName,
-          description: undefined,
-          modifiedDate: undefined,
         });
       });
     }
-
     if (filterType === "ALL" || filterType === "SP") {
-      (proceduresData || []).forEach((sp) => {
+      proceduresData.forEach((sp) => {
         entities.push({
           entityType: "SP",
           entityId: sp.spId,
           entityName: sp.procedureName,
           schemaName: sp.schemaName,
-          description: undefined,
-          modifiedDate: undefined,
         });
       });
     }
-
     return entities;
   }, [tablesData, proceduresData, filterType]);
 
-  // Filter and sort entities
-  const filteredEntities = useMemo(() => {
+  // --- Fix 3: Decouple sortedFilteredEntities from selection ---
+  const sortedFilteredEntities = useMemo(() => {
     let filtered = [...allEntities];
-
-    // Client-side search
     if (searchQuery.trim().length > 0) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        (entity) =>
-          entity.entityName.toLowerCase().includes(query) ||
-          entity.schemaName?.toLowerCase().includes(query) ||
-          entity.description?.toLowerCase().includes(query),
-      );
-    }
-
-    // Keep selected entity visible even if filtered out
-    if (keepSelectedVisible && selectedEntityId && selectedEntityType) {
-      const selectedExists = filtered.some(
         (e) =>
-          e.entityId === selectedEntityId &&
-          e.entityType === selectedEntityType,
+          e.entityName.toLowerCase().includes(query) ||
+          e.schemaName?.toLowerCase().includes(query)
       );
-      if (!selectedExists) {
-        const selectedEntity = allEntities.find(
-          (e) =>
-            e.entityId === selectedEntityId &&
-            e.entityType === selectedEntityType,
-        );
-        if (selectedEntity) {
-          filtered = [selectedEntity, ...filtered];
-        }
-      }
     }
 
-    // Sort
     filtered.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
@@ -188,62 +255,55 @@ export function EntityListPanel({
           comparison = a.entityName.localeCompare(b.entityName);
           break;
         case "schema":
-          {
-            const defaultSchema = getDefaultSchema(
-              selectedProject?.databaseType,
-            );
-            comparison = (a.schemaName || defaultSchema).localeCompare(
-              b.schemaName || defaultSchema,
-            );
-          }
+          const defSchema = getDefaultSchema(selectedProject?.databaseType);
+          comparison = (a.schemaName || defSchema).localeCompare(b.schemaName || defSchema);
           break;
-        case "modified": {
+        case "modified":
           const aRaw = a.modifiedDate ? Date.parse(a.modifiedDate) : 0;
           const bRaw = b.modifiedDate ? Date.parse(b.modifiedDate) : 0;
           comparison = (isNaN(aRaw) ? 0 : aRaw) - (isNaN(bRaw) ? 0 : bRaw);
           break;
-        }
       }
       return sortOrder === "asc" ? comparison : -comparison;
     });
 
     return filtered;
-  }, [
-    allEntities,
-    searchQuery,
-    sortBy,
-    sortOrder,
-    selectedProject?.databaseType,
-    keepSelectedVisible,
-    selectedEntityId,
-    selectedEntityType,
-  ]);
+  }, [allEntities, searchQuery, sortBy, sortOrder, selectedProject?.databaseType]);
 
-  // Pagination
+  // Handle "keep selected visible" without breaking sortedFilteredEntities reference
+  const filteredEntities = useMemo(() => {
+    if (!keepSelectedVisible || !selectedEntityId || !selectedEntityType) {
+      return sortedFilteredEntities;
+    }
+    const selectedExists = sortedFilteredEntities.some(
+      (e) => e.entityId === selectedEntityId && e.entityType === selectedEntityType
+    );
+    if (selectedExists) return sortedFilteredEntities;
+
+    const pinned = allEntities.find(
+      (e) => e.entityId === selectedEntityId && e.entityType === selectedEntityType
+    );
+    return pinned ? [pinned, ...sortedFilteredEntities] : sortedFilteredEntities;
+  }, [sortedFilteredEntities, keepSelectedVisible, selectedEntityId, selectedEntityType, allEntities]);
+
   const totalPages = Math.ceil(filteredEntities.length / pageSize);
   const paginatedEntities = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredEntities.slice(start, start + pageSize);
-  }, [filteredEntities, currentPage, pageSize]);
+  }, [filteredEntities, currentPage]);
 
-  // Reset page when filters change
-  React.useEffect(() => {
-    const validPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
-    if (validPage !== currentPage) {
-      setCurrentPage(validPage);
-    }
-  }, [searchQuery, filterType, sortBy, sortOrder, totalPages, currentPage]);
-
-  // Batch fetch context for visible entities
-  const { data: batchContextData, isLoading: isBatchLoading } = useContextBatch(
-    paginatedEntities.map((e) => ({
-      entityType: e.entityType,
-      entityId: e.entityId,
-    })),
-    { enabled: paginatedEntities.length > 0 },
+  // --- Fix 1: Memoize the batch input with a stable string key ---
+  const batchInput = useMemo(
+    () => paginatedEntities.map((e) => ({ entityType: e.entityType, entityId: e.entityId })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paginatedEntities.map((e) => `${e.entityType}:${e.entityId}`).join(",")]
   );
 
-  // Map context data for easy lookup
+  const { data: batchContextData, isLoading: isBatchLoading } = useContextBatch(
+    batchInput,
+    { enabled: batchInput.length > 0 }
+  );
+
   const contextMap = useMemo(() => {
     if (!batchContextData) return {};
     const map: Record<string, any> = {};
@@ -255,101 +315,89 @@ export function EntityListPanel({
     return map;
   }, [batchContextData]);
 
-  // Helper functions
-  const getEntityIcon = (type: EntityType) => {
-    switch (type) {
-      case "TABLE":
-        return <TableIcon className="h-4 w-4 text-green-600" />;
-      case "SP":
-        return <Code2 className="h-4 w-4 text-indigo-600" />;
-      case "COLUMN":
-        return <Database className="h-4 w-4 text-blue-600" />;
-      default:
-        return <Database className="h-4 w-4" />;
-    }
-  };
+  const isSelected = useCallback(
+    (entity: UnifiedEntity) =>
+      entity.entityId === selectedEntityId && entity.entityType === selectedEntityType,
+    [selectedEntityId, selectedEntityType]
+  );
 
-  const isSelected = (entity: UnifiedEntity) =>
-    entity.entityId === selectedEntityId &&
-    entity.entityType === selectedEntityType;
+  const getResyncKey = useCallback((entity: UnifiedEntity) => `${entity.entityType}:${entity.entityId}`, []);
+  const isBulkSelectionEnabled = Boolean(onToggleResyncSelection && onToggleAllFilteredResync);
 
-  // Keyboard navigation state (must be before any returns)
-  const [focusedIndex, setFocusedIndex] = React.useState<number>(-1);
-  const listContainerRef = React.useRef<HTMLDivElement>(null);
-  const itemRefs = React.useRef<(HTMLTableRowElement | null)[]>([]);
+  const selectableEntitiesForBulk = useMemo(
+    () => filteredEntities.filter((e) => e.entityType === "TABLE" || e.entityType === "SP"),
+    [filteredEntities]
+  );
 
-  // Reset focus when list changes
-  React.useEffect(() => {
+  const selectedVisibleCount = useMemo(
+    () => selectableEntitiesForBulk.filter((e) => selectedForResync.has(getResyncKey(e))).length,
+    [selectableEntitiesForBulk, selectedForResync, getResyncKey]
+  );
+
+  const allVisibleSelected = selectableEntitiesForBulk.length > 0 && selectedVisibleCount === selectableEntitiesForBulk.length;
+  const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected;
+
+  // --- Fix 2: Keyboard ref pattern for zero listener churn ---
+  const focusedIndexRef = useRef(focusedIndex);
+  const paginatedEntitiesRef = useRef(paginatedEntities);
+  const onSelectEntityRef = useRef(onSelectEntity);
+
+  useEffect(() => { focusedIndexRef.current = focusedIndex; }, [focusedIndex]);
+  useEffect(() => { paginatedEntitiesRef.current = paginatedEntities; }, [paginatedEntities]);
+  useEffect(() => { onSelectEntityRef.current = onSelectEntity; }, [onSelectEntity]);
+
+  useEffect(() => {
+    if (viewMode !== "list") return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === "INPUT") {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") return;
+      }
+
+      const entities = paginatedEntitiesRef.current;
+      const idx = focusedIndexRef.current;
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setFocusedIndex((prev) => Math.min(prev + 1, entities.length - 1));
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setFocusedIndex((prev) => Math.max(prev - 1, 0));
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (idx >= 0 && idx < entities.length) {
+            onSelectEntityRef.current(entities[idx]);
+          }
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewMode]);
+
+  useEffect(() => {
     setFocusedIndex(-1);
   }, [paginatedEntities]);
 
-  // Global keyboard shortcut for Ctrl+K to focus search
-  React.useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+  useEffect(() => {
+    if (focusedIndex >= 0 && itemRefs.current[focusedIndex]) {
+      itemRefs.current[focusedIndex]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [focusedIndex]);
+
+  useEffect(() => {
+    const handleGlobalK = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
     };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+    window.addEventListener("keydown", handleGlobalK);
+    return () => window.removeEventListener("keydown", handleGlobalK);
   }, []);
 
-  // Handle keyboard navigation
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (viewMode !== "list") return;
-
-      // Only handle nav keys if we aren't typing in an input
-      if (document.activeElement?.tagName === "INPUT") {
-        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-          return;
-        }
-        if (e.key === "Enter") return;
-      }
-
-      switch (e.key) {
-        case "ArrowDown":
-          e.preventDefault();
-          setFocusedIndex((prev) => {
-            const next = prev + 1;
-            if (next >= paginatedEntities.length) return prev;
-            return next;
-          });
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          setFocusedIndex((prev) => {
-            const next = prev - 1;
-            if (next < 0) return 0;
-            return next;
-          });
-          break;
-        case "Enter":
-          e.preventDefault();
-          if (focusedIndex >= 0 && focusedIndex < paginatedEntities.length) {
-            onSelectEntity(paginatedEntities[focusedIndex]);
-          }
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedIndex, paginatedEntities, viewMode, onSelectEntity]);
-
-  // Scroll focused item into view
-  React.useEffect(() => {
-    if (focusedIndex >= 0 && itemRefs.current[focusedIndex]) {
-      itemRefs.current[focusedIndex]?.scrollIntoView({
-        block: "nearest",
-        behavior: "smooth",
-      });
-    }
-  }, [focusedIndex]);
-
-  // Loading state
   if (isLoading && !allEntities.length) {
     return (
       <div className="space-y-4">
@@ -361,7 +409,6 @@ export function EntityListPanel({
 
   return (
     <div className="space-y-4 h-full flex flex-col">
-      {/* Search and Filters */}
       <div className="space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -375,10 +422,7 @@ export function EntityListPanel({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Select
-            value={filterType}
-            onValueChange={(v) => setFilterType(v as FilterType)}
-          >
+          <Select value={filterType} onValueChange={(v) => setFilterType(v as FilterType)}>
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
@@ -389,10 +433,7 @@ export function EntityListPanel({
             </SelectContent>
           </Select>
 
-          <Select
-            value={sortBy}
-            onValueChange={(v) => setSortBy(v as SortField)}
-          >
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortField)}>
             <SelectTrigger className="w-[100px]">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
@@ -404,112 +445,55 @@ export function EntityListPanel({
           </Select>
 
           <div className="flex gap-1 ml-auto">
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="sm"
-              onClick={() => onViewModeChange("list")}
-            >
-              List
-            </Button>
-            <Button
-              variant={viewMode === "tree" ? "default" : "outline"}
-              size="sm"
-              onClick={() => onViewModeChange("tree")}
-            >
-              Tree
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRefresh}
-              title="Refresh"
-            >
+            <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => onViewModeChange("list")}>List</Button>
+            <Button variant={viewMode === "tree" ? "default" : "outline"} size="sm" onClick={() => onViewModeChange("tree")}>Tree</Button>
+            <Button variant="outline" size="sm" onClick={onRefresh}>
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             </Button>
           </div>
         </div>
-
-        <p className="text-sm text-muted-foreground">
-          {filteredEntities.length}{" "}
-          {filteredEntities.length === 1 ? "entity" : "entities"}
-          {searchQuery && ` matching "${searchQuery}"`}
-        </p>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-auto" ref={listContainerRef}>
         {viewMode === "list" ? (
           <div className="border rounded-lg overflow-hidden">
             {filteredEntities.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">
-                {searchQuery
-                  ? "No entities found matching your search."
-                  : "No entities found."}
-              </div>
+              <div className="p-4 text-center text-muted-foreground">No entities found.</div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {isBulkSelectionEnabled && (
+                      <TableHead className="w-10 text-center">
+                        <Checkbox
+                          checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                          onCheckedChange={(c) => onToggleAllFilteredResync?.(selectableEntitiesForBulk, c === true)}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead className="text-center">Entity</TableHead>
                     <TableHead className="text-center">Context</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedEntities.map((entity, index) => {
-                    const isFocused = index === focusedIndex;
-                    const selected = isSelected(entity);
-                    const pendingCount = pendingFkCounts.get(entity.entityId);
-                    return (
-                      <TableRow
-                        key={`${entity.entityType}-${entity.entityId}`}
-                        ref={(el) => {
-                          itemRefs.current[index] = el;
-                        }}
-                        className={`cursor-pointer ${selected
-                          ? "bg-accent"
-                          : isFocused
-                            ? "bg-accent/50"
-                            : "hover:bg-accent"
-                          }`}
-                        onClick={() => onSelectEntity(entity)}
-                      >
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {getEntityIcon(entity.entityType)}
-                            <div className="flex flex-col">
-                              <span className="truncate max-w-[180px]">
-                                {entity.entityName}
-                              </span>
-                              <span className="text-xs text-muted-foreground flex items-center gap-2">
-                                <span>{entity.schemaName || getDefaultSchema(selectedProject?.databaseType)}</span>
-                                {entity.entityType === "TABLE" && pendingCount ? (
-                                  <span className="flex items-center text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded-sm text-[10px] font-medium border border-amber-500/20">
-                                    <Link2 className="w-3 h-3 mr-1" />
-                                    {pendingCount} Pending
-                                  </span>
-                                ) : null}
-                              </span>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <InlineContextBadge
-                            entityType={entity.entityType}
-                            entityId={entity.entityId}
-                            entityName={entity.entityName}
-                            variant="minimal"
-                            preloadedContext={
-                              contextMap[
-                              `${entity.entityType}:${entity.entityId}`
-                              ]
-                            }
-                            disableFetch={true}
-                            loading={isBatchLoading}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {paginatedEntities.map((entity, index) => (
+                    <EntityRow
+                      key={`${entity.entityType}-${entity.entityId}`}
+                      entity={entity}
+                      index={index}
+                      isFocused={index === focusedIndex}
+                      isSelected={isSelected(entity)}
+                      pendingCount={pendingFkCounts.get(entity.entityId)}
+                      isBulkSelectionEnabled={isBulkSelectionEnabled}
+                      isCheckedForResync={selectedForResync.has(getResyncKey(entity))}
+                      onSelect={onSelectEntity}
+                      onToggleResync={onToggleResyncSelection}
+                      itemRefs={itemRefs}
+                      defaultSchema={getDefaultSchema(selectedProject?.databaseType)}
+                      contextData={contextMap[`${entity.entityType}:${entity.entityId}`]}
+                      isBatchLoading={isBatchLoading}
+                    />
+                  ))}
                 </TableBody>
               </Table>
             )}
@@ -517,21 +501,10 @@ export function EntityListPanel({
         ) : (
           <Card>
             <CardContent className="p-4">
-              {isLoadingTree ? (
-                <div className="flex flex-col space-y-2">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="flex gap-2">
-                      <Skeleton className="h-4 w-4" />
-                      <Skeleton className="h-4 flex-1" />
-                    </div>
-                  ))}
-                </div>
-              ) : treeError ? (
+              {treeError ? (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Failed to load database tree.
-                  </AlertDescription>
+                  <AlertDescription>Failed to load database tree.</AlertDescription>
                 </Alert>
               ) : treeData ? (
                 <TreeView
@@ -541,75 +514,30 @@ export function EntityListPanel({
                   persistenceKey={`entity-explorer-tree-${selectedProjectId}`}
                   hideSearch={true}
                   onSelectNode={(node) => {
-                    // Map tree node type to UnifiedEntity type
                     let type: EntityType | undefined;
                     if (node.type === "table") type = "TABLE";
                     else if (node.type === "stored-procedure") type = "SP";
                     else if (node.type === "column") type = "COLUMN";
 
                     if (type) {
-                      // Use explicit entityId if available, otherwise fallback to robust regex parsing
-                      const entityId =
-                        node.entityId ||
-                        parseInt(/\b(\d+)$/.exec(node.id)?.[1] || "0", 10);
-
-                      // Legacy fallback just in case
-                      if (isNaN(entityId) || entityId === 0) {
-                        console.warn("Could not extract entity ID from node", node);
-                        return;
-                      }
-                      // Find full entity details if possible, or construct partial
-                      const found = allEntities.find(
-                        (e) => e.entityType === type && e.entityId === entityId,
-                      );
-
-                      onSelectEntity(
-                        found || {
-                          entityType: type,
-                          entityId: entityId,
-                          entityName: node.name,
-                          // Schema might be missing if not found in list, fallback
-                          schemaName: getDefaultSchema(
-                            selectedProject?.databaseType,
-                          ),
-                        },
-                      );
+                      const entityId = node.entityId || parseInt(/\b(\d+)$/.exec(node.id)?.[1] || "0", 10);
+                      const found = allEntities.find((e) => e.entityType === type && e.entityId === entityId);
+                      onSelectEntity(found || { entityType: type, entityId, entityName: node.name, schemaName: getDefaultSchema(selectedProject?.databaseType) });
                     }
                   }}
                 />
-              ) : (
-                <div className="text-center text-muted-foreground p-4">
-                  No database structure found.
-                </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Pagination */}
       {viewMode === "list" && filteredEntities.length > pageSize && (
         <div className="flex justify-between items-center pt-2 border-t">
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </span>
+          <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
       )}

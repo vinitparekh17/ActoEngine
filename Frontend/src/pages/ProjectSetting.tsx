@@ -38,6 +38,7 @@ import type {
   ReSyncProjectRequest,
   ProjectResponse,
 } from "../types/project";
+import { SchemaDiffPanel } from "../components/project/SchemaDiffPanel";
 import { useConfirm } from "../hooks/useConfirm";
 import {
   Breadcrumb,
@@ -671,6 +672,11 @@ export default function ProjectSettings() {
             </form>
           </CardContent>
         </Card>
+      )}
+
+      {/* Schema Diff */}
+      {selectedProject.isLinked && useAuthorization("Schema:Sync") && (
+        <SchemaDiffPanel projectId={Number(projectId)} />
       )}
 
       {/* Danger Zone */}

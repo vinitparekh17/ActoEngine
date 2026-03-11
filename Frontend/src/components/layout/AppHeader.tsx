@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import ThemeToggle from "./ThemeToggle";
 import { SidebarTrigger } from "../ui/sidebar";
+import NotificationDropdown from "./NotificationDropdown";
 
 export default function AppHeader() {
   return (
@@ -21,9 +22,7 @@ export default function AppHeader() {
           <ThemeToggle />
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon">
-            <Bell className="h-4 w-4" />
-          </Button>
+          <NotificationDropdown />
         </div>
       </div>
     </header>

@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { useApi } from "./useApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { Project } from "../types/project";
+import type { Project, ReSyncEntitiesRequest } from "../types/project";
+import { useMutation } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 // ============================================
 // Types
@@ -232,6 +234,85 @@ export function useProject() {
     databaseName: selectedProject?.databaseName,
     databaseType: selectedProject?.databaseType,
   } as const;
+}
+
+// ============================================
+// Hook - useResyncEntities (Mutation)
+// ============================================
+
+export function useResyncEntities() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (request: ReSyncEntitiesRequest) => {
+      const response: any = await api.post("/projects/resync-entities", request);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate relevant schema data
+      queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.tables(variables.projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["DatabaseBrowser", "projects", variables.projectId],
+      });
+      // Invalidate the specific entity schemas optionally
+      const count = variables.entities?.length || 0;
+      toast.success(
+        count > 1
+          ? `${count} entities resynced successfully`
+          : "Entity resynced successfully",
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.message || "Failed to resync entities",
+      );
+    },
+  });
+}
+
+// ============================================
+// Hook - useSchemaDiff (Mutation)
+// ============================================
+
+export function useSchemaDiff() {
+  return useMutation({
+    mutationFn: async (request: { projectId: number; connectionString: string }) => {
+      const response: any = await api.post("/projects/schema-diff", request);
+      return response.data as import("../types/project").SchemaDiffResponse;
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Failed to generate schema diff");
+    },
+  });
+}
+
+// ============================================
+// Hook - useApplyDiff (Mutation)
+// ============================================
+
+export function useApplyDiff() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (request: import("../types/project").ApplyDiffRequest) => {
+      const response: any = await api.post("/projects/apply-diff", request);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: projectQueryKeys.tables(variables.projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["DatabaseBrowser", "projects", variables.projectId],
+      });
+      toast.success("Schema diff applied successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Failed to apply schema diff");
+    },
+  });
 }
 
 // ============================================

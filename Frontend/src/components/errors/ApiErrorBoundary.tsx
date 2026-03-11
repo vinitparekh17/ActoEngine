@@ -100,6 +100,7 @@ function DefaultErrorFallback({
   error: ApiError;
   reset: () => void;
 }) {
+  const navigate = useNavigate();
   return (
     <div className="flex min-h-[400px] items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4 rounded-2xl border border-red-200 bg-red-50 p-6">
@@ -140,7 +141,7 @@ function DefaultErrorFallback({
           </button>
 
           <button
-            onClick={() => (window.location.href = "/dashboard")}
+            onClick={() => navigate("/")}
             className="flex-1 rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
           >
             Go to Dashboard

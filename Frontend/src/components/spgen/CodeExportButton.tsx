@@ -41,10 +41,10 @@ export default function CodeExportButton({
             <Clipboard className="h-4 w-4 mr-2" />
             Copy to Clipboard
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onExport("zip")}>
+          {/* <DropdownMenuItem onClick={() => onExport("zip")}>
             <FolderArchive className="h-4 w-4 mr-2" />
             Download as .zip
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
         </DropdownMenuContent>
       </DropdownMenu>
     </ButtonGroup>

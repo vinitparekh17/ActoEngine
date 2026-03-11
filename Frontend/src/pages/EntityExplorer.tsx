@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useProject } from "@/hooks/useProject";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, ExternalLink } from "lucide-react";
+import { AlertCircle, Database, ExternalLink, X } from "lucide-react";
 import {
   EntityListPanel,
   EntityDetailsPanel,
@@ -16,6 +16,8 @@ import {
 import { useApi } from "@/hooks/useApi";
 import type { PendingFkCount } from "@/types/er-diagram";
 import { TableMetadataDto, StoredProcedureMetadataDto } from "@/types/context";
+import { getDefaultSchema } from "@/lib/schema-utils";
+import { ResyncEntityDialog } from "@/components/project/ResyncEntityDialog";
 
 // Map URL slugs to entity types
 type EntityTypeSlug = "table" | "sp" | "column";
@@ -91,6 +93,27 @@ export default function EntityExplorer() {
   const [selectedEntity, setSelectedEntity] = useState<UnifiedEntity | null>(
     null,
   );
+  const [selectedForResync, setSelectedForResync] = useState<
+    Record<string, UnifiedEntity>
+  >({});
+
+  const getResyncKey = useCallback(
+    (entity: UnifiedEntity) => `${entity.entityType}:${entity.entityId}`,
+    [],
+  );
+
+  const selectedForResyncKeys = useMemo(
+    () => new Set(Object.keys(selectedForResync)),
+    [selectedForResync],
+  );
+
+  const selectedResyncEntities = useMemo(
+    () => Object.values(selectedForResync),
+    [selectedForResync],
+  );
+
+  const projectIdNum = Number.parseInt(projectId || "", 10);
+  const effectiveProjectId = selectedProjectId || projectIdNum;
 
   // Handle entity selection from list
   const handleSelectEntity = useCallback(
@@ -124,6 +147,48 @@ export default function EntityExplorer() {
     setSelectedEntity(null);
     navigate(`/project/${projectId}/entities`);
   }, [navigate, projectId]);
+
+  const handleToggleResyncSelection = useCallback(
+    (entity: UnifiedEntity, checked: boolean) => {
+      if (entity.entityType !== "TABLE" && entity.entityType !== "SP") return;
+
+      const key = getResyncKey(entity);
+      setSelectedForResync((prev) => {
+        if (checked) {
+          return { ...prev, [key]: entity };
+        }
+
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
+    },
+    [getResyncKey],
+  );
+
+  const handleToggleAllFilteredResync = useCallback(
+    (entities: UnifiedEntity[], checked: boolean) => {
+      setSelectedForResync((prev) => {
+        const updated = { ...prev };
+        entities.forEach((entity) => {
+          if (entity.entityType !== "TABLE" && entity.entityType !== "SP") return;
+
+          const key = getResyncKey(entity);
+          if (checked) {
+            updated[key] = entity;
+          } else {
+            delete updated[key];
+          }
+        });
+        return updated;
+      });
+    },
+    [getResyncKey],
+  );
+
+  const clearResyncSelection = useCallback(() => {
+    setSelectedForResync({});
+  }, []);
 
   // Fetch tables
   const {
@@ -174,6 +239,17 @@ export default function EntityExplorer() {
     }
     return map;
   }, [pendingFkData]);
+
+  const resyncDialogEntities = useMemo(
+    () =>
+      selectedResyncEntities.map((entity) => ({
+        entityType: entity.entityType as "TABLE" | "SP",
+        schemaName:
+          entity.schemaName || getDefaultSchema(selectedProject?.databaseType),
+        entityName: entity.entityName,
+      })),
+    [selectedResyncEntities, selectedProject?.databaseType],
+  );
 
   // Handle manual refresh
   const handleRefresh = useCallback(() => {
@@ -226,6 +302,11 @@ export default function EntityExplorer() {
       setSelectedEntity(null);
     }
   }, [selectedEntityType, selectedEntityId, tablesData, proceduresData]);
+
+  // Clear stale selection when project changes
+  useEffect(() => {
+    setSelectedForResync({});
+  }, [selectedProjectId, projectId]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -281,6 +362,33 @@ export default function EntityExplorer() {
         </div>
 
         <div className="flex gap-2">
+          {selectedResyncEntities.length > 0 ? (
+            <Button variant="outline" onClick={clearResyncSelection}>
+              <X className="w-4 h-4 mr-2" />
+              Clear Selection ({selectedResyncEntities.length})
+            </Button>
+          ) : null}
+
+          <ResyncEntityDialog
+            projectId={effectiveProjectId}
+            entities={resyncDialogEntities}
+            onSuccess={clearResyncSelection}
+            trigger={
+              <Button
+                variant="outline"
+                disabled={
+                  selectedResyncEntities.length === 0 || !effectiveProjectId
+                }
+              >
+                <Database className="w-4 h-4 mr-2" />
+                Resync Selected
+                {selectedResyncEntities.length > 0
+                  ? ` (${selectedResyncEntities.length})`
+                  : ""}
+              </Button>
+            }
+          />
+
           <Button asChild>
             <Link to="/">
               <ExternalLink className="w-4 h-4 mr-2" />
@@ -298,6 +406,9 @@ export default function EntityExplorer() {
             selectedEntityId={selectedEntityId}
             selectedEntityType={selectedEntityType}
             onSelectEntity={handleSelectEntity}
+            selectedForResync={selectedForResyncKeys}
+            onToggleResyncSelection={handleToggleResyncSelection}
+            onToggleAllFilteredResync={handleToggleAllFilteredResync}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             keepSelectedVisible={true}
