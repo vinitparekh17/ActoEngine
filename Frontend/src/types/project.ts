@@ -60,6 +60,18 @@ export interface LinkProjectRequest {
   connectionString: string;
 }
 
+export interface ResyncConnectionOptions {
+  server: string;
+  port: number;
+  databaseName?: string;
+  username: string;
+  password: string;
+  encrypt: boolean;
+  trustServerCertificate: boolean;
+  connectionTimeout: number;
+  applicationName?: string;
+}
+
 export interface ResyncEntityItem {
   entityType: "TABLE" | "SP";
   schemaName: string;
@@ -81,6 +93,8 @@ export interface EntityDiffCategory {
 export interface SchemaDiffResponse {
   tables: EntityDiffCategory;
   storedProcedures: EntityDiffCategory;
+  // Backward/compat field for APIs that serialize with PascalCase.
+  StoredProcedures?: EntityDiffCategory;
 }
 
 export interface ApplyDiffRequest {
@@ -93,7 +107,8 @@ export interface ApplyDiffRequest {
 
 export interface ReSyncEntitiesRequest {
   projectId: number;
-  connectionString: string;
+  connectionString?: string;
+  connection?: ResyncConnectionOptions;
   entities: ResyncEntityItem[];
 }
 

@@ -417,7 +417,8 @@ export default function AdvancedJsRenderGenerator() {
     // Actual HTML Preview utilizing an iframe sandbox and jsrender CDN
     const actualPreviewIframeSrc = useMemo(() => {
         if (!activeTemplate || Object.keys(xmlToJson).length === 0) return '';
-        const cleanTmpl = activeTemplate.replace(/`/g, '\\`');
+        const serializedTemplate = JSON.stringify(activeTemplate).replace(/<\/script/gi, '<\\/script');
+        const serializedData = JSON.stringify(xmlToJson).replace(/<\/script/gi, '<\\/script');
         const bootstrapCssHref = bootstrapVersion === '4'
             ? 'https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css'
             : 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css';
@@ -425,13 +426,14 @@ export default function AdvancedJsRenderGenerator() {
         return `
       <html>
         <head>
-          <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrender/1.0.13/jsrender.min.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/jsrender@1.0.13/jsrender.min.js"></script>
           <link href="${bootstrapCssHref}" rel="stylesheet">
           <style>body { padding: 1rem; font-family: system-ui, sans-serif; }</style>
         </head>
         <body>
           <div id="output">Rendering...</div>
+          <script id="user-tmpl" type="text/x-jsrender"></script>
           <script>
             function notifyParent(type, message) {
               try {
@@ -442,8 +444,10 @@ export default function AdvancedJsRenderGenerator() {
             }
 
             try {
-              const data = ${JSON.stringify(xmlToJson)};
-              const tmpl = $.templates(\`${cleanTmpl}\`);
+              const data = ${serializedData};
+              const templateNode = document.getElementById('user-tmpl');
+              templateNode.textContent = ${serializedTemplate};
+              const tmpl = $.templates(templateNode.textContent || '');
               document.getElementById('output').innerHTML = tmpl.render(data);
               notifyParent('render-success');
             } catch (e) {
@@ -659,7 +663,7 @@ export default function AdvancedJsRenderGenerator() {
                                     </div>
                                 )}
                                 {actualPreviewIframeSrc ? (
-                                    <iframe srcDoc={actualPreviewIframeSrc} className="w-full h-full border-0 flex-1" title="Actual Render Preview" />
+                                    <iframe srcDoc={actualPreviewIframeSrc} sandbox="allow-scripts" className="w-full h-full border-0 flex-1" title="Actual Render Preview" />
                                 ) : (
                                     <div className="text-muted-foreground flex items-center justify-center h-full text-sm font-medium">Extract valid XML payload to render Actual Preview.</div>
                                 )}

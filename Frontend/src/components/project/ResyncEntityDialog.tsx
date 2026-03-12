@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useProject, useResyncEntities } from "@/hooks/useProject";
 import type { ResyncEntityItem } from "@/types/project";
+import { useAuthorization } from "@/hooks/useAuth";
 import {
   ChevronDown,
   Database,
@@ -43,6 +44,7 @@ export function ResyncEntityDialog({
   onSuccess,
 }: ResyncEntityDialogProps) {
   const { selectedProject } = useProject();
+  const canSyncSchema = useAuthorization("Schema:Sync");
 
   const [open, setOpen] = useState(false);
   const [server, setServer] = useState("");
@@ -82,39 +84,52 @@ export function ResyncEntityDialog({
 
   const hasValidConnectionDetails = Boolean(server && username && password);
 
-  const buildConnectionString = () => {
+  const buildConnectionPayload = () => {
     const timeout = Number.parseInt(connectionTimeout, 10);
     const normalizedTimeout =
       Number.isFinite(timeout) && timeout >= 5 && timeout <= 120 ? timeout : 30;
 
+    return {
+      server,
+      port: Number.parseInt(port, 10) || 1433,
+      databaseName: selectedProject?.databaseName,
+      username,
+      password,
+      encrypt,
+      trustServerCertificate,
+      connectionTimeout: normalizedTimeout,
+      applicationName: applicationName.trim() || undefined,
+    };
+  };
+
+  const buildLegacyConnectionString = (connection: ReturnType<typeof buildConnectionPayload>) => {
     const parts = [
-      `Server=${server},${port}`,
-      ...(selectedProject?.databaseName
-        ? [`Database=${selectedProject.databaseName}`]
-        : []),
-      `User Id=${username}`,
-      `Password=${password}`,
-      `Encrypt=${encrypt}`,
-      `TrustServerCertificate=${trustServerCertificate}`,
-      `Connection Timeout=${normalizedTimeout}`,
+      `Server=${connection.server},${connection.port}`,
+      ...(connection.databaseName ? [`Database=${connection.databaseName}`] : []),
+      `User Id=${connection.username}`,
+      `Password=${connection.password}`,
+      `Encrypt=${connection.encrypt}`,
+      `TrustServerCertificate=${connection.trustServerCertificate}`,
+      `Connection Timeout=${connection.connectionTimeout}`,
     ];
 
-    if (applicationName.trim()) {
-      parts.push(`Application Name=${applicationName.trim()}`);
+    if (connection.applicationName) {
+      parts.push(`Application Name=${connection.applicationName}`);
     }
 
     return `${parts.join(";")};`;
   };
 
   const handleResync = () => {
-    if (!resolvedEntities.length) return;
-
-    const connectionString = buildConnectionString();
+    if (!resolvedEntities.length || !canSyncSchema) return;
+    const connection = buildConnectionPayload();
 
     resyncMutation.mutate(
       {
         projectId,
-        connectionString,
+        connection,
+        // Compatibility fallback for current backend contract.
+        connectionString: buildLegacyConnectionString(connection),
         entities: resolvedEntities,
       },
       {
@@ -132,6 +147,10 @@ export function ResyncEntityDialog({
       {isSingleEntity ? "Resync Entity" : "Resync Entities"}
     </Button>
   );
+
+  if (!canSyncSchema) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

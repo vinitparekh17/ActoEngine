@@ -27,7 +27,6 @@ export function useUnreadNotificationCount() {
       return await api.get<UnreadCountResponse>("/notifications/unread-count");
     },
     refetchInterval: 30000, // Poll every 30s
-    // staleTime: 10000,
   });
 }
 

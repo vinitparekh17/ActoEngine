@@ -141,7 +141,10 @@ function DefaultErrorFallback({
           </button>
 
           <button
-            onClick={() => navigate("/")}
+            onClick={() => {
+              reset();
+              navigate("/");
+            }}
             className="flex-1 rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
           >
             Go to Dashboard

@@ -7,13 +7,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { ChevronDown, Clipboard, Download, FolderArchive } from "lucide-react";
+import { ChevronDown, Clipboard, Download } from "lucide-react";
 import { ButtonGroup, ButtonGroupSeparator } from "../ui/button-group";
 
 export default function CodeExportButton({
   onExport,
 }: {
-  onExport: (format: "sql" | "copy" | "zip") => void;
+  // TODO: keep parent handlers narrowed to this union until ZIP support is reintroduced.
+  onExport: (format: "sql" | "copy") => void;
 }) {
   return (
     <ButtonGroup>
@@ -41,10 +42,6 @@ export default function CodeExportButton({
             <Clipboard className="h-4 w-4 mr-2" />
             Copy to Clipboard
           </DropdownMenuItem>
-          {/* <DropdownMenuItem onClick={() => onExport("zip")}>
-            <FolderArchive className="h-4 w-4 mr-2" />
-            Download as .zip
-          </DropdownMenuItem> */}
         </DropdownMenuContent>
       </DropdownMenu>
     </ButtonGroup>

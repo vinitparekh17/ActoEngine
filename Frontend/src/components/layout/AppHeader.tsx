@@ -1,5 +1,3 @@
-import { Bell } from "lucide-react";
-import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import ThemeToggle from "./ThemeToggle";
 import { SidebarTrigger } from "../ui/sidebar";

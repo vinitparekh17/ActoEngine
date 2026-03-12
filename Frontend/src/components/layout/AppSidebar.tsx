@@ -37,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { useProject } from "../../hooks/useProject";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth, useAuthorization } from "../../hooks/useAuth";
 
 import { toast } from "sonner";
 import { PasswordChangeModal } from "../../pages/UserManagement/PasswordChangeModal";
@@ -72,6 +72,7 @@ export default function AppSidebar() {
   const { projects, selectedProject, selectProject, isLoadingProjects } =
     useProject();
   const { user, logout, isLoggingOut } = useAuth();
+  const canReadForms = useAuthorization("Forms:Read");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   // Password change mutation
@@ -199,7 +200,8 @@ export default function AppSidebar() {
             <SidebarMenu>
               {SIDEBAR_ITEMS.filter(
                 (item) =>
-                  !item.requiresRole || user?.role === item.requiresRole,
+                  (!item.requiresRole || user?.role === item.requiresRole) &&
+                  (item.href !== "/js-render-generator" || canReadForms),
               ).map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton

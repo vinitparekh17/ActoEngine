@@ -197,29 +197,33 @@ export default function SpBuilder() {
     [selectedProject, selectedTable, tableSchema, toast, generateMutation, canCreate]
   );
 
-  const handleExport = useCallback((format: "sql" | "copy" | "zip") => {
+  const handleExport = useCallback(async (format: "sql" | "copy") => {
     switch (format) {
-      case "sql":
+      case "sql": {
         const blob = new Blob([sqlCode], { type: "text/sql" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${selectedTable}.sql`;
+        const safeFileName = selectedTable ?? "export";
+        a.download = `${safeFileName}.sql`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         toast({ title: "Export", description: `Successfully downloaded ${format.toUpperCase()}` });
         break;
-      case "copy":
-        navigator.clipboard.writeText(sqlCode);
-        toast({ title: "Export", description: `Successfully copied to clipboard` });
+      }
+      case "copy": {
+        try {
+          await navigator.clipboard.writeText(sqlCode);
+          toast({ title: "Export", description: `Successfully copied to clipboard` });
+        } catch {
+          toast({ title: "Export", description: "Failed to copy to clipboard", type: "error" });
+        }
         break;
-      case "zip":
-        toast({ title: "Export", description: `Requested ${format.toUpperCase()}` });
-        break;
+      }
     }
-  }, [toast]);
+  }, [selectedTable, sqlCode, toast]);
 
   const onChangeType = useCallback((t: SPType) => {
     setSpType(t);

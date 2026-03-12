@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Check, CheckCircle2 } from "lucide-react";
+import { Bell, Check, CheckCircle2, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "../ui/button";
 import {
@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { Badge } from "../ui/badge";
 import {
   useNotifications,
   useUnreadNotificationCount,
@@ -20,6 +19,7 @@ import {
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const [pendingNotificationIds, setPendingNotificationIds] = useState<Set<number>>(new Set());
   
   const { data: countData } = useUnreadNotificationCount();
   const { data: notifications, isLoading } = useNotifications(10, 0); // show top 10
@@ -29,10 +29,20 @@ export default function NotificationDropdown() {
 
   const unreadCount = countData?.unreadCount ?? 0;
 
-  const handleMarkRead = (e: React.MouseEvent, notificationId: number) => {
+  const handleMarkRead = async (e: React.MouseEvent, notificationId: number) => {
     e.preventDefault(); 
     e.stopPropagation();
-    markRead.mutate(notificationId);
+    if (pendingNotificationIds.has(notificationId)) return;
+    setPendingNotificationIds((prev) => new Set(prev).add(notificationId));
+    try {
+      await markRead.mutateAsync(notificationId);
+    } finally {
+      setPendingNotificationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(notificationId);
+        return next;
+      });
+    }
   };
 
   const getTypeColor = (type: string) => {
@@ -102,10 +112,17 @@ export default function NotificationDropdown() {
                     variant="ghost" 
                     size="icon" 
                     className="h-6 w-6 shrink-0 rounded-full opacity-50 hover:opacity-100"
-                    onClick={(e) => handleMarkRead(e, notif.notificationId)}
+                    onClick={(e) => {
+                      void handleMarkRead(e, notif.notificationId);
+                    }}
                     title="Mark as read"
+                    disabled={pendingNotificationIds.has(notif.notificationId)}
                   >
-                    <Check className="h-3 w-3" />
+                    {pendingNotificationIds.has(notif.notificationId) ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Check className="h-3 w-3" />
+                    )}
                   </Button>
                 )}
               </div>

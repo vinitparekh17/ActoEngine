@@ -5,9 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { useApi } from "./useApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { Project, ReSyncEntitiesRequest } from "../types/project";
+import type {
+  Project,
+  ReSyncEntitiesRequest,
+  SchemaDiffResponse,
+} from "../types/project";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { ApiError } from "@/types/api";
 
 // ============================================
 // Types
@@ -245,8 +250,7 @@ export function useResyncEntities() {
 
   return useMutation({
     mutationFn: async (request: ReSyncEntitiesRequest) => {
-      const response: any = await api.post("/projects/resync-entities", request);
-      return response.data;
+      return await api.post("/projects/resync-entities", request);
     },
     onSuccess: (_, variables) => {
       // Invalidate relevant schema data
@@ -264,10 +268,8 @@ export function useResyncEntities() {
           : "Entity resynced successfully",
       );
     },
-    onError: (error: any) => {
-      toast.error(
-        error?.response?.data?.message || "Failed to resync entities",
-      );
+    onError: (error: ApiError) => {
+      toast.error(error?.message || "Failed to resync entities");
     },
   });
 }
@@ -280,10 +282,27 @@ export function useSchemaDiff() {
   return useMutation({
     mutationFn: async (request: { projectId: number; connectionString: string }) => {
       const response: any = await api.post("/projects/schema-diff", request);
-      return response.data as import("../types/project").SchemaDiffResponse;
+      const tables = response?.tables ?? response?.Tables ?? {
+        added: [],
+        removed: [],
+        modified: [],
+      };
+      const storedProcedures =
+        response?.storedProcedures ??
+        response?.StoredProcedures ?? {
+          added: [],
+          removed: [],
+          modified: [],
+        };
+      return {
+        ...response,
+        tables,
+        storedProcedures,
+      } as SchemaDiffResponse;
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to generate schema diff");
+    onError: (error: ApiError) => {
+      const msg = error?.message || "Failed to generate schema diff";
+      toast.error(msg);
     },
   });
 }
@@ -298,7 +317,7 @@ export function useApplyDiff() {
   return useMutation({
     mutationFn: async (request: import("../types/project").ApplyDiffRequest) => {
       const response: any = await api.post("/projects/apply-diff", request);
-      return response.data;
+      return response?.data ?? response;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -310,7 +329,12 @@ export function useApplyDiff() {
       toast.success("Schema diff applied successfully");
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to apply schema diff");
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to apply schema diff";
+      console.error("Failed to apply schema diff", error);
+      toast.error(message);
     },
   });
 }

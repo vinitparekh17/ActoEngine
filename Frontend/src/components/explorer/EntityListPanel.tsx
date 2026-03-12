@@ -215,21 +215,31 @@ export function EntityListPanel({
     const entities: UnifiedEntity[] = [];
     if (filterType === "ALL" || filterType === "TABLE") {
       tablesData.forEach((table) => {
+        const modifiedDate =
+          (table as any).modifiedDate ??
+          (table as any).updatedAt ??
+          (table as any).modifiedAt;
         entities.push({
           entityType: "TABLE",
           entityId: table.tableId,
           entityName: table.tableName,
           schemaName: table.schemaName,
+          modifiedDate,
         });
       });
     }
     if (filterType === "ALL" || filterType === "SP") {
       proceduresData.forEach((sp) => {
+        const modifiedDate =
+          (sp as any).modifiedDate ??
+          (sp as any).updatedAt ??
+          (sp as any).modifiedAt;
         entities.push({
           entityType: "SP",
           entityId: sp.spId,
           entityName: sp.procedureName,
           schemaName: sp.schemaName,
+          modifiedDate,
         });
       });
     }
@@ -251,18 +261,21 @@ export function EntityListPanel({
     filtered.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
-        case "name":
+        case "name": {
           comparison = a.entityName.localeCompare(b.entityName);
           break;
-        case "schema":
+        }
+        case "schema": {
           const defSchema = getDefaultSchema(selectedProject?.databaseType);
           comparison = (a.schemaName || defSchema).localeCompare(b.schemaName || defSchema);
           break;
-        case "modified":
+        }
+        case "modified": {
           const aRaw = a.modifiedDate ? Date.parse(a.modifiedDate) : 0;
           const bRaw = b.modifiedDate ? Date.parse(b.modifiedDate) : 0;
           comparison = (isNaN(aRaw) ? 0 : aRaw) - (isNaN(bRaw) ? 0 : bRaw);
           break;
+        }
       }
       return sortOrder === "asc" ? comparison : -comparison;
     });
@@ -291,6 +304,13 @@ export function EntityListPanel({
     const start = (currentPage - 1) * pageSize;
     return filteredEntities.slice(start, start + pageSize);
   }, [filteredEntities, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => {
+      const clamped = Math.max(1, Math.min(prev, totalPages || 1));
+      return prev === clamped ? prev : clamped;
+    });
+  }, [totalPages]);
 
   // --- Fix 1: Memoize the batch input with a stable string key ---
   const batchInput = useMemo(
@@ -348,9 +368,27 @@ export function EntityListPanel({
 
   useEffect(() => {
     if (viewMode !== "list") return;
+    const listContainer = listContainerRef.current;
+    if (!listContainer) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (document.activeElement?.tagName === "INPUT") {
-        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") return;
+      if (e.defaultPrevented) return;
+
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (activeElement) {
+        const tagName = activeElement.tagName;
+        const isCheckboxInput =
+          tagName === "INPUT" &&
+          (activeElement as HTMLInputElement).type?.toLowerCase() === "checkbox";
+        const isInteractive =
+          tagName === "INPUT" ||
+          tagName === "TEXTAREA" ||
+          tagName === "SELECT" ||
+          tagName === "BUTTON" ||
+          isCheckboxInput ||
+          activeElement.getAttribute("role") === "checkbox" ||
+          activeElement.getAttribute("contenteditable") === "true";
+        if (isInteractive) return;
       }
 
       const entities = paginatedEntitiesRef.current;
@@ -373,8 +411,8 @@ export function EntityListPanel({
           break;
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    listContainer.addEventListener("keydown", handleKeyDown);
+    return () => listContainer.removeEventListener("keydown", handleKeyDown);
   }, [viewMode]);
 
   useEffect(() => {
@@ -454,7 +492,7 @@ export function EntityListPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto" ref={listContainerRef}>
+      <div className="flex-1 overflow-auto" ref={listContainerRef} tabIndex={0}>
         {viewMode === "list" ? (
           <div className="border rounded-lg overflow-hidden">
             {filteredEntities.length === 0 ? (
@@ -468,6 +506,7 @@ export function EntityListPanel({
                         <Checkbox
                           checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
                           onCheckedChange={(c) => onToggleAllFilteredResync?.(selectableEntitiesForBulk, c === true)}
+                          aria-label="Select all visible entities"
                         />
                       </TableHead>
                     )}

@@ -22,7 +22,7 @@ import ERDiagramPage from "@/pages/ERDiagram";
 import UserManagementPage from "@/pages/UserManagement";
 import RoleManagementPage from "@/pages/RoleManagement";
 import EntityDetailPage from "@/pages/EntityDetailPage";
-import AdvancedJsRenderGenerator from "@/pages/AdvancedJsRenderGenerator.js";
+import AdvancedJsRenderGenerator from "@/pages/AdvancedJsRenderGenerator";
 import { AccessDenied } from "./components/feedback/AccessDenied";
 import { initializeApiClient } from "./lib/api";
 import NotFoundPage from "./pages/NotFoundPage";
