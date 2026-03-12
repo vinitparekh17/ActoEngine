@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useAuthorization } from "../hooks/useAuth";
 import { ArrowLeft } from "lucide-react";
@@ -197,14 +197,44 @@ export default function SpBuilder() {
     [selectedProject, selectedTable, tableSchema, toast, generateMutation, canCreate]
   );
 
-  const handleExport = useCallback((format: "sql" | "copy" | "zip") => {
-    toast({ title: "Export", description: `Requested ${format.toUpperCase()}` });
-  }, [toast]);
+  const handleExport = useCallback(async (format: "sql" | "copy") => {
+    switch (format) {
+      case "sql": {
+        const blob = new Blob([sqlCode], { type: "text/sql" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const safeFileName = selectedTable ?? "export";
+        a.download = `${safeFileName}.sql`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({ title: "Export", description: `Successfully downloaded ${format.toUpperCase()}` });
+        break;
+      }
+      case "copy": {
+        try {
+          await navigator.clipboard.writeText(sqlCode);
+          toast({ title: "Export", description: `Successfully copied to clipboard` });
+        } catch {
+          toast({ title: "Export", description: "Failed to copy to clipboard", type: "error" });
+        }
+        break;
+      }
+    }
+  }, [selectedTable, sqlCode, toast]);
 
   const onChangeType = useCallback((t: SPType) => {
     setSpType(t);
     setConfig(getDefaultSpConfig(t));
   }, []);
+
+  useEffect(() => {
+    if (schemaError) {
+      console.error("Failed to load schema in SpBuilder", schemaError);
+    }
+  }, [schemaError]);
 
   return (
     <div className="flex flex-col h-auto bg-background/50 overflow-hidden font-sans">
@@ -236,48 +266,50 @@ export default function SpBuilder() {
 
         {/* Step 1 — Configure */}
         {step === 1 && (
-        <div className="h-full overflow-y-auto custom-scrollbar">
-          <div className="max-w-6xl mx-auto w-full py-8 px-4 sm:px-6">
-            <div className="mb-8 animate-in fade-in slide-in-from-left-4 duration-300">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setStep(0)}
-                className="mb-4 -ml-3 text-muted-foreground hover:text-foreground gap-2 h-8 px-3 rounded-lg"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to selection
-              </Button>
-              <h2 className="text-2xl font-bold tracking-tight text-foreground">Configure Procedure</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Adjust options for your stored procedure generation. Your schema is loaded below.
-              </p>
-            </div>
+          <div className="h-full overflow-y-auto custom-scrollbar">
+            <div className="max-w-6xl mx-auto w-full py-8 px-4 sm:px-6">
+              <div className="mb-8 animate-in fade-in slide-in-from-left-4 duration-300">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setStep(0)}
+                  className="mb-4 -ml-3 text-muted-foreground hover:text-foreground gap-2 h-8 px-3 rounded-lg"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to selection
+                </Button>
+                <h2 className="text-2xl font-bold tracking-tight text-foreground">Configure Procedure</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Adjust options for your stored procedure generation. Your schema is loaded below.
+                </p>
+              </div>
 
-            {isLoadingSchema ? (
-              <div className="space-y-8 py-8 max-w-5xl">
-                <Skeleton className="h-10 w-1/4 rounded-xl" />
-                <FormSkeleton fields={4} />
-              </div>
-            ) : schemaError ? (
-              <div className="flex flex-col items-center justify-center py-24 text-destructive space-y-3 bg-destructive/5 rounded-2xl border border-destructive/20">
-                <span className="text-4xl">⚠️</span>
-                <span className="font-semibold text-lg">Failed to load schema</span>
-                <span className="text-sm text-destructive/80 text-center max-w-md">{schemaError.message}</span>
-              </div>
-            ) : (
-              <div className="max-w-5xl">
-                <SPConfigPanel
-                  spType={spType}
-                  config={config}
-                  schema={schema as any}
-                  onSubmit={handleConfigSubmit}
-                  onChangeType={onChangeType}
-                />
-              </div>
-            )}
+              {isLoadingSchema ? (
+                <div className="space-y-8 py-8 max-w-5xl">
+                  <Skeleton className="h-10 w-1/4 rounded-xl" />
+                  <FormSkeleton fields={4} />
+                </div>
+              ) : schemaError ? (
+                <div className="flex flex-col items-center justify-center py-24 text-destructive space-y-3 bg-destructive/5 rounded-2xl border border-destructive/20">
+                  <span className="text-4xl">⚠️</span>
+                  <span className="font-semibold text-lg">Failed to load schema</span>
+                  <span className="text-sm text-destructive/80 text-center max-w-md">
+                    Unable to load schema. Please try again or contact support.
+                  </span>
+                </div>
+              ) : (
+                <div className="max-w-5xl">
+                  <SPConfigPanel
+                    spType={spType}
+                    config={config}
+                    schema={schema as any}
+                    onSubmit={handleConfigSubmit}
+                    onChangeType={onChangeType}
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
         )}
 
         {/* Step 2 — Preview */}

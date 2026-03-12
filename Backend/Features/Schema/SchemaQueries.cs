@@ -329,7 +329,7 @@ public static class SchemaSyncQueries
 
     // Full metadata queries (for detail views)
     public const string GetStoredTables = @"
-        SELECT TableId, ProjectId, TableName, SchemaName, Description, CreatedAt
+        SELECT TableId, ProjectId, TableName, SchemaName, CreatedAt
         FROM TablesMetadata
         WHERE ProjectId = @ProjectId AND IsDeleted = 0
         ORDER BY TableName";
@@ -337,33 +337,33 @@ public static class SchemaSyncQueries
     public const string GetStoredColumns = @"
         SELECT ColumnId, TableId, ColumnName, DataType, MaxLength,
                Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey,
-               DefaultValue, Description, ColumnOrder
+               DefaultValue, ColumnOrder
         FROM ColumnsMetadata
         WHERE TableId = @TableId
         ORDER BY ColumnOrder";
 
     public const string GetStoredStoredProcedures = @"
         SELECT SpId, ProjectId, ClientId, ProcedureName, Definition,
-               Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
+               CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
         FROM SpMetadata
         WHERE ProjectId = @ProjectId AND IsDeleted = 0
         ORDER BY ProcedureName";
 
     public const string GetTableById = @"
-        SELECT TableId, ProjectId, TableName, SchemaName, Description, CreatedAt 
+        SELECT TableId, ProjectId, TableName, SchemaName, CreatedAt 
         FROM TablesMetadata 
         WHERE TableId = @TableId AND IsDeleted = 0";
 
     public const string GetColumnById = @"
         SELECT ColumnId, TableId, ColumnName, DataType, MaxLength, 
                Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey, 
-               DefaultValue, Description, ColumnOrder
+               DefaultValue, ColumnOrder
         FROM ColumnsMetadata 
         WHERE ColumnId = @ColumnId";
 
     public const string GetSpById = @"
         SELECT SpId, ProjectId, ClientId, ProcedureName, Definition, 
-               Description, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
+               CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
         FROM SpMetadata 
         WHERE SpId = @SpId AND IsDeleted = 0";
 

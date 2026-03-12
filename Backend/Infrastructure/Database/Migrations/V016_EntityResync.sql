@@ -49,12 +49,14 @@ BEGIN TRY
                WHERE Name = N'SourceModifyDate'
                  AND Object_ID = Object_ID(N'dbo.SpMetadata'))
     BEGIN
+        EXEC('
         UPDATE SpMetadata
         SET SourceModifyDate = GETUTCDATE()
         WHERE SourceModifyDate IS NULL;
 
         ALTER TABLE SpMetadata
         ALTER COLUMN SourceModifyDate DATETIME2 NOT NULL;
+        ');
     END
 
     -- 3. Create Notifications table

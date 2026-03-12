@@ -14,6 +14,7 @@ import {
   Binary,
   Key,
   GitBranch,
+  Code,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -36,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { useProject } from "../../hooks/useProject";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth, useAuthorization } from "../../hooks/useAuth";
 
 import { toast } from "sonner";
 import { PasswordChangeModal } from "../../pages/UserManagement/PasswordChangeModal";
@@ -49,6 +50,7 @@ const SIDEBAR_ITEMS = [
   { icon: Sparkles, label: "Projects", href: "/projects" },
   { icon: Binary, label: "SP Generator", href: "/sp-builder" },
   { icon: Palette, label: "Form Builder", href: "/form-builder" },
+  { icon: Code, label: "JS Render Generator", href: "/js-render-generator" },
   { icon: Users, label: "Client Management", href: "/clients" },
   {
     icon: UserCog,
@@ -70,6 +72,7 @@ export default function AppSidebar() {
   const { projects, selectedProject, selectProject, isLoadingProjects } =
     useProject();
   const { user, logout, isLoggingOut } = useAuth();
+  const canReadForms = useAuthorization("Forms:Read");
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   // Password change mutation
@@ -197,7 +200,8 @@ export default function AppSidebar() {
             <SidebarMenu>
               {SIDEBAR_ITEMS.filter(
                 (item) =>
-                  !item.requiresRole || user?.role === item.requiresRole,
+                  (!item.requiresRole || user?.role === item.requiresRole) &&
+                  (item.href !== "/js-render-generator" || canReadForms),
               ).map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton

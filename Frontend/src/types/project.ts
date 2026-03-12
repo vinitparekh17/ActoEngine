@@ -60,6 +60,45 @@ export interface LinkProjectRequest {
   connectionString: string;
 }
 
+export interface ResyncEntityItem {
+  entityType: "TABLE" | "SP";
+  schemaName: string;
+  entityName: string;
+}
+
+export interface DiffEntityItem {
+  schemaName: string;
+  entityName: string;
+  reason?: string;
+}
+
+export interface EntityDiffCategory {
+  added: DiffEntityItem[];
+  removed: DiffEntityItem[];
+  modified: DiffEntityItem[];
+}
+
+export interface SchemaDiffResponse {
+  tables: EntityDiffCategory;
+  storedProcedures: EntityDiffCategory;
+  // Backward/compat field for APIs that serialize with PascalCase.
+  StoredProcedures?: EntityDiffCategory;
+}
+
+export interface ApplyDiffRequest {
+  projectId: number;
+  connectionString: string;
+  addEntities: ResyncEntityItem[];
+  removeEntities: ResyncEntityItem[];
+  updateEntities: ResyncEntityItem[];
+}
+
+export interface ReSyncEntitiesRequest {
+  projectId: number;
+  connectionString: string;
+  entities: ResyncEntityItem[];
+}
+
 export interface ReSyncProjectRequest {
   projectId: number;
   connectionString: string;

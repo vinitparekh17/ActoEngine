@@ -48,7 +48,7 @@ export function AccessDenied() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          <Button onClick={() => navigate("/dashboard")} className="w-full">
+          <Button onClick={() => navigate("/")} className="w-full">
             Go to Dashboard
           </Button>
           <Button

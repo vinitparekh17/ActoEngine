@@ -171,21 +171,24 @@ namespace ActoEngine.WebApi.Features.Projects
                             var table = storedTables.FirstOrDefault(t => t.TableName == entity.EntityName && t.SchemaName == entity.SchemaName);
                             if (table == null) continue; // Skip if table wasn't previously synced
 
-                            // Clear existing columns & constraints manually inside the transaction
+                            // Clear FK metadata first (both outbound and inbound) before deleting columns,
+                            // because ForeignKeyMetadata.ReferencedColumnId has a FK constraint back to
+                            // ColumnsMetadata. Inbound FK rows (other tables pointing TO this table's columns)
+                            // must be removed before ColumnsMetadata rows can be deleted.
+                            // They will be re-synced when those tables are themselves resynced.
+                            await dbConn.ExecuteAsync(
+                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId",
+                                new { table.TableId }, transaction);
+
+                            // Clear existing columns inside the transaction
                             await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { table.TableId }, transaction);
-                            
-                            // 1. Fetch Columns
+
+                            // 1. Fetch and re-sync Columns
                             var columns = await ReadColumnsFromTargetAsync(targetConn, table.SchemaName ?? "dbo", table.TableName);
                             await _schemaRepository.SyncColumnsAsync(table.TableId, columns, dbConn, transaction);
 
-                            // 2. Clear parent-side FKs for this table and re-sync
-                            // Only delete rows where this table is the parent (owner of the FK constraint).
-                            // Deleting rows where ReferencedTableId = @TableId would silently drop
-                            // inbound references (e.g., Order -> Customer) that belong to other tables.
-                            await dbConn.ExecuteAsync(
-                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId", 
-                                new { table.TableId }, transaction);
-                                
+                            // 2. Re-sync outbound FKs for this table (inbound FKs from other tables will
+                            // be refreshed when those tables are individually resynced)
                             var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(table.SchemaName ?? "dbo", table.TableName)]);
                             await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
 
@@ -453,16 +456,20 @@ namespace ActoEngine.WebApi.Features.Projects
                             else
                             {
                                 tableId = tInfo.TableId;
+                                // Clear FK metadata first (both outbound and inbound) before deleting columns,
+                                // because ForeignKeyMetadata.ReferencedColumnId has a FK constraint back to
+                                // ColumnsMetadata. Inbound FK rows must be removed before columns can be deleted.
+                                await dbConn.ExecuteAsync(
+                                    "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId",
+                                    new { tableId }, transaction);
                                 await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { tableId }, transaction);
                             }
 
                             var columns = await ReadColumnsFromTargetAsync(targetConn, entity.SchemaName, entity.EntityName);
                             await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
 
-                            await dbConn.ExecuteAsync(
-                                "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId",
-                                new { tableId }, transaction);
-
+                            // Re-sync outbound FKs only; inbound FKs from other tables will be
+                            // refreshed when those tables are individually resynced.
                             var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(entity.SchemaName, entity.EntityName)]);
                             await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
                             appliedCount++;

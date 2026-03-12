@@ -293,7 +293,6 @@ public class SchemaMetadataController(
                 IsIdentity = false, // Can be enhanced from metadata
                 DefaultValue = column.DefaultValue,
                 Constraints = BuildConstraints(column),
-                Description = column.Description,
                 ForeignKeyReference = null // Can be populated from FK metadata if needed
             };
 
@@ -355,7 +354,6 @@ public class SchemaMetadataController(
                 IsIdentity = false, // Can be enhanced from metadata
                 DefaultValue = column.DefaultValue,
                 Constraints = BuildConstraints(column),
-                Description = column.Description,
                 ForeignKeyReference = null // Can be populated from FK metadata if needed
             };
 

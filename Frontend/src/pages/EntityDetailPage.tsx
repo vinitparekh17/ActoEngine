@@ -43,7 +43,6 @@ import {
   Calendar,
   Code2,
   Copy,
-  Database,
   FileText,
   Info,
   Layers,
@@ -61,7 +60,7 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import React, { lazy } from "react";
+import React, { lazy, useEffect, useState } from "react";
 import { useProject } from "@/hooks/useProject";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import LogicalFkPanel from "@/components/er-diagram/LogicalFkPanel";
@@ -69,6 +68,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ExpertManagement } from "@/components/context/ExpertManagement";
 import { ContextEditor } from "@/components/context/ContextEditorPanel";
+import { ResyncEntityDialog } from "@/components/project/ResyncEntityDialog";
 
 const Editor = lazy(() => import("@monaco-editor/react"));
 
@@ -150,13 +150,6 @@ function getInitials(name?: string): string {
   return parts.length === 1
     ? parts[0][0].toUpperCase()
     : `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-}
-
-function formatRowCount(count?: number): string {
-  if (count == null) return "—";
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
-  return count.toLocaleString();
 }
 
 const ROUTE_TO_ENTITY_TYPE: Record<EntityTypeRouteSlug, EntityType> = {
@@ -337,6 +330,7 @@ const EntityDetailPage: React.FC = () => {
   }>();
 
   const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
 
   const [isExpertSheetOpen, setIsExpertSheetOpen] = React.useState(false);
   const [isDocSheetOpen, setIsDocSheetOpen] = React.useState(false);
@@ -389,10 +383,21 @@ const EntityDetailPage: React.FC = () => {
     ? (entityData as SPDetails)?.definition
     : undefined;
 
-  const rowCount = isTable ? (entityData as TableDetails)?.rowCount : undefined;
   const experts = contextData?.experts || [];
   const context = contextData?.context;
   const criticalityConfig = CRITICALITY_CONFIG[context?.criticalityLevel || 3];
+
+  useEffect(() => {
+    const detectDark = () => document.documentElement.classList.contains('dark');
+    setIsDarkMode(detectDark());
+
+    const observer = new MutationObserver(() => {
+      setIsDarkMode(detectDark());
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -538,6 +543,13 @@ const EntityDetailPage: React.FC = () => {
             )}
 
             <Separator orientation="vertical" className="h-4 mx-1" />
+
+            <ResyncEntityDialog
+              projectId={parsedProjectId}
+              entityType={entityType as "TABLE" | "SP"}
+              schemaName={schema}
+              entityName={name}
+            />
 
             <Button size="sm" variant="default" asChild className="h-8">
               <Link
@@ -825,7 +837,7 @@ const EntityDetailPage: React.FC = () => {
                               <Editor
                                 height="100%"
                                 defaultLanguage="sql"
-                                theme="vs-dark"
+                                theme={isDarkMode ? 'vs-dark' : 'light'}
                                 value={definition || "-- Definition not available"}
                                 options={{
                                   readOnly: true,

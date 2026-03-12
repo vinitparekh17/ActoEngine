@@ -135,8 +135,7 @@ public class SchemaProceduresController(
                 Definition = procedure.Definition,
                 Parameters = null, // Can be populated from parameter metadata if available
                 CreatedDate = procedure.CreatedAt,
-                ModifiedDate = procedure.UpdatedAt,
-                Description = procedure.Description
+                ModifiedDate = procedure.UpdatedAt
             };
 
             return Ok(ApiResponse<StoredProcedureDetailResponse>.Success(response));

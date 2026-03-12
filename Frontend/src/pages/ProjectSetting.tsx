@@ -38,6 +38,7 @@ import type {
   ReSyncProjectRequest,
   ProjectResponse,
 } from "../types/project";
+import { SchemaDiffPanel } from "../components/project/SchemaDiffPanel";
 import { useConfirm } from "../hooks/useConfirm";
 import {
   Breadcrumb,
@@ -69,6 +70,10 @@ export default function ProjectSettings() {
   const { confirm } = useConfirm();
   const navigate = useNavigate();
   const { selectedProject } = useProject();
+  const canUpdateProjects = useAuthorization("Projects:Update");
+  const canLinkProjects = useAuthorization("Projects:Link");
+  const canSyncSchema = useAuthorization("Schema:Sync");
+  const canDeleteProjects = useAuthorization("Projects:Delete");
 
   // Project details form
   const {
@@ -358,7 +363,7 @@ export default function ProjectSettings() {
 
               {/* Save + Unsaved Changes */}
               <div className="flex items-center justify-between mt-6">
-                {useAuthorization("Projects:Update") && (
+                {canUpdateProjects && (
                   <Button
                     type="submit"
                     disabled={!hasChanges || updateMutation.isPending}
@@ -390,7 +395,7 @@ export default function ProjectSettings() {
       </Card>
 
       {/* Link Database */}
-      {!selectedProject.isLinked && useAuthorization("Projects:Link") && (
+      {!selectedProject.isLinked && canLinkProjects && (
         <Card className="border-primary/50">
           <CardHeader>
             <CardTitle>Link Database</CardTitle>
@@ -519,7 +524,7 @@ export default function ProjectSettings() {
       )}
 
       {/* Re-sync Database */}
-      {selectedProject.isLinked && useAuthorization("Schema:Sync") && (
+      {selectedProject.isLinked && canSyncSchema && (
         <Card>
           <CardHeader>
             <CardTitle>Re-sync Database</CardTitle>
@@ -673,8 +678,13 @@ export default function ProjectSettings() {
         </Card>
       )}
 
+      {/* Schema Diff */}
+      {selectedProject.isLinked && canSyncSchema && (
+        <SchemaDiffPanel projectId={Number(projectId)} />
+      )}
+
       {/* Danger Zone */}
-      {useAuthorization("Projects:Delete") && (
+      {canDeleteProjects && (
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="text-destructive">Danger Zone</CardTitle>
