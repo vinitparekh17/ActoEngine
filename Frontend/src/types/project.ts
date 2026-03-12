@@ -60,18 +60,6 @@ export interface LinkProjectRequest {
   connectionString: string;
 }
 
-export interface ResyncConnectionOptions {
-  server: string;
-  port: number;
-  databaseName?: string;
-  username: string;
-  password: string;
-  encrypt: boolean;
-  trustServerCertificate: boolean;
-  connectionTimeout: number;
-  applicationName?: string;
-}
-
 export interface ResyncEntityItem {
   entityType: "TABLE" | "SP";
   schemaName: string;
@@ -107,8 +95,7 @@ export interface ApplyDiffRequest {
 
 export interface ReSyncEntitiesRequest {
   projectId: number;
-  connectionString?: string;
-  connection?: ResyncConnectionOptions;
+  connectionString: string;
   entities: ResyncEntityItem[];
 }
 

@@ -16,6 +16,7 @@ import {
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
 } from "../../hooks/useNotification";
+import { toast } from "sonner";
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -36,6 +37,9 @@ export default function NotificationDropdown() {
     setPendingNotificationIds((prev) => new Set(prev).add(notificationId));
     try {
       await markRead.mutateAsync(notificationId);
+    } catch (error) {
+      console.error("Failed to mark notification as read", error);
+      toast.error("Failed to mark notification as read");
     } finally {
       setPendingNotificationIds((prev) => {
         const next = new Set(prev);
@@ -75,7 +79,14 @@ export default function NotificationDropdown() {
               variant="ghost" 
               size="sm" 
               className="text-xs h-auto p-1 text-muted-foreground"
-              onClick={() => markAllRead.mutate()}
+              onClick={async () => {
+                try {
+                  await markAllRead.mutateAsync();
+                } catch (error) {
+                  console.error("Failed to mark all notifications as read", error);
+                  toast.error("Failed to mark all notifications as read");
+                }
+              }}
               disabled={markAllRead.isPending}
             >
               <CheckCircle2 className="h-3 w-3 mr-1" />

@@ -45,6 +45,7 @@ const ENTITY_ICONS = {
   SP: <Code2 className="h-4 w-4 text-indigo-600" />,
   COLUMN: <Database className="h-4 w-4 text-blue-600" />,
 };
+const EMPTY_SELECTED_FOR_RESYNC = new Set<string>();
 
 // Types
 export type EntityType = "TABLE" | "SP" | "COLUMN";
@@ -171,7 +172,7 @@ export function EntityListPanel({
   selectedEntityId,
   selectedEntityType,
   onSelectEntity,
-  selectedForResync = new Set<string>(),
+  selectedForResync = EMPTY_SELECTED_FOR_RESYNC,
   onToggleResyncSelection,
   onToggleAllFilteredResync,
   viewMode,
@@ -313,6 +314,10 @@ export function EntityListPanel({
   }, [totalPages]);
 
   // --- Fix 1: Memoize the batch input with a stable string key ---
+  // `batchInput` depends on a stable key built from `paginatedEntities` identity
+  // (`entityType:entityId` pairs). This intentionally ignores object references so
+  // `useContextBatch` only refetches when IDs change; if identity shape changes,
+  // update the string key below as well.
   const batchInput = useMemo(
     () => paginatedEntities.map((e) => ({ entityType: e.entityType, entityId: e.entityId })),
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -127,8 +127,6 @@ export function ResyncEntityDialog({
     resyncMutation.mutate(
       {
         projectId,
-        connection,
-        // Compatibility fallback for current backend contract.
         connectionString: buildLegacyConnectionString(connection),
         entities: resolvedEntities,
       },

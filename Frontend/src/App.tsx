@@ -24,6 +24,7 @@ import RoleManagementPage from "@/pages/RoleManagement";
 import EntityDetailPage from "@/pages/EntityDetailPage";
 import AdvancedJsRenderGenerator from "@/pages/AdvancedJsRenderGenerator";
 import { AccessDenied } from "./components/feedback/AccessDenied";
+import { FullscreenProvider } from "./hooks/useFullscreen";
 import { initializeApiClient } from "./lib/api";
 import NotFoundPage from "./pages/NotFoundPage";
 
@@ -224,9 +225,6 @@ function AppRoutes() {
     </Routes>
   );
 }
-
-import { FullscreenProvider } from "./hooks/useFullscreen";
-
 
 function App() {
   return (

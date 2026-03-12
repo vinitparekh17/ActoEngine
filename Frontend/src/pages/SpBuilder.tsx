@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "../hooks/useToast";
 import { useAuthorization } from "../hooks/useAuth";
 import { ArrowLeft } from "lucide-react";
@@ -230,6 +230,12 @@ export default function SpBuilder() {
     setConfig(getDefaultSpConfig(t));
   }, []);
 
+  useEffect(() => {
+    if (schemaError) {
+      console.error("Failed to load schema in SpBuilder", schemaError);
+    }
+  }, [schemaError]);
+
   return (
     <div className="flex flex-col h-auto bg-background/50 overflow-hidden font-sans">
 
@@ -287,7 +293,9 @@ export default function SpBuilder() {
                 <div className="flex flex-col items-center justify-center py-24 text-destructive space-y-3 bg-destructive/5 rounded-2xl border border-destructive/20">
                   <span className="text-4xl">⚠️</span>
                   <span className="font-semibold text-lg">Failed to load schema</span>
-                  <span className="text-sm text-destructive/80 text-center max-w-md">{schemaError.message}</span>
+                  <span className="text-sm text-destructive/80 text-center max-w-md">
+                    Unable to load schema. Please try again or contact support.
+                  </span>
                 </div>
               ) : (
                 <div className="max-w-5xl">

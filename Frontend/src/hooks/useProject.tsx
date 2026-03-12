@@ -328,12 +328,9 @@ export function useApplyDiff() {
       });
       toast.success("Schema diff applied successfully");
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to apply schema diff";
-      console.error("Failed to apply schema diff", error);
+    onError: (error: ApiError) => {
+      const message = error?.message ?? "Failed to apply schema diff";
+      console.error(message, error);
       toast.error(message);
     },
   });
