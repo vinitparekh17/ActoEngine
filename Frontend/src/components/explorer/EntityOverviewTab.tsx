@@ -61,30 +61,35 @@ interface SPDetails {
 }
 
 interface EntityOverviewTabProps {
+  projectId: number;
   entity: UnifiedEntity;
 }
 
-export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
-  const { selectedProject, selectedProjectId, hasProject } = useProject();
+export function EntityOverviewTab({
+  projectId,
+  entity,
+}: EntityOverviewTabProps) {
+  const { selectedProject } = useProject();
+  const routeProject =
+    selectedProject?.projectId === projectId ? selectedProject : null;
 
 
 
   // Fetch table details
   const { data: tableDetails, isLoading: isLoadingTable } =
     useApi<TableDetails>(
-      `/DatabaseBrowser/projects/${selectedProjectId}/tables/${entity.entityId}`,
+      `/DatabaseBrowser/projects/${projectId}/tables/${entity.entityId}`,
       {
-        enabled:
-          hasProject && !!selectedProjectId && entity.entityType === "TABLE",
+        enabled: projectId > 0 && entity.entityType === "TABLE",
         staleTime: 60 * 1000,
       },
     );
 
   // Fetch SP details
   const { data: spDetails, isLoading: isLoadingSP } = useApi<SPDetails>(
-    `/DatabaseBrowser/projects/${selectedProjectId}/stored-procedures/${entity.entityId}`,
+    `/DatabaseBrowser/projects/${projectId}/stored-procedures/${entity.entityId}`,
     {
-      enabled: hasProject && !!selectedProjectId && entity.entityType === "SP",
+      enabled: projectId > 0 && entity.entityType === "SP",
       staleTime: 60 * 1000,
     },
   );
@@ -111,7 +116,7 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
 
   const getDetailRoute = () => {
     const entityTypeSlug = entity.entityType === "TABLE" ? "tables" : "stored-procedures";
-    return `/project/${selectedProjectId}/${entityTypeSlug}/${entity.entityId}/detail`;
+    return `/project/${projectId}/${entityTypeSlug}/${entity.entityId}/detail`;
   };
 
   if (isLoading) {
@@ -156,7 +161,7 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
           </CardHeader>
           <CardContent>
             <span className="font-semibold font-mono">
-              {entity.schemaName || getDefaultSchema(selectedProject?.databaseType)}
+              {entity.schemaName || getDefaultSchema(routeProject?.databaseType)}
             </span>
           </CardContent>
         </Card>
@@ -288,7 +293,7 @@ export function EntityOverviewTab({ entity }: EntityOverviewTabProps) {
         </Button>
         <Button asChild variant="outline">
           <Link
-            to={`/project/${selectedProjectId}/impact/${entity.entityType}/${entity.entityId}`}
+            to={`/project/${projectId}/impact/${entity.entityType}/${entity.entityId}`}
           >
             <Network className="h-4 w-4 mr-2" />
             Impact Analysis

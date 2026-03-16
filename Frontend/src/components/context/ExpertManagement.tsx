@@ -74,6 +74,7 @@ interface UserManagementResponse {
 }
 
 interface ExpertManagementProps {
+  projectId?: number;
   entityType: "TABLE" | "COLUMN" | "SP";
   entityId: number;
   entityName: string;
@@ -105,11 +106,14 @@ function getInitials(name?: string): string {
  * - GET /projects/{projectId}/users - Get all project users
  */
 export const ExpertManagement: React.FC<ExpertManagementProps> = ({
+  projectId,
   entityType,
   entityId,
   entityName,
 }) => {
   const { selectedProjectId, hasProject } = useProject();
+  const effectiveProjectId = projectId ?? selectedProjectId ?? null;
+  const hasEffectiveProject = effectiveProjectId != null && effectiveProjectId > 0;
   const { confirm } = useConfirm();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -126,9 +130,9 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
     error: contextError,
     refetch: refetchContext,
   } = useApi<ContextResponse>(
-    `/projects/${selectedProjectId}/context/${entityType}/${entityId}`,
+    `/projects/${effectiveProjectId}/context/${entityType}/${entityId}`,
     {
-      enabled: hasProject && !!selectedProjectId && !!entityId,
+      enabled: hasEffectiveProject && !!entityId,
       staleTime: 30 * 1000, // 30 seconds
     },
   );
@@ -137,8 +141,8 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   // Uses the /projects/{projectId}/users endpoint that returns only project members
   const { data: projectMembers, isLoading: isLoadingUsers } = useApi<
     ProjectUser[]
-  >(`/projects/${selectedProjectId}/users`, {
-    enabled: hasProject && !!selectedProjectId && isAddDialogOpen,
+  >(`/projects/${effectiveProjectId}/users`, {
+    enabled: hasEffectiveProject && isAddDialogOpen,
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
@@ -154,7 +158,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
       notes?: string;
     }
   >(
-    `/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts`,
+    `/projects/${effectiveProjectId}/context/${entityType}/${entityId}/experts`,
     {
       onSuccess: () => {
         toast.success("Expert added successfully");
@@ -168,7 +172,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
       invalidateKeys: [
         [
           "projects",
-          String(selectedProjectId),
+          String(effectiveProjectId),
           "context",
           entityType,
           String(entityId),
@@ -180,7 +184,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   // Delete expert mutation
   const { mutateAsync: deleteExpert, isPending: isDeletingExpert } =
     useApiDelete<any, { userId: number }>(
-      `/projects/${selectedProjectId}/context/${entityType}/${entityId}/experts/:userId`,
+      `/projects/${effectiveProjectId}/context/${entityType}/${entityId}/experts/:userId`,
       {
         onSuccess: () => {
           setRemovedExpertId(null);
@@ -192,7 +196,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
         invalidateKeys: [
           [
             "projects",
-            String(selectedProjectId),
+            String(effectiveProjectId),
             "context",
             entityType,
             String(entityId),
@@ -325,7 +329,7 @@ export const ExpertManagement: React.FC<ExpertManagementProps> = ({
   }
 
   // No project selected
-  if (!hasProject) {
+  if (!hasProject && !hasEffectiveProject) {
     return (
       <Card>
         <CardHeader>

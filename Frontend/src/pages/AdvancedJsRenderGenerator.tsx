@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Copy, AlertCircle, RefreshCw, CheckSquare, Square, GripVertical, ChevronDown, ChevronRight, Eye, Code, LayoutTemplate } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import {
@@ -7,7 +7,7 @@ import {
     type Entity,
     type PropMeta,
     useTemplateGenerator,
-} from './advanced-js-render/useTemplateGenerator';
+} from '../hooks/useTemplateGenerator';
 
 type BootstrapVersion = '4' | '5';
 type RepairStatus = 'idle' | 'applying' | 'applied' | 'failed';
@@ -498,7 +498,7 @@ export default function AdvancedJsRenderGenerator() {
                 {/* Right Column: Previews & Code */}
                 <div className="xl:col-span-7 flex flex-col h-full min-h-[700px]">
                     <div className="flex gap-2 mb-4 border-b border-border pb-2">
-                        {[ 
+                        {[
                             { id: 'blueprint', icon: LayoutTemplate, label: 'Blueprint Preview' },
                             { id: 'actual', icon: Eye, label: 'Actual Preview' },
                             { id: 'code', icon: Code, label: 'Monaco Editor' }
