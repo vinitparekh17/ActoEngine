@@ -10,7 +10,21 @@ public class ColumnMetadata
     public bool IsNullable { get; set; }
     public bool IsPrimaryKey { get; set; }
     public bool IsForeignKey { get; set; }
+    public bool IsIdentity { get; set; }
+    public string? DefaultValue { get; set; }
     public int ColumnOrder { get; set; }
+}
+
+public class IndexScanResult
+{
+    public required string TableName { get; set; }
+    public required string SchemaName { get; set; }
+    public required string IndexName { get; set; }
+    public required string ColumnName { get; set; }
+    public int ColumnOrder { get; set; }
+    public bool IsUnique { get; set; }
+    public bool IsPrimaryKey { get; set; }
+    public bool IsIncludedColumn { get; set; }
 }
 
 public class ForeignKeyMetadata
@@ -165,8 +179,43 @@ public class ColumnMetadataDto
     public bool IsNullable { get; set; }
     public bool IsPrimaryKey { get; set; }
     public bool IsForeignKey { get; set; }
+    public bool IsIdentity { get; set; }
     public string? DefaultValue { get; set; }
     public int? ColumnOrder { get; set; }
+}
+
+public class StoredIndexColumnDto
+{
+    public int ColumnId { get; set; }
+    public required string ColumnName { get; set; }
+    public int ColumnOrder { get; set; }
+    public bool IsIncludedColumn { get; set; }
+}
+
+public class StoredIndexDto
+{
+    public int IndexId { get; set; }
+    public int TableId { get; set; }
+    public required string IndexName { get; set; }
+    public bool IsUnique { get; set; }
+    public bool IsPrimaryKey { get; set; }
+    public List<StoredIndexColumnDto> Columns { get; set; } = [];
+}
+
+public class StoredForeignKeyDto
+{
+    public int ForeignKeyId { get; set; }
+    public int TableId { get; set; }
+    public int ColumnId { get; set; }
+    public required string ColumnName { get; set; }
+    public int ReferencedTableId { get; set; }
+    public required string ReferencedTableName { get; set; }
+    public string ReferencedSchemaName { get; set; } = "dbo";
+    public int ReferencedColumnId { get; set; }
+    public required string ReferencedColumnName { get; set; }
+    public string? ForeignKeyName { get; set; }
+    public string OnDeleteAction { get; set; } = "NO ACTION";
+    public string OnUpdateAction { get; set; } = "NO ACTION";
 }
 
 public class StoredProcedureMetadataDto

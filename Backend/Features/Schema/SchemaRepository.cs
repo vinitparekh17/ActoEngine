@@ -9,6 +9,7 @@ public interface ISchemaRepository
 {
     Task<int> SyncTablesAsync(int projectId, IEnumerable<(string TableName, string SchemaName)> tableNames, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncColumnsAsync(int tableId, IEnumerable<ColumnMetadata> columns, IDbConnection connection, IDbTransaction transaction);
+    Task<int> SyncIndexesAsync(int projectId, int tableId, IEnumerable<IndexScanResult> indexes, IDbConnection connection, IDbTransaction transaction);
     Task<int> SyncStoredProceduresAsync(int projectId, int clientId, IEnumerable<StoredProcedureMetadata> procedures, int userId, IDbConnection connection, IDbTransaction transaction);
     Task<IEnumerable<(int TableId, string TableName, string SchemaName)>> GetProjectTablesAsync(int projectId, IDbConnection connection, IDbTransaction transaction);
     Task<TableSchemaResponse> ReadTableSchemaAsync(string connectionString, string tableName);
@@ -36,6 +37,8 @@ public interface ISchemaRepository
     // Full metadata methods (for detail views)
     Task<List<TableMetadataDto>> GetStoredTablesAsync(int projectId);
     Task<List<ColumnMetadataDto>> GetStoredColumnsAsync(int tableId);
+    Task<List<StoredIndexDto>> GetStoredIndexesAsync(int tableId);
+    Task<List<StoredForeignKeyDto>> GetStoredForeignKeysAsync(int tableId);
     Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId);
     Task<TableSchemaResponse> GetStoredTableSchemaAsync(int projectId, string tableName, string schemaName);
 
@@ -51,6 +54,7 @@ public interface ISchemaRepository
         IDbTransaction transaction);
 
     Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<string> tableNames);
+    Task<IEnumerable<IndexScanResult>> GetIndexesAsync(string connectionString, IEnumerable<string> tableNames);
 }
 
 public class SchemaRepository(
@@ -117,6 +121,8 @@ public class SchemaRepository(
                         column.IsNullable,
                         column.IsPrimaryKey,
                         column.IsForeignKey,
+                        column.IsIdentity,
+                        column.DefaultValue,
                         column.ColumnOrder
                     },
                     transaction);
@@ -291,6 +297,77 @@ public class SchemaRepository(
         }
     }
 
+    public async Task<int> SyncIndexesAsync(
+        int projectId,
+        int tableId,
+        IEnumerable<IndexScanResult> indexes,
+        IDbConnection connection,
+        IDbTransaction transaction)
+    {
+        try
+        {
+            await connection.ExecuteAsync(
+                SchemaSyncQueries.DeleteIndexesByTable,
+                new { TableId = tableId },
+                transaction);
+
+            var columnLookup = (await connection.QueryAsync<(int ColumnId, string ColumnName)>(
+                "SELECT ColumnId, ColumnName FROM ColumnsMetadata WHERE TableId = @TableId",
+                new { TableId = tableId },
+                transaction))
+                .ToDictionary(
+                    row => row.ColumnName,
+                    row => row.ColumnId,
+                    StringComparer.OrdinalIgnoreCase);
+
+            var count = 0;
+            foreach (var index in indexes
+                .GroupBy(i => i.IndexName, StringComparer.OrdinalIgnoreCase))
+            {
+                var head = index.First();
+                var indexId = await connection.ExecuteScalarAsync<int>(
+                    SchemaSyncQueries.InsertIndexMetadata,
+                    new
+                    {
+                        TableId = tableId,
+                        head.IndexName,
+                        head.IsUnique,
+                        head.IsPrimaryKey
+                    },
+                    transaction);
+
+                foreach (var column in index
+                    .Where(c => !c.IsIncludedColumn)
+                    .OrderBy(c => c.ColumnOrder))
+                {
+                    if (!columnLookup.TryGetValue(column.ColumnName, out var columnId))
+                    {
+                        continue;
+                    }
+
+                    await connection.ExecuteAsync(
+                        SchemaSyncQueries.InsertIndexColumnMetadata,
+                        new
+                        {
+                            IndexId = indexId,
+                            ColumnId = columnId,
+                            ColumnOrder = column.ColumnOrder
+                        },
+                        transaction);
+                }
+
+                count++;
+            }
+
+            return count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing indexes for table {TableId} in project {ProjectId}", tableId, projectId);
+            throw;
+        }
+    }
+
     public async Task<List<SpHashInfo>> GetSpHashesAsync(int projectId)
     {
         var hashes = await QueryAsync<SpHashInfo>(
@@ -392,6 +469,44 @@ public class SchemaRepository(
         return [.. columns];
     }
 
+    public async Task<List<StoredIndexDto>> GetStoredIndexesAsync(int tableId)
+    {
+        var rows = await QueryAsync<StoredIndexQueryRow>(
+            SchemaSyncQueries.GetStoredIndexes,
+            new { TableId = tableId });
+
+        return rows
+            .GroupBy(r => new { r.IndexId, r.TableId, r.IndexName, r.IsUnique, r.IsPrimaryKey })
+            .Select(g => new StoredIndexDto
+            {
+                IndexId = g.Key.IndexId,
+                TableId = g.Key.TableId,
+                IndexName = g.Key.IndexName,
+                IsUnique = g.Key.IsUnique,
+                IsPrimaryKey = g.Key.IsPrimaryKey,
+                Columns = g.Where(r => r.ColumnId.HasValue && r.ColumnName != null)
+                    .Select(r => new StoredIndexColumnDto
+                    {
+                        ColumnId = r.ColumnId!.Value,
+                        ColumnName = r.ColumnName!,
+                        ColumnOrder = r.ColumnOrder ?? 0,
+                        IsIncludedColumn = r.IsIncludedColumn
+                    })
+                    .OrderBy(c => c.ColumnOrder)
+                    .ToList()
+            })
+            .ToList();
+    }
+
+    public async Task<List<StoredForeignKeyDto>> GetStoredForeignKeysAsync(int tableId)
+    {
+        var foreignKeys = await QueryAsync<StoredForeignKeyDto>(
+            SchemaSyncQueries.GetStoredForeignKeys,
+            new { TableId = tableId });
+
+        return [.. foreignKeys];
+    }
+
     public async Task<List<StoredProcedureMetadataDto>> GetStoredStoredProceduresAsync(int projectId)
     {
         var procedures = await QueryAsync<StoredProcedureMetadataDto>(
@@ -449,7 +564,7 @@ public class SchemaRepository(
             Scale = c.Scale,
             IsNullable = c.IsNullable,
             IsPrimaryKey = c.IsPrimaryKey,
-            IsIdentity = false, // Set from metadata if needed
+            IsIdentity = c.IsIdentity,
             IsForeignKey = c.IsForeignKey,
             DefaultValue = c.DefaultValue ?? string.Empty,
             ForeignKeyInfo = c.IsForeignKey && c.ReferencedTable != null
@@ -548,6 +663,27 @@ public class SchemaRepository(
         }
     }
 
+    public async Task<IEnumerable<IndexScanResult>> GetIndexesAsync(
+        string connectionString,
+        IEnumerable<string> tableNames)
+    {
+        try
+        {
+            using var connection = await _connectionFactory.CreateConnectionWithConnectionString(connectionString);
+
+            var indexes = await connection.QueryAsync<IndexScanResult>(
+                SchemaSyncQueries.GetTargetIndexesForTables,
+                new { TableNames = tableNames });
+
+            return [.. indexes];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting indexes from connection string");
+            throw;
+        }
+    }
+
     private static (string SchemaName, string Name) ParseQualifiedName(string name)
     {
         var parts = name.Split('.', 2, StringSplitOptions.RemoveEmptyEntries);
@@ -558,4 +694,17 @@ public class SchemaRepository(
 
         return ("dbo", name);
     }
+}
+
+internal class StoredIndexQueryRow
+{
+    public int IndexId { get; set; }
+    public int TableId { get; set; }
+    public required string IndexName { get; set; }
+    public bool IsUnique { get; set; }
+    public bool IsPrimaryKey { get; set; }
+    public int? ColumnId { get; set; }
+    public string? ColumnName { get; set; }
+    public int? ColumnOrder { get; set; }
+    public bool IsIncludedColumn { get; set; }
 }

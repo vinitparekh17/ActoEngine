@@ -36,6 +36,9 @@ public class DependencyResolutionService(
         // 2. Pre-load map of SP Names -> IDs for this project
         var spMap = await LoadSpMapAsync(conn, projectId);
 
+        // 3. Pre-load map of Column Names -> IDs for this project
+        var columnMap = await LoadColumnMapAsync(conn, projectId);
+
         var validDependencies = new List<ResolvedDependency>();
 
         foreach (var dep in rawDependencies)
@@ -51,6 +54,10 @@ public class DependencyResolutionService(
             else if (dep.TargetType == "SP")
             {
                 targetId = FindEntityId(spMap, cleanName);
+            }
+            else if (dep.TargetType == "COLUMN")
+            {
+                targetId = FindColumnId(columnMap, cleanName);
             }
 
             if (targetId.HasValue)
@@ -121,6 +128,26 @@ public class DependencyResolutionService(
         }
 
         return cleaned;
+    }
+
+    private static int? FindColumnId(Dictionary<string, int> map, string name)
+    {
+        if (map.TryGetValue(name, out var id))
+        {
+            return id;
+        }
+
+        var parts = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            var shortened = string.Join('.', parts.Skip(parts.Length - 2));
+            if (map.TryGetValue(shortened, out id))
+            {
+                return id;
+            }
+        }
+
+        return null;
     }
 
     private async Task<Dictionary<string, int>> LoadTableMapAsync(IDbConnection conn, int projectId)
@@ -266,6 +293,62 @@ public class DependencyResolutionService(
                     }
                 }
             }
+        }
+
+        return map;
+    }
+
+    private async Task<Dictionary<string, int>> LoadColumnMapAsync(IDbConnection conn, int projectId)
+    {
+        var sql = @"
+            SELECT
+                c.ColumnId,
+                c.ColumnName,
+                t.TableName,
+                t.SchemaName
+            FROM ColumnsMetadata c
+            INNER JOIN TablesMetadata t ON t.TableId = c.TableId
+            WHERE t.ProjectId = @ProjectId
+              AND t.IsDeleted = 0";
+
+        var rows = await conn.QueryAsync<dynamic>(sql, new { ProjectId = projectId });
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var unqualifiedTracker = new Dictionary<string, List<(string Schema, int ColumnId)>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in rows)
+        {
+            string columnName = row.ColumnName;
+            string tableName = row.TableName;
+            string schemaName = row.SchemaName;
+            int columnId = row.ColumnId;
+
+            map[$"{schemaName}.{tableName}.{columnName}"] = columnId;
+
+            var shortName = $"{tableName}.{columnName}";
+            if (!unqualifiedTracker.ContainsKey(shortName))
+            {
+                unqualifiedTracker[shortName] = [];
+            }
+
+            unqualifiedTracker[shortName].Add((schemaName, columnId));
+        }
+
+        foreach (var (columnKey, occurrences) in unqualifiedTracker)
+        {
+            if (occurrences.Count == 1)
+            {
+                map[columnKey] = occurrences[0].ColumnId;
+                continue;
+            }
+
+            var dboEntry = occurrences.FirstOrDefault(e => e.Schema.Equals("dbo", StringComparison.OrdinalIgnoreCase));
+            if (dboEntry != default)
+            {
+                map[columnKey] = dboEntry.ColumnId;
+                continue;
+            }
+
+            map[columnKey] = occurrences[0].ColumnId;
         }
 
         return map;

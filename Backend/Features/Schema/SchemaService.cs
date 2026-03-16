@@ -14,6 +14,7 @@ public interface ISchemaService
     Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(string connectionString);
     Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<string> tableNames);
     Task<IEnumerable<ForeignKeyScanResult>> GetForeignKeysAsync(string connectionString, IEnumerable<(string SchemaName, string TableName)> tables);
+    Task<IEnumerable<IndexScanResult>> GetIndexesAsync(string connectionString, IEnumerable<(string SchemaName, string TableName)> tables);
 
     // Entity Resync & Diff Core Utilities
     Task<IEnumerable<dynamic>> GetStoredProcedureModifyDatesAsync(string connectionString);
@@ -429,6 +430,25 @@ public partial class SchemaService(
             .ToList();
 
         return await GetForeignKeysAsync(connectionString, qualifiedNames);
+    }
+
+    public async Task<IEnumerable<IndexScanResult>> GetIndexesAsync(
+        string connectionString,
+        IEnumerable<(string SchemaName, string TableName)> tables)
+    {
+        var qualifiedNames = tables
+            .Select(t => $"{t.SchemaName}.{t.TableName}")
+            .ToList();
+
+        try
+        {
+            return await _schemaRepository.GetIndexesAsync(connectionString, qualifiedNames);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving indexes from database");
+            throw;
+        }
     }
 
     private static string NormalizeSqlOutsideLiterals(string definition)
