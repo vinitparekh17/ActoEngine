@@ -407,14 +407,19 @@ namespace ActoEngine.WebApi.Features.Projects
             var columnCount = await SyncColumnsForAllTablesAsync(projectId, tablesWithSchema, targetConn, dbConn, transaction);
             await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {columnCount} columns", 66);
 
-            // Step 3: Sync Foreign Keys
-            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 67);
+            // Step 3: Sync Indexes
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing indexes...", 67);
+            var indexCount = await SyncIndexesForAllTablesAsync(projectId, tablesWithSchema, targetConnectionString, dbConn, transaction);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {indexCount} indexes", 70);
+
+            // Step 4: Sync Foreign Keys
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 71);
             var tables = tablesWithSchema.Select(t => $"{t.SchemaName}.{t.TableName}");
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
             var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, dbConn, transaction);
-            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 78);
 
-            // Step 4: Sync SPs
+            // Step 5: Sync SPs
             await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing stored procedures...", 89);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
@@ -504,10 +509,40 @@ namespace ActoEngine.WebApi.Features.Projects
                     IsNullable = reader.GetBoolean(5),
                     IsPrimaryKey = reader.GetBoolean(6),
                     IsForeignKey = reader.GetBoolean(7),
-                    ColumnOrder = reader.GetInt32(8)
+                    IsIdentity = reader.GetBoolean(8),
+                    DefaultValue = reader.IsDBNull(9) ? null : reader.GetString(9),
+                    ColumnOrder = reader.GetInt32(10)
                 });
             }
             return columns;
+        }
+
+        private async Task<int> SyncIndexesForAllTablesAsync(
+            int projectId,
+            IEnumerable<(string TableName, string SchemaName)> tablesWithSchema,
+            string connectionString,
+            IDbConnection dbConn,
+            IDbTransaction transaction)
+        {
+            var totalIndexes = 0;
+            var indexes = await _schemaService.GetIndexesAsync(connectionString, tablesWithSchema);
+            var groupedIndexes = indexes
+                .GroupBy(i => $"{i.SchemaName}.{i.TableName}", StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+            var tables = await _schemaRepository.GetProjectTablesAsync(projectId, dbConn, transaction);
+            foreach (var table in tables)
+            {
+                groupedIndexes.TryGetValue($"{table.SchemaName}.{table.TableName}", out var tableIndexes);
+                totalIndexes += await _schemaRepository.SyncIndexesAsync(
+                    projectId,
+                    table.TableId,
+                    tableIndexes ?? [],
+                    dbConn,
+                    transaction);
+            }
+
+            return totalIndexes;
         }
 
         private static async Task SyncViaSameServerAsync(

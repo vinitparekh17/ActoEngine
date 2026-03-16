@@ -14,6 +14,9 @@ namespace ActoEngine.WebApi.Api.Middleware
             "/api/auth/register",
             "/api/auth/refresh",
             "/api/auth/logout",
+            "/api/auth/extension/authorize",
+            "/api/auth/extension/token",
+            "/api/auth/extension/refresh",
             "/health",
             "/swagger",
             "/favicon.ico"
