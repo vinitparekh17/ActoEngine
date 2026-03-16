@@ -1,5 +1,4 @@
 // components/explorer/EntityDetailsPanel.tsx
-import { useProject } from "@/hooks/useProject";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +19,7 @@ import type { UnifiedEntity, EntityType } from "./EntityListPanel";
 export type EntityTab = "overview" | "experts" | "documentation";
 
 interface EntityDetailsPanelProps {
+  projectId: number;
   entity: UnifiedEntity;
   activeTab: EntityTab;
   onTabChange: (tab: EntityTab) => void;
@@ -28,14 +28,13 @@ interface EntityDetailsPanelProps {
 }
 
 export function EntityDetailsPanel({
+  projectId,
   entity,
   activeTab,
   onTabChange,
   onClose,
   isLoading = false,
 }: EntityDetailsPanelProps) {
-  const { selectedProjectId } = useProject();
-
   const getEntityIcon = (type: EntityType) => {
     switch (type) {
       case "TABLE":
@@ -140,11 +139,12 @@ export function EntityDetailsPanel({
 
           <div className="flex-1 overflow-auto p-4">
             <TabsContent value="overview" className="mt-0 h-full">
-              <EntityOverviewTab entity={entity} />
+              <EntityOverviewTab projectId={projectId} entity={entity} />
             </TabsContent>
 
             <TabsContent value="experts" className="mt-0 h-full">
               <ExpertManagement
+                projectId={projectId}
                 entityType={entity.entityType}
                 entityId={entity.entityId}
                 entityName={entity.entityName}
@@ -152,9 +152,9 @@ export function EntityDetailsPanel({
             </TabsContent>
 
             <TabsContent value="documentation" className="mt-0 h-full">
-              {selectedProjectId ? (
+              {projectId > 0 ? (
                 <ContextEditor
-                  projectId={selectedProjectId}
+                  projectId={projectId}
                   entityType={entity.entityType}
                   entityId={entity.entityId}
                   entityName={entity.entityName}

@@ -57,22 +57,43 @@ export default function EntityExplorer() {
     tab?: EntityTab;
   }>();
   const navigate = useNavigate();
-  const { selectedProject, selectedProjectId, hasProject, selectProject } =
-    useProject();
+  const { selectedProject, hasProject, selectProject } = useProject();
+  const hasProjectParam = typeof projectId === "string" && projectId.trim() !== "";
+  const parsedRouteProjectId = hasProjectParam
+    ? Number.parseInt(projectId, 10)
+    : Number.NaN;
+  const routeProjectId =
+    Number.isInteger(parsedRouteProjectId) && parsedRouteProjectId > 0
+      ? parsedRouteProjectId
+      : null;
+  const hasValidRouteProjectId = routeProjectId != null;
+  const hasInvalidRouteProjectId = hasProjectParam && !hasValidRouteProjectId;
+  const routeProjectRef = useRef<number | null>(null);
+  const routeProject =
+    hasValidRouteProjectId && selectedProject?.projectId === routeProjectId
+      ? selectedProject
+      : null;
+  const entityExplorerBasePath = hasValidRouteProjectId
+    ? `/project/${routeProjectId}/entities`
+    : "/projects";
 
   // View mode state
   const [viewMode, setViewMode] = useState<"tree" | "list">("list");
 
   // Sync route projectId with app state
   useEffect(() => {
-    if (projectId) {
-      const projectIdNum = parseInt(projectId, 10);
-      if (!isNaN(projectIdNum) && projectIdNum !== selectedProjectId) {
-        // URL has a different project than currently selected, sync it
-        selectProject(projectIdNum);
-      }
+    if (!hasValidRouteProjectId) {
+      routeProjectRef.current = null;
+      return;
     }
-  }, [projectId, selectedProjectId, selectProject]);
+
+    if (routeProjectRef.current === routeProjectId) {
+      return;
+    }
+
+    routeProjectRef.current = routeProjectId;
+    selectProject(routeProjectId);
+  }, [hasValidRouteProjectId, routeProjectId, selectProject]);
 
   // Parse URL params to state
   const selectedEntityType = entityTypeSlug
@@ -112,8 +133,7 @@ export default function EntityExplorer() {
     [selectedForResync],
   );
 
-  const projectIdNum = Number.parseInt(projectId || "", 10);
-  const effectiveProjectId = selectedProjectId || projectIdNum;
+  const effectiveProjectId = routeProjectId ?? 0;
 
   // Handle entity selection from list
   const handleSelectEntity = useCallback(
@@ -121,13 +141,13 @@ export default function EntityExplorer() {
       setSelectedEntity(entity);
       if (entity) {
         navigate(
-          `/project/${projectId}/entities/${typeToSlug[entity.entityType]}/${entity.entityId}/overview`,
+          `${entityExplorerBasePath}/${typeToSlug[entity.entityType]}/${entity.entityId}/overview`,
         );
       } else {
-        navigate(`/project/${projectId}/entities`);
+        navigate(entityExplorerBasePath);
       }
     },
-    [navigate, projectId],
+    [entityExplorerBasePath, navigate],
   );
 
   // Handle tab change
@@ -135,18 +155,18 @@ export default function EntityExplorer() {
     (newTab: EntityTab) => {
       if (selectedEntity) {
         navigate(
-          `/project/${projectId}/entities/${typeToSlug[selectedEntity.entityType]}/${selectedEntity.entityId}/${newTab}`,
+          `${entityExplorerBasePath}/${typeToSlug[selectedEntity.entityType]}/${selectedEntity.entityId}/${newTab}`,
         );
       }
     },
-    [navigate, projectId, selectedEntity],
+    [entityExplorerBasePath, navigate, selectedEntity],
   );
 
   // Handle close details panel
   const handleCloseDetails = useCallback(() => {
     setSelectedEntity(null);
-    navigate(`/project/${projectId}/entities`);
-  }, [navigate, projectId]);
+    navigate(entityExplorerBasePath);
+  }, [entityExplorerBasePath, navigate]);
 
   const handleToggleResyncSelection = useCallback(
     (entity: UnifiedEntity, checked: boolean) => {
@@ -196,9 +216,11 @@ export default function EntityExplorer() {
     isLoading: isLoadingTables,
     refetch: refetchTables,
   } = useApi<TableMetadataDto[]>(
-    `/DatabaseBrowser/projects/${selectedProjectId}/tables`,
+    hasValidRouteProjectId
+      ? `/DatabaseBrowser/projects/${routeProjectId}/tables`
+      : "",
     {
-      enabled: hasProject && !!selectedProjectId,
+      enabled: hasValidRouteProjectId,
       staleTime: 5 * 60 * 1000,
       retry: 2,
     },
@@ -210,9 +232,11 @@ export default function EntityExplorer() {
     isLoading: isLoadingSPs,
     refetch: refetchProcedures,
   } = useApi<StoredProcedureMetadataDto[]>(
-    `/DatabaseBrowser/projects/${selectedProjectId}/sp-metadata`,
+    hasValidRouteProjectId
+      ? `/DatabaseBrowser/projects/${routeProjectId}/sp-metadata`
+      : "",
     {
-      enabled: hasProject && !!selectedProjectId,
+      enabled: hasValidRouteProjectId,
       staleTime: 5 * 60 * 1000,
       retry: 2,
     },
@@ -223,9 +247,11 @@ export default function EntityExplorer() {
     data: pendingFkData,
     refetch: refetchPendingFks,
   } = useApi<PendingFkCount[]>(
-    `/logical-fks/${selectedProjectId}/pending-counts`,
+    hasValidRouteProjectId
+      ? `/logical-fks/${routeProjectId}/pending-counts`
+      : "",
     {
-      enabled: hasProject && !!selectedProjectId,
+      enabled: hasValidRouteProjectId,
       staleTime: 2 * 60 * 1000, // 2 mins
     }
   );
@@ -245,10 +271,10 @@ export default function EntityExplorer() {
       selectedResyncEntities.map((entity) => ({
         entityType: entity.entityType as "TABLE" | "SP",
         schemaName:
-          entity.schemaName || getDefaultSchema(selectedProject?.databaseType),
+          entity.schemaName || getDefaultSchema(routeProject?.databaseType),
         entityName: entity.entityName,
       })),
-    [selectedResyncEntities, selectedProject?.databaseType],
+    [routeProject?.databaseType, selectedResyncEntities],
   );
 
   // Handle manual refresh
@@ -306,7 +332,7 @@ export default function EntityExplorer() {
   // Clear stale selection when project changes
   useEffect(() => {
     setSelectedForResync({});
-  }, [selectedProjectId, projectId]);
+  }, [routeProjectId]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -330,8 +356,26 @@ export default function EntityExplorer() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedEntity, handleCloseDetails]);
 
+  if (hasInvalidRouteProjectId) {
+    return (
+      <div className="space-y-6 p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            The route includes an invalid project ID.
+          </AlertDescription>
+        </Alert>
+        <div className="flex justify-center">
+          <Button asChild variant="outline">
+            <Link to="/projects">Back to Projects</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // No project selected
-  if (!hasProject) {
+  if (!hasValidRouteProjectId && !hasProject) {
     return (
       <div className="space-y-6 p-6">
         <Alert>
@@ -357,7 +401,9 @@ export default function EntityExplorer() {
           <h1 className="text-3xl font-bold">Entity Explorer</h1>
           <p className="text-muted-foreground mt-1">
             Browse and manage database entities in{" "}
-            <span className="font-medium">{selectedProject?.projectName}</span>
+            <span className="font-medium">
+              {routeProject?.projectName || "Loading project..."}
+            </span>
           </p>
         </div>
 
@@ -403,6 +449,7 @@ export default function EntityExplorer() {
         {/* Left Panel - Entity List */}
         <div className="overflow-hidden border rounded-lg p-4 bg-card">
           <EntityListPanel
+            projectId={routeProjectId!}
             selectedEntityId={selectedEntityId}
             selectedEntityType={selectedEntityType}
             onSelectEntity={handleSelectEntity}
@@ -425,6 +472,7 @@ export default function EntityExplorer() {
         <div className="overflow-hidden border rounded-lg bg-card">
           {selectedEntity ? (
             <EntityDetailsPanel
+              projectId={routeProjectId!}
               entity={selectedEntity}
               activeTab={activeTab}
               onTabChange={handleTabChange}

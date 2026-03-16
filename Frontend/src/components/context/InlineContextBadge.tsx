@@ -49,6 +49,7 @@ interface ContextSummary {
 }
 
 interface InlineContextBadgeProps {
+  projectId?: number;
   entityType: "TABLE" | "COLUMN" | "SP";
   entityId: number;
   entityName: string;
@@ -66,6 +67,7 @@ interface InlineContextBadgeProps {
  * Endpoint: GET /api/projects/{projectId}/context/{type}/{id}
  */
 export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
+  projectId,
   entityType,
   entityId,
   entityName,
@@ -77,19 +79,21 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
   loading = false,
 }) => {
   const { selectedProjectId, hasProject } = useProject();
+  const effectiveProjectId = projectId ?? selectedProjectId ?? null;
+  const hasEffectiveProject = effectiveProjectId != null && effectiveProjectId > 0;
 
   const {
     data: fetchedContext,
     isLoading: isFetching,
     error,
   } = useApi<ContextSummary>(
-    `/projects/${selectedProjectId}/context/${entityType}/${entityId}`,
+    `/projects/${effectiveProjectId}/context/${entityType}/${entityId}`,
     {
       enabled:
         !disableFetch &&
         !preloadedContext &&
-        hasProject &&
-        !!selectedProjectId &&
+        (hasProject || hasEffectiveProject) &&
+        hasEffectiveProject &&
         !!entityId,
       staleTime: 5 * 60 * 1000,
       retry: 1,
@@ -122,7 +126,7 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
     );
   }
 
-  if (!hasProject) {
+  if (!hasProject && !hasEffectiveProject) {
     return null;
   }
 
@@ -131,8 +135,8 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
   const hasContext = !!(contextResponse && context && context.purpose);
   const experts = contextResponse?.experts || [];
   const detailsRoute =
-    selectedProjectId != null
-      ? getEntityRoute(entityType, entityId, selectedProjectId)
+    effectiveProjectId != null
+      ? getDetailsRoute(entityType, entityId, effectiveProjectId)
       : null;
 
   const createBadge = () => {
@@ -427,11 +431,37 @@ function getEntityTypeLabel(entityType: string): string {
   }
 }
 
+function getDetailsRoute(
+  entityType: string,
+  entityId: number,
+  projectId: number,
+): string | null {
+  if (entityType === "COLUMN") {
+    return getColumnExplorerRoute(entityId, projectId);
+  }
+
+  return getEntityRoute(entityType, entityId, projectId);
+}
+
 function getEntityRoute(
   entityType: string,
   entityId: number,
   projectId: number,
-): string {
-  const entityTypeSlug = entityType === "TABLE" ? "tables" : "stored-procedures";
+): string | null {
+  const entityTypeSlug =
+    entityType === "TABLE"
+      ? "tables"
+      : entityType === "SP"
+        ? "stored-procedures"
+        : null;
+
+  if (!entityTypeSlug) {
+    return null;
+  }
+
   return `/project/${projectId}/${entityTypeSlug}/${entityId}/detail`;
+}
+
+function getColumnExplorerRoute(entityId: number, projectId: number): string {
+  return `/project/${projectId}/entities/column/${entityId}/overview`;
 }

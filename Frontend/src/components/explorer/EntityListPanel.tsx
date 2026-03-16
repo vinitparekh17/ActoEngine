@@ -64,6 +64,7 @@ export interface UnifiedEntity {
 }
 
 interface EntityListPanelProps {
+  projectId: number;
   selectedEntityId?: number;
   selectedEntityType?: EntityType;
   onSelectEntity: (entity: UnifiedEntity | null) => void;
@@ -85,6 +86,7 @@ interface EntityListPanelProps {
 }
 
 interface EntityRowProps {
+  projectId: number;
   entity: UnifiedEntity;
   index: number;
   isFocused: boolean;
@@ -102,6 +104,7 @@ interface EntityRowProps {
 
 // Memoized row: only selection changes/focus changes affect specific rows
 const EntityRow = memo(function EntityRow({
+  projectId,
   entity,
   index,
   isFocused,
@@ -155,6 +158,7 @@ const EntityRow = memo(function EntityRow({
       </TableCell>
       <TableCell>
         <InlineContextBadge
+          projectId={projectId}
           entityType={entity.entityType}
           entityId={entity.entityId}
           entityName={entity.entityName}
@@ -169,6 +173,7 @@ const EntityRow = memo(function EntityRow({
 });
 
 export function EntityListPanel({
+  projectId,
   selectedEntityId,
   selectedEntityType,
   onSelectEntity,
@@ -185,7 +190,7 @@ export function EntityListPanel({
   isLoadingSPs = false,
   onRefresh,
 }: EntityListPanelProps) {
-  const { selectedProject, selectedProjectId, hasProject } = useProject();
+  const { selectedProject } = useProject();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<FilterType>("ALL");
@@ -203,8 +208,8 @@ export function EntityListPanel({
     data: treeDataResponse,
     isLoading: isLoadingTree,
     error: treeError,
-  } = useApi<TreeNode>(`/DatabaseBrowser/projects/${selectedProjectId}/tree`, {
-    enabled: hasProject && !!selectedProjectId && viewMode === "tree",
+  } = useApi<TreeNode>(`/DatabaseBrowser/projects/${projectId}/tree`, {
+    enabled: projectId > 0 && viewMode === "tree",
     staleTime: 5 * 60 * 1000,
     retry: 2,
   });
@@ -523,6 +528,7 @@ export function EntityListPanel({
                   {paginatedEntities.map((entity, index) => (
                     <EntityRow
                       key={`${entity.entityType}-${entity.entityId}`}
+                      projectId={projectId}
                       entity={entity}
                       index={index}
                       isFocused={index === focusedIndex}
@@ -555,7 +561,7 @@ export function EntityListPanel({
                   treeData={treeData}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
-                  persistenceKey={`entity-explorer-tree-${selectedProjectId}`}
+                  persistenceKey={`entity-explorer-tree-${projectId}`}
                   hideSearch={true}
                   onSelectNode={(node) => {
                     let type: EntityType | undefined;
