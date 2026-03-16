@@ -50,11 +50,11 @@ BEGIN TRY
                  AND Object_ID = Object_ID(N'dbo.SpMetadata'))
     BEGIN
         EXEC('
-        UPDATE SpMetadata
+        UPDATE dbo.SpMetadata
         SET SourceModifyDate = GETUTCDATE()
         WHERE SourceModifyDate IS NULL;
 
-        ALTER TABLE SpMetadata
+        ALTER TABLE dbo.SpMetadata
         ALTER COLUMN SourceModifyDate DATETIME2 NOT NULL;
         ');
     END
