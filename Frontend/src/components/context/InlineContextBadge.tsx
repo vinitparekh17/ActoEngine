@@ -136,7 +136,7 @@ export const InlineContextBadge: React.FC<InlineContextBadgeProps> = ({
   const experts = contextResponse?.experts || [];
   const detailsRoute =
     effectiveProjectId != null
-      ? getEntityRoute(entityType, entityId, effectiveProjectId)
+      ? getDetailsRoute(entityType, entityId, effectiveProjectId)
       : null;
 
   const createBadge = () => {
@@ -431,11 +431,37 @@ function getEntityTypeLabel(entityType: string): string {
   }
 }
 
+function getDetailsRoute(
+  entityType: string,
+  entityId: number,
+  projectId: number,
+): string | null {
+  if (entityType === "COLUMN") {
+    return getColumnExplorerRoute(entityId, projectId);
+  }
+
+  return getEntityRoute(entityType, entityId, projectId);
+}
+
 function getEntityRoute(
   entityType: string,
   entityId: number,
   projectId: number,
-): string {
-  const entityTypeSlug = entityType === "TABLE" ? "tables" : "stored-procedures";
+): string | null {
+  const entityTypeSlug =
+    entityType === "TABLE"
+      ? "tables"
+      : entityType === "SP"
+        ? "stored-procedures"
+        : null;
+
+  if (!entityTypeSlug) {
+    return null;
+  }
+
   return `/project/${projectId}/${entityTypeSlug}/${entityId}/detail`;
+}
+
+function getColumnExplorerRoute(entityId: number, projectId: number): string {
+  return `/project/${projectId}/entities/column/${entityId}/overview`;
 }

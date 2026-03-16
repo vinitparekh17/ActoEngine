@@ -72,6 +72,10 @@ export function EntityOverviewTab({
   const { selectedProject } = useProject();
   const routeProject =
     selectedProject?.projectId === projectId ? selectedProject : null;
+  const fallbackSchema = routeProject
+    ? getDefaultSchema(routeProject.databaseType)
+    : null;
+  const displaySchema = entity.schemaName || fallbackSchema || "...";
 
 
 
@@ -115,9 +119,16 @@ export function EntityOverviewTab({
   };
 
   const getDetailRoute = () => {
-    const entityTypeSlug = entity.entityType === "TABLE" ? "tables" : "stored-procedures";
-    return `/project/${projectId}/${entityTypeSlug}/${entity.entityId}/detail`;
+    switch (entity.entityType) {
+      case "TABLE":
+        return `/project/${projectId}/tables/${entity.entityId}/detail`;
+      case "SP":
+        return `/project/${projectId}/stored-procedures/${entity.entityId}/detail`;
+      default:
+        return null;
+    }
   };
+  const detailRoute = getDetailRoute();
 
   if (isLoading) {
     return (
@@ -161,7 +172,7 @@ export function EntityOverviewTab({
           </CardHeader>
           <CardContent>
             <span className="font-semibold font-mono">
-              {entity.schemaName || getDefaultSchema(routeProject?.databaseType)}
+              {displaySchema}
             </span>
           </CardContent>
         </Card>
@@ -285,12 +296,14 @@ export function EntityOverviewTab({
 
       {/* Quick Actions */}
       <div className="flex gap-2 pt-4 border-t">
-        <Button asChild variant="outline">
-          <Link to={getDetailRoute()}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Full Details
-          </Link>
-        </Button>
+        {detailRoute ? (
+          <Button asChild variant="outline">
+            <Link to={detailRoute}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Full Details
+            </Link>
+          </Button>
+        ) : null}
         <Button asChild variant="outline">
           <Link
             to={`/project/${projectId}/impact/${entity.entityType}/${entity.entityId}`}
