@@ -75,13 +75,12 @@ public class DependencyResolutionService(
             }
             else
             {
-                // Log missed dependencies? (Optional: Helps debug parser issues)
-                // _logger.LogDebug("Could not resolve dependency {Name} in project {Id}", dep.TargetName, projectId);
+                _logger.LogWarning("Could not resolve dependency target: {TargetType} '{TargetName}' (Cleaned: '{CleanName}')", dep.TargetType, dep.TargetName, cleanName);
             }
         }
 
-        // 3. Save to database using repository (handles transaction internally)
-        if (validDependencies.Count != 0)
+        // 4. Save valid dependencies
+        if (validDependencies.Count > 0)
         {
             await _dependencyRepository.SaveDependenciesForSourcesAsync(projectId, validDependencies);
         }
@@ -345,10 +344,23 @@ public class DependencyResolutionService(
             if (dboEntry != default)
             {
                 map[columnKey] = dboEntry.ColumnId;
+                _logger.LogWarning(
+                    "Column '{ColumnKey}' exists in multiple schemas: {Schemas}. Using dbo.{ColumnKey} (Id: {ColumnId}).",
+                    columnKey,
+                    string.Join(", ", occurrences.Select(e => e.Schema)),
+                    columnKey,
+                    dboEntry.ColumnId);
                 continue;
             }
 
             map[columnKey] = occurrences[0].ColumnId;
+            _logger.LogWarning(
+                "Column '{ColumnKey}' exists in multiple schemas: {Schemas}. Using {Schema}.{ColumnKey} (Id: {ColumnId}). Consider using fully qualified names.",
+                columnKey,
+                string.Join(", ", occurrences.Select(e => e.Schema)),
+                occurrences[0].Schema,
+                columnKey,
+                occurrences[0].ColumnId);
         }
 
         return map;

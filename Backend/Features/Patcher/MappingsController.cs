@@ -83,6 +83,10 @@ public class MappingsController(
         }
 
         var userId = HttpContext.GetUserId();
+        if (userId == null)
+        {
+            return Unauthorized(ApiResponse<PageMappingDto>.Failure("User not authenticated."));
+        }
 
         try
         {

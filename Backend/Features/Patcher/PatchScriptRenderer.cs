@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Features.Patcher;
 
-internal interface IPatchScriptRenderer
+public interface IPatchScriptRenderer
 {
     PatchArchiveArtifacts Render(PatchManifest manifest);
 }
@@ -332,7 +332,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         var tableLiteral = SqlUnicodeLiteral(qualifiedTable);
         sb.AppendLine($"            IF OBJECT_ID({tableLiteral}, 'U') IS NULL");
         sb.AppendLine("            BEGIN");
-        sb.AppendLine($"                EXEC(N'CREATE TABLE {qualifiedTable} ({string.Join(", ", table.Columns.Select(c => BuildColumnDefinition(c).Replace("'", "''"))).Replace("'", "''")})');");
+        sb.AppendLine($"                EXEC(N'CREATE TABLE {qualifiedTable} ({string.Join(", ", table.Columns.Select(c => BuildColumnDefinition(c))).Replace("'", "''")})');");
         sb.AppendLine("            END");
         sb.AppendLine("            ELSE");
         sb.AppendLine("            BEGIN");
@@ -413,7 +413,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
                             column.DataType.Equals("NCHAR", StringComparison.OrdinalIgnoreCase) ||
                             column.DataType.Equals("SYSNAME", StringComparison.OrdinalIgnoreCase);
 
-            var expectedLength = isUnicode && column.MaxLength.Value > 0 ? column.MaxLength.Value * 2 : column.MaxLength.Value;
+            var expectedLength = column.MaxLength.Value;
             conditions.Add($"c.max_length <> {expectedLength}");
         }
 

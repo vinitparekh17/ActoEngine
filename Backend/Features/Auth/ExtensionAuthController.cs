@@ -22,6 +22,10 @@ public class ExtensionAuthController(
         [FromQuery] string? state = null,
         CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(clientId)) return BadRequest(ApiResponse<object>.Failure("client_id is required."));
+        if (string.IsNullOrWhiteSpace(redirectUri)) return BadRequest(ApiResponse<object>.Failure("redirect_uri is required."));
+        if (string.IsNullOrWhiteSpace(codeChallenge)) return BadRequest(ApiResponse<object>.Failure("code_challenge is required."));
+
         var userId = HttpContext.GetUserId();
         if (userId == null)
         {

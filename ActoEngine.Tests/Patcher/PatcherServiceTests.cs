@@ -16,12 +16,13 @@ public class PatcherServiceTests
     private readonly IProjectRepository _projectRepo = Substitute.For<IProjectRepository>();
     private readonly IDependencyAnalysisService _dependencyAnalysisService = new DependencyAnalysisService(Substitute.For<ILogger<DependencyAnalysisService>>());
     private readonly ISchemaRepository _schemaRepo = Substitute.For<ISchemaRepository>();
+    private readonly IPatchScriptRenderer _scriptRenderer = new PatchScriptRenderer();
     private readonly ILogger<PatcherService> _logger = Substitute.For<ILogger<PatcherService>>();
 
     [Fact]
     public async Task CheckPatchStatusAsync_UsesApprovedMappings_NotIncomingServiceNames()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _logger);
+        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -65,7 +66,7 @@ public class PatcherServiceTests
     [Fact]
     public async Task GeneratePatchAsync_ResolvesStoredProcedures_FromApprovedMappingsOnly()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _logger);
+        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         var viewsPath = Path.Combine(root, "Views", "Reports");
@@ -162,7 +163,7 @@ public class PatcherServiceTests
     [Fact]
     public async Task GeneratePatchAsync_IncludesNestedProceduresAndNewArtifacts()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _logger);
+        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         var viewsPath = Path.Combine(root, "Views", "Reports");
@@ -278,7 +279,7 @@ public class PatcherServiceTests
     [Fact]
     public async Task GeneratePatchAsync_WarnsWhenProcedureContainsDynamicSql()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _logger);
+        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "Views", "Reports"));
@@ -359,7 +360,7 @@ public class PatcherServiceTests
     [Fact]
     public async Task GeneratePatchAsync_UsesBestEffortTableResolution_ForDynamicSqlStrings()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _logger);
+        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         var viewsPath = Path.Combine(root, "Views", "Reports");

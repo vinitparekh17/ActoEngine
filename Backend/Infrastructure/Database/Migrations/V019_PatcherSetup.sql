@@ -26,7 +26,7 @@ BEGIN
         IsNewPage      BIT NOT NULL DEFAULT 0,
         PatchFilePath  NVARCHAR(500) NULL,            -- Full path to generated zip
         GeneratedAt    DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        GeneratedBy    INT NULL,
+        GeneratedBy    INT NULL FOREIGN KEY REFERENCES Users(UserID) ON DELETE SET NULL,
         Status         NVARCHAR(50) NOT NULL DEFAULT 'Generated'  -- Generated | Downloaded | Applied
     );
 

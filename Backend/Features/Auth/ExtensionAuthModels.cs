@@ -1,16 +1,24 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace ActoEngine.WebApi.Features.Auth;
 
 public class ExtensionTokenExchangeRequest
 {
+    [Required]
     public required string Code { get; set; }
+    [Required]
     public required string CodeVerifier { get; set; }
+    [Required]
     public required string ClientId { get; set; }
+    [Required]
     public required string RedirectUri { get; set; }
 }
 
 public class ExtensionRefreshRequest
 {
+    [Required]
     public required string RefreshToken { get; set; }
+    [Required]
     public required string ClientId { get; set; }
 }
 
@@ -45,4 +53,5 @@ public class ExtensionTokenSession
     public required string RefreshToken { get; set; }
     public DateTime RefreshExpiresAt { get; set; }
     public DateTime? RevokedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 }

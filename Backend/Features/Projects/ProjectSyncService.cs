@@ -494,6 +494,12 @@ namespace ActoEngine.WebApi.Features.Projects
                             var columns = await ReadColumnsFromTargetAsync(targetConn, entity.SchemaName, entity.EntityName);
                             await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
 
+                            // Re-sync indexes for this table before FK restoration.
+                            var indexes = await _schemaService.GetIndexesAsync(
+                                request.ConnectionString,
+                                [(entity.SchemaName ?? "dbo", entity.EntityName)]);
+                            await _schemaRepository.SyncIndexesAsync(request.ProjectId, tableId, indexes, dbConn, transaction);
+
                             // Re-sync outbound FKs only; inbound FKs from other tables will be
                             // refreshed when those tables are individually resynced.
                             var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(entity.SchemaName, entity.EntityName)]);
@@ -793,21 +799,36 @@ namespace ActoEngine.WebApi.Features.Projects
             using var reader = await cmd.ExecuteReaderAsync();
 
             var columns = new List<ColumnMetadata>();
+            int? colColumnName = null, colDataType = null, colMaxLength = null, colPrecision = null, colScale = null;
+            int? colIsNullable = null, colIsPrimaryKey = null, colIsForeignKey = null, colIsIdentity = null, colDefaultValue = null, colColumnOrder = null;
+
             while (await reader.ReadAsync())
             {
+                colColumnName ??= reader.GetOrdinal("ColumnName");
+                colDataType ??= reader.GetOrdinal("DataType");
+                colMaxLength ??= reader.GetOrdinal("MaxLength");
+                colPrecision ??= reader.GetOrdinal("Precision");
+                colScale ??= reader.GetOrdinal("Scale");
+                colIsNullable ??= reader.GetOrdinal("IsNullable");
+                colIsPrimaryKey ??= reader.GetOrdinal("IsPrimaryKey");
+                colIsForeignKey ??= reader.GetOrdinal("IsForeignKey");
+                colIsIdentity ??= reader.GetOrdinal("IsIdentity");
+                colDefaultValue ??= reader.GetOrdinal("DefaultValue");
+                colColumnOrder ??= reader.GetOrdinal("ColumnOrder");
+
                 columns.Add(new ColumnMetadata
                 {
-                    ColumnName = reader.GetString(0),
-                    DataType = reader.GetString(1),
-                    MaxLength = reader.GetInt16(2),
-                    Precision = reader.GetByte(3),
-                    Scale = reader.GetByte(4),
-                    IsNullable = reader.GetBoolean(5),
-                    IsPrimaryKey = reader.GetBoolean(6),
-                    IsForeignKey = reader.GetBoolean(7),
-                    IsIdentity = reader.GetBoolean(8),
-                    DefaultValue = reader.IsDBNull(9) ? null : reader.GetString(9),
-                    ColumnOrder = reader.GetInt32(10)
+                    ColumnName = reader.GetString(colColumnName.Value),
+                    DataType = reader.GetString(colDataType.Value),
+                    MaxLength = reader.GetInt16(colMaxLength.Value),
+                    Precision = reader.GetByte(colPrecision.Value),
+                    Scale = reader.GetByte(colScale.Value),
+                    IsNullable = reader.GetBoolean(colIsNullable.Value),
+                    IsPrimaryKey = reader.GetBoolean(colIsPrimaryKey.Value),
+                    IsForeignKey = reader.GetBoolean(colIsForeignKey.Value),
+                    IsIdentity = reader.GetBoolean(colIsIdentity.Value),
+                    DefaultValue = reader.IsDBNull(colDefaultValue.Value) ? null : reader.GetString(colDefaultValue.Value),
+                    ColumnOrder = reader.GetInt32(colColumnOrder.Value)
                 });
             }
             return columns;

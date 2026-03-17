@@ -29,13 +29,13 @@ public static class ExtensionAuthQueries
         """;
 
     public const string GetSessionByRefreshToken = """
-        SELECT SessionId, UserID, ClientId, AccessToken, AccessExpiresAt, RefreshToken, RefreshExpiresAt, RevokedAt
+        SELECT SessionId, UserID, ClientId, AccessToken, AccessExpiresAt, RefreshToken, RefreshExpiresAt, RevokedAt, UpdatedAt
         FROM ExtensionTokenSessions
         WHERE RefreshToken = @RefreshToken AND RevokedAt IS NULL
         """;
 
     public const string GetSessionByAccessToken = """
-        SELECT SessionId, UserID, ClientId, AccessToken, AccessExpiresAt, RefreshToken, RefreshExpiresAt, RevokedAt
+        SELECT SessionId, UserID, ClientId, AccessToken, AccessExpiresAt, RefreshToken, RefreshExpiresAt, RevokedAt, UpdatedAt
         FROM ExtensionTokenSessions
         WHERE AccessToken = @AccessToken AND RevokedAt IS NULL
         """;
@@ -49,5 +49,6 @@ public static class ExtensionAuthQueries
             UpdatedAt = GETUTCDATE()
         WHERE SessionId = @SessionId
           AND RevokedAt IS NULL
+          AND (UpdatedAt = @ExpectedUpdatedAt OR (UpdatedAt IS NULL AND @ExpectedUpdatedAt IS NULL))
         """;
 }

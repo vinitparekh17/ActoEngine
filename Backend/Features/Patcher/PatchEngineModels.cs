@@ -1,6 +1,6 @@
 namespace ActoEngine.WebApi.Features.Patcher;
 
-internal sealed class PatchManifest
+public sealed class PatchManifest
 {
     public int ProjectId { get; set; }
     public required List<PatchManifestPage> Pages { get; set; }
@@ -11,14 +11,14 @@ internal sealed class PatchManifest
     public DateTime GeneratedAtUtc { get; set; }
 }
 
-internal sealed class PatchManifestPage
+public sealed class PatchManifestPage
 {
     public required string DomainName { get; set; }
     public required string PageName { get; set; }
     public bool IsNewPage { get; set; }
 }
 
-internal sealed class PatchProcedureSnapshot
+public sealed class PatchProcedureSnapshot
 {
     public int SpId { get; set; }
     public required string ProcedureName { get; set; }
@@ -31,7 +31,7 @@ internal sealed class PatchProcedureSnapshot
     public List<int> ColumnIds { get; set; } = [];
 }
 
-internal sealed class PatchTableSnapshot
+public sealed class PatchTableSnapshot
 {
     public int TableId { get; set; }
     public required string TableName { get; set; }
@@ -42,7 +42,7 @@ internal sealed class PatchTableSnapshot
     public required List<string> RequiredColumnNames { get; set; }
 }
 
-internal sealed class PatchColumnSnapshot
+public sealed class PatchColumnSnapshot
 {
     public int ColumnId { get; set; }
     public required string ColumnName { get; set; }
@@ -56,7 +56,7 @@ internal sealed class PatchColumnSnapshot
     public string? DefaultValue { get; set; }
 }
 
-internal sealed class PatchIndexSnapshot
+public sealed class PatchIndexSnapshot
 {
     public required string IndexName { get; set; }
     public bool IsUnique { get; set; }
@@ -64,14 +64,14 @@ internal sealed class PatchIndexSnapshot
     public required List<PatchIndexColumnSnapshot> Columns { get; set; }
 }
 
-internal sealed class PatchIndexColumnSnapshot
+public sealed class PatchIndexColumnSnapshot
 {
     public int ColumnId { get; set; }
     public required string ColumnName { get; set; }
     public int ColumnOrder { get; set; }
 }
 
-internal sealed class PatchForeignKeySnapshot
+public sealed class PatchForeignKeySnapshot
 {
     public required string ColumnName { get; set; }
     public required string ReferencedTableName { get; set; }
@@ -81,10 +81,7 @@ internal sealed class PatchForeignKeySnapshot
     public string OnDeleteAction { get; set; } = "NO ACTION";
     public string OnUpdateAction { get; set; } = "NO ACTION";
 }
-
-
-
-internal sealed class PatchArchiveArtifacts
+public sealed class PatchArchiveArtifacts
 {
     public required string CompatibilitySql { get; set; }
     public required string UpdateSql { get; set; }

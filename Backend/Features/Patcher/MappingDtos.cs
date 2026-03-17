@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace ActoEngine.WebApi.Features.Patcher;
 
 public static class PageMappingConstants
@@ -85,6 +87,7 @@ public class UpdateMappingRequest
 
 public class BulkMappingActionRequest
 {
+    [MinLength(1, ErrorMessage = "At least one mapping ID is required.")]
     public required List<int> Ids { get; set; }
     public required string Action { get; set; }
 }

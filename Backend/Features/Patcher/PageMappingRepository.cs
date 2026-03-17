@@ -38,8 +38,14 @@ public class PageMappingRepository(
             .Select(g => g.OrderByDescending(d => d.Confidence ?? 0).First())
             .ToList();
 
-        var (sql, parameters) = BuildMergeSql(projectId, unique);
-        await ExecuteAsync(sql, parameters, ct);
+        const int batchSize = 350;
+        for (var i = 0; i < unique.Count; i += batchSize)
+        {
+            var batch = unique.Skip(i).Take(batchSize).ToList();
+            var (sql, parameters) = BuildMergeSql(projectId, batch);
+            await ExecuteAsync(sql, parameters, ct);
+        }
+
         return new MappingUpsertResult(detections.Count, unique.Count);
     }
 
@@ -263,7 +269,7 @@ public class PageMappingRepository(
         }
 
         var sql = $"""
-            MERGE PageMappings AS target
+            MERGE PageMappings WITH (HOLDLOCK) AS target
             USING (VALUES {values}) AS source (ProjectId, DomainName, PageName, StoredProcedure, Confidence, Source)
             ON target.ProjectId = source.ProjectId
                AND target.DomainName = source.DomainName

@@ -342,6 +342,7 @@ public class SchemaRepository(
                 {
                     if (!columnLookup.TryGetValue(column.ColumnName, out var columnId))
                     {
+                        _logger.LogWarning("Missing column mapping during index sync. ProjectId: {ProjectId}, TableId: {TableId}, IndexName: {IndexName}, ColumnName: {ColumnName}", projectId, tableId, head.IndexName, column.ColumnName);
                         continue;
                     }
 

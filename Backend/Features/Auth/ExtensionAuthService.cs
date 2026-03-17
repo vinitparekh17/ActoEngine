@@ -65,7 +65,7 @@ public class ExtensionAuthService(
             ExpiresAt = now.Add(AuthCodeLifetime)
         }, ct);
 
-        logger.LogInformation("Issued extension auth code for user {UserId}, client {ClientId}", userId, clientId);
+        logger.LogInformation("Issued extension auth code for user {UserId}, client {ClientId}", "[REDACTED]", "[REDACTED]");
         return code;
     }
 
@@ -166,6 +166,7 @@ public class ExtensionAuthService(
             now.Add(AccessTokenLifetime),
             tokenHasher.HashToken(newRefreshToken),
             now.Add(RefreshTokenLifetime),
+            session.UpdatedAt,
             ct);
 
         if (!rotated)

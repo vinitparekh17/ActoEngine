@@ -34,7 +34,7 @@ public class PatcherController(
         {
             log.LogWarning(ex, "Patch status check failed: {Message}", ex.Message);
             return BadRequest(ApiResponse<List<PagePatchStatus>>.Failure(
-                "Patch status check failed", [ex.Message]));
+                "Patch status check failed", ["An internal error occurred while processing the request."]));
         }
         catch (Exception ex)
         {
@@ -64,7 +64,7 @@ public class PatcherController(
         {
             log.LogWarning(ex, "Patch generation failed: {Message}", ex.Message);
             return BadRequest(ApiResponse<PatchGenerationResponse>.Failure(
-                "Patch generation failed", [ex.Message]));
+                "Patch generation failed", ["An internal error occurred while processing the request."]));
         }
         catch (Exception ex)
         {
@@ -97,9 +97,7 @@ public class PatcherController(
             }
 
             var fileName = Path.GetFileName(patch.PatchFilePath);
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(patch.PatchFilePath);
-
-            return File(fileBytes, "application/zip", fileName);
+            return PhysicalFile(patch.PatchFilePath, "application/zip", fileName, enableRangeProcessing: true);
         }
         catch (Exception ex)
         {

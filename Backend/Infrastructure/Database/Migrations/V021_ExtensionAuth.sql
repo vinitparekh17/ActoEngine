@@ -16,7 +16,7 @@ BEGIN
         CreatedAt           DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
 
         CONSTRAINT FK_ExtensionAuthCodes_Users FOREIGN KEY (UserID)
-            REFERENCES Users(UserID),
+            REFERENCES Users(UserID) ON DELETE CASCADE,
         CONSTRAINT UQ_ExtensionAuthCodes_CodeHash UNIQUE (CodeHash)
     );
 END
@@ -46,7 +46,7 @@ BEGIN
         RevokedAt        DATETIME2 NULL,
 
         CONSTRAINT FK_ExtensionTokenSessions_Users FOREIGN KEY (UserID)
-            REFERENCES Users(UserID),
+            REFERENCES Users(UserID) ON DELETE CASCADE,
         CONSTRAINT UQ_ExtensionTokenSessions_AccessToken UNIQUE (AccessToken),
         CONSTRAINT UQ_ExtensionTokenSessions_RefreshToken UNIQUE (RefreshToken)
     );

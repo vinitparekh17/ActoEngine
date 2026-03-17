@@ -108,7 +108,7 @@ public class ExtensionAuthServiceTests
                 AccessExpiresAt = DateTime.UtcNow.AddMinutes(1),
                 RefreshExpiresAt = DateTime.UtcNow.AddDays(1)
             });
-        _repo.RotateTokenSessionAsync(42, Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+        _repo.RotateTokenSessionAsync(42, Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
             .Returns(true);
 
         var response = await service.RefreshAsync(new ExtensionRefreshRequest
@@ -119,7 +119,7 @@ public class ExtensionAuthServiceTests
 
         Assert.False(string.IsNullOrWhiteSpace(response.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(response.RefreshToken));
-        await _repo.Received(1).RotateTokenSessionAsync(42, Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>());
+        await _repo.Received(1).RotateTokenSessionAsync(42, Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

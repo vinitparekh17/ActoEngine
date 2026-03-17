@@ -12,16 +12,16 @@ public interface IExtensionAuthRepository
     Task StoreTokenSessionAsync(ExtensionTokenSession session, CancellationToken ct = default);
     Task<ExtensionTokenSession?> GetSessionByRefreshTokenHashAsync(string refreshTokenHash, CancellationToken ct = default);
     Task<ExtensionTokenSession?> GetSessionByAccessTokenHashAsync(string accessTokenHash, CancellationToken ct = default);
-    Task<bool> RotateTokenSessionAsync(int sessionId, string accessTokenHash, DateTime accessExpiresAt, string refreshTokenHash, DateTime refreshExpiresAt, CancellationToken ct = default);
+    Task<bool> RotateTokenSessionAsync(int sessionId, string accessTokenHash, DateTime accessExpiresAt, string refreshTokenHash, DateTime refreshExpiresAt, DateTime? expectedUpdatedAt, CancellationToken ct = default);
 }
 
 public class ExtensionAuthRepository(
     IDbConnectionFactory connectionFactory,
     ILogger<ExtensionAuthRepository> logger) : BaseRepository(connectionFactory, logger), IExtensionAuthRepository
 {
-    public Task StoreAuthorizationCodeAsync(ExtensionAuthCode code, CancellationToken ct = default)
+    public async Task StoreAuthorizationCodeAsync(ExtensionAuthCode code, CancellationToken ct = default)
     {
-        return ExecuteAndIgnoreResultAsync(ExtensionAuthQueries.InsertAuthCode, code, ct);
+        await ExecuteAsync(ExtensionAuthQueries.InsertAuthCode, code, ct);
     }
 
     public Task<ExtensionAuthCode?> GetAuthorizationCodeByHashAsync(string codeHash, CancellationToken ct = default)
@@ -38,9 +38,9 @@ public class ExtensionAuthRepository(
         return rows > 0;
     }
 
-    public Task StoreTokenSessionAsync(ExtensionTokenSession session, CancellationToken ct = default)
+    public async Task StoreTokenSessionAsync(ExtensionTokenSession session, CancellationToken ct = default)
     {
-        return ExecuteAndIgnoreResultAsync(ExtensionAuthQueries.InsertTokenSession, session, ct);
+        await ExecuteAsync(ExtensionAuthQueries.InsertTokenSession, session, ct);
     }
 
     public Task<ExtensionTokenSession?> GetSessionByRefreshTokenHashAsync(string refreshTokenHash, CancellationToken ct = default)
@@ -65,6 +65,7 @@ public class ExtensionAuthRepository(
         DateTime accessExpiresAt,
         string refreshTokenHash,
         DateTime refreshExpiresAt,
+        DateTime? expectedUpdatedAt,
         CancellationToken ct = default)
     {
         var rows = await ExecuteAsync(
@@ -75,15 +76,11 @@ public class ExtensionAuthRepository(
                 AccessToken = accessTokenHash,
                 AccessExpiresAt = accessExpiresAt,
                 RefreshToken = refreshTokenHash,
-                RefreshExpiresAt = refreshExpiresAt
+                RefreshExpiresAt = refreshExpiresAt,
+                ExpectedUpdatedAt = expectedUpdatedAt
             },
             ct);
 
         return rows > 0;
-    }
-
-    private async Task ExecuteAndIgnoreResultAsync(string sql, object parameters, CancellationToken ct)
-    {
-        await ExecuteAsync(sql, parameters, ct);
     }
 }
