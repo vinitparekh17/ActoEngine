@@ -24,8 +24,7 @@ public class MappingsTests
         };
 
         var (sql, _) = PageMappingRepository.BuildMergeSql(11, detections);
-
-        Assert.Contains("WHEN MATCHED AND target.Status = 'candidate' THEN", sql, StringComparison.Ordinal);
+        Assert.Contains("WHEN MATCHED AND target.Status = @StatusCandidate THEN", sql, StringComparison.Ordinal);
     }
 
     [Fact]

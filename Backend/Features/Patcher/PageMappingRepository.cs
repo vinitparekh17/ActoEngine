@@ -8,6 +8,11 @@ namespace ActoEngine.WebApi.Features.Patcher;
 public interface IPageMappingRepository
 {
     Task<MappingUpsertResult> UpsertDetectionsAsync(int projectId, IReadOnlyCollection<MappingDetectionRequest> detections, CancellationToken ct = default);
+    /// <summary>
+    /// Returns all mappings matching the given filters.
+    /// Throws <see cref="InvalidOperationException"/> if <paramref name="status"/> is not a recognised value.
+    /// No pagination is applied — callers should filter by domainName / pageName where possible.
+    /// </summary>
     Task<List<PageMappingDto>> GetMappingsAsync(int projectId, string? status, string? domainName, string? pageName, CancellationToken ct = default);
     Task<PageMappingDto?> GetByIdAsync(int projectId, int mappingId, CancellationToken ct = default);
     Task<bool> UpdateMappingAsync(int projectId, int mappingId, UpdateMappingRequest request, int? reviewedBy, CancellationToken ct = default);
@@ -20,14 +25,20 @@ public class PageMappingRepository(
     IDbConnectionFactory connectionFactory,
     ILogger<PageMappingRepository> logger) : BaseRepository(connectionFactory, logger), IPageMappingRepository
 {
-    public async Task<MappingUpsertResult> UpsertDetectionsAsync(int projectId, IReadOnlyCollection<MappingDetectionRequest> detections, CancellationToken ct = default)
+    public async Task<MappingUpsertResult> UpsertDetectionsAsync(
+        int projectId,
+        IReadOnlyCollection<MappingDetectionRequest> detections,
+        CancellationToken ct = default)
     {
         if (detections.Count == 0)
         {
             return new MappingUpsertResult(0, 0);
         }
 
-        // Deduplicate by natural key, keeping highest confidence per group
+        // Validate all detections up front so no batches execute against a partially-valid set.
+        ValidateDetections(detections);
+
+        // Deduplicate by natural key, keeping highest confidence per group.
         var unique = detections
             .GroupBy(d => (
                 DomainName: d.DomainName.Trim().ToLowerInvariant(),
@@ -69,6 +80,7 @@ public class PageMappingRepository(
             FROM PageMappings
             WHERE ProjectId = @ProjectId AND MappingId = @MappingId
             """;
+
         return QueryFirstOrDefaultAsync<PageMappingDto>(sql, new { ProjectId = projectId, MappingId = mappingId }, ct);
     }
 
@@ -197,10 +209,16 @@ public class PageMappingRepository(
             DELETE FROM PageMappings
             WHERE ProjectId = @ProjectId
               AND MappingId = @MappingId
-              AND Status = 'candidate'
+              AND Status = @Status
             """;
 
-        var rows = await ExecuteAsync(sql, new { ProjectId = projectId, MappingId = mappingId }, ct);
+        var rows = await ExecuteAsync(sql, new
+        {
+            ProjectId = projectId,
+            MappingId = mappingId,
+            Status = PageMappingConstants.StatusCandidate
+        }, ct);
+
         return rows > 0;
     }
 
@@ -214,9 +232,9 @@ public class PageMappingRepository(
             SELECT DISTINCT StoredProcedure, MappingType
             FROM PageMappings
             WHERE ProjectId = @ProjectId
-              AND Status = 'approved'
+              AND Status = @Status
               AND (
-                    MappingType = 'shared'
+                    MappingType = @SharedMappingType
                     OR (DomainName = @DomainName AND PageName = @PageName)
                   )
             """;
@@ -224,26 +242,21 @@ public class PageMappingRepository(
         var rows = await QueryAsync<ApprovedSpDto>(sql, new
         {
             ProjectId = projectId,
+            Status = PageMappingConstants.StatusApproved,
+            SharedMappingType = PageMappingConstants.MappingTypeShared,
             DomainName = domainName,
             PageName = pageName
         }, ct);
+
         return [.. rows];
     }
 
-    internal static (string Sql, DynamicParameters Parameters) BuildMergeSql(int projectId, IReadOnlyCollection<MappingDetectionRequest> detections)
+    // Validates all detections before any SQL is built or executed.
+    // Separating this out means BuildMergeSql can stay focused on SQL construction.
+    private static void ValidateDetections(IReadOnlyCollection<MappingDetectionRequest> detections)
     {
-        var values = new StringBuilder();
-        var parameters = new DynamicParameters();
-        var i = 0;
-
         foreach (var detection in detections)
         {
-            var source = PageMappingConstants.NormalizeSource(detection.Source);
-            if (!PageMappingConstants.ValidSources.Contains(source))
-            {
-                throw new InvalidOperationException($"Invalid mapping source '{detection.Source}'.");
-            }
-
             if (string.IsNullOrWhiteSpace(detection.DomainName) ||
                 string.IsNullOrWhiteSpace(detection.Page) ||
                 string.IsNullOrWhiteSpace(detection.StoredProcedure))
@@ -251,6 +264,24 @@ public class PageMappingRepository(
                 throw new InvalidOperationException("DomainName, Page and StoredProcedure are required.");
             }
 
+            var source = PageMappingConstants.NormalizeSource(detection.Source);
+            if (!PageMappingConstants.ValidSources.Contains(source))
+            {
+                throw new InvalidOperationException($"Invalid mapping source '{detection.Source}'.");
+            }
+        }
+    }
+
+    internal static (string Sql, DynamicParameters Parameters) BuildMergeSql(
+        int projectId,
+        IReadOnlyCollection<MappingDetectionRequest> detections)
+    {
+        var values = new StringBuilder();
+        var parameters = new DynamicParameters();
+        var i = 0;
+
+        foreach (var detection in detections)
+        {
             if (i > 0)
             {
                 values.Append(", ");
@@ -263,11 +294,12 @@ public class PageMappingRepository(
             parameters.Add($"PageName{i}", detection.Page.Trim());
             parameters.Add($"StoredProcedure{i}", detection.StoredProcedure.Trim());
             parameters.Add($"Confidence{i}", detection.Confidence);
-            parameters.Add($"Source{i}", source);
+            parameters.Add($"Source{i}", PageMappingConstants.NormalizeSource(detection.Source));
 
             i++;
         }
 
+        // MERGE requires an explicit statement terminator (;) in T-SQL.
         var sql = $"""
             MERGE PageMappings WITH (HOLDLOCK) AS target
             USING (VALUES {values}) AS source (ProjectId, DomainName, PageName, StoredProcedure, Confidence, Source)
@@ -276,12 +308,15 @@ public class PageMappingRepository(
                AND target.PageName = source.PageName
                AND target.StoredProcedure = source.StoredProcedure
                AND target.Source = source.Source
-            WHEN MATCHED AND target.Status = 'candidate' THEN
+            WHEN MATCHED AND target.Status = @StatusCandidate THEN
               UPDATE SET Confidence = source.Confidence, UpdatedAt = GETUTCDATE()
             WHEN NOT MATCHED THEN
               INSERT (ProjectId, DomainName, PageName, StoredProcedure, Confidence, Source, Status, MappingType, CreatedAt, UpdatedAt)
-              VALUES (source.ProjectId, source.DomainName, source.PageName, source.StoredProcedure, source.Confidence, source.Source, 'candidate', 'page_specific', GETUTCDATE(), GETUTCDATE());
+              VALUES (source.ProjectId, source.DomainName, source.PageName, source.StoredProcedure, source.Confidence, source.Source, @StatusCandidate, @MappingTypePageSpecific, GETUTCDATE(), GETUTCDATE());
             """;
+
+        parameters.Add("StatusCandidate", PageMappingConstants.StatusCandidate);
+        parameters.Add("MappingTypePageSpecific", PageMappingConstants.MappingTypePageSpecific);
 
         return (sql, parameters);
     }
