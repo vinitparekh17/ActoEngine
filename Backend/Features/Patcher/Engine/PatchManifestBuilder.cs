@@ -367,6 +367,11 @@ public sealed partial class PatchManifestBuilder(
         return $"{(string.IsNullOrWhiteSpace(schemaName) ? "dbo" : schemaName)}.{cleanedObject}";
     }
 
+    /// <summary>
+    /// Detects dynamic SQL patterns (sp_executesql, EXEC(@var), EXEC(...)).
+    /// NOTE: May produce false positives for EXEC('literal string') or EXEC(N'...')
+    /// where the argument is a string literal rather than a variable.
+    /// </summary>
     private static bool HasDynamicSql(string definition)
     {
         return DynamicSqlRegex().IsMatch(definition);

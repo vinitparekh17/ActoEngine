@@ -89,7 +89,7 @@ public class PatcherRepository(
     {
         return await ExecuteInTransactionAsync(async (connection, transaction) =>
         {
-            var patchId = await connection.QuerySingleAsync<int>(
+            var insertCmd = new CommandDefinition(
                 PatcherQueries.InsertPatchHistory,
                 new
                 {
@@ -103,18 +103,27 @@ public class PatcherRepository(
                     record.GeneratedBy,
                     record.Status
                 },
-                transaction);
+                transaction,
+                cancellationToken: ct);
 
-            await connection.ExecuteAsync(
-                PatcherQueries.InsertPatchHistoryPages,
-                pages.Select(p => new
-                {
-                    PatchId = patchId,
-                    p.DomainName,
-                    p.PageName,
-                    p.IsNewPage
-                }),
-                transaction);
+            var patchId = await connection.QuerySingleAsync<int>(insertCmd);
+
+            foreach (var page in pages)
+            {
+                var pageCmd = new CommandDefinition(
+                    PatcherQueries.InsertPatchHistoryPages,
+                    new
+                    {
+                        PatchId = patchId,
+                        page.DomainName,
+                        page.PageName,
+                        page.IsNewPage
+                    },
+                    transaction,
+                    cancellationToken: ct);
+
+                await connection.ExecuteAsync(pageCmd);
+            }
 
             return patchId;
         }, ct);

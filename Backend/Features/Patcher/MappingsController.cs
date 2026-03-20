@@ -71,6 +71,12 @@ public class MappingsController(
             return BadRequest(ApiResponse<PageMappingDto>.Failure("Update payload is required."));
         }
 
+        // Normalize whitespace-only values to null so they don't count as mutations
+        if (string.IsNullOrWhiteSpace(request.MappingType)) request.MappingType = null;
+        if (string.IsNullOrWhiteSpace(request.DomainName)) request.DomainName = null;
+        if (string.IsNullOrWhiteSpace(request.PageName)) request.PageName = null;
+        if (string.IsNullOrWhiteSpace(request.StoredProcedure)) request.StoredProcedure = null;
+
         var hasMutation =
             request.Status != null ||
             request.MappingType != null ||

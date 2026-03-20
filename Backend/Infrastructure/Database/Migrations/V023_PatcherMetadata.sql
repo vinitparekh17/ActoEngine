@@ -65,7 +65,10 @@ BEGIN
             c.scale AS Scale,
             c.is_nullable AS IsNullable,
             CASE WHEN pk.column_id IS NULL THEN 0 ELSE 1 END AS IsPrimaryKey,
-            CASE WHEN fkc.parent_column_id IS NULL THEN 0 ELSE 1 END AS IsForeignKey,
+            CASE WHEN EXISTS(
+                SELECT 1 FROM ' + QUOTENAME(@DbName) + N'.sys.foreign_key_columns fkc2
+                WHERE fkc2.parent_object_id = c.object_id AND fkc2.parent_column_id = c.column_id
+            ) THEN 1 ELSE 0 END AS IsForeignKey,
             c.is_identity AS IsIdentity,
             dc.definition AS DefaultValue,
             c.column_id AS ColumnOrder
@@ -81,7 +84,6 @@ BEGIN
             INNER JOIN ' + QUOTENAME(@DbName) + N'.sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
             WHERE i.is_primary_key = 1 AND ic.is_included_column = 0
         ) pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
-        LEFT JOIN ' + QUOTENAME(@DbName) + N'.sys.foreign_key_columns fkc ON fkc.parent_object_id = c.object_id AND fkc.parent_column_id = c.column_id
     ) AS source
     ON (target.TableId = source.TableId AND target.ColumnName = source.ColumnName)
     WHEN MATCHED THEN
@@ -101,6 +103,27 @@ BEGIN
         VALUES (source.TableId, source.ColumnName, source.DataType, source.MaxLength, source.Precision, source.Scale, source.IsNullable, source.IsPrimaryKey, source.IsForeignKey, source.IsIdentity, source.DefaultValue, source.ColumnOrder)
     WHEN NOT MATCHED BY SOURCE AND target.TableId IN (SELECT TableId FROM dbo.TablesMetadata WHERE ProjectId = @ProjectId) THEN
         DELETE;';
+
+    EXEC sp_executesql @Sql, N'@ProjectId INT', @ProjectId;
+
+    -- Delete orphaned IndexColumnsMetadata rows for indexes that will be removed,
+    -- so the IndexMetadata MERGE can safely delete parent rows without FK violations.
+    SET @Sql = N'
+    DELETE icm
+    FROM dbo.IndexColumnsMetadata icm
+    INNER JOIN dbo.IndexMetadata im ON im.IndexId = icm.IndexId
+    INNER JOIN dbo.TablesMetadata tm ON tm.TableId = im.TableId
+    WHERE tm.ProjectId = @ProjectId
+      AND NOT EXISTS (
+          SELECT 1
+          FROM ' + QUOTENAME(@DbName) + N'.sys.indexes i
+          INNER JOIN ' + QUOTENAME(@DbName) + N'.sys.tables t ON t.object_id = i.object_id
+          INNER JOIN ' + QUOTENAME(@DbName) + N'.sys.schemas s ON s.schema_id = t.schema_id
+          WHERE i.name = im.IndexName
+            AND t.name = tm.TableName
+            AND s.name = tm.SchemaName
+            AND i.name IS NOT NULL
+      );';
 
     EXEC sp_executesql @Sql, N'@ProjectId INT', @ProjectId;
 
@@ -208,17 +231,19 @@ BEGIN
     EXEC sp_executesql @Sql, N'@ProjectId INT', @ProjectId;
 
     DECLARE @DefaultClientId INT;
-    SELECT @DefaultClientId = ClientId
-    FROM dbo.Clients
-    WHERE ClientName = 'Default Client';
+    DECLARE @MergedClient TABLE (ClientId INT);
 
-    IF @DefaultClientId IS NULL
-    BEGIN
-        INSERT INTO dbo.Clients (ClientName, IsActive, CreatedAt, CreatedBy)
-        VALUES ('Default Client', 1, GETUTCDATE(), @UserId);
+    MERGE dbo.Clients WITH (HOLDLOCK) AS target
+    USING (SELECT 'Default Client' AS ClientName) AS source
+    ON target.ClientName = source.ClientName
+    WHEN MATCHED THEN
+        UPDATE SET IsActive = 1
+    WHEN NOT MATCHED BY TARGET THEN
+        INSERT (ClientName, IsActive, CreatedAt, CreatedBy)
+        VALUES (source.ClientName, 1, GETUTCDATE(), @UserId)
+    OUTPUT INSERTED.ClientId INTO @MergedClient;
 
-        SET @DefaultClientId = SCOPE_IDENTITY();
-    END;
+    SELECT @DefaultClientId = ClientId FROM @MergedClient;
 
     SET @Sql = N'
     MERGE dbo.SpMetadata AS target
