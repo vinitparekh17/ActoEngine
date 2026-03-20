@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Extension Settings</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+        }
+
+        body { 
+            padding: 40px 20px; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            padding: 32px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h2 { 
+            margin: 0; 
+            font-size: 24px;
+            color: var(--text-main);
+        }
+
+        h3 {
+            margin: 24px 0 12px 0;
+            font-size: 16px;
+            color: var(--text-main);
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .description {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+
+        .field-group {
+            margin-bottom: 16px;
+        }
+
+        .field-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        input[type="text"], input[type="url"], input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .actions {
+            margin-top: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        button {
+            padding: 10px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        .status {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--success);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .status.visible {
+            opacity: 1;
+        }
+
+        .examples {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            padding: 16px;
+            border-radius: 6px;
+            margin: 24px 0;
+            font-size: 14px;
+            color: #92400e;
+        }
+
+        .examples h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .examples ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .examples li {
+            margin-bottom: 4px;
+        }
+
+        code {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-weight: 600;
+        }
+
+        .icon { width: 24px; height: 24px; color: var(--text-secondary); }
+
+        .section-divider {
+            border: none;
+            border-top: 2px solid var(--border);
+            margin: 28px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <h2>Extension Settings</h2>
+        </header>
+
+        <!-- ActoEngine Integration -->
+        <h3>🔗 ActoEngine Integration</h3>
+        <div class="description">
+            Connect to your ActoEngine backend to enable patch generation from scan results.
+        </div>
+
+        <div class="field-group">
+            <label for="apiUrl">ActoEngine API URL</label>
+            <input type="url" id="apiUrl" placeholder="http://localhost:5000">
+            <div class="field-hint">Base URL of the ActoEngine backend API</div>
+        </div>
+
+        <div class="field-group">
+            <label for="projectId">Project ID</label>
+            <input type="number" id="projectId" placeholder="1">
+            <div class="field-hint">ActoEngine project ID to map scanned SPs against</div>
+        </div>
+
+        <div class="field-group">
+            <label>Extension Authentication</label>
+            <div class="actions" style="margin-top: 6px;">
+                <button id="authBtn" type="button">Authenticate Extension</button>
+                <span id="authStatus" class="field-hint">Not authenticated</span>
+            </div>
+            <div class="field-hint">Uses browser-based login via PKCE flow.</div>
+        </div>
+
+        <hr class="section-divider">
+
+        <!-- Search Filters -->
+        <h3>🔍 Search Filters</h3>
+        <div class="description">
+            Define directory paths or URL patterns to filter JavaScript files. The extension will only scan files that contain one of these strings in their URL.
+        </div>
+
+        <div class="examples">
+            <h4>Configuration Examples</h4>
+            <ul>
+                <li><code>/js/</code> - matches any file in a js directory</li>
+                <li><code>/api/</code> - matches files in api directory</li>
+                <li><code>cdn.mysite.com</code> - matches files from specific domain</li>
+            </ul>
+            <div style="margin-top: 8px; font-size: 13px;">Leave empty to search ALL JavaScript files detected on the page.</div>
+        </div>
+
+        <label for="searchDirs">Directory Patterns (one per line):</label>
+        <textarea id="searchDirs" placeholder="/js/&#10;/static/&#10;/assets/"></textarea>
+        
+        <div class="actions">
+            <button id="saveBtn">Save Configuration</button>
+            <span id="status" class="status">Settings saved successfully</span>
+        </div>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>

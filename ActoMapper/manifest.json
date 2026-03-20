@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Acto Mapper",
+  "version": "1.0",
+  "description": "Acto mapper helps to find SP from website JS files and send to ActoEngine to create Patches",
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab",
+    "notifications",
+    "identity"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html"
+}
