@@ -194,7 +194,10 @@ public sealed partial class PatchManifestBuilder(
         }
 
         var tableSnapshots = new List<PatchTableSnapshot>();
-        foreach (var tableId in procedureSnapshots.Values.SelectMany(p => p.TableIds).Distinct())
+        var allTableIds = procedureSnapshots.Values.SelectMany(p => p.TableIds)
+            .Union(requiredColumnsByTable.Keys)
+            .Distinct();
+        foreach (var tableId in allTableIds)
         {
             var tableMetadata = await schemaRepo.GetTableByIdAsync(tableId);
             if (tableMetadata == null)

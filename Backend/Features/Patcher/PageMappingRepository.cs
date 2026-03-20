@@ -40,7 +40,10 @@ public class PageMappingRepository(
 
         var unique = DeduplicateDetections(detections);
 
-        const int batchSize = 350;
+        const int maxParams = 2100;
+        const int fixedParams = 2;
+        const int perItemParams = 6;
+        int batchSize = Math.Max(1, (maxParams - fixedParams) / perItemParams);
         await ExecuteInTransactionAsync(async (connection, transaction) =>
         {
             for (var i = 0; i < unique.Count; i += batchSize)

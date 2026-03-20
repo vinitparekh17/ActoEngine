@@ -97,11 +97,11 @@ public sealed class PatchArchiver
 
     internal static string GenerateMenuPermissionSql(string pageName, string domainName)
     {
-        if (!Regex.IsMatch(pageName, "^[A-Za-z0-9_]+$"))
+        if (!Regex.IsMatch(pageName, @"^[A-Za-z0-9_\-]+$"))
         {
             throw new ArgumentException("PageName contains invalid characters.");
         }
-        if (!Regex.IsMatch(domainName, "^[A-Za-z0-9_]+$"))
+        if (!Regex.IsMatch(domainName, @"^[A-Za-z0-9_\-]+$"))
         {
             throw new ArgumentException("DomainName contains invalid characters.");
         }

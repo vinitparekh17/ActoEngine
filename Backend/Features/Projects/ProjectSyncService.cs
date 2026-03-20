@@ -10,7 +10,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using System.Data;
 using Dapper;
-using Microsoft.VisualBasic;
+
 namespace ActoEngine.WebApi.Features.Projects
 {
     public class ProjectSyncService(

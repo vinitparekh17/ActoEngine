@@ -127,7 +127,7 @@ SELECT ''IF NOT EXISTS (SELECT 1 FROM ' + @TableName + ' ' +
         'SELECT UserGroupId, SCOPE_IDENTITY(), 1, 1, 1, 1, 1, 1 ' + 
         'FROM Security_UserAccessGroups WHERE UserGroupName = ''''Administration''''; ' +
     'END''
-FROM ' + @TableName + ' ' + @WhereClause
+FROM (SELECT 1 AS X) AS _Src
 
 EXEC(@SQL)";
 }

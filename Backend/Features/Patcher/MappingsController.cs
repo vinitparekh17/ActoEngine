@@ -35,7 +35,7 @@ public class MappingsController(
         catch (InvalidOperationException ex)
         {
             logger.LogWarning(ex, "Invalid mapping-detection request for project {ProjectId}", projectId);
-            return BadRequest(ApiResponse<object>.Failure("Invalid mapping detection payload.", [ex.Message]));
+            return BadRequest(ApiResponse<object>.Failure("Invalid mapping detection payload."));
         }
     }
 
@@ -54,7 +54,8 @@ public class MappingsController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ApiResponse<List<PageMappingDto>>.Failure("Invalid mapping query.", [ex.Message]));
+            logger.LogWarning(ex, "Invalid mapping query for project {ProjectId}", projectId);
+            return BadRequest(ApiResponse<List<PageMappingDto>>.Failure("Invalid mapping query."));
         }
     }
 
@@ -106,7 +107,8 @@ public class MappingsController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ApiResponse<PageMappingDto>.Failure("Mapping update failed.", [ex.Message]));
+            logger.LogWarning(ex, "Mapping update failed for project {ProjectId}, mapping {MappingId}", projectId, mappingId);
+            return BadRequest(ApiResponse<PageMappingDto>.Failure("Mapping update failed."));
         }
     }
 
@@ -134,7 +136,8 @@ public class MappingsController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ApiResponse<object>.Failure("Bulk mapping update failed.", [ex.Message]));
+            logger.LogWarning(ex, "Bulk mapping update failed for project {ProjectId}", projectId);
+            return BadRequest(ApiResponse<object>.Failure("Bulk mapping update failed."));
         }
     }
 

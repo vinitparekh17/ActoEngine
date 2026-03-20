@@ -205,10 +205,19 @@ public class ExtensionAuthService(
 
             return new ClaimsPrincipal(new ClaimsIdentity(claims, "extension_token"));
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (CryptographicException ex)
         {
             logger.LogWarning(ex, "Failed to validate extension access token.");
             return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error validating extension access token.");
+            throw;
         }
     }
 

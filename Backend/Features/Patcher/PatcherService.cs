@@ -126,6 +126,18 @@ public sealed class PatcherService(
                 string.Join(Environment.NewLine, manifest.BlockingIssues.Select(issue => $"- {issue}")));
         }
 
+        if (manifest.Procedures.Count == 0 && manifest.Tables.Count == 0)
+        {
+            return new PatchGenerationResponse
+            {
+                PatchId = 0,
+                DownloadPath = string.Empty,
+                FilesIncluded = [],
+                Warnings = manifest.Warnings.Append("No procedures or tables found in the manifest. Nothing to generate.").Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                GeneratedAt = DateTime.UtcNow
+            };
+        }
+
         // 4. Render SQL scripts
         var artifacts = _scriptRenderer.Render(manifest);
         var warnings = new List<string>(manifest.Warnings);
