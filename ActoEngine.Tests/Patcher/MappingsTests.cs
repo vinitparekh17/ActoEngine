@@ -75,16 +75,7 @@ public class MappingsTests
             new() { DomainName = "Reports", Page = "Dashboard", StoredProcedure = "sp_other", Source = "extension", Confidence = 0.7 }
         };
 
-        // Simulate the same dedup logic the repository uses
-        var unique = detections
-            .GroupBy(d => (
-                DomainName: d.DomainName.Trim().ToLowerInvariant(),
-                Page: d.Page.Trim().ToLowerInvariant(),
-                SP: d.StoredProcedure.Trim().ToLowerInvariant(),
-                Source: d.Source.Trim().ToLowerInvariant()
-            ))
-            .Select(g => g.OrderByDescending(d => d.Confidence ?? 0).First())
-            .ToList();
+        var unique = PageMappingRepository.DeduplicateDetections(detections);
 
         Assert.Equal(2, unique.Count);
 
@@ -116,6 +107,6 @@ public class MappingsTests
         var result = Assert.IsType<OkObjectResult>(action.Result);
         var payload = Assert.IsType<ApiResponse<object>>(result.Value);
         Assert.True(payload.Status);
-        Assert.Contains("1 unique detections", payload.Message);
+        Assert.Contains("1 unique detection (", payload.Message);
     }
 }

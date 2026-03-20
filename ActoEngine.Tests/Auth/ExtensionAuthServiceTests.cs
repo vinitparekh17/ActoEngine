@@ -12,18 +12,14 @@ public class ExtensionAuthServiceTests
     private readonly TokenHasher _tokenHasher = new();
     private readonly ILogger<ExtensionAuthService> _logger = Substitute.For<ILogger<ExtensionAuthService>>();
 
-    private static string BuildCodeChallenge(string verifier)
-    {
-        var hash = SHA256.HashData(Encoding.ASCII.GetBytes(verifier));
-        return Convert.ToBase64String(hash).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-    }
-
     [Fact]
     public async Task ExchangeCodeAsync_WithValidVerifier_ReturnsTokensAndConsumesCode()
     {
         var service = new ExtensionAuthService(_repo, _tokenHasher, _logger);
         var code = "auth-code-1";
-        var verifier = "code-verifier-1";
+        // To be valid under PKCE, verifier needs to be 43-128 chars.
+        var verifier = "1234567890123456789012345678901234567890123"; 
+        var codeChallenge = "WWHTYIjNclXxS69q1gerQ-eTlW5ab1YCpKTorurQ3zw"; // Computed challenge for the above verifier
         var codeHash = _tokenHasher.HashToken(code);
         const string clientId = "abc";
         const string redirectUri = "https://abc.chromiumapp.org/callback";
@@ -36,11 +32,11 @@ public class ExtensionAuthServiceTests
                 ClientId = clientId,
                 RedirectUri = redirectUri,
                 CodeHash = codeHash,
-                CodeChallenge = BuildCodeChallenge(verifier),
+                CodeChallenge = codeChallenge,
                 CodeChallengeMethod = "S256",
                 ExpiresAt = DateTime.UtcNow.AddMinutes(3)
             });
-        _repo.MarkAuthorizationCodeConsumedAsync(3, Arg.Any<CancellationToken>()).Returns(true);
+        _repo.ConsumeCodeAndCreateSessionAsync(3, Arg.Any<ExtensionTokenSession>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
         var response = await service.ExchangeCodeAsync(new ExtensionTokenExchangeRequest
         {
@@ -53,7 +49,7 @@ public class ExtensionAuthServiceTests
         Assert.False(string.IsNullOrWhiteSpace(response.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(response.RefreshToken));
         Assert.True(response.ExpiresAt > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        await _repo.Received(1).StoreTokenSessionAsync(Arg.Any<ExtensionTokenSession>(), Arg.Any<CancellationToken>());
+        await _repo.Received(1).ConsumeCodeAndCreateSessionAsync(3, Arg.Any<ExtensionTokenSession>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -73,7 +69,7 @@ public class ExtensionAuthServiceTests
                 ClientId = clientId,
                 RedirectUri = redirectUri,
                 CodeHash = codeHash,
-                CodeChallenge = BuildCodeChallenge("expected-verifier"),
+                CodeChallenge = "expected_valid_challenge_that_wont_match_abcdefghijkl",
                 CodeChallengeMethod = "S256",
                 ExpiresAt = DateTime.UtcNow.AddMinutes(3)
             });
@@ -81,13 +77,13 @@ public class ExtensionAuthServiceTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.ExchangeCodeAsync(new ExtensionTokenExchangeRequest
         {
             Code = code,
-            CodeVerifier = "wrong-verifier",
+            CodeVerifier = "wrong_verifier_wrong_verifier_wrong_verifier",
             ClientId = clientId,
             RedirectUri = redirectUri
         }));
 
         Assert.Equal("Invalid code verifier.", ex.Message);
-        await _repo.DidNotReceive().MarkAuthorizationCodeConsumedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _repo.DidNotReceive().ConsumeCodeAndCreateSessionAsync(Arg.Any<int>(), Arg.Any<ExtensionTokenSession>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -132,7 +128,7 @@ public class ExtensionAuthServiceTests
                 userId: 7,
                 clientId: "abc",
                 redirectUri: "https://wrong.chromiumapp.org/callback",
-                codeChallenge: "challenge",
+                codeChallenge: "valid_challenge_valid_challenge_valid_challenge",
                 codeChallengeMethod: "S256",
                 state: "state"));
 

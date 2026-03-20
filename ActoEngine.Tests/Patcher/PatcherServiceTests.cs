@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Features.ImpactAnalysis;
 using ActoEngine.WebApi.Features.Patcher;
+using ActoEngine.WebApi.Features.Patcher.Engine;
 using ActoEngine.WebApi.Features.Projects;
 using ActoEngine.WebApi.Features.Schema;
 using Microsoft.Extensions.Logging;
@@ -19,13 +20,34 @@ public class PatcherServiceTests
     private readonly IPatchScriptRenderer _scriptRenderer = new PatchScriptRenderer();
     private readonly ILogger<PatcherService> _logger = Substitute.For<ILogger<PatcherService>>();
 
+    private PatcherService CreateService()
+    {
+        var manifestBuilder = new PatchManifestBuilder(_patcherRepo, _mappingRepo, _schemaRepo, _dependencyAnalysisService);
+        var archiver = new PatchArchiver();
+        return new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, manifestBuilder, _scriptRenderer, archiver, _logger);
+    }
+
+    private sealed class TempDirectory : IDisposable
+    {
+        public string Path { get; }
+        public TempDirectory()
+        {
+            Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(Path);
+        }
+        public void Dispose()
+        {
+            if (Directory.Exists(Path)) Directory.Delete(Path, true);
+        }
+        public static implicit operator string(TempDirectory d) => d.Path;
+    }
+
     [Fact]
     public async Task CheckPatchStatusAsync_UsesApprovedMappings_NotIncomingServiceNames()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
+        var service = CreateService();
 
-        var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
+        using var root = new TempDirectory();
 
         _patcherRepo.GetPatchConfigAsync(7, Arg.Any<CancellationToken>())
             .Returns(new ProjectPatchConfig
@@ -60,13 +82,13 @@ public class PatcherServiceTests
         Assert.False(result[0].NeedsRegeneration);
         await _patcherRepo.DidNotReceiveWithAnyArgs().GetLatestPatchAsync(default, default!, default!, default);
 
-        Directory.Delete(root, recursive: true);
+
     }
 
     [Fact]
     public async Task GeneratePatchAsync_ResolvesStoredProcedures_FromApprovedMappingsOnly()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
+        var service = CreateService();
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         var viewsPath = Path.Combine(root, "Views", "Reports");
@@ -157,13 +179,13 @@ public class PatcherServiceTests
         await _patcherRepo.Received(1).GetSpProcedureDependenciesAsync(7, 101, Arg.Any<CancellationToken>());
         await _patcherRepo.Received(1).GetSpColumnDependenciesAsync(7, 101, Arg.Any<CancellationToken>());
 
-        Directory.Delete(root, recursive: true);
+
     }
 
     [Fact]
     public async Task GeneratePatchAsync_IncludesNestedProceduresAndNewArtifacts()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
+        var service = CreateService();
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         var viewsPath = Path.Combine(root, "Views", "Reports");
@@ -273,13 +295,13 @@ public class PatcherServiceTests
             Assert.Contains("sp_child", procedures);
         }
 
-        Directory.Delete(root, recursive: true);
+
     }
 
     [Fact]
     public async Task GeneratePatchAsync_WarnsWhenProcedureContainsDynamicSql()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
+        var service = CreateService();
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "Views", "Reports"));
@@ -354,13 +376,13 @@ public class PatcherServiceTests
         Assert.Contains(response.Warnings, warning => warning.Contains("dynamic SQL", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(response.FilesIncluded, file => file.EndsWith("compatibility.sql", StringComparison.OrdinalIgnoreCase));
 
-        Directory.Delete(root, recursive: true);
+
     }
 
     [Fact]
     public async Task GeneratePatchAsync_UsesBestEffortTableResolution_ForDynamicSqlStrings()
     {
-        var service = new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, _dependencyAnalysisService, _schemaRepo, _scriptRenderer, _logger);
+        var service = CreateService();
 
         var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
         var viewsPath = Path.Combine(root, "Views", "Reports");
@@ -483,6 +505,6 @@ public class PatcherServiceTests
             Assert.Contains("Orders", tables);
         }
         Assert.Contains(response.Warnings, warning => warning.Contains("dynamic SQL", StringComparison.OrdinalIgnoreCase));
-        Directory.Delete(root, recursive: true);
+
     }
 }
