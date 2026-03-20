@@ -12,11 +12,17 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Infrastructure\Database\Migrations\*.sql" />
-    <EmbeddedResource Include="Sql\StoredProcedures\*.sql" />
     <!-- Keeping this commented out for now for future use , currently unused
+
+    Diff between EmbededResource and Content:
+    - EmbededResource: Copied to output directory and embedded in the assembly. ( More secure, cannot be modified by user)
+    - Content: Copied to output directory but not embedded in the assembly. ( Less secure, can be modified by user)
+    <EmbeddedResource Include="Sql\StoredProcedures\*.sql" />
+
     <Content Include="Infrastructure\Database\StoredProcedures\*.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content> -->
+    </Content> 
+    -->
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
@@ -27,7 +33,7 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.19" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
     <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="170.128.0" />
-    <PackageReference Include="Scriban" Version="6.4.0" />
+    <PackageReference Include="Scriban" Version="6.6.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 

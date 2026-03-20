@@ -407,14 +407,19 @@ namespace ActoEngine.WebApi.Features.Projects
             var columnCount = await SyncColumnsForAllTablesAsync(projectId, tablesWithSchema, targetConn, dbConn, transaction);
             await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {columnCount} columns", 66);
 
-            // Step 3: Sync Foreign Keys
-            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 67);
+            // Step 3: Sync Indexes
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing indexes...", 67);
+            var indexCount = await SyncIndexesForAllTablesAsync(projectId, tablesWithSchema, targetConnectionString, dbConn, transaction);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {indexCount} indexes", 70);
+
+            // Step 4: Sync Foreign Keys
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 71);
             var tables = tablesWithSchema.Select(t => $"{t.SchemaName}.{t.TableName}");
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
             var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, dbConn, transaction);
-            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 78);
 
-            // Step 4: Sync SPs
+            // Step 5: Sync SPs
             await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing stored procedures...", 89);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
@@ -492,22 +497,67 @@ namespace ActoEngine.WebApi.Features.Projects
             using var reader = await cmd.ExecuteReaderAsync();
 
             var columns = new List<ColumnMetadata>();
+            int? colColumnName = null, colDataType = null, colMaxLength = null, colPrecision = null, colScale = null;
+            int? colIsNullable = null, colIsPrimaryKey = null, colIsForeignKey = null, colIsIdentity = null, colDefaultValue = null, colColumnOrder = null;
+
             while (await reader.ReadAsync())
             {
+                colColumnName ??= reader.GetOrdinal("ColumnName");
+                colDataType ??= reader.GetOrdinal("DataType");
+                colMaxLength ??= reader.GetOrdinal("MaxLength");
+                colPrecision ??= reader.GetOrdinal("Precision");
+                colScale ??= reader.GetOrdinal("Scale");
+                colIsNullable ??= reader.GetOrdinal("IsNullable");
+                colIsPrimaryKey ??= reader.GetOrdinal("IsPrimaryKey");
+                colIsForeignKey ??= reader.GetOrdinal("IsForeignKey");
+                colIsIdentity ??= reader.GetOrdinal("IsIdentity");
+                colDefaultValue ??= reader.GetOrdinal("DefaultValue");
+                colColumnOrder ??= reader.GetOrdinal("ColumnOrder");
+
                 columns.Add(new ColumnMetadata
                 {
-                    ColumnName = reader.GetString(0),
-                    DataType = reader.GetString(1),
-                    MaxLength = reader.GetInt16(2),
-                    Precision = reader.GetByte(3),
-                    Scale = reader.GetByte(4),
-                    IsNullable = reader.GetBoolean(5),
-                    IsPrimaryKey = reader.GetBoolean(6),
-                    IsForeignKey = reader.GetBoolean(7),
-                    ColumnOrder = reader.GetInt32(8)
+                    ColumnName = reader.GetString(colColumnName.Value),
+                    DataType = reader.GetString(colDataType.Value),
+                    MaxLength = reader.GetInt16(colMaxLength.Value),
+                    Precision = reader.GetByte(colPrecision.Value),
+                    Scale = reader.GetByte(colScale.Value),
+                    IsNullable = reader.GetBoolean(colIsNullable.Value),
+                    IsPrimaryKey = reader.GetBoolean(colIsPrimaryKey.Value),
+                    IsForeignKey = reader.GetBoolean(colIsForeignKey.Value),
+                    IsIdentity = reader.GetBoolean(colIsIdentity.Value),
+                    DefaultValue = reader.IsDBNull(colDefaultValue.Value) ? null : reader.GetString(colDefaultValue.Value),
+                    ColumnOrder = reader.GetInt32(colColumnOrder.Value)
                 });
             }
             return columns;
+        }
+
+        private async Task<int> SyncIndexesForAllTablesAsync(
+            int projectId,
+            IEnumerable<(string TableName, string SchemaName)> tablesWithSchema,
+            string connectionString,
+            IDbConnection dbConn,
+            IDbTransaction transaction)
+        {
+            var totalIndexes = 0;
+            var indexes = await _schemaService.GetIndexesAsync(connectionString, tablesWithSchema);
+            var groupedIndexes = indexes
+                .GroupBy(i => $"{i.SchemaName}.{i.TableName}", StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+            var tables = await _schemaRepository.GetProjectTablesAsync(projectId, dbConn, transaction);
+            foreach (var table in tables)
+            {
+                groupedIndexes.TryGetValue($"{table.SchemaName}.{table.TableName}", out var tableIndexes);
+                totalIndexes += await _schemaRepository.SyncIndexesAsync(
+                    projectId,
+                    table.TableId,
+                    tableIndexes ?? [],
+                    dbConn,
+                    transaction);
+            }
+
+            return totalIndexes;
         }
 
         private static async Task SyncViaSameServerAsync(

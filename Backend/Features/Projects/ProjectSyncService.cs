@@ -10,6 +10,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using System.Data;
 using Dapper;
+
 namespace ActoEngine.WebApi.Features.Projects
 {
     public class ProjectSyncService(
@@ -141,11 +142,11 @@ namespace ActoEngine.WebApi.Features.Projects
             }
         }
 
-        public async Task<int> ReSyncEntitiesAsync(ResyncEntitiesRequest request, int userId)
+        public async Task<int> ReSyncEntitiesAsync(ResyncEntitiesRequest request, int _)
         {
             try
             {
-                var project = await _projectRepository.GetByIdAsync(request.ProjectId) 
+                var project = await _projectRepository.GetByIdAsync(request.ProjectId)
                     ?? throw new InvalidOperationException($"Project {request.ProjectId} not found.");
 
                 // Keep it synchronous (Tier 1 is designed to map only to specific entity targets)
@@ -159,9 +160,9 @@ namespace ActoEngine.WebApi.Features.Projects
                 // Grab existing SPs / Tables from our metadata
                 var storedTables = await _schemaRepository.GetStoredTablesAsync(request.ProjectId);
                 var storedSps = await _schemaService.GetSpHashesAsync(request.ProjectId);
-                
+
                 using var transaction = dbConn.BeginTransaction();
-                
+
                 try
                 {
                     foreach (var entity in request.Entities)
@@ -171,11 +172,21 @@ namespace ActoEngine.WebApi.Features.Projects
                             var table = storedTables.FirstOrDefault(t => t.TableName == entity.EntityName && t.SchemaName == entity.SchemaName);
                             if (table == null) continue; // Skip if table wasn't previously synced
 
+                            // Capture inbound FK owners (other tables that reference this table) so we can
+                            // immediately re-sync their FK metadata after this table's columns are refreshed.
+                            var inboundReferencingTables = (await dbConn.QueryAsync<(int TableId, string TableName, string? SchemaName)>(
+                                @"SELECT DISTINCT t.TableId, t.TableName, t.SchemaName
+                                  FROM ForeignKeyMetadata fk
+                                  INNER JOIN TablesMetadata t ON t.TableId = fk.TableId
+                                  WHERE fk.ReferencedTableId = @TableId
+                                    AND fk.TableId <> @TableId
+                                    AND t.ProjectId = @ProjectId
+                                    AND t.IsDeleted = 0",
+                                new { table.TableId, request.ProjectId }, transaction)).ToList();
+
                             // Clear FK metadata first (both outbound and inbound) before deleting columns,
-                            // because ForeignKeyMetadata.ReferencedColumnId has a FK constraint back to
-                            // ColumnsMetadata. Inbound FK rows (other tables pointing TO this table's columns)
-                            // must be removed before ColumnsMetadata rows can be deleted.
-                            // They will be re-synced when those tables are themselves resynced.
+                            // because ForeignKeyMetadata.ReferencedColumnId has an FK constraint back to
+                            // ColumnsMetadata.
                             await dbConn.ExecuteAsync(
                                 "DELETE FROM ForeignKeyMetadata WHERE TableId = @TableId OR ReferencedTableId = @TableId",
                                 new { table.TableId }, transaction);
@@ -187,10 +198,26 @@ namespace ActoEngine.WebApi.Features.Projects
                             var columns = await ReadColumnsFromTargetAsync(targetConn, table.SchemaName ?? "dbo", table.TableName);
                             await _schemaRepository.SyncColumnsAsync(table.TableId, columns, dbConn, transaction);
 
-                            // 2. Re-sync outbound FKs for this table (inbound FKs from other tables will
-                            // be refreshed when those tables are individually resynced)
+                            // 2. Re-sync indexes for this table before FK restoration.
+                            var indexes = await _schemaService.GetIndexesAsync(
+                                request.ConnectionString,
+                                [(table.SchemaName ?? "dbo", table.TableName)]);
+                            await _schemaRepository.SyncIndexesAsync(request.ProjectId, table.TableId, indexes, dbConn, transaction);
+
+                            // 3. Re-sync outbound FKs for this table (inbound FKs from other tables will
+                            // be refreshed immediately below using the captured referencing table list)
                             var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(table.SchemaName ?? "dbo", table.TableName)]);
                             await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
+
+                            // 4. Re-sync inbound FK owners so relationships pointing TO this table are
+                            // restored in the same targeted-resync call.
+                            foreach (var (_, tableName, schemaName) in inboundReferencingTables)
+                            {
+                                var inboundForeignKeys = await _schemaService.GetForeignKeysAsync(
+                                    request.ConnectionString,
+                                    [(schemaName ?? "dbo", tableName)]);
+                                await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, inboundForeignKeys, dbConn, transaction);
+                            }
 
                             syncedCount++;
                         }
@@ -202,7 +229,7 @@ namespace ActoEngine.WebApi.Features.Projects
                             if (spInfo == null) continue;
 
                             // Scoped IA cleanup: Clear impact dependencies for this source SP only
-                            await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'StoredProcedure'", new { SourceId = spInfo.SpId }, transaction);
+                            await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'SP'", new { SourceId = spInfo.SpId }, transaction);
 
                             // Fetch SP definition
                             using var cmd = new SqlCommand(@"
@@ -213,7 +240,7 @@ namespace ActoEngine.WebApi.Features.Projects
                             cmd.Parameters.AddWithValue("@SchemaName", entity.SchemaName);
                             cmd.Parameters.AddWithValue("@SpName", entity.EntityName);
                             using var reader = await cmd.ExecuteReaderAsync();
-                            
+
                             if (await reader.ReadAsync() && !reader.IsDBNull(1))
                             {
                                 var modifyDate = reader.GetDateTime(0);
@@ -246,9 +273,9 @@ namespace ActoEngine.WebApi.Features.Projects
                 // Post-commit work is best-effort: failures here must not turn a successful commit into an API error.
                 try
                 {
-                    foreach (var item in analyzeAfterCommit)
+                    foreach (var (spId, definition) in analyzeAfterCommit)
                     {
-                        await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
+                        await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, spId, definition);
                     }
 
                     // Fire throttled background detection for Logical FKs (does not block this request)
@@ -465,12 +492,18 @@ namespace ActoEngine.WebApi.Features.Projects
                                 await dbConn.ExecuteAsync("DELETE FROM ColumnsMetadata WHERE TableId = @TableId", new { tableId }, transaction);
                             }
 
-                            var columns = await ReadColumnsFromTargetAsync(targetConn, entity.SchemaName, entity.EntityName);
+                            var columns = await ReadColumnsFromTargetAsync(targetConn, entity.SchemaName ?? "dbo", entity.EntityName);
                             await _schemaRepository.SyncColumnsAsync(tableId, columns, dbConn, transaction);
+
+                            // Re-sync indexes for this table before FK restoration.
+                            var indexes = await _schemaService.GetIndexesAsync(
+                                request.ConnectionString,
+                                [(entity.SchemaName ?? "dbo", entity.EntityName)]);
+                            await _schemaRepository.SyncIndexesAsync(request.ProjectId, tableId, indexes, dbConn, transaction);
 
                             // Re-sync outbound FKs only; inbound FKs from other tables will be
                             // refreshed when those tables are individually resynced.
-                            var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(entity.SchemaName, entity.EntityName)]);
+                            var foreignKeys = await _schemaService.GetForeignKeysAsync(request.ConnectionString, [(entity.SchemaName ?? "dbo", entity.EntityName)]);
                             await _schemaRepository.SyncForeignKeysAsync(request.ProjectId, foreignKeys, dbConn, transaction);
                             appliedCount++;
                         }
@@ -511,7 +544,7 @@ namespace ActoEngine.WebApi.Features.Projects
                                 }
                                 else
                                 {
-                                    await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'StoredProcedure'", new { SourceId = spInfo.SpId }, transaction);
+                                    await dbConn.ExecuteAsync("DELETE FROM Dependencies WHERE SourceId = @SourceId AND SourceType = 'SP'", new { SourceId = spInfo.SpId }, transaction);
                                     await _schemaService.UpdateSpDefinitionAndHashAsync(
                                         request.ProjectId,
                                         spInfo.SpId,
@@ -540,9 +573,9 @@ namespace ActoEngine.WebApi.Features.Projects
             // Post-commit work is best-effort: failures here must not turn a successful commit into an API error.
             try
             {
-                foreach (var item in analyzeAfterCommit)
+                foreach (var (spId, definition) in analyzeAfterCommit)
                 {
-                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, item.SpId, item.Definition);
+                    await _dependencyOrchestrationService.AnalyzeStoredProcedureAsync(request.ProjectId, spId, definition);
                 }
 
                 // Fire throttled background detection for Logical FKs (does not block this request)
@@ -677,14 +710,19 @@ namespace ActoEngine.WebApi.Features.Projects
             var columnCount = await SyncColumnsForAllTablesAsync(projectId, tablesWithSchema, targetConn, dbConn, transaction);
             await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {columnCount} columns", 66);
 
-            // Step 3: Sync Foreign Keys
-            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 67);
+            // Step 3: Sync Indexes
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing indexes...", 67);
+            var indexCount = await SyncIndexesForAllTablesAsync(projectId, tablesWithSchema, targetConnectionString, dbConn, transaction);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {indexCount} indexes", 70);
+
+            // Step 4: Sync Foreign Keys
+            await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing foreign keys...", 71);
             var tables = tablesWithSchema.Select(t => $"{t.SchemaName}.{t.TableName}");
             var foreignKeys = await _schemaService.GetForeignKeysAsync(targetConnectionString, tables);
             var fkCount = await _schemaRepository.SyncForeignKeysAsync(projectId, foreignKeys, dbConn, transaction);
-            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 70);
+            await UpdateSyncProgress(dbConn, transaction, projectId, $"Synced {fkCount} foreign keys", 78);
 
-            // Step 4: Sync SPs
+            // Step 5: Sync SPs
             await UpdateSyncProgress(dbConn, transaction, projectId, "Syncing stored procedures...", 89);
             var procedures = await _schemaService.GetStoredProceduresAsync(targetConnectionString);
 
@@ -762,22 +800,67 @@ namespace ActoEngine.WebApi.Features.Projects
             using var reader = await cmd.ExecuteReaderAsync();
 
             var columns = new List<ColumnMetadata>();
+            int? colColumnName = null, colDataType = null, colMaxLength = null, colPrecision = null, colScale = null;
+            int? colIsNullable = null, colIsPrimaryKey = null, colIsForeignKey = null, colIsIdentity = null, colDefaultValue = null, colColumnOrder = null;
+
             while (await reader.ReadAsync())
             {
+                colColumnName ??= reader.GetOrdinal("ColumnName");
+                colDataType ??= reader.GetOrdinal("DataType");
+                colMaxLength ??= reader.GetOrdinal("MaxLength");
+                colPrecision ??= reader.GetOrdinal("Precision");
+                colScale ??= reader.GetOrdinal("Scale");
+                colIsNullable ??= reader.GetOrdinal("IsNullable");
+                colIsPrimaryKey ??= reader.GetOrdinal("IsPrimaryKey");
+                colIsForeignKey ??= reader.GetOrdinal("IsForeignKey");
+                colIsIdentity ??= reader.GetOrdinal("IsIdentity");
+                colDefaultValue ??= reader.GetOrdinal("DefaultValue");
+                colColumnOrder ??= reader.GetOrdinal("ColumnOrder");
+
                 columns.Add(new ColumnMetadata
                 {
-                    ColumnName = reader.GetString(0),
-                    DataType = reader.GetString(1),
-                    MaxLength = reader.GetInt16(2),
-                    Precision = reader.GetByte(3),
-                    Scale = reader.GetByte(4),
-                    IsNullable = reader.GetBoolean(5),
-                    IsPrimaryKey = reader.GetBoolean(6),
-                    IsForeignKey = reader.GetBoolean(7),
-                    ColumnOrder = reader.GetInt32(8)
+                    ColumnName = reader.GetString(colColumnName.Value),
+                    DataType = reader.GetString(colDataType.Value),
+                    MaxLength = reader.GetInt16(colMaxLength.Value),
+                    Precision = reader.GetByte(colPrecision.Value),
+                    Scale = reader.GetByte(colScale.Value),
+                    IsNullable = reader.GetBoolean(colIsNullable.Value),
+                    IsPrimaryKey = reader.GetBoolean(colIsPrimaryKey.Value),
+                    IsForeignKey = reader.GetBoolean(colIsForeignKey.Value),
+                    IsIdentity = reader.GetBoolean(colIsIdentity.Value),
+                    DefaultValue = reader.IsDBNull(colDefaultValue.Value) ? null : reader.GetString(colDefaultValue.Value),
+                    ColumnOrder = reader.GetInt32(colColumnOrder.Value)
                 });
             }
             return columns;
+        }
+
+        private async Task<int> SyncIndexesForAllTablesAsync(
+            int projectId,
+            IEnumerable<(string TableName, string SchemaName)> tablesWithSchema,
+            string connectionString,
+            IDbConnection dbConn,
+            IDbTransaction transaction)
+        {
+            var totalIndexes = 0;
+            var indexes = await _schemaService.GetIndexesAsync(connectionString, tablesWithSchema);
+            var groupedIndexes = indexes
+                .GroupBy(i => $"{i.SchemaName}.{i.TableName}", StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+            var tables = await _schemaRepository.GetProjectTablesAsync(projectId, dbConn, transaction);
+            foreach (var (tableId, tableName, schemaName) in tables)
+            {
+                groupedIndexes.TryGetValue($"{schemaName}.{tableName}", out var tableIndexes);
+                totalIndexes += await _schemaRepository.SyncIndexesAsync(
+                    projectId,
+                    tableId,
+                    tableIndexes ?? [],
+                    dbConn,
+                    transaction);
+            }
+
+            return totalIndexes;
         }
 
         private static async Task SyncViaSameServerAsync(

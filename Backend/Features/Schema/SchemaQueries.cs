@@ -143,6 +143,8 @@ public static class SchemaSyncQueries
             c.is_nullable AS IsNullable,
             CASE WHEN kc.type = 'PK' THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END AS IsPrimaryKey,
             CASE WHEN fk.parent_column_id IS NOT NULL THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END AS IsForeignKey,
+            CASE WHEN c.is_identity = 1 THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END AS IsIdentity,
+            dc.definition AS DefaultValue,
             c.column_id AS ColumnOrder
         FROM sys.columns c
             INNER JOIN sys.tables t ON c.object_id = t.object_id
@@ -150,6 +152,7 @@ public static class SchemaSyncQueries
             LEFT JOIN sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id AND ic.is_included_column = 0
             LEFT JOIN sys.key_constraints kc ON kc.parent_object_id = c.object_id AND kc.unique_index_id = ic.index_id AND kc.type = 'PK'
             LEFT JOIN sys.foreign_key_columns fk ON fk.parent_object_id = c.object_id AND fk.parent_column_id = c.column_id
+            LEFT JOIN sys.default_constraints dc ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
         WHERE t.name = @TableName
           AND SCHEMA_NAME(t.schema_id) = @SchemaName
         ORDER BY c.column_id";
@@ -161,12 +164,51 @@ public static class SchemaSyncQueries
         )
         INSERT INTO ColumnsMetadata (
             TableId, ColumnName, DataType, MaxLength, Precision, Scale,
-            IsNullable, IsPrimaryKey, IsForeignKey, ColumnOrder
+            IsNullable, IsPrimaryKey, IsForeignKey, IsIdentity, DefaultValue, ColumnOrder
         )
         VALUES (
             @TableId, @ColumnName, @DataType, @MaxLength, @Precision, @Scale,
-            @IsNullable, @IsPrimaryKey, @IsForeignKey, @ColumnOrder
+            @IsNullable, @IsPrimaryKey, @IsForeignKey, @IsIdentity, @DefaultValue, @ColumnOrder
         )";
+
+    public const string DeleteIndexesByTable = @"
+        DELETE ic
+        FROM IndexColumnsMetadata ic
+        INNER JOIN IndexMetadata i ON i.IndexId = ic.IndexId
+        WHERE i.TableId = @TableId;
+
+        DELETE FROM IndexMetadata
+        WHERE TableId = @TableId;";
+
+    public const string InsertIndexMetadata = @"
+        INSERT INTO IndexMetadata (TableId, IndexName, IsUnique, IsPrimaryKey)
+        OUTPUT INSERTED.IndexId
+        VALUES (@TableId, @IndexName, @IsUnique, @IsPrimaryKey);";
+
+    public const string InsertIndexColumnMetadata = @"
+        INSERT INTO IndexColumnsMetadata (IndexId, ColumnId, ColumnOrder)
+        VALUES (@IndexId, @ColumnId, @ColumnOrder);";
+
+    public const string GetTargetIndexesForTables = @"
+        SELECT
+            t.name AS TableName,
+            s.name AS SchemaName,
+            i.name AS IndexName,
+            c.name AS ColumnName,
+            ic.key_ordinal AS ColumnOrder,
+            i.is_unique AS IsUnique,
+            i.is_primary_key AS IsPrimaryKey,
+            ic.is_included_column AS IsIncludedColumn
+        FROM sys.indexes i
+        INNER JOIN sys.tables t ON t.object_id = i.object_id
+        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+        INNER JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+        INNER JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+        WHERE i.name IS NOT NULL
+          AND i.is_hypothetical = 0
+          AND i.type_desc <> 'HEAP'
+          AND CONCAT(s.name, '.', t.name) IN @TableNames
+        ORDER BY s.name, t.name, i.name, ic.key_ordinal, ic.index_column_id;";
 
     // Stored Procedure sync - Target database queries
     public const string GetTargetStoredProcedures = @"
@@ -336,14 +378,14 @@ public static class SchemaSyncQueries
 
     public const string GetStoredColumns = @"
         SELECT ColumnId, TableId, ColumnName, DataType, MaxLength,
-               Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey,
+               Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey, IsIdentity,
                DefaultValue, ColumnOrder
         FROM ColumnsMetadata
         WHERE TableId = @TableId
         ORDER BY ColumnOrder";
 
     public const string GetStoredStoredProcedures = @"
-        SELECT SpId, ProjectId, ClientId, ProcedureName, Definition,
+        SELECT SpId, ProjectId, ClientId, SchemaName, ProcedureName, Definition,
                CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
         FROM SpMetadata
         WHERE ProjectId = @ProjectId AND IsDeleted = 0
@@ -356,13 +398,13 @@ public static class SchemaSyncQueries
 
     public const string GetColumnById = @"
         SELECT ColumnId, TableId, ColumnName, DataType, MaxLength, 
-               Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey, 
+               Precision, Scale, IsNullable, IsPrimaryKey, IsForeignKey, IsIdentity,
                DefaultValue, ColumnOrder
         FROM ColumnsMetadata 
         WHERE ColumnId = @ColumnId";
 
     public const string GetSpById = @"
-        SELECT SpId, ProjectId, ClientId, ProcedureName, Definition, 
+        SELECT SpId, ProjectId, ClientId, SchemaName, ProcedureName, Definition, 
                CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
         FROM SpMetadata 
         WHERE SpId = @SpId AND IsDeleted = 0";
@@ -382,6 +424,7 @@ public static class SchemaSyncQueries
             c.IsNullable, 
             c.IsPrimaryKey, 
             c.IsForeignKey, 
+            c.IsIdentity,
             c.DefaultValue,
             -- Foreign Key Information
             rt.TableName AS ReferencedTable,
@@ -395,4 +438,42 @@ public static class SchemaSyncQueries
         LEFT JOIN ColumnsMetadata rc ON fk.ReferencedColumnId = rc.ColumnId
         WHERE c.TableId = @TableId
         ORDER BY c.ColumnOrder";
+
+    public const string GetStoredIndexes = @"
+        SELECT
+            i.IndexId,
+            i.TableId,
+            i.IndexName,
+            i.IsUnique,
+            i.IsPrimaryKey,
+            ic.ColumnId,
+            c.ColumnName,
+            ic.ColumnOrder,
+            CAST(0 AS bit) AS IsIncludedColumn
+        FROM IndexMetadata i
+        LEFT JOIN IndexColumnsMetadata ic ON ic.IndexId = i.IndexId
+        LEFT JOIN ColumnsMetadata c ON c.ColumnId = ic.ColumnId
+        WHERE i.TableId = @TableId
+        ORDER BY i.IndexName, ic.ColumnOrder, c.ColumnName;";
+
+    public const string GetStoredForeignKeys = @"
+        SELECT
+            fk.ForeignKeyId,
+            fk.TableId,
+            fk.ColumnId,
+            c.ColumnName,
+            fk.ReferencedTableId,
+            rt.TableName AS ReferencedTableName,
+            rt.SchemaName AS ReferencedSchemaName,
+            fk.ReferencedColumnId,
+            rc.ColumnName AS ReferencedColumnName,
+            fk.ForeignKeyName,
+            fk.OnDeleteAction,
+            fk.OnUpdateAction
+        FROM ForeignKeyMetadata fk
+        INNER JOIN ColumnsMetadata c ON c.ColumnId = fk.ColumnId
+        INNER JOIN TablesMetadata rt ON rt.TableId = fk.ReferencedTableId
+        INNER JOIN ColumnsMetadata rc ON rc.ColumnId = fk.ReferencedColumnId
+        WHERE fk.TableId = @TableId
+        ORDER BY fk.ForeignKeyName, c.ColumnName;";
 }

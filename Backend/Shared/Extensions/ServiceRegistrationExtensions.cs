@@ -13,6 +13,8 @@ using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Scoring;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
 using ActoEngine.WebApi.Features.LogicalFk;
 using ActoEngine.WebApi.Features.Notifications;
+using ActoEngine.WebApi.Features.Patcher;
+using ActoEngine.WebApi.Features.Patcher.Engine;
 using ActoEngine.WebApi.Features.Permissions;
 using ActoEngine.WebApi.Features.ProjectClients;
 using ActoEngine.WebApi.Features.Projects;
@@ -46,6 +48,7 @@ namespace ActoEngine.WebApi.Shared.Extensions
 
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<ITokenRepository, TokenRepository>();
+            services.AddScoped<IExtensionAuthRepository, ExtensionAuthRepository>();
             services.AddScoped<IProjectRepository, ProjectRepository>();
             services.AddScoped<ISchemaRepository, SchemaRepository>();
             services.AddScoped<IClientRepository, ClientRepository>();
@@ -59,6 +62,7 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<IPermissionRepository, PermissionRepository>();
 
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IExtensionAuthService, ExtensionAuthService>();
             services.AddScoped<ISchemaService, SchemaService>();
             services.AddScoped<IProjectService, ProjectService>();
             services.AddScoped<ISpBuilderService, SpBuilderService>();
@@ -106,6 +110,14 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<ICodeTemplateRepository, CodeTemplateRepository>();
             services.AddScoped<IGenerationHistoryRepository, GenerationHistoryRepository>();
             services.AddScoped<ITemplateRenderService, TemplateRenderService>();
+
+            // Patcher Services
+            services.AddScoped<IPatcherRepository, PatcherRepository>();
+            services.AddScoped<IPatchScriptRenderer, PatchScriptRenderer>();
+            services.AddScoped<PatchManifestBuilder>();
+            services.AddScoped<PatchArchiver>();
+            services.AddScoped<IPatcherService, PatcherService>();
+            services.AddScoped<IPageMappingRepository, PageMappingRepository>();
 
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddSingleton<ITokenHasher, TokenHasher>();

@@ -49,8 +49,13 @@ public class CustomTokenAuthenticationHandler(
 
         using var scope = _scopeFactory.CreateScope();
         var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
+        var extensionAuthService = scope.ServiceProvider.GetRequiredService<IExtensionAuthService>();
 
         var principal = await authService.ValidateAccessTokenAsync(token);
+        if (principal == null)
+        {
+            principal = await extensionAuthService.ValidateAccessTokenAsync(token);
+        }
         if (principal == null)
         {
             _logger.LogWarning("Token validation failed for path: {Path}", Request.Path);

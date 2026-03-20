@@ -77,8 +77,20 @@ public class DependencyAnalysisService(ILogger<DependencyAnalysisService> logger
             });
         }
 
-        // 5. Map Columns (Optional: If you want column-level granularity later)
-        // visitor.ColumnReferences...
+        // 5. Map Columns
+        foreach (var (tableName, columnName, _, modType) in visitor.ColumnReferences
+            .Where(c => !string.IsNullOrWhiteSpace(c.TableName) && !string.IsNullOrWhiteSpace(c.ColumnName))
+            .Distinct())
+        {
+            dependencies.Add(new Dependency
+            {
+                SourceId = sourceEntityId,
+                SourceType = sourceType,
+                TargetName = $"{tableName}.{columnName}",
+                TargetType = "COLUMN",
+                DependencyType = modType
+            });
+        }
 
         return dependencies;
     }
@@ -118,7 +130,7 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
     public List<(string Name, string ModificationType)> TableReferences { get; } = [];
     public List<string> ProcedureReferences { get; } = [];
     // Storing (TableName, ColumnName, FullIdentifier)
-    public List<(string TableName, string ColumnName, string FullIdentifier)> ColumnReferences { get; } = [];
+    public List<(string TableName, string ColumnName, string FullIdentifier, string ModificationType)> ColumnReferences { get; } = [];
     /// <summary>
     /// JOIN ON condition pairs extracted from equality comparisons within JOIN contexts.
     /// </summary>
@@ -371,7 +383,13 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
                 // (3) Preserve full multipart information
                 var fullIdentifier = string.Join(".", parts.Select(p => p.Value));
 
-                ColumnReferences.Add((tableName, columnName, fullIdentifier));
+                var modificationType = _contextStack.Count > 0 ? _contextStack.Peek() : "SELECT";
+                if (_inFromClause || _inJoin || _inJoinCondition)
+                {
+                    modificationType = "SELECT";
+                }
+
+                ColumnReferences.Add((tableName, columnName, fullIdentifier, modificationType));
             }
         }
         base.Visit(node);
