@@ -23,6 +23,7 @@ import UserManagementPage from "@/pages/UserManagement";
 import RoleManagementPage from "@/pages/RoleManagement";
 import EntityDetailPage from "@/pages/EntityDetailPage";
 import AdvancedJsRenderGenerator from "@/pages/AdvancedJsRenderGenerator";
+import PatcherPage from "@/pages/Patcher";
 import { AccessDenied } from "./components/feedback/AccessDenied";
 import { FullscreenProvider } from "./hooks/useFullscreen";
 import { initializeApiClient } from "./lib/api";
@@ -98,6 +99,14 @@ function AppRoutes() {
           element={
             <PermissionRoute permission="Projects:Read">
               <ProjectSettings />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="project/:projectId/patcher"
+          element={
+            <PermissionRoute permission="StoredProcedures:Create">
+              <PatcherPage />
             </PermissionRoute>
           }
         />

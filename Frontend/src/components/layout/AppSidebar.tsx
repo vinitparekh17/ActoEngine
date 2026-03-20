@@ -103,6 +103,9 @@ export default function AppSidebar() {
     if (project) {
       try {
         selectProject(project);
+        if (/^\/project\/\d+\/entities(?:\/.*)?$/.test(location.pathname)) {
+          navigate(`/project/${project.projectId}/entities`);
+        }
         toast.success(`Switched to ${project.projectName}`);
       } catch (err) {
         toast.error("Failed to switch project");
@@ -245,6 +248,20 @@ export default function AppSidebar() {
                       >
                         <GitBranch />
                         <span>ER Diagram</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname.includes("/patcher")}
+                      tooltip="Patcher"
+                    >
+                      <NavLink
+                        to={`/project/${selectedProject.projectId}/patcher`}
+                      >
+                        <Code />
+                        <span>Patcher</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
