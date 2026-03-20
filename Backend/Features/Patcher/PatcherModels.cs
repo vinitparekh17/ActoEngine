@@ -55,6 +55,7 @@ public class PagePatchStatus
 public class PatchGenerationRequest
 {
     public int ProjectId { get; set; }
+    public string? PatchName { get; set; }
     public required List<PageSpMapping> PageMappings { get; set; }
 }
 
@@ -97,6 +98,7 @@ public class PatchHistoryRecord
     public required string PageName { get; set; }
     public required string DomainName { get; set; }
     public required string SpNames { get; set; }
+    public string? PatchName { get; set; }
     public bool IsNewPage { get; set; }
     public string? PatchFilePath { get; set; }
     public DateTime GeneratedAt { get; set; }
@@ -125,6 +127,7 @@ internal class PatchHistoryFlatRow
     public required string PageName { get; set; }
     public required string DomainName { get; set; }
     public required string SpNames { get; set; }
+    public string? PatchName { get; set; }
     public bool IsNewPage { get; set; }
     public string? PatchFilePath { get; set; }
     public DateTime GeneratedAt { get; set; }

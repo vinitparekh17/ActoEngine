@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Features.Auth;
 
@@ -41,7 +42,7 @@ public class ExtensionAuthService(
         if (userId <= 0) throw new InvalidOperationException("Invalid user context.");
         if (string.IsNullOrWhiteSpace(clientId)) throw new InvalidOperationException("client_id is required.");
         if (string.IsNullOrWhiteSpace(redirectUri)) throw new InvalidOperationException("redirect_uri is required.");
-        if (string.IsNullOrWhiteSpace(codeChallenge)) throw new InvalidOperationException("code_challenge is required.");
+        ValidatePkceValue(codeChallenge, "code_challenge");
         if (!codeChallengeMethod.Equals("S256", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Only S256 code challenge method is supported.");
@@ -104,17 +105,11 @@ public class ExtensionAuthService(
             throw new InvalidOperationException("Invalid code verifier.");
         }
 
-        var marked = await extensionAuthRepository.MarkAuthorizationCodeConsumedAsync(authCode.AuthCodeId, ct);
-        if (!marked)
-        {
-            throw new InvalidOperationException("Authorization code already consumed.");
-        }
-
         var now = DateTime.UtcNow;
         var accessToken = GenerateSecureToken();
         var refreshToken = GenerateSecureToken();
 
-        await extensionAuthRepository.StoreTokenSessionAsync(new ExtensionTokenSession
+        await extensionAuthRepository.ConsumeCodeAndCreateSessionAsync(authCode.AuthCodeId, new ExtensionTokenSession
         {
             UserID = authCode.UserID,
             ClientId = authCode.ClientId,
@@ -223,10 +218,7 @@ public class ExtensionAuthService(
         {
             throw new InvalidOperationException("code is required.");
         }
-        if (string.IsNullOrWhiteSpace(request.CodeVerifier))
-        {
-            throw new InvalidOperationException("codeVerifier is required.");
-        }
+        ValidatePkceValue(request.CodeVerifier, "codeVerifier");
         if (string.IsNullOrWhiteSpace(request.ClientId))
         {
             throw new InvalidOperationException("clientId is required.");
@@ -265,8 +257,24 @@ public class ExtensionAuthService(
 
     private static string BuildCodeChallenge(string verifier)
     {
-        var hash = SHA256.HashData(Encoding.ASCII.GetBytes(verifier));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(verifier));
         return Base64UrlEncode(hash);
+    }
+
+    private static void ValidatePkceValue(string value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"{parameterName} is required.");
+        }
+        if (value.Length < 43 || value.Length > 128)
+        {
+            throw new InvalidOperationException($"{parameterName} must be between 43 and 128 characters length.");
+        }
+        if (!Regex.IsMatch(value, @"^[A-Za-z0-9\-._~]+$"))
+        {
+            throw new InvalidOperationException($"{parameterName} contains invalid characters.");
+        }
     }
 
     private static string Base64UrlEncode(byte[] input)

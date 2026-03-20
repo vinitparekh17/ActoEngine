@@ -1,5 +1,6 @@
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
+using Dapper;
 
 namespace ActoEngine.WebApi.Features.Auth;
 
@@ -8,6 +9,7 @@ public interface IExtensionAuthRepository
     Task StoreAuthorizationCodeAsync(ExtensionAuthCode code, CancellationToken ct = default);
     Task<ExtensionAuthCode?> GetAuthorizationCodeByHashAsync(string codeHash, CancellationToken ct = default);
     Task<bool> MarkAuthorizationCodeConsumedAsync(int authCodeId, CancellationToken ct = default);
+    Task ConsumeCodeAndCreateSessionAsync(int authCodeId, ExtensionTokenSession session, CancellationToken ct = default);
 
     Task StoreTokenSessionAsync(ExtensionTokenSession session, CancellationToken ct = default);
     Task<ExtensionTokenSession?> GetSessionByRefreshTokenHashAsync(string refreshTokenHash, CancellationToken ct = default);
@@ -36,6 +38,25 @@ public class ExtensionAuthRepository(
     {
         var rows = await ExecuteAsync(ExtensionAuthQueries.MarkAuthCodeConsumed, new { AuthCodeId = authCodeId }, ct);
         return rows > 0;
+    }
+
+    public Task ConsumeCodeAndCreateSessionAsync(int authCodeId, ExtensionTokenSession session, CancellationToken ct = default)
+    {
+        return ExecuteInTransactionAsync(async (connection, transaction) =>
+        {
+            var marked = await connection.ExecuteAsync(
+                new CommandDefinition(ExtensionAuthQueries.MarkAuthCodeConsumed, new { AuthCodeId = authCodeId }, transaction, cancellationToken: ct));
+                
+            if (marked == 0)
+            {
+                throw new InvalidOperationException("Authorization code already consumed.");
+            }
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(ExtensionAuthQueries.InsertTokenSession, session, transaction, cancellationToken: ct));
+                
+            return true;
+        }, ct);
     }
 
     public async Task StoreTokenSessionAsync(ExtensionTokenSession session, CancellationToken ct = default)

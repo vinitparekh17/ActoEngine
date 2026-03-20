@@ -46,37 +46,6 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
         logger.LogInformation("Database migration completed successfully.");
     }
 
-    public async Task SeedDataAsync(CancellationToken cancellationToken = default)
-    {
-        logger.LogInformation("Starting data seeding...");
-
-        var assemblyName = ExecutingAssembly.GetName().Name
-            ?? throw new InvalidOperationException("Executing assembly name could not be determined.");
-
-        var seedScripts = new[]
-        {
-            $"{assemblyName}.Sql.StoredProcedures.PROJECT_SYNC.sql",
-        };
-
-        using var connection = new SqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
-
-        foreach (var scriptName in seedScripts)
-        {
-            try
-            {
-                var script = GetEmbeddedScriptOrThrow(scriptName);
-                await connection.ExecuteAsync(script);
-                logger.LogInformation("Executed seed script: {Script}", scriptName);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to execute seed script: {Script}", scriptName);
-                throw;
-            }
-        }
-    }
-
     private static string GetEmbeddedScriptOrThrow(string scriptName)
     {
         using var stream = ExecutingAssembly.GetManifestResourceStream(scriptName);

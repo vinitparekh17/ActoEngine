@@ -471,7 +471,8 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         var dataType = column.DataType.ToUpperInvariant();
         return dataType switch
         {
-            "NVARCHAR" or "VARCHAR" or "CHAR" or "NCHAR" => $"{dataType}({FormatLength(column.MaxLength)})",
+            "NVARCHAR" or "NCHAR" => $"{dataType}({FormatLength(column.MaxLength > 0 ? column.MaxLength / 2 : column.MaxLength)})",
+            "VARCHAR" or "CHAR" => $"{dataType}({FormatLength(column.MaxLength)})",
             "DECIMAL" or "NUMERIC" => $"{dataType}({column.Precision ?? 18},{column.Scale ?? 0})",
             "VARBINARY" or "BINARY" => $"{dataType}({FormatLength(column.MaxLength)})",
             _ => dataType
@@ -521,7 +522,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
 
     private static string EscapeForNestedExec(string value)
     {
-        return value.Replace("'", "''''");
+        return value.Replace("'", "''");
     }
 
     [GeneratedRegex(@"^\s*(CREATE|ALTER)\s+PROCEDURE", RegexOptions.IgnoreCase | RegexOptions.Multiline)]

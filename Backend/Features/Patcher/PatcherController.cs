@@ -2,6 +2,7 @@ using ActoEngine.WebApi.Api.ApiModels;
 using ActoEngine.WebApi.Api.Attributes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace ActoEngine.WebApi.Features.Patcher;
 
@@ -54,7 +55,10 @@ public class PatcherController(
     {
         try
         {
-            var result = await patcherService.GeneratePatchAsync(request);
+            var userIdStr = User.FindFirstValue("user_id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            _ = int.TryParse(userIdStr, out var userId);
+            
+            var result = await patcherService.GeneratePatchAsync(request, userId > 0 ? userId : null);
 
             return Ok(ApiResponse<PatchGenerationResponse>.Success(
                 result,

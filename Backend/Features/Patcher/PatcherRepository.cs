@@ -25,21 +25,14 @@ public class PatcherRepository(
     public async Task<ProjectPatchConfig?> GetPatchConfigAsync(int projectId, CancellationToken ct = default)
     {
         return await QueryFirstOrDefaultAsync<ProjectPatchConfig>(
-            @"SELECT ProjectRootPath, ViewDirPath, ScriptDirPath, PatchDownloadPath
-              FROM Projects
-              WHERE ProjectId = @ProjectId",
+            PatcherQueries.GetPatchConfig,
             new { ProjectId = projectId }, ct);
     }
 
     public async Task UpdatePatchConfigAsync(int projectId, PatchConfigRequest config, CancellationToken ct = default)
     {
         await ExecuteAsync(
-            @"UPDATE Projects
-              SET ProjectRootPath = @ProjectRootPath,
-                  ViewDirPath = @ViewDirPath,
-                  ScriptDirPath = @ScriptDirPath,
-                  PatchDownloadPath = @PatchDownloadPath
-              WHERE ProjectId = @ProjectId",
+            PatcherQueries.UpdatePatchConfig,
             new
             {
                 ProjectId = projectId,
@@ -54,27 +47,14 @@ public class PatcherRepository(
         int projectId, string domainName, string pageName, CancellationToken ct = default)
     {
         return await QueryFirstOrDefaultAsync<PatchHistoryRecord>(
-            @"SELECT TOP 1 ph.PatchId, ph.ProjectId, ph.PageName, ph.DomainName, ph.SpNames,
-                           ph.IsNewPage, ph.PatchFilePath, ph.GeneratedAt, ph.GeneratedBy, ph.Status
-              FROM PatchHistory ph
-              JOIN PatchHistoryPages php ON ph.PatchId = php.PatchId
-              WHERE ph.ProjectId = @ProjectId
-                AND php.DomainName = @DomainName
-                AND php.PageName = @PageName
-              ORDER BY ph.GeneratedAt DESC",
+            PatcherQueries.GetLatestPatch,
             new { ProjectId = projectId, DomainName = domainName, PageName = pageName }, ct);
     }
 
     public async Task<List<PatchHistoryRecord>> GetPatchHistoryAsync(int projectId, CancellationToken ct = default)
     {
         var flat = await QueryAsync<PatchHistoryFlatRow>(
-            @"SELECT ph.PatchId, ph.ProjectId, ph.PageName, ph.DomainName, ph.SpNames,
-                     ph.IsNewPage, ph.PatchFilePath, ph.GeneratedAt, ph.GeneratedBy, ph.Status,
-                     php.DomainName AS PageDomain, php.PageName AS PagePage, php.IsNewPage AS PageIsNew
-              FROM PatchHistory ph
-              LEFT JOIN PatchHistoryPages php ON ph.PatchId = php.PatchId
-              WHERE ph.ProjectId = @ProjectId
-              ORDER BY ph.GeneratedAt DESC",
+            PatcherQueries.GetPatchHistory,
             new { ProjectId = projectId }, ct);
 
         return flat.GroupBy(r => r.PatchId)
@@ -88,6 +68,7 @@ public class PatcherRepository(
                     PageName = first.PageName,
                     DomainName = first.DomainName,
                     SpNames = first.SpNames,
+                    PatchName = first.PatchName,
                     IsNewPage = first.IsNewPage,
                     PatchFilePath = first.PatchFilePath,
                     GeneratedAt = first.GeneratedAt,
@@ -109,17 +90,14 @@ public class PatcherRepository(
         return await ExecuteInTransactionAsync(async (connection, transaction) =>
         {
             var patchId = await connection.QuerySingleAsync<int>(
-                @"INSERT INTO PatchHistory
-                      (ProjectId, PageName, DomainName, SpNames, IsNewPage, PatchFilePath, GeneratedAt, GeneratedBy, Status)
-                  VALUES
-                      (@ProjectId, @PageName, @DomainName, @SpNames, @IsNewPage, @PatchFilePath, GETUTCDATE(), @GeneratedBy, @Status);
-                  SELECT SCOPE_IDENTITY();",
+                PatcherQueries.InsertPatchHistory,
                 new
                 {
                     record.ProjectId,
                     record.PageName,
                     record.DomainName,
                     record.SpNames,
+                    record.PatchName,
                     record.IsNewPage,
                     record.PatchFilePath,
                     record.GeneratedBy,
@@ -128,8 +106,7 @@ public class PatcherRepository(
                 transaction);
 
             await connection.ExecuteAsync(
-                @"INSERT INTO PatchHistoryPages (PatchId, DomainName, PageName, IsNewPage)
-                  VALUES (@PatchId, @DomainName, @PageName, @IsNewPage)",
+                PatcherQueries.InsertPatchHistoryPages,
                 pages.Select(p => new
                 {
                     PatchId = patchId,
@@ -146,10 +123,7 @@ public class PatcherRepository(
     public async Task<PatchHistoryRecord?> GetPatchByIdAsync(int patchId, CancellationToken ct = default)
     {
         return await QueryFirstOrDefaultAsync<PatchHistoryRecord>(
-            @"SELECT PatchId, ProjectId, PageName, DomainName, SpNames,
-                     IsNewPage, PatchFilePath, GeneratedAt, GeneratedBy, Status
-              FROM PatchHistory
-              WHERE PatchId = @PatchId",
+            PatcherQueries.GetPatchById,
             new { PatchId = patchId }, ct);
     }
 
@@ -161,13 +135,7 @@ public class PatcherRepository(
         int projectId, int spId, CancellationToken ct = default)
     {
         var results = await QueryAsync<SpTableDependencyRow>(
-            @"SELECT d.TargetId AS TableId, t.TableName, t.SchemaName
-              FROM Dependencies d
-              JOIN TablesMetadata t ON d.TargetId = t.TableId AND t.ProjectId = d.ProjectId AND t.IsDeleted = 0
-              WHERE d.ProjectId = @ProjectId
-                AND d.SourceType = 'SP'
-                AND d.SourceId = @SpId
-                AND d.TargetType = 'TABLE'",
+            PatcherQueries.GetSpOutboundDependencies,
             new { ProjectId = projectId, SpId = spId }, ct);
 
         return [.. results];
@@ -177,13 +145,7 @@ public class PatcherRepository(
         int projectId, int spId, CancellationToken ct = default)
     {
         var results = await QueryAsync<SpProcedureDependencyRow>(
-            @"SELECT d.TargetId AS SpId, s.ProcedureName, s.SchemaName
-              FROM Dependencies d
-              JOIN SpMetadata s ON d.TargetId = s.SpId AND s.ProjectId = d.ProjectId AND s.IsDeleted = 0
-              WHERE d.ProjectId = @ProjectId
-                AND d.SourceType = 'SP'
-                AND d.SourceId = @SpId
-                AND d.TargetType = 'SP'",
+            PatcherQueries.GetSpProcedureDependencies,
             new { ProjectId = projectId, SpId = spId }, ct);
 
         return [.. results];
@@ -193,19 +155,7 @@ public class PatcherRepository(
         int projectId, int spId, CancellationToken ct = default)
     {
         var results = await QueryAsync<SpColumnDependencyRow>(
-            @"SELECT
-                    d.TargetId AS ColumnId,
-                    c.ColumnName,
-                    t.TableId,
-                    t.TableName,
-                    t.SchemaName
-              FROM Dependencies d
-              JOIN ColumnsMetadata c ON d.TargetId = c.ColumnId
-              JOIN TablesMetadata t ON c.TableId = t.TableId AND t.ProjectId = d.ProjectId AND t.IsDeleted = 0
-              WHERE d.ProjectId = @ProjectId
-                AND d.SourceType = 'SP'
-                AND d.SourceId = @SpId
-                AND d.TargetType = 'COLUMN'",
+            PatcherQueries.GetSpColumnDependencies,
             new { ProjectId = projectId, SpId = spId }, ct);
 
         return [.. results];

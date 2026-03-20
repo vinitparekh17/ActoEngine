@@ -38,24 +38,19 @@ public class PageMappingRepository(
         // Validate all detections up front so no batches execute against a partially-valid set.
         ValidateDetections(detections);
 
-        // Deduplicate by natural key, keeping highest confidence per group.
-        var unique = detections
-            .GroupBy(d => (
-                DomainName: d.DomainName.Trim().ToLowerInvariant(),
-                Page: d.Page.Trim().ToLowerInvariant(),
-                SP: d.StoredProcedure.Trim().ToLowerInvariant(),
-                Source: d.Source.Trim().ToLowerInvariant()
-            ))
-            .Select(g => g.OrderByDescending(d => d.Confidence ?? 0).First())
-            .ToList();
+        var unique = DeduplicateDetections(detections);
 
         const int batchSize = 350;
-        for (var i = 0; i < unique.Count; i += batchSize)
+        await ExecuteInTransactionAsync(async (connection, transaction) =>
         {
-            var batch = unique.Skip(i).Take(batchSize).ToList();
-            var (sql, parameters) = BuildMergeSql(projectId, batch);
-            await ExecuteAsync(sql, parameters, ct);
-        }
+            for (var i = 0; i < unique.Count; i += batchSize)
+            {
+                var batch = unique.Skip(i).Take(batchSize).ToList();
+                var (sql, parameters) = BuildMergeSql(projectId, batch);
+                await connection.ExecuteAsync(sql, parameters, transaction);
+            }
+            return 0;
+        }, ct);
 
         return new MappingUpsertResult(detections.Count, unique.Count);
     }
@@ -112,6 +107,11 @@ public class PageMappingRepository(
                 updates.Add("ReviewedBy = @ReviewedBy");
                 updates.Add("ReviewedAt = GETUTCDATE()");
                 parameters.Add("ReviewedBy", reviewedBy);
+            }
+            else if (normalizedStatus == PageMappingConstants.StatusCandidate)
+            {
+                updates.Add("ReviewedBy = NULL");
+                updates.Add("ReviewedAt = NULL");
             }
         }
 
@@ -194,13 +194,23 @@ public class PageMappingRepository(
               AND MappingId IN @Ids
             """;
 
-        return await ExecuteAsync(sql, new
+        int totalAffected = 0;
+        const int batchSize = 350;
+        
+        var idList = ids.ToList();
+        for (int i = 0; i < idList.Count; i += batchSize)
         {
-            ProjectId = projectId,
-            Ids = ids,
-            Status = targetStatus,
-            ReviewedBy = reviewedBy
-        }, ct);
+            var chunk = idList.Skip(i).Take(batchSize).ToList();
+            totalAffected += await ExecuteAsync(sql, new
+            {
+                ProjectId = projectId,
+                Ids = chunk,
+                Status = targetStatus,
+                ReviewedBy = reviewedBy
+            }, ct);
+        }
+
+        return totalAffected;
     }
 
     public async Task<bool> DeleteCandidateAsync(int projectId, int mappingId, CancellationToken ct = default)
@@ -270,6 +280,19 @@ public class PageMappingRepository(
                 throw new InvalidOperationException($"Invalid mapping source '{detection.Source}'.");
             }
         }
+    }
+
+    internal static List<MappingDetectionRequest> DeduplicateDetections(IEnumerable<MappingDetectionRequest> detections)
+    {
+        return detections
+            .GroupBy(d => (
+                DomainName: d.DomainName.Trim().ToLowerInvariant(),
+                Page: d.Page.Trim().ToLowerInvariant(),
+                SP: d.StoredProcedure.Trim().ToLowerInvariant(),
+                Source: d.Source.Trim().ToLowerInvariant()
+            ))
+            .Select(g => g.OrderByDescending(d => d.Confidence ?? 0).First())
+            .ToList();
     }
 
     internal static (string Sql, DynamicParameters Parameters) BuildMergeSql(

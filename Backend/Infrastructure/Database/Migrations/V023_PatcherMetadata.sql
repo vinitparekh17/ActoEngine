@@ -237,7 +237,7 @@ BEGIN
         WHERE mod.definition IS NOT NULL
     ) AS source
     ON (target.ProjectId = source.ProjectId AND target.ProcedureName = source.ProcedureName AND target.SchemaName = source.SchemaName AND target.ClientId = source.ClientId)
-    WHEN MATCHED AND (target.Definition <> source.Definition OR target.IsDeleted = 1) THEN
+    WHEN MATCHED AND (COALESCE(target.Definition, '''') <> COALESCE(source.Definition, '''') OR target.IsDeleted = 1) THEN
         UPDATE SET
             Definition = source.Definition,
             IsDeleted = 0

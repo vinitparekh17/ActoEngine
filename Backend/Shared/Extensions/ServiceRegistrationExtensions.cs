@@ -14,6 +14,7 @@ using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
 using ActoEngine.WebApi.Features.LogicalFk;
 using ActoEngine.WebApi.Features.Notifications;
 using ActoEngine.WebApi.Features.Patcher;
+using ActoEngine.WebApi.Features.Patcher.Engine;
 using ActoEngine.WebApi.Features.Permissions;
 using ActoEngine.WebApi.Features.ProjectClients;
 using ActoEngine.WebApi.Features.Projects;
@@ -112,6 +113,9 @@ namespace ActoEngine.WebApi.Shared.Extensions
 
             // Patcher Services
             services.AddScoped<IPatcherRepository, PatcherRepository>();
+            services.AddScoped<IPatchScriptRenderer, PatchScriptRenderer>();
+            services.AddScoped<PatchManifestBuilder>();
+            services.AddScoped<PatchArchiver>();
             services.AddScoped<IPatcherService, PatcherService>();
             services.AddScoped<IPageMappingRepository, PageMappingRepository>();
 

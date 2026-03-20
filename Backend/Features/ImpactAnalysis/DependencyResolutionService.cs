@@ -137,6 +137,16 @@ public class DependencyResolutionService(
         }
 
         var parts = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        
+        if (parts.Length >= 3)
+        {
+            var shortened = string.Join('.', parts.Skip(parts.Length - 3));
+            if (map.TryGetValue(shortened, out id))
+            {
+                return id;
+            }
+        }
+
         if (parts.Length >= 2)
         {
             var shortened = string.Join('.', parts.Skip(parts.Length - 2));
