@@ -79,7 +79,7 @@ public class MappingsTests
 
         Assert.Equal(2, unique.Count);
 
-        var (sql, parameters) = PageMappingRepository.BuildMergeSql(1, unique);
+        var (_, parameters) = PageMappingRepository.BuildMergeSql(1, unique);
 
         // Only 2 parameter sets (indices 0 and 1)
         Assert.Equal(0.95, parameters.Get<double?>("Confidence0"));

@@ -15,7 +15,7 @@ public class SchemaServiceTests
     {
         _repositoryMock = Substitute.For<ISchemaRepository>();
         _loggerMock = Substitute.For<ILogger<SchemaService>>();
-        
+
         _schemaService = new SchemaService(_repositoryMock, _loggerMock);
     }
 

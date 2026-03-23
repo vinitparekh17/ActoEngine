@@ -281,19 +281,17 @@ public class PatcherServiceTests
         Assert.Contains(response.FilesIncluded, file => file.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
         Assert.True(File.Exists(response.DownloadPath));
 
-        using (var archive = ZipFile.OpenRead(response.DownloadPath))
-        {
-            Assert.NotNull(archive.GetEntry(archive.Entries.Single(e => e.FullName.EndsWith("rollback.sql", StringComparison.OrdinalIgnoreCase)).FullName));
-            var manifestEntry = archive.Entries.Single(e => e.FullName.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
-            using var manifestStream = manifestEntry.Open();
-            using var reader = new StreamReader(manifestStream);
-            var manifestJson = await reader.ReadToEndAsync();
+        using var archive = ZipFile.OpenRead(response.DownloadPath);
+        Assert.NotNull(archive.GetEntry(archive.Entries.Single(e => e.FullName.EndsWith("rollback.sql", StringComparison.OrdinalIgnoreCase)).FullName));
+        var manifestEntry = archive.Entries.Single(e => e.FullName.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
+        using var manifestStream = manifestEntry.Open();
+        using var reader = new StreamReader(manifestStream);
+        var manifestJson = await reader.ReadToEndAsync();
 
-            using var document = JsonDocument.Parse(manifestJson);
-            var procedures = document.RootElement.GetProperty("Procedures").EnumerateArray().Select(p => p.GetProperty("ProcedureName").GetString()).ToList();
-            Assert.Contains("sp_root", procedures);
-            Assert.Contains("sp_child", procedures);
-        }
+        using var document = JsonDocument.Parse(manifestJson);
+        var procedures = document.RootElement.GetProperty("Procedures").EnumerateArray().Select(p => p.GetProperty("ProcedureName").GetString()).ToList();
+        Assert.Contains("sp_root", procedures);
+        Assert.Contains("sp_child", procedures);
 
 
     }
@@ -493,18 +491,169 @@ public class PatcherServiceTests
             ]
         }, userId: 1);
 
-        using (var archive = ZipFile.OpenRead(response.DownloadPath))
-        {
-            var manifestEntry = archive.Entries.Single(e => e.FullName.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
-            using var manifestStream = manifestEntry.Open();
-            using var reader = new StreamReader(manifestStream);
-            var manifestJson = await reader.ReadToEndAsync();
+        using var archive = ZipFile.OpenRead(response.DownloadPath);
+        var manifestEntry = archive.Entries.Single(e => e.FullName.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
+        using var manifestStream = manifestEntry.Open();
+        using var reader = new StreamReader(manifestStream);
+        var manifestJson = await reader.ReadToEndAsync();
 
-            using var document = JsonDocument.Parse(manifestJson);
-            var tables = document.RootElement.GetProperty("Tables").EnumerateArray().Select(t => t.GetProperty("TableName").GetString()).ToList();
-            Assert.Contains("Orders", tables);
-        }
+        using var document = JsonDocument.Parse(manifestJson);
+        var tables = document.RootElement.GetProperty("Tables").EnumerateArray().Select(t => t.GetProperty("TableName").GetString()).ToList();
+        Assert.Contains("Orders", tables);
         Assert.Contains(response.Warnings, warning => warning.Contains("dynamic SQL", StringComparison.OrdinalIgnoreCase));
 
+    }
+
+    [Fact]
+    public async Task GeneratePatchAsync_FallsBackToFullColumnSnapshot_WhenTableHasNoColumnDependencies()
+    {
+        var service = CreateService();
+
+        var root = Path.Combine(Path.GetTempPath(), $"acto-patcher-{Guid.NewGuid():N}");
+        var viewsPath = Path.Combine(root, "Views", "Reports");
+        var scriptsPath = Path.Combine(root, "Scripts", "Reports");
+        var patchPath = Path.Combine(root, "patches");
+        Directory.CreateDirectory(viewsPath);
+        Directory.CreateDirectory(scriptsPath);
+        File.WriteAllText(Path.Combine(viewsPath, "SalesPage.cshtml"), "<h1>sales</h1>");
+        File.WriteAllText(Path.Combine(scriptsPath, "SalesPage.js"), "console.log('sales');");
+
+        _projectRepo.GetByIdAsync(7).Returns(new PublicProjectDto
+        {
+            ProjectId = 7,
+            ProjectName = "DemoProject",
+            Description = "",
+            DatabaseName = "DemoDb",
+            IsActive = true,
+            IsLinked = true,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = 1
+        });
+
+        _patcherRepo.GetPatchConfigAsync(7, Arg.Any<CancellationToken>())
+            .Returns(new ProjectPatchConfig
+            {
+                ProjectRootPath = root,
+                ViewDirPath = "Views",
+                ScriptDirPath = "Scripts",
+                PatchDownloadPath = patchPath
+            });
+
+        _mappingRepo.GetApprovedStoredProceduresAsync(7, "Reports", "SalesPage", Arg.Any<CancellationToken>())
+            .Returns([new ApprovedSpDto { StoredProcedure = "dbo.sp_table_only", MappingType = "page_specific" }]);
+
+        _schemaRepo.GetStoredProceduresListAsync(7).Returns(
+        [
+            new StoredProcedureListDto { SpId = 401, ProcedureName = "sp_table_only", SchemaName = "dbo" }
+        ]);
+
+        _schemaRepo.GetSpByIdAsync(401).Returns(new StoredProcedureMetadataDto
+        {
+            SpId = 401,
+            ProjectId = 7,
+            ClientId = 1,
+            SchemaName = "dbo",
+            ProcedureName = "sp_table_only",
+            Definition = "CREATE PROCEDURE [dbo].[sp_table_only] AS SELECT 1",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        _schemaRepo.GetStoredTablesAsync(7).Returns(
+        [
+            new TableMetadataDto
+            {
+                TableId = 501,
+                ProjectId = 7,
+                TableName = "Orders",
+                SchemaName = "dbo",
+                CreatedAt = DateTime.UtcNow
+            }
+        ]);
+
+        _patcherRepo.GetSpProcedureDependenciesAsync(7, 401, Arg.Any<CancellationToken>())
+            .Returns([]);
+        _patcherRepo.GetSpOutboundDependenciesAsync(7, 401, Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new SpTableDependencyRow
+                {
+                    TableId = 501,
+                    TableName = "Orders",
+                    SchemaName = "dbo"
+                }
+            ]);
+        _patcherRepo.GetSpColumnDependenciesAsync(7, 401, Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        _schemaRepo.GetTableByIdAsync(501).Returns(new TableMetadataDto
+        {
+            TableId = 501,
+            ProjectId = 7,
+            TableName = "Orders",
+            SchemaName = "dbo",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        _schemaRepo.GetStoredColumnsAsync(501).Returns(
+        [
+            new ColumnMetadataDto
+            {
+                ColumnId = 1,
+                TableId = 501,
+                ColumnName = "OrderId",
+                DataType = "int",
+                IsNullable = false,
+                IsPrimaryKey = true,
+                IsIdentity = true
+            },
+            new ColumnMetadataDto
+            {
+                ColumnId = 2,
+                TableId = 501,
+                ColumnName = "Status",
+                DataType = "nvarchar",
+                MaxLength = 100,
+                IsNullable = true
+            }
+        ]);
+        _schemaRepo.GetStoredIndexesAsync(501).Returns([]);
+        _schemaRepo.GetStoredForeignKeysAsync(501).Returns([]);
+
+        _patcherRepo.SavePatchHistoryAsync(Arg.Any<PatchHistoryRecord>(), Arg.Any<List<PatchPageEntry>>(), Arg.Any<CancellationToken>())
+            .Returns(903);
+
+        var response = await service.GeneratePatchAsync(new PatchGenerationRequest
+        {
+            ProjectId = 7,
+            PageMappings =
+            [
+                new PageSpMapping
+                {
+                    DomainName = "Reports",
+                    PageName = "SalesPage",
+                    ServiceNames = ["IGNORED"]
+                }
+            ]
+        }, userId: 1);
+
+        using var archive = ZipFile.OpenRead(response.DownloadPath);
+        var manifestEntry = archive.Entries.Single(e => e.FullName.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
+        using var manifestStream = manifestEntry.Open();
+        using var reader = new StreamReader(manifestStream);
+        var manifestJson = await reader.ReadToEndAsync();
+
+        using var document = JsonDocument.Parse(manifestJson);
+        var requiredColumns = document.RootElement.GetProperty("Tables")
+            .EnumerateArray()
+            .Single(t => t.GetProperty("TableName").GetString() == "Orders")
+            .GetProperty("RequiredColumnNames")
+            .EnumerateArray()
+            .Select(c => c.GetString())
+            .ToList();
+
+        Assert.Contains("OrderId", requiredColumns);
+        Assert.Contains("Status", requiredColumns);
+        Assert.Equal(2, requiredColumns.Count);
+        Assert.Contains(response.Warnings, warning => warning.Contains("full table snapshot", StringComparison.OrdinalIgnoreCase));
     }
 }
