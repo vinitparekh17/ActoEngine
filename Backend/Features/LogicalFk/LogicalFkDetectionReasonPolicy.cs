@@ -21,7 +21,7 @@ public static class LogicalFkDetectionReasonPolicy
 
         const string ellipsis = "...";
         int cutIndex = DetectionReasonMaxChars - ellipsis.Length;
-    
+
         return reason[..cutIndex] + ellipsis;
     }
 }

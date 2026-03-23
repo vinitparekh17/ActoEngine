@@ -29,7 +29,7 @@ public class MappingsController(
         {
             var result = await pageMappingRepository.UpsertDetectionsAsync(projectId, detections, ct);
             return Ok(ApiResponse<object>.Success(
-                new { Received = result.Received, Inserted = result.UniqueCount },
+                new { result.Received, Inserted = result.UniqueCount },
                 $"Processed {result.UniqueCount} unique detection{(result.UniqueCount == 1 ? "" : "s")} ({result.Received} received)."));
         }
         catch (InvalidOperationException ex)

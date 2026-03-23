@@ -49,7 +49,7 @@ public class PermissionRepository(
             .Select(g => new Roles.PermissionGroupDto
             {
                 Category = g.Key,
-                Permissions = g.Select(p => new Roles.Permission
+                Permissions = [.. g.Select(p => new Roles.Permission
                 {
                     PermissionId = p.PermissionId,
                     PermissionKey = p.PermissionKey,
@@ -59,7 +59,7 @@ public class PermissionRepository(
                     Category = p.Category,
                     IsActive = p.IsActive,
                     CreatedAt = p.CreatedAt
-                }).ToList()
+                })]
             });
     }
 

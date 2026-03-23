@@ -108,12 +108,11 @@ public sealed class ImpactController(
             },
 
             // Ranked impacts (trimmed, not exhaustive)
-            Entities = analysis.EntityImpacts
+            Entities = [.. analysis.EntityImpacts
                 .OrderByDescending(e => e.WorstCaseImpactLevel)
                 .ThenByDescending(e => e.WorstCaseRiskScore)
                 .Take(10)
-                .Cast<object>()
-                .ToList(),
+                .Cast<object>()],
 
             // Evidence (UI can hide)
             Paths = analysis.Paths,

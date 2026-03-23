@@ -476,7 +476,7 @@ public class SchemaRepository(
             SchemaSyncQueries.GetStoredIndexes,
             new { TableId = tableId });
 
-        return rows
+        return [.. rows
             .GroupBy(r => new { r.IndexId, r.TableId, r.IndexName, r.IsUnique, r.IsPrimaryKey })
             .Select(g => new StoredIndexDto
             {
@@ -485,7 +485,7 @@ public class SchemaRepository(
                 IndexName = g.Key.IndexName,
                 IsUnique = g.Key.IsUnique,
                 IsPrimaryKey = g.Key.IsPrimaryKey,
-                Columns = g.Where(r => r.ColumnId.HasValue && r.ColumnName != null)
+                Columns = [.. g.Where(r => r.ColumnId.HasValue && r.ColumnName != null)
                     .Select(r => new StoredIndexColumnDto
                     {
                         ColumnId = r.ColumnId!.Value,
@@ -493,10 +493,8 @@ public class SchemaRepository(
                         ColumnOrder = r.ColumnOrder ?? 0,
                         IsIncludedColumn = r.IsIncludedColumn
                     })
-                    .OrderBy(c => c.ColumnOrder)
-                    .ToList()
-            })
-            .ToList();
+                    .OrderBy(c => c.ColumnOrder)]
+            })];
     }
 
     public async Task<List<StoredForeignKeyDto>> GetStoredForeignKeysAsync(int tableId)

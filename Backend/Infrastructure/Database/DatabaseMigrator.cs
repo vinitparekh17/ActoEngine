@@ -48,14 +48,9 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
 
     private static string GetEmbeddedScriptOrThrow(string scriptName)
     {
-        using var stream = ExecutingAssembly.GetManifestResourceStream(scriptName);
-        if (stream == null)
-        {
-            throw new InvalidOperationException(
+        using var stream = ExecutingAssembly.GetManifestResourceStream(scriptName) ?? throw new InvalidOperationException(
                 $"Embedded script '{scriptName}' was not found. " +
                 $"Available resources: {string.Join(", ", ExecutingAssembly.GetManifestResourceNames())}");
-        }
-
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }

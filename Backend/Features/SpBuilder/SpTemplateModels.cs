@@ -14,10 +14,10 @@ public class SpGenerationRequest
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
     private string _schemaName = "dbo";
-    public string SchemaName 
-    { 
-        get => _schemaName; 
-        set => _schemaName = string.IsNullOrWhiteSpace(value) ? "dbo" : value.Trim(); 
+    public string SchemaName
+    {
+        get => _schemaName;
+        set => _schemaName = string.IsNullOrWhiteSpace(value) ? "dbo" : value.Trim();
     }
     public SpType Type { get; set; }
     public required List<SpColumnConfig> Columns { get; set; }
@@ -101,10 +101,10 @@ public class QuickGenerateRequest
     public int ProjectId { get; set; }
     public required string TableName { get; set; }
     private string _schemaName = "dbo";
-    public string SchemaName 
-    { 
-        get => _schemaName; 
-        set => _schemaName = string.IsNullOrWhiteSpace(value) ? "dbo" : value.Trim(); 
+    public string SchemaName
+    {
+        get => _schemaName;
+        set => _schemaName = string.IsNullOrWhiteSpace(value) ? "dbo" : value.Trim();
     }
     public SpType Type { get; set; }
     public CudSpOptions? CudOptions { get; set; }

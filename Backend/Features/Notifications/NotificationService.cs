@@ -42,7 +42,7 @@ public class NotificationService(
         try
         {
             var membersList = (await projectRepository.GetProjectMembersAsync(projectId, cancellationToken)).ToList();
-            
+
             var request = new CreateNotificationRequest
             {
                 ProjectId = projectId,
@@ -53,7 +53,7 @@ public class NotificationService(
 
             var successCounter = 0;
             var failureCounter = 0;
-            
+
             foreach (var member in membersList)
             {
                 try
@@ -71,7 +71,7 @@ public class NotificationService(
                     logger.LogError(ex, "Failed to create project-member notification for user {UserId} in project {ProjectId}", member.UserId, projectId);
                 }
             }
-            
+
             logger.LogInformation(
                 "Created {Type} notification for project {ProjectId}: {Delivered} delivered, {Failed} failed out of {Total} members",
                 type, projectId, successCounter, failureCounter, membersList.Count);

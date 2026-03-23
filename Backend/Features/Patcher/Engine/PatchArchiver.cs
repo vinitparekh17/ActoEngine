@@ -8,8 +8,10 @@ namespace ActoEngine.WebApi.Features.Patcher.Engine;
 /// Assembles the patch zip archive from rendered SQL artifacts and source files.
 /// Pure I/O — receives everything it needs via method parameters.
 /// </summary>
-public sealed class PatchArchiver
+public sealed partial class PatchArchiver
 {
+    [GeneratedRegex(@"^[A-Za-z0-9_\-]+$")]
+    private static partial Regex AlphanumericDashRegex();
     /// <summary>
     /// Creates a zip archive containing source files, SQL scripts, and manifest,
     /// writes it to disk, and returns the file path, included entries, and any warnings.
@@ -97,11 +99,11 @@ public sealed class PatchArchiver
 
     internal static string GenerateMenuPermissionSql(string pageName, string domainName)
     {
-        if (!Regex.IsMatch(pageName, @"^[A-Za-z0-9_\-]+$"))
+        if (!AlphanumericDashRegex().IsMatch(pageName))
         {
             throw new ArgumentException("PageName contains invalid characters.");
         }
-        if (!Regex.IsMatch(domainName, @"^[A-Za-z0-9_\-]+$"))
+        if (!AlphanumericDashRegex().IsMatch(domainName))
         {
             throw new ArgumentException("DomainName contains invalid characters.");
         }

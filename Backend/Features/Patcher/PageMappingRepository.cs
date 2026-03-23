@@ -199,7 +199,7 @@ public class PageMappingRepository(
 
         int totalAffected = 0;
         const int batchSize = 350;
-        
+
         var idList = ids.ToList();
         for (int i = 0; i < idList.Count; i += batchSize)
         {
@@ -287,15 +287,14 @@ public class PageMappingRepository(
 
     internal static List<MappingDetectionRequest> DeduplicateDetections(IEnumerable<MappingDetectionRequest> detections)
     {
-        return detections
+        return [.. detections
             .GroupBy(d => (
                 DomainName: d.DomainName.Trim().ToLowerInvariant(),
                 Page: d.Page.Trim().ToLowerInvariant(),
                 SP: d.StoredProcedure.Trim().ToLowerInvariant(),
                 Source: d.Source.Trim().ToLowerInvariant()
             ))
-            .Select(g => g.OrderByDescending(d => d.Confidence ?? 0).First())
-            .ToList();
+            .Select(g => g.OrderByDescending(d => d.Confidence ?? 0).First())];
     }
 
     internal static (string Sql, DynamicParameters Parameters) BuildMergeSql(

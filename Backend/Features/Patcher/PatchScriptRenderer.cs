@@ -11,6 +11,8 @@ public interface IPatchScriptRenderer
 
 internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
 {
+    private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
+
     public PatchArchiveArtifacts Render(PatchManifest manifest)
     {
         return new PatchArchiveArtifacts
@@ -18,13 +20,14 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
             CompatibilitySql = RenderCompatibilitySql(manifest),
             UpdateSql = RenderUpdateSql(manifest),
             RollbackSql = RenderRollbackSql(manifest),
-            ManifestJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true })
+            ManifestJson = JsonSerializer.Serialize(manifest, s_jsonOptions)
         };
     }
 
     private static string RenderCompatibilitySql(PatchManifest manifest)
     {
         var sb = new StringBuilder();
+        var schemasToEnsure = GetSchemasToEnsure(manifest);
 
         AppendHeader(sb, "Compatibility Check Script", manifest);
         sb.AppendLine("SET NOCOUNT ON;");
@@ -47,18 +50,14 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         }
 
         // Schema checks - emit once per unique schema
-        var uniqueSchemas = manifest.Tables.Select(t => t.SchemaName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s).ToList();
-        foreach (var schema in uniqueSchemas)
+        foreach (var schema in schemasToEnsure)
         {
             AppendSchemaChecks(sb, schema);
         }
 
         foreach (var table in manifest.Tables.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName))
         {
-            AppendTableChecks(sb, table);
-            AppendColumnChecks(sb, table);
-            AppendIndexChecks(sb, table);
-            AppendForeignKeyChecks(sb, table);
+            AppendTableCompatibilityChecks(sb, table);
         }
 
         sb.AppendLine("DECLARE @RepairableCount INT = (SELECT COUNT(*) FROM @Issues WHERE Severity = 'REPAIRABLE');");
@@ -95,7 +94,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         sb.AppendLine();
 
         // 1. Create missing schemas
-        foreach (var schema in uniqueSchemas.Append("dbo").Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s))
+        foreach (var schema in schemasToEnsure)
         {
             var schemaLiteral = SqlUnicodeLiteral(schema);
             sb.AppendLine($"            IF SCHEMA_ID({schemaLiteral}) IS NULL EXEC(N'CREATE SCHEMA {Bracket(schema)}');");
@@ -244,78 +243,72 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         sb.AppendLine();
     }
 
-    private static void AppendTableChecks(StringBuilder sb, PatchTableSnapshot table)
+    private static void AppendTableCompatibilityChecks(StringBuilder sb, PatchTableSnapshot table)
     {
-        var objectLiteral = SqlUnicodeLiteral(QualifiedName(table.SchemaName, table.TableName));
+        var qualifiedTable = QualifiedName(table.SchemaName, table.TableName);
+        var objectLiteral = SqlUnicodeLiteral(qualifiedTable);
+        var requiredColumns = GetRequiredColumns(table);
+
         sb.AppendLine($"IF OBJECT_ID({objectLiteral}, 'U') IS NULL");
         sb.AppendLine($"    INSERT INTO @Issues VALUES ('REPAIRABLE', 'TABLE', {objectLiteral}, 'Table is missing and full metadata is available to create it.');");
         sb.AppendLine("ELSE");
+        sb.AppendLine("BEGIN");
         sb.AppendLine($"    INSERT INTO @Issues VALUES ('OK', 'TABLE', {objectLiteral}, 'Table exists.');");
-        sb.AppendLine();
-    }
 
-    private static void AppendColumnChecks(StringBuilder sb, PatchTableSnapshot table)
-    {
-        var objectLiteral = SqlUnicodeLiteral(QualifiedName(table.SchemaName, table.TableName));
-        foreach (var column in table.Columns.Where(c => table.RequiredColumnNames.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase)).OrderBy(c => c.ColumnName))
+        // ── Column checks (nested inside table-exists) ──
+        foreach (var column in requiredColumns)
         {
-            var columnLiteral = SqlUnicodeLiteral($"{QualifiedName(table.SchemaName, table.TableName)}.{Bracket(column.ColumnName)}");
-            var missingSeverity = column.IsNullable || !string.IsNullOrWhiteSpace(column.DefaultValue) ? "REPAIRABLE" : "BLOCKER";
-            sb.AppendLine($"IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
-            sb.AppendLine($"    INSERT INTO @Issues VALUES ('{missingSeverity}', 'COLUMN', {columnLiteral}, 'Required column is missing.');");
+            var columnLiteral = SqlUnicodeLiteral($"{qualifiedTable}.{Bracket(column.ColumnName)}");
+            var missingSeverity = CanRepairMissingColumn(column) ? "REPAIRABLE" : "BLOCKER";
 
-            sb.AppendLine("ELSE");
-            sb.AppendLine("BEGIN");
-            sb.AppendLine($"    IF EXISTS ({BuildColumnMismatchQuery(table, column)})");
-            sb.AppendLine($"        INSERT INTO @Issues VALUES ('BLOCKER', 'COLUMN', {columnLiteral}, 'Column metadata is incompatible with the source snapshot.');");
+            sb.AppendLine($"    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
+            sb.AppendLine($"        INSERT INTO @Issues VALUES ('{missingSeverity}', 'COLUMN', {columnLiteral}, '{EscapeSql(BuildMissingColumnMessage(column))}');");
             sb.AppendLine("    ELSE");
-            sb.AppendLine($"        INSERT INTO @Issues VALUES ('OK', 'COLUMN', {columnLiteral}, 'Column is compatible.');");
+            sb.AppendLine("    BEGIN");
+            sb.AppendLine($"        IF EXISTS ({BuildColumnMismatchQuery(table, column)})");
+            sb.AppendLine($"            INSERT INTO @Issues VALUES ('BLOCKER', 'COLUMN', {columnLiteral}, '{EscapeSql(BuildColumnMismatchMessage(column))}');");
+            sb.AppendLine("        ELSE");
+            sb.AppendLine($"            INSERT INTO @Issues VALUES ('OK', 'COLUMN', {columnLiteral}, 'Column is compatible.');");
 
             if (!string.IsNullOrWhiteSpace(column.DefaultValue))
             {
-                sb.AppendLine($"    IF NOT EXISTS (SELECT 1 FROM sys.default_constraints dc INNER JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id WHERE dc.parent_object_id = OBJECT_ID({objectLiteral}) AND c.name = N'{EscapeSql(column.ColumnName)}')");
-                sb.AppendLine($"        INSERT INTO @Issues VALUES ('REPAIRABLE', 'DEFAULT', {columnLiteral}, 'Default constraint is missing.');");
+                sb.AppendLine($"        IF NOT EXISTS (SELECT 1 FROM sys.default_constraints dc INNER JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id WHERE dc.parent_object_id = OBJECT_ID({objectLiteral}) AND c.name = N'{EscapeSql(column.ColumnName)}')");
+                sb.AppendLine($"            INSERT INTO @Issues VALUES ('REPAIRABLE', 'DEFAULT', {columnLiteral}, 'Default constraint is missing.');");
             }
 
-            sb.AppendLine("END");
-            sb.AppendLine();
+            sb.AppendLine("    END");
         }
-    }
 
-    private static void AppendIndexChecks(StringBuilder sb, PatchTableSnapshot table)
-    {
-        var tableLiteral = SqlUnicodeLiteral(QualifiedName(table.SchemaName, table.TableName));
+        // ── Index checks (nested inside table-exists) ──
         foreach (var index in table.Indexes.Where(i => !i.IsPrimaryKey).OrderBy(i => i.IndexName))
         {
-            var indexLiteral = SqlUnicodeLiteral($"{QualifiedName(table.SchemaName, table.TableName)}.{Bracket(index.IndexName)}");
-            sb.AppendLine($"IF OBJECT_ID({tableLiteral}, 'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(index.IndexName)}')");
-            sb.AppendLine($"    INSERT INTO @Issues VALUES ('REPAIRABLE', 'INDEX', {indexLiteral}, 'Required index is missing.');");
-            sb.AppendLine();
+            var indexLiteral = SqlUnicodeLiteral($"{qualifiedTable}.{Bracket(index.IndexName)}");
+            sb.AppendLine($"    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(index.IndexName)}')");
+            sb.AppendLine($"        INSERT INTO @Issues VALUES ('REPAIRABLE', 'INDEX', {indexLiteral}, 'Required index is missing.');");
         }
-    }
 
-    private static void AppendForeignKeyChecks(StringBuilder sb, PatchTableSnapshot table)
-    {
-        var tableLiteral = SqlUnicodeLiteral(QualifiedName(table.SchemaName, table.TableName));
+        // ── Foreign key checks (nested inside table-exists) ──
         foreach (var foreignKey in table.ForeignKeys.OrderBy(f => f.ForeignKeyName ?? $"{f.ColumnName}_{f.ReferencedTableName}_{f.ReferencedColumnName}"))
         {
             var fkName = foreignKey.ForeignKeyName ?? $"FK_{table.TableName}_{foreignKey.ReferencedTableName}_{foreignKey.ColumnName}";
-            var fkLiteral = SqlUnicodeLiteral($"{QualifiedName(table.SchemaName, table.TableName)}.{Bracket(fkName)}");
-            sb.AppendLine($"IF OBJECT_ID({tableLiteral}, 'U') IS NOT NULL AND OBJECT_ID(N'{EscapeSql(QualifiedName(foreignKey.ReferencedSchemaName, foreignKey.ReferencedTableName))}', 'U') IS NOT NULL");
-            sb.AppendLine("BEGIN");
-            sb.AppendLine($"    IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE parent_object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(fkName)}')");
-            sb.AppendLine($"        INSERT INTO @Issues VALUES ('REPAIRABLE', 'FOREIGN_KEY', {fkLiteral}, 'Required foreign key is missing.');");
-            sb.AppendLine("END");
-            sb.AppendLine();
+            var fkLiteral = SqlUnicodeLiteral($"{qualifiedTable}.{Bracket(fkName)}");
+            sb.AppendLine($"    IF OBJECT_ID(N'{EscapeSql(QualifiedName(foreignKey.ReferencedSchemaName, foreignKey.ReferencedTableName))}', 'U') IS NOT NULL");
+            sb.AppendLine("    BEGIN");
+            sb.AppendLine($"        IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE parent_object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(fkName)}')");
+            sb.AppendLine($"            INSERT INTO @Issues VALUES ('REPAIRABLE', 'FOREIGN_KEY', {fkLiteral}, 'Required foreign key is missing.');");
+            sb.AppendLine("    END");
         }
+
+        sb.AppendLine("END");
+        sb.AppendLine();
     }
 
     private static void AppendBlockerPrecheck(StringBuilder sb, PatchTableSnapshot table)
     {
         var objectLiteral = SqlUnicodeLiteral(QualifiedName(table.SchemaName, table.TableName));
-        foreach (var column in table.Columns.Where(c => table.RequiredColumnNames.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase)).OrderBy(c => c.ColumnName))
+        foreach (var column in GetRequiredColumns(table))
         {
-            if (!column.IsNullable && string.IsNullOrWhiteSpace(column.DefaultValue))
+            if (!CanRepairMissingColumn(column))
             {
                 sb.AppendLine($"IF OBJECT_ID({objectLiteral}, 'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
                 sb.AppendLine("    SET @BlockerCount = @BlockerCount + 1;");
@@ -330,33 +323,44 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
     {
         var qualifiedTable = QualifiedName(table.SchemaName, table.TableName);
         var tableLiteral = SqlUnicodeLiteral(qualifiedTable);
-        sb.AppendLine($"            IF OBJECT_ID({tableLiteral}, 'U') IS NULL");
-        sb.AppendLine("            BEGIN");
-        sb.AppendLine($"                EXEC(N'CREATE TABLE {qualifiedTable} ({string.Join(", ", table.Columns.Select(c => BuildColumnDefinition(c))).Replace("'", "''")})');");
-        sb.AppendLine("            END");
-        sb.AppendLine("            ELSE");
-        sb.AppendLine("            BEGIN");
+        var requiredColumns = GetRequiredColumns(table);
+        var repairStatements = new List<string>();
 
-        foreach (var column in table.Columns.Where(c => table.RequiredColumnNames.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase)).OrderBy(c => c.ColumnName))
+        foreach (var column in requiredColumns)
         {
-            if (!column.IsNullable && string.IsNullOrWhiteSpace(column.DefaultValue))
+            if (!CanRepairMissingColumn(column))
             {
                 continue;
             }
 
-            sb.AppendLine($"                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
-            sb.AppendLine($"                    EXEC(N'ALTER TABLE {qualifiedTable} ADD {EscapeForNestedExec(BuildColumnDefinition(column))}');");
+            repairStatements.Add($"                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
+            repairStatements.Add($"                    EXEC(N'ALTER TABLE {qualifiedTable} ADD {EscapeForNestedExec(BuildColumnDefinition(column))}');");
         }
 
-        foreach (var column in table.Columns.Where(c => !string.IsNullOrWhiteSpace(c.DefaultValue)).OrderBy(c => c.ColumnName))
+        foreach (var column in requiredColumns.Where(c => !string.IsNullOrWhiteSpace(c.DefaultValue)))
         {
             var constraintName = DefaultConstraintName(table, column);
-            sb.AppendLine($"                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
-            sb.AppendLine($"                   AND NOT EXISTS (SELECT 1 FROM sys.default_constraints dc INNER JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id WHERE dc.parent_object_id = OBJECT_ID({tableLiteral}) AND c.name = N'{EscapeSql(column.ColumnName)}')");
-            sb.AppendLine($"                    EXEC(N'ALTER TABLE {qualifiedTable} ADD CONSTRAINT {Bracket(constraintName)} DEFAULT {EscapeForNestedExec(column.DefaultValue!)} FOR {Bracket(column.ColumnName)}');");
+            repairStatements.Add($"                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
+            repairStatements.Add($"                   AND NOT EXISTS (SELECT 1 FROM sys.default_constraints dc INNER JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id WHERE dc.parent_object_id = OBJECT_ID({tableLiteral}) AND c.name = N'{EscapeSql(column.ColumnName)}')");
+            repairStatements.Add($"                    EXEC(N'ALTER TABLE {qualifiedTable} ADD CONSTRAINT {Bracket(constraintName)} DEFAULT {EscapeForNestedExec(column.DefaultValue!)} FOR {Bracket(column.ColumnName)}');");
         }
 
+        sb.AppendLine($"            IF OBJECT_ID({tableLiteral}, 'U') IS NULL");
+        sb.AppendLine("            BEGIN");
+        sb.AppendLine($"                EXEC(N'CREATE TABLE {qualifiedTable} ({string.Join(", ", table.Columns.Select(c => BuildColumnDefinition(c))).Replace("'", "''")})');");
         sb.AppendLine("            END");
+
+        if (repairStatements.Count != 0)
+        {
+            sb.AppendLine("            ELSE");
+            sb.AppendLine("            BEGIN");
+            foreach (var statement in repairStatements)
+            {
+                sb.AppendLine(statement);
+            }
+            sb.AppendLine("            END");
+        }
+
         sb.AppendLine();
     }
 
@@ -402,29 +406,38 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
     {
         var conditions = new List<string>
         {
-            $"UPPER(t.name) <> '{EscapeSql(column.DataType.ToUpperInvariant())}'",
-            $"c.is_nullable <> {(column.IsNullable ? 1 : 0)}",
-            $"c.is_identity <> {(column.IsIdentity ? 1 : 0)}"
+            $"UPPER(t.name) <> '{EscapeSql(column.DataType.ToUpperInvariant())}'"
         };
+
+        if (column.IsIdentity)
+        {
+            conditions.Add("c.is_identity <> 1");
+        }
+
+        // Only check is_nullable when source explicitly has NOT NULL
+        // (identity columns are NOT NULL by design, skip for those)
+        if (!column.IsNullable && !column.IsIdentity)
+        {
+            conditions.Add($"c.is_nullable <> 0");
+        }
 
         if (column.MaxLength.HasValue)
         {
-            var isUnicode = column.DataType.Equals("NVARCHAR", StringComparison.OrdinalIgnoreCase) ||
-                            column.DataType.Equals("NCHAR", StringComparison.OrdinalIgnoreCase) ||
-                            column.DataType.Equals("SYSNAME", StringComparison.OrdinalIgnoreCase);
-
             var expectedLength = column.MaxLength.Value;
             conditions.Add($"c.max_length <> {expectedLength}");
         }
 
-        if (column.Precision.HasValue)
+        if (UsesPrecisionAndScaleChecks(column))
         {
-            conditions.Add($"c.precision <> {column.Precision.Value}");
-        }
+            if (column.Precision.HasValue)
+            {
+                conditions.Add($"c.precision <> {column.Precision.Value}");
+            }
 
-        if (column.Scale.HasValue)
-        {
-            conditions.Add($"c.scale <> {column.Scale.Value}");
+            if (column.Scale.HasValue)
+            {
+                conditions.Add($"c.scale <> {column.Scale.Value}");
+            }
         }
 
         if (column.IsPrimaryKey)
@@ -439,6 +452,74 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
               AND c.name = N'{EscapeSql(column.ColumnName)}'
               AND c.is_computed = 0
               AND ({string.Join(" OR ", conditions)})";
+    }
+
+    private static IReadOnlyList<string> GetSchemasToEnsure(PatchManifest manifest)
+    {
+        return
+        [
+            .. manifest.Tables.Select(t => t.SchemaName)
+                .Concat(manifest.Procedures.Select(p => p.SchemaName))
+                .Where(schema => !string.IsNullOrWhiteSpace(schema) && !schema.Equals("dbo", StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(schema => schema, StringComparer.OrdinalIgnoreCase)
+        ];
+    }
+
+    private static List<PatchColumnSnapshot> GetRequiredColumns(PatchTableSnapshot table)
+    {
+        return
+        [
+            .. table.Columns
+                .Where(c => table.RequiredColumnNames.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase))
+                .OrderBy(c => c.ColumnName, StringComparer.OrdinalIgnoreCase)
+        ];
+    }
+
+    private static bool CanRepairMissingColumn(PatchColumnSnapshot column)
+    {
+        return column.IsNullable || !string.IsNullOrWhiteSpace(column.DefaultValue);
+    }
+
+    private static bool UsesPrecisionAndScaleChecks(PatchColumnSnapshot column)
+    {
+        return column.DataType.Equals("decimal", StringComparison.OrdinalIgnoreCase)
+            || column.DataType.Equals("numeric", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildMissingColumnMessage(PatchColumnSnapshot column)
+    {
+        if (CanRepairMissingColumn(column))
+        {
+            return "Required column is missing and can be added automatically.";
+        }
+
+        return $"Required column is missing and cannot be auto-added safely because expected column is {BuildExpectedColumnMetadataSummary(column)} with no default.";
+    }
+
+    private static string BuildColumnMismatchMessage(PatchColumnSnapshot column)
+    {
+        return $"Column metadata mismatch. Expected {BuildExpectedColumnMetadataSummary(column)}.";
+    }
+
+    private static string BuildExpectedColumnMetadataSummary(PatchColumnSnapshot column)
+    {
+        var sb = new StringBuilder();
+        sb.Append(BuildDataTypeDefinition(column));
+
+        if (column.IsIdentity)
+        {
+            sb.Append(" IDENTITY");
+        }
+
+        sb.Append(column.IsNullable ? " NULL" : " NOT NULL");
+
+        if (column.IsPrimaryKey)
+        {
+            sb.Append(" PRIMARY KEY");
+        }
+
+        return sb.ToString();
     }
 
     private static string BuildColumnDefinition(PatchColumnSnapshot column)

@@ -71,7 +71,7 @@ public sealed class ImpactVerdictBuilder
                 g.Key.EntityType,
                 g.Key.DependencyType,
                 g.Count(),
-                g.Select(x => x.Entity).Distinct().ToList()
+                [.. g.Select(x => x.Entity).Distinct()]
             ))
             .OrderByDescending(g => g.Count)
             .ToList();

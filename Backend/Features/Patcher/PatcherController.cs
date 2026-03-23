@@ -35,7 +35,7 @@ public class PatcherController(
         {
             log.LogWarning(ex, "Patch status check failed: {Message}", ex.Message);
             return BadRequest(ApiResponse<List<PagePatchStatus>>.Failure(
-                "Patch status check failed", ["An internal error occurred while processing the request."]));
+                "Patch status check failed", [ex.Message]));
         }
         catch (Exception ex)
         {
@@ -56,7 +56,7 @@ public class PatcherController(
         try
         {
             var userId = HttpContext.GetUserId();
-            
+
             var result = await patcherService.GeneratePatchAsync(request, userId);
 
             return Ok(ApiResponse<PatchGenerationResponse>.Success(
@@ -67,7 +67,7 @@ public class PatcherController(
         {
             log.LogWarning(ex, "Patch generation failed: {Message}", ex.Message);
             return BadRequest(ApiResponse<PatchGenerationResponse>.Failure(
-                "Patch generation failed", ["An internal error occurred while processing the request."]));
+                "Patch generation failed", [ex.Message]));
         }
         catch (Exception ex)
         {

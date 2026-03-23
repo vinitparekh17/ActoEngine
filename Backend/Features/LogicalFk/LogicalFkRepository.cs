@@ -289,13 +289,9 @@ public class LogicalFkRepository(
 
         foreach (var dto in dtos)
         {
-            dto.SourceColumnNames = dto.SourceColumnIds
-                .Select(id => nameMap.TryGetValue(id, out var name) ? name : $"Col_{id}")
-                .ToList();
+            dto.SourceColumnNames = [.. dto.SourceColumnIds.Select(id => nameMap.TryGetValue(id, out var name) ? name : $"Col_{id}")];
 
-            dto.TargetColumnNames = dto.TargetColumnIds
-                .Select(id => nameMap.TryGetValue(id, out var name) ? name : $"Col_{id}")
-                .ToList();
+            dto.TargetColumnNames = [.. dto.TargetColumnIds.Select(id => nameMap.TryGetValue(id, out var name) ? name : $"Col_{id}")];
         }
 
         return dtos;
@@ -450,8 +446,8 @@ public class LogicalFkRepository(
                 ConfidenceBand = ConfidenceBandClassifier.Classify((decimal)row.ConfidenceScore),
                 Reason = row.Reason ?? "",
                 IsAmbiguous = false,
-                DiscoveryMethods = string.IsNullOrWhiteSpace((string)row.DiscoveryMethods) 
-                    ? new List<string>() 
+                DiscoveryMethods = string.IsNullOrWhiteSpace((string)row.DiscoveryMethods)
+                    ? new List<string>()
                     : JsonSerializer.Deserialize<List<string>>((string)row.DiscoveryMethods) ?? new List<string>(),
                 MatchCount = 0
             });
