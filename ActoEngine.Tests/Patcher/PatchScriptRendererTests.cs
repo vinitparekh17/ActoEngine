@@ -108,9 +108,9 @@ public class PatchScriptRendererTests
     {
         var renderer = new PatchScriptRenderer();
         var artifacts = renderer.Render(CreateTestManifest());
-        var sql = artifacts.CompatibilitySql;
+        var sql = artifacts.CompatibilitySql.Replace("\r\n", "\n");
 
-        Assert.Contains("ELSE\r\nBEGIN\r\n    INSERT INTO @Issues VALUES ('OK', 'TABLE',", sql);
+        Assert.Contains("ELSE\nBEGIN\n    INSERT INTO @Issues VALUES ('OK', 'TABLE',", sql);
         Assert.Contains("    IF NOT EXISTS (SELECT 1 FROM sys.columns", sql);
         Assert.Contains("    IF NOT EXISTS (SELECT 1 FROM sys.indexes", sql);
     }
