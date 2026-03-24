@@ -21,7 +21,7 @@ public class LfkThrottleService(
     // Tracks the last time a detection successfully STARTED for a given projectId
     private readonly ConcurrentDictionary<int, DateTime> _lastDetectionTimes = new();
     private readonly ConcurrentDictionary<int, byte> _inFlight = new();
-    
+
     // Throttle window (configurable, defaulting to 5 minutes)
     private static readonly TimeSpan ThrottleWindow = TimeSpan.FromMinutes(5);
 
@@ -70,29 +70,29 @@ public class LfkThrottleService(
         try
         {
             logger.LogInformation("Starting background LFK detection for project {ProjectId}", projectId);
-            
+
             // Execute the heavy detection
             var candidates = await logicalFkService.DetectAndPersistCandidatesAsync(projectId, CancellationToken.None);
-            
+
             logger.LogInformation("Background LFK detection completed for project {ProjectId}. Yielded {Count} candidates.", projectId, candidates.Count);
 
             // Notify project members
             var title = "Logical FK Detection Complete";
-            var message = candidates.Count > 0 
-                ? $"Found {candidates.Count} new or updated logical foreign key candidates." 
+            var message = candidates.Count > 0
+                ? $"Found {candidates.Count} new or updated logical foreign key candidates."
                 : "Detection ran but no new candidates were discovered.";
 
             await notificationService.CreateForProjectMembersAsync(
-                projectId, 
-                "LFK_DETECTION_COMPLETE", 
-                title, 
-                message, 
+                projectId,
+                "LFK_DETECTION_COMPLETE",
+                title,
+                message,
                 CancellationToken.None);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Background LFK detection failed for project {ProjectId}", projectId);
-            
+
             // On failure, clear the throttle timestamp so the next attempt can try immediately
             _lastDetectionTimes.TryRemove(projectId, out _);
         }

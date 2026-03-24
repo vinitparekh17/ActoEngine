@@ -121,7 +121,7 @@ public class DependencyAnalysisService(ILogger<DependencyAnalysisService> logger
         var visitor = new SqlDependencyVisitor();
         fragment.Accept(visitor);
 
-        return visitor.JoinConditions.Distinct().ToList();
+        return [.. visitor.JoinConditions.Distinct()];
     }
 }
 

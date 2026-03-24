@@ -56,7 +56,7 @@ public sealed class LogicalFkServiceBuilder
     public LogicalFkService Build()
     {
         var procedures = _procedureCount.HasValue
-            ? Enumerable.Range(1, _procedureCount.Value)
+            ? [.. Enumerable.Range(1, _procedureCount.Value)
                 .Select(i => new StoredProcedureMetadataDto
                 {
                     SpId = i,
@@ -64,8 +64,7 @@ public sealed class LogicalFkServiceBuilder
                     ClientId = 1,
                     ProcedureName = $"sp_{i}",
                     Definition = "SELECT 1"
-                })
-                .ToList()
+                })]
             : _procedures;
 
         var logicalFkRepo = Substitute.For<ILogicalFkRepository>();

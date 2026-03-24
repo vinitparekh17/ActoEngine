@@ -52,7 +52,7 @@ public sealed partial class PatchManifestBuilder(
                 mapping.PageName,
                 ct);
 
-            if (!approvedSps.Any())
+            if (approvedSps.Count == 0)
             {
                 warnings.Add($"No approved mappings for page '{mapping.DomainName}/{mapping.PageName}'.");
                 continue;
@@ -75,34 +75,34 @@ public sealed partial class PatchManifestBuilder(
 
         while (rootQueue.Count > 0)
         {
-            var current = rootQueue.Dequeue();
-            if (procedureSnapshots.TryGetValue(current.Sp.SpId, out var existing))
+            var (sp, isShared, sourcePage) = rootQueue.Dequeue();
+            if (procedureSnapshots.TryGetValue(sp.SpId, out var existing))
             {
-                if (!current.IsShared && existing.IsShared)
+                if (!isShared && existing.IsShared)
                 {
                     existing.IsShared = false;
                     foreach (var dependencyId in existing.DependencyProcedureIds)
                     {
                         if (storedProcedureById.TryGetValue(dependencyId, out var nested))
                         {
-                            rootQueue.Enqueue((nested, false, current.SourcePage));
+                            rootQueue.Enqueue((nested, false, sourcePage));
                         }
                     }
                 }
                 continue;
             }
 
-            var spDetail = await schemaRepo.GetSpByIdAsync(current.Sp.SpId);
+            var spDetail = await schemaRepo.GetSpByIdAsync(sp.SpId);
             if (spDetail == null)
             {
-                blockers.Add($"Stored procedure '{NormalizeQualifiedName(current.Sp.SchemaName, current.Sp.ProcedureName)}' is missing its full definition in metadata. Re-sync the project.");
+                blockers.Add($"Stored procedure '{NormalizeQualifiedName(sp.SchemaName, sp.ProcedureName)}' is missing its full definition in metadata. Re-sync the project.");
                 continue;
             }
 
-            var persistedProcedureDependencies = await patcherRepo.GetSpProcedureDependenciesAsync(request.ProjectId, current.Sp.SpId, ct);
-            var persistedTableDependencies = await patcherRepo.GetSpOutboundDependenciesAsync(request.ProjectId, current.Sp.SpId, ct);
-            var persistedColumnDependencies = await patcherRepo.GetSpColumnDependenciesAsync(request.ProjectId, current.Sp.SpId, ct);
-            var liveDependencies = dependencyAnalysisService.ExtractDependencies(spDetail.Definition, current.Sp.SpId, "SP");
+            var persistedProcedureDependencies = await patcherRepo.GetSpProcedureDependenciesAsync(request.ProjectId, sp.SpId, ct);
+            var persistedTableDependencies = await patcherRepo.GetSpOutboundDependenciesAsync(request.ProjectId, sp.SpId, ct);
+            var persistedColumnDependencies = await patcherRepo.GetSpColumnDependenciesAsync(request.ProjectId, sp.SpId, ct);
+            var liveDependencies = dependencyAnalysisService.ExtractDependencies(spDetail.Definition, sp.SpId, "SP");
             var liveProcedureDependencies = ResolveLiveProcedureDependencies(liveDependencies, storedProcedureMap);
             var liveTableDependencies = ResolveLiveTableDependencies(liveDependencies, tableLookup);
             var liveColumnDependencies = await ResolveLiveColumnDependenciesAsync(
@@ -153,11 +153,11 @@ public sealed partial class PatchManifestBuilder(
                 ProcedureName = spDetail.ProcedureName,
                 SchemaName = spDetail.SchemaName ?? "dbo",
                 Definition = spDetail.Definition,
-                IsShared = current.IsShared,
+                IsShared = isShared,
                 HasDynamicSql = hasDynamicSql,
-                DependencyProcedureIds = procedureDependencies.Select(d => d.SpId).Distinct().ToList(),
-                TableIds = tableDependencies.Select(d => d.TableId).Distinct().ToList(),
-                ColumnIds = columnDependencies.Select(d => d.ColumnId).Distinct().ToList()
+                DependencyProcedureIds = [.. procedureDependencies.Select(d => d.SpId).Distinct()],
+                TableIds = [.. tableDependencies.Select(d => d.TableId).Distinct()],
+                ColumnIds = [.. columnDependencies.Select(d => d.ColumnId).Distinct()]
             };
 
             procedureSnapshots[snapshot.SpId] = snapshot;
@@ -170,7 +170,7 @@ public sealed partial class PatchManifestBuilder(
                     continue;
                 }
 
-                rootQueue.Enqueue((nestedProcedure, snapshot.IsShared, current.SourcePage));
+                rootQueue.Enqueue((nestedProcedure, snapshot.IsShared, sourcePage));
             }
 
             foreach (var tableDependency in tableDependencies)
@@ -213,11 +213,13 @@ public sealed partial class PatchManifestBuilder(
                 continue;
             }
 
-            var requiredColumns = requiredColumnsByTable.TryGetValue(tableId, out var required)
-                ? required.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList()
-                : columns.Select(c => c.ColumnName).ToList();
+            requiredColumnsByTable.TryGetValue(tableId, out var requiredSet);
+            var hasStoredColumnDependencies = requiredSet is { Count: > 0 };
+            var requiredColumns = hasStoredColumnDependencies
+                ? requiredSet!.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList()
+                : [.. columns.Select(c => c.ColumnName)];
 
-            if (!requiredColumnsByTable.TryGetValue(tableId, out var requiredSet) || requiredSet.Count == 0)
+            if (!hasStoredColumnDependencies)
             {
                 warnings.Add($"No column-level dependencies were stored for table '{NormalizeQualifiedName(tableMetadata.SchemaName, tableMetadata.TableName)}'. Falling back to the full table snapshot.");
             }
@@ -227,7 +229,7 @@ public sealed partial class PatchManifestBuilder(
                 TableId = tableMetadata.TableId,
                 TableName = tableMetadata.TableName,
                 SchemaName = tableMetadata.SchemaName ?? "dbo",
-                Columns = columns.Select(c => new PatchColumnSnapshot
+                Columns = [.. columns.Select(c => new PatchColumnSnapshot
                 {
                     ColumnId = c.ColumnId,
                     ColumnName = c.ColumnName,
@@ -239,21 +241,21 @@ public sealed partial class PatchManifestBuilder(
                     IsPrimaryKey = c.IsPrimaryKey,
                     IsIdentity = c.IsIdentity,
                     DefaultValue = c.DefaultValue
-                }).ToList(),
-                Indexes = (await schemaRepo.GetStoredIndexesAsync(tableId))
+                })],
+                Indexes = [.. (await schemaRepo.GetStoredIndexesAsync(tableId))
                     .Select(i => new PatchIndexSnapshot
                     {
                         IndexName = i.IndexName,
                         IsUnique = i.IsUnique,
                         IsPrimaryKey = i.IsPrimaryKey,
-                        Columns = i.Columns.Select(c => new PatchIndexColumnSnapshot
+                        Columns = [.. i.Columns.Select(c => new PatchIndexColumnSnapshot
                         {
                             ColumnId = c.ColumnId,
                             ColumnName = c.ColumnName,
                             ColumnOrder = c.ColumnOrder
-                        }).ToList()
-                    }).ToList(),
-                ForeignKeys = (await schemaRepo.GetStoredForeignKeysAsync(tableId))
+                        })]
+                    })],
+                ForeignKeys = [.. (await schemaRepo.GetStoredForeignKeysAsync(tableId))
                     .Select(f => new PatchForeignKeySnapshot
                     {
                         ColumnName = f.ColumnName,
@@ -263,7 +265,7 @@ public sealed partial class PatchManifestBuilder(
                         ForeignKeyName = f.ForeignKeyName,
                         OnDeleteAction = f.OnDeleteAction,
                         OnUpdateAction = f.OnUpdateAction
-                    }).ToList(),
+                    })],
                 RequiredColumnNames = requiredColumns
             });
         }
@@ -272,10 +274,10 @@ public sealed partial class PatchManifestBuilder(
         {
             ProjectId = request.ProjectId,
             Pages = pages,
-            Procedures = OrderProceduresByDependencies(procedureSnapshots.Values.ToList()),
-            Tables = tableSnapshots.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName).ToList(),
-            Warnings = warnings.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
-            BlockingIssues = blockers.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            Procedures = OrderProceduresByDependencies([.. procedureSnapshots.Values]),
+            Tables = [.. tableSnapshots.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName)],
+            Warnings = [.. warnings.Distinct(StringComparer.OrdinalIgnoreCase)],
+            BlockingIssues = [.. blockers.Distinct(StringComparer.OrdinalIgnoreCase)],
             GeneratedAtUtc = DateTime.UtcNow
         };
     }
@@ -410,7 +412,7 @@ public sealed partial class PatchManifestBuilder(
         IEnumerable<Dependency> liveDependencies,
         IReadOnlyDictionary<string, StoredProcedureListDto> storedProcedureMap)
     {
-        return liveDependencies
+        return [.. liveDependencies
             .Where(d => d.TargetType == "SP")
             .Select(d => TryResolveStoredProcedure(storedProcedureMap, d.TargetName, out var sp) ? new SpProcedureDependencyRow
             {
@@ -420,15 +422,14 @@ public sealed partial class PatchManifestBuilder(
             } : null)
             .Where(d => d != null)
             .GroupBy(d => d!.SpId)
-            .Select(g => g.First()!)
-            .ToList();
+            .Select(g => g.First()!)];
     }
 
     private static List<SpTableDependencyRow> ResolveLiveTableDependencies(
         IEnumerable<Dependency> liveDependencies,
         IReadOnlyDictionary<string, TableMetadataDto> tableLookup)
     {
-        return liveDependencies
+        return [.. liveDependencies
             .Where(d => d.TargetType == "TABLE")
             .Select(d => TryResolveTable(tableLookup, d.TargetName, out var table) ? new SpTableDependencyRow
             {
@@ -438,8 +439,7 @@ public sealed partial class PatchManifestBuilder(
             } : null)
             .Where(d => d != null)
             .GroupBy(d => d!.TableId)
-            .Select(g => g.First()!)
-            .ToList();
+            .Select(g => g.First()!)];
     }
 
     private async Task<List<SpColumnDependencyRow>> ResolveLiveColumnDependenciesAsync(
@@ -484,10 +484,9 @@ public sealed partial class PatchManifestBuilder(
             });
         }
 
-        return resolved
+        return [.. resolved
             .GroupBy(c => c.ColumnId)
-            .Select(g => g.First())
-            .ToList();
+            .Select(g => g.First())];
     }
 
     private static List<SpTableDependencyRow> ResolveDynamicSqlTableDependencies(
@@ -510,10 +509,9 @@ public sealed partial class PatchManifestBuilder(
             });
         }
 
-        return resolved
+        return [.. resolved
             .GroupBy(t => t.TableId)
-            .Select(g => g.First())
-            .ToList();
+            .Select(g => g.First())];
     }
 
     private static IEnumerable<string> ExtractDynamicSqlTableReferences(string definition)
@@ -536,30 +534,27 @@ public sealed partial class PatchManifestBuilder(
         IEnumerable<SpProcedureDependencyRow> first,
         IEnumerable<SpProcedureDependencyRow> second)
     {
-        return first.Concat(second)
+        return [.. first.Concat(second)
             .GroupBy(d => d.SpId)
-            .Select(g => g.First())
-            .ToList();
+            .Select(g => g.First())];
     }
 
     private static List<SpTableDependencyRow> MergeTableDependencies(
         IEnumerable<SpTableDependencyRow> first,
         IEnumerable<SpTableDependencyRow> second)
     {
-        return first.Concat(second)
+        return [.. first.Concat(second)
             .GroupBy(d => d.TableId)
-            .Select(g => g.First())
-            .ToList();
+            .Select(g => g.First())];
     }
 
     private static List<SpColumnDependencyRow> MergeColumnDependencies(
         IEnumerable<SpColumnDependencyRow> first,
         IEnumerable<SpColumnDependencyRow> second)
     {
-        return first.Concat(second)
+        return [.. first.Concat(second)
             .GroupBy(d => d.ColumnId)
-            .Select(g => g.First())
-            .ToList();
+            .Select(g => g.First())];
     }
 
     private static bool TryResolveTable(

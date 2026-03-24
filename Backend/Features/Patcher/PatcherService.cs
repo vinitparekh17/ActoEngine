@@ -14,7 +14,7 @@ public interface IPatcherService
 /// Orchestrates patch status checks and patch generation.
 /// Delegates heavy lifting to <see cref="PatchManifestBuilder"/> and <see cref="PatchArchiver"/>.
 /// </summary>
-public sealed class PatcherService(
+public sealed partial class PatcherService(
     IPatcherRepository patcherRepo,
     IPageMappingRepository pageMappingRepo,
     IProjectRepository projectRepo,
@@ -23,6 +23,8 @@ public sealed class PatcherService(
     PatchArchiver archiver,
     ILogger<PatcherService> log) : IPatcherService
 {
+    [GeneratedRegex(@"^[A-Za-z0-9_\-]+$")]
+    private static partial Regex SafePathSegmentRegex();
     private readonly IPatchScriptRenderer _scriptRenderer = scriptRenderer;
 
     public async Task<List<PagePatchStatus>> CheckPatchStatusAsync(PatchStatusRequest request, CancellationToken ct = default)
@@ -94,7 +96,7 @@ public sealed class PatcherService(
     public async Task<PatchGenerationResponse> GeneratePatchAsync(PatchGenerationRequest request, int? userId = null, CancellationToken ct = default)
     {
         // 1. Validate project & config
-        _ = await projectRepo.GetByIdAsync(request.ProjectId)
+        _ = await projectRepo.GetByIdAsync(request.ProjectId, ct)
             ?? throw new InvalidOperationException($"Project with ID {request.ProjectId} not found.");
 
         ProjectPatchConfig config = await patcherRepo.GetPatchConfigAsync(request.ProjectId, ct)
@@ -133,7 +135,7 @@ public sealed class PatcherService(
                 PatchId = 0,
                 DownloadPath = string.Empty,
                 FilesIncluded = [],
-                Warnings = manifest.Warnings.Append("No procedures or tables found in the manifest. Nothing to generate.").Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                Warnings = [.. manifest.Warnings.Append("No procedures or tables found in the manifest. Nothing to generate.").Distinct(StringComparer.OrdinalIgnoreCase)],
                 GeneratedAt = DateTime.UtcNow
             };
         }
@@ -147,7 +149,7 @@ public sealed class PatcherService(
         var timestamp = DateTime.UtcNow.ToString("dd-MM-yyyy_HH-mm-ss");
         var safePatchName = string.IsNullOrWhiteSpace(request.PatchName)
             ? $"{firstMapping.DomainName}_{firstMapping.PageName}"
-            : new string(request.PatchName.Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_').ToArray());
+            : new string([.. request.PatchName.Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_')]);
 
         var (zipFilePath, filesIncluded, archiveWarnings) =
             await archiver.CreateArchiveAsync(request, config, artifacts, safePatchName, timestamp, ct);
@@ -190,7 +192,7 @@ public sealed class PatcherService(
             PatchId = patchId,
             DownloadPath = zipFilePath,
             FilesIncluded = filesIncluded,
-            Warnings = warnings.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            Warnings = [.. warnings.Distinct(StringComparer.OrdinalIgnoreCase)],
             GeneratedAt = DateTime.UtcNow
         };
     }
@@ -262,7 +264,7 @@ public sealed class PatcherService(
         if (value.Contains("..") || value.Contains('/') || value.Contains('\\'))
             throw new InvalidOperationException($"{parameterName} contains invalid characters (path traversal attempt).");
 
-        if (!Regex.IsMatch(value, @"^[A-Za-z0-9_\-]+$"))
+        if (!SafePathSegmentRegex().IsMatch(value))
             throw new InvalidOperationException($"{parameterName} contains invalid characters.");
     }
 

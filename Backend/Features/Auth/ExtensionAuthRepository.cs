@@ -46,7 +46,7 @@ public class ExtensionAuthRepository(
         {
             var marked = await connection.ExecuteAsync(
                 new CommandDefinition(ExtensionAuthQueries.MarkAuthCodeConsumed, new { AuthCodeId = authCodeId }, transaction, cancellationToken: ct));
-                
+
             if (marked == 0)
             {
                 throw new InvalidOperationException("Authorization code already consumed.");
@@ -54,7 +54,7 @@ public class ExtensionAuthRepository(
 
             await connection.ExecuteAsync(
                 new CommandDefinition(ExtensionAuthQueries.InsertTokenSession, session, transaction, cancellationToken: ct));
-                
+
             return true;
         }, ct);
     }

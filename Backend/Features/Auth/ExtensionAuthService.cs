@@ -21,11 +21,13 @@ public interface IExtensionAuthService
     Task<ClaimsPrincipal?> ValidateAccessTokenAsync(string accessToken, CancellationToken ct = default);
 }
 
-public class ExtensionAuthService(
+public partial class ExtensionAuthService(
     IExtensionAuthRepository extensionAuthRepository,
     ITokenHasher tokenHasher,
     ILogger<ExtensionAuthService> logger) : IExtensionAuthService
 {
+    [GeneratedRegex(@"^[A-Za-z0-9\-._~]+$")]
+    private static partial Regex PkceValidCharRegex();
     private static readonly TimeSpan AuthCodeLifetime = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(7);
@@ -280,7 +282,7 @@ public class ExtensionAuthService(
         {
             throw new InvalidOperationException($"{parameterName} must be between 43 and 128 characters length.");
         }
-        if (!Regex.IsMatch(value, @"^[A-Za-z0-9\-._~]+$"))
+        if (!PkceValidCharRegex().IsMatch(value))
         {
             throw new InvalidOperationException($"{parameterName} contains invalid characters.");
         }

@@ -18,7 +18,7 @@ public class ExtensionAuthServiceTests
         var service = new ExtensionAuthService(_repo, _tokenHasher, _logger);
         var code = "auth-code-1";
         // To be valid under PKCE, verifier needs to be 43-128 chars.
-        var verifier = "1234567890123456789012345678901234567890123"; 
+        var verifier = "1234567890123456789012345678901234567890123";
         var codeChallenge = "WWHTYIjNclXxS69q1gerQ-eTlW5ab1YCpKTorurQ3zw"; // Computed challenge for the above verifier
         var codeHash = _tokenHasher.HashToken(code);
         const string clientId = "abc";

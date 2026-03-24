@@ -13,7 +13,7 @@ public interface INotificationRepository
     Task<int> MarkAllAsReadAsync(int userId, CancellationToken cancellationToken = default);
 }
 
-public class NotificationRepository(IDbConnectionFactory connectionFactory, ILogger<NotificationRepository> logger) 
+public class NotificationRepository(IDbConnectionFactory connectionFactory, ILogger<NotificationRepository> logger)
     : BaseRepository(connectionFactory, logger), INotificationRepository
 {
     public async Task<int> CreateAsync(int userId, CreateNotificationRequest request, CancellationToken cancellationToken = default)

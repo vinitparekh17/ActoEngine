@@ -57,7 +57,7 @@ public class PatcherRepository(
             PatcherQueries.GetPatchHistory,
             new { ProjectId = projectId }, ct);
 
-        return flat.GroupBy(r => r.PatchId)
+        return [.. flat.GroupBy(r => r.PatchId)
             .Select(g =>
             {
                 var first = g.First();
@@ -74,15 +74,15 @@ public class PatcherRepository(
                     GeneratedAt = first.GeneratedAt,
                     GeneratedBy = first.GeneratedBy,
                     Status = first.Status,
-                    Pages = g.Where(r => r.PageDomain != null)
+                    Pages = [.. g.Where(r => r.PageDomain != null)
                              .Select(r => new PatchPageEntry
                              {
                                  DomainName = r.PageDomain!,
                                  PageName = r.PagePage!,
                                  IsNewPage = r.PageIsNew
-                             }).ToList()
+                             })]
                 };
-            }).ToList();
+            })];
     }
 
     public async Task<int> SavePatchHistoryAsync(PatchHistoryRecord record, List<PatchPageEntry> pages, CancellationToken ct = default)

@@ -123,7 +123,7 @@ public class DependencyResolutionService(
         const string dboPrefix = "dbo.";
         if (cleaned.StartsWith(dboPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            cleaned = cleaned.Substring(dboPrefix.Length);
+            cleaned = cleaned[dboPrefix.Length..];
         }
 
         return cleaned;
@@ -137,7 +137,7 @@ public class DependencyResolutionService(
         }
 
         var parts = name.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        
+
         if (parts.Length >= 3)
         {
             var shortened = string.Join('.', parts.Skip(parts.Length - 3));
@@ -178,12 +178,13 @@ public class DependencyResolutionService(
             map[fullName] = tableId;
 
             // Track all occurrences for unqualified name
-            if (!unqualifiedTracker.ContainsKey(tableName))
+            if (!unqualifiedTracker.TryGetValue(tableName, out var list))
             {
-                unqualifiedTracker[tableName] = [];
+                list = [];
+                unqualifiedTracker[tableName] = list;
             }
 
-            unqualifiedTracker[tableName].Add((schema, tableId));
+            list.Add((schema, tableId));
         }
 
         // Resolve unqualified names with preference and warnings
@@ -254,12 +255,13 @@ public class DependencyResolutionService(
             map[fullName] = row.SpId;
 
             // Track all occurrences for unqualified name resolution
-            if (!unqualifiedTracker.ContainsKey(name))
+            if (!unqualifiedTracker.TryGetValue(name, out var list))
             {
-                unqualifiedTracker[name] = [];
+                list = [];
+                unqualifiedTracker[name] = list;
             }
 
-            unqualifiedTracker[name].Add((schema, row.SpId));
+            list.Add((schema, row.SpId));
         }
 
         // Resolve unqualified names with preference and warnings
@@ -334,12 +336,13 @@ public class DependencyResolutionService(
             map[$"{schemaName}.{tableName}.{columnName}"] = columnId;
 
             var shortName = $"{tableName}.{columnName}";
-            if (!unqualifiedTracker.ContainsKey(shortName))
+            if (!unqualifiedTracker.TryGetValue(shortName, out var list))
             {
-                unqualifiedTracker[shortName] = [];
+                list = [];
+                unqualifiedTracker[shortName] = list;
             }
 
-            unqualifiedTracker[shortName].Add((schemaName, columnId));
+            list.Add((schemaName, columnId));
         }
 
         foreach (var (columnKey, occurrences) in unqualifiedTracker)
