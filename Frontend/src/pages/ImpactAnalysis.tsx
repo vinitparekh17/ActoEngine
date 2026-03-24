@@ -117,6 +117,7 @@ const EntityTypeIcon = ({
 
 // --- DOMAIN CONFIGURATION ---
 
+
 const RISK_CONFIG: Record<
   number,
   {
@@ -147,6 +148,15 @@ const RISK_CONFIG: Record<
     bgGradient: "from-amber-50/50 to-background dark:from-amber-950/20",
   },
   3: {
+    label: "High Risk",
+    color:
+      "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/50 dark:border-red-900",
+    icon: ShieldAlert,
+    barColor: "bg-red-600",
+    borderColor: "border-l-red-600",
+    bgGradient: "from-red-50/50 to-background dark:from-red-950/20",
+  },
+  4: {
     label: "Critical Risk",
     color:
       "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/50 dark:border-red-900",
@@ -167,11 +177,16 @@ const IMPACT_LEVEL_CONFIG: Record<
     bg: "text-slate-600 bg-slate-100",
   },
   2: {
+    label: "Medium",
+    color: "bg-amber-500",
+    bg: "text-amber-700 bg-amber-100",
+  },
+  3: {
     label: "High",
     color: "bg-amber-500",
     bg: "text-amber-700 bg-amber-100",
   },
-  3: { label: "Severe", color: "bg-red-600", bg: "text-red-700 bg-red-100" },
+  4: { label: "Severe", color: "bg-red-600", bg: "text-red-700 bg-red-100" },
 };
 
 // --- SUB-COMPONENTS ---

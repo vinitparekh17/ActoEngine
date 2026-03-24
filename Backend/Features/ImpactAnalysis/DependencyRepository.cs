@@ -85,10 +85,13 @@ public class DependencyRepository(
 
             await conn.ExecuteAsync(deleteSql, deleteParams, transaction);
 
-            // 2. Insert new dependencies (plain INSERT — rows were just deleted, no duplicates possible)
-            var insertSql = DependencyQueries.InsertDependencyPlain;
+            // 2. Insert new dependencies (upsert to handle any remaining duplicates gracefully)
+            var insertSql = DependencyQueries.InsertDependency;
 
-            await conn.ExecuteAsync(insertSql, depsList, transaction);
+            foreach (var dep in depsList)
+            {
+                await conn.ExecuteAsync(insertSql, dep, transaction);
+            }
 
             _logger.LogInformation(
                 "Saved {Count} dependencies for project {ProjectId} (sources: {SourceCount})",

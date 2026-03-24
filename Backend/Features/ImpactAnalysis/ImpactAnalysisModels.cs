@@ -100,3 +100,12 @@ public sealed class EntityImpactDto
 
     public required IReadOnlyList<string> PathIds { get; init; }
 }
+
+/// <summary>
+/// Response for the re-analyze endpoint
+/// </summary>
+public class ReanalyzeResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+}

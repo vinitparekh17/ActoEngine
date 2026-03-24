@@ -23,6 +23,7 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -169,6 +170,18 @@ export default function ProjectSettings() {
       invalidateKeys: [["projects", projectId!]],
     },
   );
+
+  // Re-analyze mutation
+  const reanalyzeMutation = useApiPost<
+    { success: boolean; message: string },
+    void
+  >(`/projects/${projectId}/reanalyze`, {
+    successMessage: "Dependencies re-analyzed successfully!",
+    invalidateKeys: [
+      ["projects", projectId!],
+      ["projects", projectId!, "impact"],
+    ],
+  });
 
   const handleSave = (data: ProjectFormData) => {
     updateMutation.mutate({
@@ -674,6 +687,44 @@ export default function ProjectSettings() {
                 </div>
               </FieldGroup>
             </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Re-analyze Dependencies */}
+      {selectedProject.syncStatus === "Completed" && canSyncSchema && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Re-analyze Dependencies</CardTitle>
+            <CardDescription>
+              Rebuild dependency graph from stored procedure definitions and
+              re-run logical FK detection
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-md">
+              <p className="text-sm text-blue-900 dark:text-blue-100">
+                <strong>When to use:</strong> Run this after making changes to
+                stored procedures, impact analysis logic, or when impact
+                results appear stale. No database connection is required.
+              </p>
+            </div>
+            <Button
+              onClick={() => reanalyzeMutation.mutate()}
+              disabled={reanalyzeMutation.isPending}
+            >
+              {reanalyzeMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Re-analyzing...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Re-analyze
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       )}
