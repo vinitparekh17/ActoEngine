@@ -1,5 +1,4 @@
 import React, { useMemo, useCallback, memo, useRef, useEffect, useState } from "react";
-import { useProject } from "@/hooks/useProject";
 import { useApi } from "@/hooks/useApi";
 import { useContextBatch } from "@/hooks/useContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,6 +64,7 @@ export interface UnifiedEntity {
 
 interface EntityListPanelProps {
   projectId: number;
+  databaseType?: string;
   selectedEntityId?: number;
   selectedEntityType?: EntityType;
   onSelectEntity: (entity: UnifiedEntity | null) => void;
@@ -174,6 +174,7 @@ const EntityRow = memo(function EntityRow({
 
 export function EntityListPanel({
   projectId,
+  databaseType,
   selectedEntityId,
   selectedEntityType,
   onSelectEntity,
@@ -190,7 +191,6 @@ export function EntityListPanel({
   isLoadingSPs = false,
   onRefresh,
 }: EntityListPanelProps) {
-  const { selectedProject } = useProject();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<FilterType>("ALL");
@@ -272,7 +272,7 @@ export function EntityListPanel({
           break;
         }
         case "schema": {
-          const defSchema = getDefaultSchema(selectedProject?.databaseType);
+          const defSchema = getDefaultSchema(databaseType);
           comparison = (a.schemaName || defSchema).localeCompare(b.schemaName || defSchema);
           break;
         }
@@ -287,7 +287,7 @@ export function EntityListPanel({
     });
 
     return filtered;
-  }, [allEntities, searchQuery, sortBy, sortOrder, selectedProject?.databaseType]);
+  }, [allEntities, searchQuery, sortBy, sortOrder, databaseType]);
 
   // Handle "keep selected visible" without breaking sortedFilteredEntities reference
   const filteredEntities = useMemo(() => {
@@ -539,7 +539,7 @@ export function EntityListPanel({
                       onSelect={onSelectEntity}
                       onToggleResync={onToggleResyncSelection}
                       itemRefs={itemRefs}
-                      defaultSchema={getDefaultSchema(selectedProject?.databaseType)}
+                      defaultSchema={getDefaultSchema(databaseType)}
                       contextData={contextMap[`${entity.entityType}:${entity.entityId}`]}
                       isBatchLoading={isBatchLoading}
                     />
@@ -572,7 +572,7 @@ export function EntityListPanel({
                     if (type) {
                       const entityId = node.entityId || parseInt(/\b(\d+)$/.exec(node.id)?.[1] || "0", 10);
                       const found = allEntities.find((e) => e.entityType === type && e.entityId === entityId);
-                      onSelectEntity(found || { entityType: type, entityId, entityName: node.name, schemaName: getDefaultSchema(selectedProject?.databaseType) });
+                      onSelectEntity(found || { entityType: type, entityId, entityName: node.name, schemaName: getDefaultSchema(databaseType) });
                     }
                   }}
                 />

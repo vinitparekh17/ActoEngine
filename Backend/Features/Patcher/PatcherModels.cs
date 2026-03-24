@@ -71,6 +71,14 @@ public class PatchGenerationResponse
     public DateTime GeneratedAt { get; set; }
 }
 
+public class PatchHistoryPageResponse
+{
+    public required List<PatchHistoryRecord> Items { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public int TotalCount { get; set; }
+}
+
 /// <summary>
 /// Project patch configuration update
 /// </summary>
@@ -101,6 +109,7 @@ public class PatchHistoryRecord
     public string? PatchName { get; set; }
     public bool IsNewPage { get; set; }
     public string? PatchFilePath { get; set; }
+    public string? PatchSignature { get; set; }
     public DateTime GeneratedAt { get; set; }
     public int? GeneratedBy { get; set; }
     public required string Status { get; set; }
@@ -130,6 +139,7 @@ internal class PatchHistoryFlatRow
     public string? PatchName { get; set; }
     public bool IsNewPage { get; set; }
     public string? PatchFilePath { get; set; }
+    public string? PatchSignature { get; set; }
     public DateTime GeneratedAt { get; set; }
     public int? GeneratedBy { get; set; }
     public required string Status { get; set; }
@@ -137,6 +147,40 @@ internal class PatchHistoryFlatRow
     public string? PageDomain { get; set; }
     public string? PagePage { get; set; }
     public bool PageIsNew { get; set; }
+}
+
+internal class PatchHistoryPageFlatRow
+{
+    public int PatchId { get; set; }
+    public required string DomainName { get; set; }
+    public required string PageName { get; set; }
+    public bool IsNewPage { get; set; }
+}
+
+internal class LatestPatchByPageFlatRow
+{
+    public required string RequestDomainName { get; set; }
+    public required string RequestPageName { get; set; }
+    public int PatchId { get; set; }
+    public int ProjectId { get; set; }
+    public required string PageName { get; set; }
+    public required string DomainName { get; set; }
+    public required string SpNames { get; set; }
+    public string? PatchName { get; set; }
+    public bool IsNewPage { get; set; }
+    public string? PatchFilePath { get; set; }
+    public string? PatchSignature { get; set; }
+    public DateTime GeneratedAt { get; set; }
+    public int? GeneratedBy { get; set; }
+    public required string Status { get; set; }
+}
+
+public class ApprovedSpByPageRow
+{
+    public required string DomainName { get; set; }
+    public required string PageName { get; set; }
+    public required string StoredProcedure { get; set; }
+    public required string MappingType { get; set; }
 }
 
 /// <summary>
