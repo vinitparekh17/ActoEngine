@@ -22,6 +22,140 @@ public class PatcherServiceTests
 
     private PatcherService CreateService()
     {
+        // Bridge batch methods to individual mocks to support existing tests without restructuring them.
+        _patcherRepo.GetStoredProceduresByIdsAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var ids = callInfo.ArgAt<IReadOnlyCollection<int>>(0);
+                var dict = new Dictionary<int, StoredProcedureMetadataDto>();
+                foreach (var id in ids)
+                {
+                    var sp = _schemaRepo.GetSpByIdAsync(id).GetAwaiter().GetResult();
+                    if (sp != null) dict[id] = sp;
+                }
+                return dict;
+            });
+
+        _patcherRepo.GetTablesByIdsAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var ids = callInfo.ArgAt<IReadOnlyCollection<int>>(0);
+                var dict = new Dictionary<int, TableMetadataDto>();
+                foreach (var id in ids)
+                {
+                    var table = _schemaRepo.GetTableByIdAsync(id).GetAwaiter().GetResult();
+                    if (table != null) dict[id] = table;
+                }
+                return dict;
+            });
+
+        _patcherRepo.GetColumnsByTableIdsAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var ids = callInfo.ArgAt<IReadOnlyCollection<int>>(0);
+                var dict = new Dictionary<int, List<ColumnMetadataDto>>();
+                foreach (var id in ids)
+                {
+                    var cols = _schemaRepo.GetStoredColumnsAsync(id).GetAwaiter().GetResult();
+                    if (cols != null && cols.Count > 0) dict[id] = cols;
+                }
+                return dict;
+            });
+
+        _patcherRepo.GetIndexesByTableIdsAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var ids = callInfo.ArgAt<IReadOnlyCollection<int>>(0);
+                var dict = new Dictionary<int, List<StoredIndexDto>>();
+                foreach (var id in ids)
+                {
+                    var idxs = _schemaRepo.GetStoredIndexesAsync(id).GetAwaiter().GetResult();
+                    if (idxs != null && idxs.Count > 0) dict[id] = idxs.Select(i => new StoredIndexDto { IndexName = i.IndexName, IsUnique = i.IsUnique, IsPrimaryKey = i.IsPrimaryKey, Columns = i.Columns.Select(c => new StoredIndexColumnDto { ColumnName = c.ColumnName, ColumnOrder = c.ColumnOrder }).ToList() }).ToList();
+                }
+                return dict;
+            });
+
+        _patcherRepo.GetForeignKeysByTableIdsAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var ids = callInfo.ArgAt<IReadOnlyCollection<int>>(0);
+                var dict = new Dictionary<int, List<StoredForeignKeyDto>>();
+                foreach (var id in ids)
+                {
+                    var fks = _schemaRepo.GetStoredForeignKeysAsync(id).GetAwaiter().GetResult();
+                    if (fks != null && fks.Count > 0) dict[id] = fks.Select(f => new StoredForeignKeyDto { ColumnName = f.ColumnName, ReferencedSchemaName = f.ReferencedSchemaName, ReferencedTableName = f.ReferencedTableName, ReferencedColumnName = f.ReferencedColumnName, ForeignKeyName = f.ForeignKeyName }).ToList();
+                }
+                return dict;
+            });
+
+        _patcherRepo.GetSpProcedureDependenciesAsync(Arg.Any<int>(), Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var projectId = callInfo.ArgAt<int>(0);
+                var ids = callInfo.ArgAt<IReadOnlyCollection<int>>(1);
+                var dict = new Dictionary<int, List<SpProcedureDependencyRow>>();
+                foreach (var id in ids)
+                {
+                    var deps = _patcherRepo.GetSpProcedureDependenciesAsync(projectId, id, default).GetAwaiter().GetResult();
+                    if (deps != null && deps.Count > 0) dict[id] = deps;
+                }
+                return dict;
+            });
+
+        _patcherRepo.GetSpOutboundDependenciesAsync(Arg.Any<int>(), Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var projectId = callInfo.ArgAt<int>(0);
+                var ids = callInfo.ArgAt<IReadOnlyCollection<int>>(1);
+                var dict = new Dictionary<int, List<SpTableDependencyRow>>();
+                foreach (var id in ids)
+                {
+                    var deps = _patcherRepo.GetSpOutboundDependenciesAsync(projectId, id, default).GetAwaiter().GetResult();
+                    if (deps != null && deps.Count > 0) dict[id] = deps;
+                }
+                return dict;
+            });
+
+        _patcherRepo.GetSpColumnDependenciesAsync(Arg.Any<int>(), Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var projectId = callInfo.ArgAt<int>(0);
+                var ids = callInfo.ArgAt<IReadOnlyCollection<int>>(1);
+                var dict = new Dictionary<int, List<SpColumnDependencyRow>>();
+                foreach (var id in ids)
+                {
+                    var deps = _patcherRepo.GetSpColumnDependenciesAsync(projectId, id, default).GetAwaiter().GetResult();
+                    if (deps != null && deps.Count > 0) dict[id] = deps;
+                }
+                return dict;
+            });
+
+        _mappingRepo.GetApprovedStoredProceduresByPagesAsync(Arg.Any<int>(), Arg.Any<IReadOnlyCollection<PatchPageEntry>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var projectId = callInfo.ArgAt<int>(0);
+                var pages = callInfo.ArgAt<IReadOnlyCollection<PatchPageEntry>>(1);
+                var results = new List<ApprovedSpByPageRow>();
+                foreach (var page in pages)
+                {
+                    var approved = _mappingRepo.GetApprovedStoredProceduresAsync(projectId, page.DomainName, page.PageName, default).GetAwaiter().GetResult();
+                    if (approved != null)
+                    {
+                        results.AddRange(approved.Select(a => new ApprovedSpByPageRow
+                        {
+                            DomainName = page.DomainName,
+                            PageName = page.PageName,
+                            StoredProcedure = a.StoredProcedure,
+                            MappingType = a.MappingType
+                        }));
+                    }
+                }
+                return results;
+            });
+
+        _ = _patcherRepo.GetLatestPatchesAsync(Arg.Any<int>(), Arg.Any<IReadOnlyCollection<PatchPageEntry>>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+
         var manifestBuilder = new PatchManifestBuilder(_patcherRepo, _mappingRepo, _schemaRepo, _dependencyAnalysisService);
         var archiver = new PatchArchiver();
         return new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, manifestBuilder, _scriptRenderer, archiver, _logger);
