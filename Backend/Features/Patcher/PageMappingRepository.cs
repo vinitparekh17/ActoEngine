@@ -19,6 +19,7 @@ public interface IPageMappingRepository
     Task<int> BulkUpdateStatusAsync(int projectId, IReadOnlyCollection<int> ids, string action, int reviewedBy, CancellationToken ct = default);
     Task<bool> DeleteCandidateAsync(int projectId, int mappingId, CancellationToken ct = default);
     Task<List<ApprovedSpDto>> GetApprovedStoredProceduresAsync(int projectId, string domainName, string pageName, CancellationToken ct = default);
+    Task<List<ApprovedSpByPageRow>> GetApprovedStoredProceduresByPagesAsync(int projectId, IReadOnlyCollection<PatchPageEntry> pages, CancellationToken ct = default);
 }
 
 public class PageMappingRepository(
@@ -241,26 +242,86 @@ public class PageMappingRepository(
         string pageName,
         CancellationToken ct = default)
     {
-        const string sql = """
-            SELECT DISTINCT StoredProcedure, MappingType
-            FROM PageMappings
-            WHERE ProjectId = @ProjectId
-              AND Status = @Status
-              AND (
-                    MappingType = @SharedMappingType
-                    OR (DomainName = @DomainName AND PageName = @PageName)
-                  )
-            """;
+        var rows = await GetApprovedStoredProceduresByPagesAsync(
+            projectId,
+            [
+                new PatchPageEntry
+                {
+                    DomainName = domainName,
+                    PageName = pageName,
+                    IsNewPage = false
+                }
+            ],
+            ct);
 
-        var rows = await QueryAsync<ApprovedSpDto>(sql, new
+        return [.. rows
+            .Where(row => row.DomainName.Equals(domainName, StringComparison.OrdinalIgnoreCase)
+                          && row.PageName.Equals(pageName, StringComparison.OrdinalIgnoreCase))
+            .Select(row => new ApprovedSpDto
+            {
+                StoredProcedure = row.StoredProcedure,
+                MappingType = row.MappingType
+            })];
+    }
+
+    public async Task<List<ApprovedSpByPageRow>> GetApprovedStoredProceduresByPagesAsync(
+        int projectId,
+        IReadOnlyCollection<PatchPageEntry> pages,
+        CancellationToken ct = default)
+    {
+        var normalizedPages = pages
+            .Where(page => !string.IsNullOrWhiteSpace(page.DomainName) && !string.IsNullOrWhiteSpace(page.PageName))
+            .GroupBy(page => PatcherRepository.BuildPageKey(page.DomainName, page.PageName), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new
+            {
+                DomainName = group.First().DomainName.Trim(),
+                PageName = group.First().PageName.Trim()
+            }).ToList();
+
+        if (normalizedPages.Count == 0)
         {
-            ProjectId = projectId,
-            Status = PageMappingConstants.StatusApproved,
-            SharedMappingType = PageMappingConstants.MappingTypeShared,
-            DomainName = domainName,
-            PageName = pageName
-        }, ct);
+            return [];
+        }
 
+        var values = new StringBuilder();
+        var parameters = new DynamicParameters();
+        parameters.Add("ProjectId", projectId);
+        parameters.Add("Status", PageMappingConstants.StatusApproved);
+        parameters.Add("SharedMappingType", PageMappingConstants.MappingTypeShared);
+
+        for (var i = 0; i < normalizedPages.Count; i++)
+        {
+            if (i > 0)
+            {
+                values.Append(", ");
+            }
+
+            values.Append($"(@DomainName{i}, @PageName{i})");
+            parameters.Add($"DomainName{i}", normalizedPages[i].DomainName);
+            parameters.Add($"PageName{i}", normalizedPages[i].PageName);
+        }
+
+        var sql = $@"
+            WITH RequestedPages(DomainName, PageName) AS (
+                SELECT v.DomainName, v.PageName
+                FROM (VALUES {values}) v(DomainName, PageName)
+            )
+            SELECT DISTINCT
+                rp.DomainName,
+                rp.PageName,
+                pm.StoredProcedure,
+                pm.MappingType
+            FROM RequestedPages rp
+            INNER JOIN PageMappings pm
+                ON pm.ProjectId = @ProjectId
+               AND pm.Status = @Status
+               AND (
+                    pm.MappingType = @SharedMappingType
+                    OR (pm.DomainName = rp.DomainName AND pm.PageName = rp.PageName)
+               )
+            ORDER BY rp.DomainName, rp.PageName, pm.StoredProcedure";
+
+        var rows = await QueryAsync<ApprovedSpByPageRow>(sql, parameters, ct);
         return [.. rows];
     }
 

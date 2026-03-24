@@ -12,6 +12,13 @@ public interface IPatchScriptRenderer
 internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
+    private static readonly HashSet<string> s_allowedReferentialActions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "NO ACTION",
+        "CASCADE",
+        "SET NULL",
+        "SET DEFAULT"
+    };
 
     public PatchArchiveArtifacts Render(PatchManifest manifest)
     {
@@ -28,6 +35,8 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
     {
         var sb = new StringBuilder();
         var schemasToEnsure = GetSchemasToEnsure(manifest);
+        var orderedProcedures = manifest.Procedures.OrderBy(p => p.IsShared).ThenBy(p => p.SchemaName).ThenBy(p => p.ProcedureName).ToList();
+        var orderedTables = manifest.Tables.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName).ToList();
 
         AppendHeader(sb, "Compatibility Check Script", manifest);
         sb.AppendLine("SET NOCOUNT ON;");
@@ -38,7 +47,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         // ═════════════════════════════════════════════════════════
         // PHASE 1: Pre-Flight Validation
         // ═════════════════════════════════════════════════════════
-        foreach (var procedure in manifest.Procedures.OrderBy(p => p.IsShared).ThenBy(p => p.SchemaName).ThenBy(p => p.ProcedureName))
+        foreach (var procedure in orderedProcedures)
         {
             var procName = QualifiedName(procedure.SchemaName, procedure.ProcedureName);
             var procLiteral = SqlUnicodeLiteral(procName);
@@ -55,7 +64,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
             AppendSchemaChecks(sb, schema);
         }
 
-        foreach (var table in manifest.Tables.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName))
+        foreach (var table in orderedTables)
         {
             AppendTableCompatibilityChecks(sb, table);
         }
@@ -102,19 +111,19 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         sb.AppendLine();
 
         // 2. Repair tables, columns, constraints
-        foreach (var table in manifest.Tables.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName))
+        foreach (var table in orderedTables)
         {
             AppendTableRepairs(sb, table);
         }
 
         // 3. Create missing indexes
-        foreach (var table in manifest.Tables.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName))
+        foreach (var table in orderedTables)
         {
             AppendIndexRepairs(sb, table);
         }
 
         // 4. Create missing foreign keys
-        foreach (var table in manifest.Tables.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName))
+        foreach (var table in orderedTables)
         {
             AppendForeignKeyRepairs(sb, table);
         }
@@ -136,6 +145,9 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
     private static string RenderUpdateSql(PatchManifest manifest)
     {
         var sb = new StringBuilder();
+        var orderedTables = manifest.Tables.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName).ToList();
+        var orderedNonSharedProcedures = manifest.Procedures.Where(p => !p.IsShared).OrderBy(p => p.SchemaName).ThenBy(p => p.ProcedureName).ToList();
+        var orderedSharedProcedures = manifest.Procedures.Where(p => p.IsShared).OrderBy(p => p.SchemaName).ThenBy(p => p.ProcedureName).ToList();
 
         AppendHeader(sb, "Patch Update Script", manifest);
         sb.AppendLine("SET NOCOUNT ON;");
@@ -143,7 +155,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         sb.AppendLine("DECLARE @BlockerCount INT = 0;");
         sb.AppendLine();
 
-        foreach (var table in manifest.Tables.OrderBy(t => t.SchemaName).ThenBy(t => t.TableName))
+        foreach (var table in orderedTables)
         {
             AppendBlockerPrecheck(sb, table);
         }
@@ -157,16 +169,16 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         sb.AppendLine("    BEGIN TRANSACTION;");
         sb.AppendLine();
 
-        foreach (var procedure in manifest.Procedures.Where(p => !p.IsShared).OrderBy(p => p.SchemaName).ThenBy(p => p.ProcedureName))
+        foreach (var procedure in orderedNonSharedProcedures)
         {
             AppendProcedureCreateOrAlter(sb, procedure, "    ");
         }
 
-        if (manifest.Procedures.Any(p => p.IsShared))
+        if (orderedSharedProcedures.Count != 0)
         {
             sb.AppendLine("    IF @IncludeSharedSPs = 1");
             sb.AppendLine("    BEGIN");
-            foreach (var procedure in manifest.Procedures.Where(p => p.IsShared).OrderBy(p => p.SchemaName).ThenBy(p => p.ProcedureName))
+            foreach (var procedure in orderedSharedProcedures)
             {
                 AppendProcedureCreateOrAlter(sb, procedure, "        ");
             }
@@ -191,6 +203,8 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
     private static string RenderRollbackSql(PatchManifest manifest)
     {
         var sb = new StringBuilder();
+        var orderedNonSharedProcedures = manifest.Procedures.Where(p => !p.IsShared).OrderBy(p => p.SchemaName).ThenBy(p => p.ProcedureName).ToList();
+        var orderedSharedProcedures = manifest.Procedures.Where(p => p.IsShared).OrderBy(p => p.SchemaName).ThenBy(p => p.ProcedureName).ToList();
 
         AppendHeader(sb, "Rollback Script", manifest);
         sb.AppendLine("SET NOCOUNT ON;");
@@ -199,16 +213,16 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         sb.AppendLine("PRINT 'Additive schema changes are not dropped automatically; review compatibility.sql and update.sql before manual rollback.';");
         sb.AppendLine();
 
-        foreach (var procedure in manifest.Procedures.Where(p => !p.IsShared).OrderBy(p => p.SchemaName).ThenBy(p => p.ProcedureName))
+        foreach (var procedure in orderedNonSharedProcedures)
         {
             AppendProcedureCreateOrAlter(sb, procedure, string.Empty);
         }
 
-        if (manifest.Procedures.Any(p => p.IsShared))
+        if (orderedSharedProcedures.Count != 0)
         {
             sb.AppendLine("IF @IncludeSharedSPs = 1");
             sb.AppendLine("BEGIN");
-            foreach (var procedure in manifest.Procedures.Where(p => p.IsShared).OrderBy(p => p.SchemaName).ThenBy(p => p.ProcedureName))
+            foreach (var procedure in orderedSharedProcedures)
             {
                 AppendProcedureCreateOrAlter(sb, procedure, "    ");
             }
@@ -272,8 +286,15 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
 
             if (!string.IsNullOrWhiteSpace(column.DefaultValue))
             {
-                sb.AppendLine($"        IF NOT EXISTS (SELECT 1 FROM sys.default_constraints dc INNER JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id WHERE dc.parent_object_id = OBJECT_ID({objectLiteral}) AND c.name = N'{EscapeSql(column.ColumnName)}')");
-                sb.AppendLine($"            INSERT INTO @Issues VALUES ('REPAIRABLE', 'DEFAULT', {columnLiteral}, 'Default constraint is missing.');");
+                if (!IsSafeDefaultExpression(column.DefaultValue!))
+                {
+                    sb.AppendLine($"        INSERT INTO @Issues VALUES ('BLOCKER', 'DEFAULT', {columnLiteral}, '{EscapeSql(BuildUnsafeDefaultMessage(column))}');");
+                }
+                else
+                {
+                    sb.AppendLine($"        IF NOT EXISTS (SELECT 1 FROM sys.default_constraints dc INNER JOIN sys.columns c ON c.object_id = dc.parent_object_id AND c.column_id = dc.parent_column_id WHERE dc.parent_object_id = OBJECT_ID({objectLiteral}) AND c.name = N'{EscapeSql(column.ColumnName)}')");
+                    sb.AppendLine($"            INSERT INTO @Issues VALUES ('REPAIRABLE', 'DEFAULT', {columnLiteral}, 'Default constraint is missing.');");
+                }
             }
 
             sb.AppendLine("    END");
@@ -292,6 +313,13 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         {
             var fkName = foreignKey.ForeignKeyName ?? $"FK_{table.TableName}_{foreignKey.ReferencedTableName}_{foreignKey.ColumnName}";
             var fkLiteral = SqlUnicodeLiteral($"{qualifiedTable}.{Bracket(fkName)}");
+            if (!s_allowedReferentialActions.Contains(foreignKey.OnDeleteAction)
+                || !s_allowedReferentialActions.Contains(foreignKey.OnUpdateAction))
+            {
+                sb.AppendLine($"    INSERT INTO @Issues VALUES ('BLOCKER', 'FOREIGN_KEY', {fkLiteral}, 'Foreign key action is not in the safe allowlist and requires manual validation.');");
+                continue;
+            }
+
             sb.AppendLine($"    IF OBJECT_ID(N'{EscapeSql(QualifiedName(foreignKey.ReferencedSchemaName, foreignKey.ReferencedTableName))}', 'U') IS NOT NULL");
             sb.AppendLine("    BEGIN");
             sb.AppendLine($"        IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE parent_object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(fkName)}')");
@@ -316,6 +344,12 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
 
             sb.AppendLine($"IF OBJECT_ID({objectLiteral}, 'U') IS NOT NULL AND EXISTS ({BuildColumnMismatchQuery(table, column)})");
             sb.AppendLine("    SET @BlockerCount = @BlockerCount + 1;");
+
+            if (!string.IsNullOrWhiteSpace(column.DefaultValue) && !IsSafeDefaultExpression(column.DefaultValue))
+            {
+                sb.AppendLine($"IF OBJECT_ID({objectLiteral}, 'U') IS NOT NULL");
+                sb.AppendLine("    SET @BlockerCount = @BlockerCount + 1;");
+            }
         }
     }
 
@@ -337,7 +371,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
             repairStatements.Add($"                    EXEC(N'ALTER TABLE {qualifiedTable} ADD {EscapeForNestedExec(BuildColumnDefinition(column))}');");
         }
 
-        foreach (var column in requiredColumns.Where(c => !string.IsNullOrWhiteSpace(c.DefaultValue)))
+        foreach (var column in requiredColumns.Where(c => !string.IsNullOrWhiteSpace(c.DefaultValue) && IsSafeDefaultExpression(c.DefaultValue!)))
         {
             var constraintName = DefaultConstraintName(table, column);
             repairStatements.Add($"                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
@@ -347,7 +381,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
 
         sb.AppendLine($"            IF OBJECT_ID({tableLiteral}, 'U') IS NULL");
         sb.AppendLine("            BEGIN");
-        sb.AppendLine($"                EXEC(N'CREATE TABLE {qualifiedTable} ({string.Join(", ", table.Columns.Select(c => BuildColumnDefinition(c))).Replace("'", "''")})');");
+        sb.AppendLine($"                EXEC(N'CREATE TABLE {qualifiedTable} ({string.Join(", ", table.Columns.Select(c => BuildColumnDefinition(c, includeUnsafeDefault: false))).Replace("'", "''")})');");
         sb.AppendLine("            END");
 
         if (repairStatements.Count != 0)
@@ -386,9 +420,11 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         {
             var fkName = foreignKey.ForeignKeyName ?? $"FK_{table.TableName}_{foreignKey.ReferencedTableName}_{foreignKey.ColumnName}";
             var referencedTable = QualifiedName(foreignKey.ReferencedSchemaName, foreignKey.ReferencedTableName);
+            var deleteAction = NormalizeReferentialAction(foreignKey.OnDeleteAction);
+            var updateAction = NormalizeReferentialAction(foreignKey.OnUpdateAction);
             sb.AppendLine($"            IF OBJECT_ID({tableLiteral}, 'U') IS NOT NULL AND OBJECT_ID(N'{EscapeSql(referencedTable)}', 'U') IS NOT NULL");
             sb.AppendLine($"               AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE parent_object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(fkName)}')");
-            sb.AppendLine($"                EXEC(N'ALTER TABLE {qualifiedTable} WITH CHECK ADD CONSTRAINT {Bracket(fkName)} FOREIGN KEY ({Bracket(foreignKey.ColumnName)}) REFERENCES {referencedTable} ({Bracket(foreignKey.ReferencedColumnName)}) ON DELETE {EscapeForNestedExec(foreignKey.OnDeleteAction)} ON UPDATE {EscapeForNestedExec(foreignKey.OnUpdateAction)}');");
+            sb.AppendLine($"                EXEC(N'ALTER TABLE {qualifiedTable} WITH CHECK ADD CONSTRAINT {Bracket(fkName)} FOREIGN KEY ({Bracket(foreignKey.ColumnName)}) REFERENCES {referencedTable} ({Bracket(foreignKey.ReferencedColumnName)}) ON DELETE {EscapeForNestedExec(deleteAction)} ON UPDATE {EscapeForNestedExec(updateAction)}');");
             sb.AppendLine();
         }
     }
@@ -468,17 +504,19 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
 
     private static List<PatchColumnSnapshot> GetRequiredColumns(PatchTableSnapshot table)
     {
+        var requiredSet = new HashSet<string>(table.RequiredColumnNames, StringComparer.OrdinalIgnoreCase);
         return
         [
             .. table.Columns
-                .Where(c => table.RequiredColumnNames.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase))
+                .Where(c => requiredSet.Contains(c.ColumnName))
                 .OrderBy(c => c.ColumnName, StringComparer.OrdinalIgnoreCase)
         ];
     }
 
     private static bool CanRepairMissingColumn(PatchColumnSnapshot column)
     {
-        return column.IsNullable || !string.IsNullOrWhiteSpace(column.DefaultValue);
+        return column.IsNullable
+            || (!string.IsNullOrWhiteSpace(column.DefaultValue) && IsSafeDefaultExpression(column.DefaultValue));
     }
 
     private static bool UsesPrecisionAndScaleChecks(PatchColumnSnapshot column)
@@ -495,6 +533,11 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         }
 
         return $"Required column is missing and cannot be auto-added safely because expected column is {BuildExpectedColumnMetadataSummary(column)} with no default.";
+    }
+
+    private static string BuildUnsafeDefaultMessage(PatchColumnSnapshot column)
+    {
+        return $"Default expression for column '{column.ColumnName}' is not in the safe allowlist and requires manual validation.";
     }
 
     private static string BuildColumnMismatchMessage(PatchColumnSnapshot column)
@@ -522,7 +565,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         return sb.ToString();
     }
 
-    private static string BuildColumnDefinition(PatchColumnSnapshot column)
+    private static string BuildColumnDefinition(PatchColumnSnapshot column, bool includeUnsafeDefault = true)
     {
         var sb = new StringBuilder();
         sb.Append(Bracket(column.ColumnName)).Append(' ').Append(BuildDataTypeDefinition(column));
@@ -539,7 +582,8 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
             sb.Append(" PRIMARY KEY");
         }
 
-        if (!string.IsNullOrWhiteSpace(column.DefaultValue))
+        if (!string.IsNullOrWhiteSpace(column.DefaultValue)
+            && (includeUnsafeDefault || IsSafeDefaultExpression(column.DefaultValue)))
         {
             sb.Append(" DEFAULT ").Append(column.DefaultValue);
         }
@@ -575,6 +619,20 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         return $"DF_{table.TableName}_{column.ColumnName}";
     }
 
+    private static bool IsSafeDefaultExpression(string defaultExpression)
+    {
+        var value = defaultExpression.Trim();
+        return NumericDefaultRegex().IsMatch(value)
+            || QuotedLiteralDefaultRegex().IsMatch(value)
+            || KnownDefaultFunctionRegex().IsMatch(value);
+    }
+
+    private static string NormalizeReferentialAction(string action)
+    {
+        var normalized = action?.Trim().ToUpperInvariant() ?? "NO ACTION";
+        return s_allowedReferentialActions.Contains(normalized) ? normalized : "NO ACTION";
+    }
+
     private static string NormalizeProcedureDefinition(string definition)
     {
         var normalized = CreateOrAlterProcedureRegex().Replace(definition, "CREATE OR ALTER PROCEDURE");
@@ -608,4 +666,10 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
 
     [GeneratedRegex(@"^\s*(CREATE|ALTER)\s+PROCEDURE", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
     private static partial Regex CreateOrAlterProcedureRegex();
+    [GeneratedRegex(@"^\(?\(?-?\d+(\.\d+)?\)?\)?$")]
+    private static partial Regex NumericDefaultRegex();
+    [GeneratedRegex(@"^N?'[^']*'$", RegexOptions.Singleline)]
+    private static partial Regex QuotedLiteralDefaultRegex();
+    [GeneratedRegex(@"^\(?\s*(GETDATE|GETUTCDATE|SYSDATETIME|SYSUTCDATETIME|NEWID|CURRENT_TIMESTAMP)\s*\(\s*\)\s*\)?$", RegexOptions.IgnoreCase)]
+    private static partial Regex KnownDefaultFunctionRegex();
 }

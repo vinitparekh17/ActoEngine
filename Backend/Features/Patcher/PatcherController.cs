@@ -20,16 +20,28 @@ public class PatcherController(
     [HttpPost("check-status")]
     [RequirePermission("StoredProcedures:Create")]
     public async Task<ActionResult<ApiResponse<List<PagePatchStatus>>>> CheckPatchStatus(
-        [FromBody] PatchStatusRequest request)
+        [FromBody] PatchStatusRequest request,
+        CancellationToken ct)
     {
+        if (request == null)
+        {
+            return BadRequest(ApiResponse<List<PagePatchStatus>>.Failure(
+                "Patch status check failed", ["Request body is required."]));
+        }
+
         try
         {
-            var statuses = await patcherService.CheckPatchStatusAsync(request);
+            var statuses = await patcherService.CheckPatchStatusAsync(request, ct);
             var staleCount = statuses.Count(s => s.NeedsRegeneration);
 
             return Ok(ApiResponse<List<PagePatchStatus>>.Success(
                 statuses,
                 $"Checked {statuses.Count} pages. {staleCount} need regeneration."));
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Patch status check cancelled for project {ProjectId}", request.ProjectId);
+            return StatusCode(499);
         }
         catch (InvalidOperationException ex)
         {
@@ -51,17 +63,29 @@ public class PatcherController(
     [HttpPost("generate")]
     [RequirePermission("StoredProcedures:Create")]
     public async Task<ActionResult<ApiResponse<PatchGenerationResponse>>> GeneratePatch(
-        [FromBody] PatchGenerationRequest request)
+        [FromBody] PatchGenerationRequest request,
+        CancellationToken ct)
     {
+        if (request == null)
+        {
+            return BadRequest(ApiResponse<PatchGenerationResponse>.Failure(
+                "Patch generation failed", ["Request body is required."]));
+        }
+
         try
         {
             var userId = HttpContext.GetUserId();
 
-            var result = await patcherService.GeneratePatchAsync(request, userId);
+            var result = await patcherService.GeneratePatchAsync(request, userId, ct);
 
             return Ok(ApiResponse<PatchGenerationResponse>.Success(
                 result,
                 $"Patch generated with {result.FilesIncluded.Count} files."));
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Patch generation cancelled for project {ProjectId}", request.ProjectId);
+            return StatusCode(499);
         }
         catch (InvalidOperationException ex)
         {
@@ -82,25 +106,63 @@ public class PatcherController(
     /// </summary>
     [HttpGet("download/{patchId}")]
     [RequirePermission("StoredProcedures:Create")]
-    public async Task<IActionResult> DownloadPatch(int patchId)
+    public async Task<IActionResult> DownloadPatch(int patchId, CancellationToken ct)
     {
         try
         {
-            var patch = await patcherRepo.GetPatchByIdAsync(patchId);
+            var userId = HttpContext.GetUserId();
+            if (userId == null) return Unauthorized(ApiResponse<object>.Failure("Unauthorized", ["User ID not found in token."]));
+            var patch = await patcherRepo.GetPatchByIdAsync(patchId, userId.Value, ct);
             if (patch == null)
             {
                 return NotFound(ApiResponse<object>.Failure(
                     "Patch not found", [$"No patch with ID {patchId} exists."]));
             }
 
-            if (string.IsNullOrEmpty(patch.PatchFilePath) || !System.IO.File.Exists(patch.PatchFilePath))
+            if (string.IsNullOrWhiteSpace(patch.PatchFilePath))
             {
                 return NotFound(ApiResponse<object>.Failure(
                     "Patch file not found", ["The patch file no longer exists on disk."]));
             }
 
-            var fileName = Path.GetFileName(patch.PatchFilePath);
-            return PhysicalFile(patch.PatchFilePath, "application/zip", fileName, enableRangeProcessing: true);
+            var config = await patcherRepo.GetPatchConfigAsync(patch.ProjectId, ct);
+            var patchStorageRoot = config?.PatchDownloadPath;
+            if (string.IsNullOrWhiteSpace(patchStorageRoot))
+            {
+                return NotFound(ApiResponse<object>.Failure(
+                    "Patch file not found", ["The patch file no longer exists on disk."]));
+            }
+
+            string resolvedPatchPath;
+            string resolvedStorageRoot;
+            try
+            {
+                resolvedPatchPath = Path.GetFullPath(patch.PatchFilePath);
+                resolvedStorageRoot = Path.GetFullPath(patchStorageRoot);
+            }
+            catch
+            {
+                return NotFound(ApiResponse<object>.Failure(
+                    "Patch file not found", ["The patch file no longer exists on disk."]));
+            }
+
+            var rootWithSeparator = resolvedStorageRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                                    + Path.DirectorySeparatorChar;
+            var pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+            if (!resolvedPatchPath.StartsWith(rootWithSeparator, pathComparison) || !System.IO.File.Exists(resolvedPatchPath))
+            {
+                return NotFound(ApiResponse<object>.Failure(
+                    "Patch file not found", ["The patch file no longer exists on disk."]));
+            }
+
+            var fileName = Path.GetFileName(resolvedPatchPath);
+            return PhysicalFile(resolvedPatchPath, "application/zip", fileName, enableRangeProcessing: true);
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Patch download cancelled for patch {PatchId}", patchId);
+            return StatusCode(499);
         }
         catch (Exception ex)
         {
@@ -115,15 +177,24 @@ public class PatcherController(
     /// </summary>
     [HttpGet("history/{projectId}")]
     [RequirePermission("StoredProcedures:Create")]
-    public async Task<ActionResult<ApiResponse<List<PatchHistoryRecord>>>> GetPatchHistory(int projectId)
+    public async Task<ActionResult<ApiResponse<List<PatchHistoryRecord>>>> GetPatchHistory(
+        int projectId,
+        [FromQuery] int offset = 0,
+        [FromQuery] int limit = 50,
+        CancellationToken ct = default)
     {
         try
         {
-            var history = await patcherRepo.GetPatchHistoryAsync(projectId);
+            var history = await patcherRepo.GetPatchHistoryAsync(projectId, offset, limit, ct);
 
             return Ok(ApiResponse<List<PatchHistoryRecord>>.Success(
                 history,
                 $"Found {history.Count} patch records."));
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Patch history fetch cancelled for project {ProjectId}", projectId);
+            return StatusCode(499);
         }
         catch (Exception ex)
         {
@@ -133,16 +204,44 @@ public class PatcherController(
         }
     }
 
+    [HttpGet("history/{projectId}/paged")]
+    [RequirePermission("StoredProcedures:Create")]
+    public async Task<ActionResult<ApiResponse<PatchHistoryPageResponse>>> GetPatchHistoryPaged(
+        int projectId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var paged = await patcherRepo.GetPatchHistoryPagedAsync(projectId, page, pageSize, ct);
+            return Ok(ApiResponse<PatchHistoryPageResponse>.Success(
+                paged,
+                $"Found {paged.Items.Count} patch records (page {paged.Page})."));
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Paged patch history fetch cancelled for project {ProjectId}", projectId);
+            return StatusCode(499);
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "Error getting patch history for project {ProjectId}", projectId);
+            return StatusCode(500, ApiResponse<PatchHistoryPageResponse>.Failure(
+                "History fetch failed", ["An unexpected error occurred."]));
+        }
+    }
+
     /// <summary>
     /// Get project patch configuration (paths)
     /// </summary>
     [HttpGet("config/{projectId}")]
     [RequirePermission("StoredProcedures:Create")]
-    public async Task<ActionResult<ApiResponse<ProjectPatchConfig>>> GetPatchConfig(int projectId)
+    public async Task<ActionResult<ApiResponse<ProjectPatchConfig>>> GetPatchConfig(int projectId, CancellationToken ct)
     {
         try
         {
-            var config = await patcherRepo.GetPatchConfigAsync(projectId);
+            var config = await patcherRepo.GetPatchConfigAsync(projectId, ct);
             if (config == null)
             {
                 return NotFound(ApiResponse<ProjectPatchConfig>.Failure(
@@ -150,6 +249,11 @@ public class PatcherController(
             }
 
             return Ok(ApiResponse<ProjectPatchConfig>.Success(config, "Patch configuration retrieved."));
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Patch config fetch cancelled for project {ProjectId}", projectId);
+            return StatusCode(499);
         }
         catch (Exception ex)
         {
@@ -166,15 +270,21 @@ public class PatcherController(
     [RequirePermission("StoredProcedures:Create")]
     public async Task<ActionResult<ApiResponse<string>>> CreateOrUpdatePatchConfig(
         int projectId,
-        [FromBody] PatchConfigRequest config)
+        [FromBody] PatchConfigRequest config,
+        CancellationToken ct)
     {
         try
         {
-            await patcherRepo.UpdatePatchConfigAsync(projectId, config);
+            await patcherRepo.UpdatePatchConfigAsync(projectId, config, ct);
 
             return Ok(ApiResponse<string>.Success(
                 "Updated",
                 "Patch configuration updated successfully."));
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Patch config update (POST) cancelled for project {ProjectId}", projectId);
+            return StatusCode(499);
         }
         catch (Exception ex)
         {
@@ -191,15 +301,21 @@ public class PatcherController(
     [RequirePermission("StoredProcedures:Create")]
     public async Task<ActionResult<ApiResponse<string>>> UpdatePatchConfig(
         int projectId,
-        [FromBody] PatchConfigRequest config)
+        [FromBody] PatchConfigRequest config,
+        CancellationToken ct)
     {
         try
         {
-            await patcherRepo.UpdatePatchConfigAsync(projectId, config);
+            await patcherRepo.UpdatePatchConfigAsync(projectId, config, ct);
 
             return Ok(ApiResponse<string>.Success(
                 "Updated",
                 "Patch configuration updated successfully."));
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Patch config update (PUT) cancelled for project {ProjectId}", projectId);
+            return StatusCode(499);
         }
         catch (Exception ex)
         {

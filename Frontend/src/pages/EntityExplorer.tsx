@@ -450,6 +450,7 @@ export default function EntityExplorer() {
         <div className="overflow-hidden border rounded-lg p-4 bg-card">
           <EntityListPanel
             projectId={routeProjectId!}
+            databaseType={routeProject?.databaseType}
             selectedEntityId={selectedEntityId}
             selectedEntityType={selectedEntityType}
             onSelectEntity={handleSelectEntity}

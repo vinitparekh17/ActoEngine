@@ -15,6 +15,14 @@ public sealed partial class PatchManifestBuilder(
     ISchemaRepository schemaRepo,
     IDependencyAnalysisService dependencyAnalysisService)
 {
+    private static readonly HashSet<string> s_allowedReferentialActions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "NO ACTION",
+        "CASCADE",
+        "SET NULL",
+        "SET DEFAULT"
+    };
+
     // ──────────────────────────────────────────────
     //  Public entry point
     // ──────────────────────────────────────────────
@@ -38,21 +46,28 @@ public sealed partial class PatchManifestBuilder(
         var storedProcedureById = allStoredProcedures.ToDictionary(sp => sp.SpId);
         var allTables = await schemaRepo.GetStoredTablesAsync(request.ProjectId) ?? [];
         var tableLookup = BuildTableLookup(allTables);
-        var tableColumnsCache = new Dictionary<int, List<ColumnMetadataDto>>();
+        var tableColumnsListCache = new Dictionary<int, List<ColumnMetadataDto>>();
+        var tableColumnsLookupCache = new Dictionary<int, Dictionary<string, ColumnMetadataDto>>();
 
         var procedureSnapshots = new Dictionary<int, PatchProcedureSnapshot>();
         var requiredColumnsByTable = new Dictionary<int, HashSet<string>>();
-        var rootQueue = new Queue<(StoredProcedureListDto Sp, bool IsShared, string SourcePage)>();
+        var rootQueue = new Queue<(int SpId, bool IsShared, string SourcePage)>();
+
+        var requestedPages = pages.Select(page => new PatchPageEntry
+        {
+            DomainName = page.DomainName,
+            PageName = page.PageName,
+            IsNewPage = page.IsNewPage
+        }).ToList();
+        var approvedRows = await pageMappingRepo.GetApprovedStoredProceduresByPagesAsync(request.ProjectId, requestedPages, ct);
+        var approvedByPage = approvedRows
+            .GroupBy(row => PatcherRepository.BuildPageKey(row.DomainName, row.PageName), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var mapping in request.PageMappings)
         {
-            var approvedSps = await pageMappingRepo.GetApprovedStoredProceduresAsync(
-                request.ProjectId,
-                mapping.DomainName,
-                mapping.PageName,
-                ct);
-
-            if (approvedSps.Count == 0)
+            var pageKey = PatcherRepository.BuildPageKey(mapping.DomainName, mapping.PageName);
+            if (!approvedByPage.TryGetValue(pageKey, out var approvedSps) || approvedSps.Count == 0)
             {
                 warnings.Add($"No approved mappings for page '{mapping.DomainName}/{mapping.PageName}'.");
                 continue;
@@ -67,7 +82,7 @@ public sealed partial class PatchManifestBuilder(
                 }
 
                 rootQueue.Enqueue((
-                    sp,
+                    sp.SpId,
                     approved.MappingType.Equals(PageMappingConstants.MappingTypeShared, StringComparison.OrdinalIgnoreCase),
                     $"{mapping.DomainName}/{mapping.PageName}"));
             }
@@ -75,121 +90,184 @@ public sealed partial class PatchManifestBuilder(
 
         while (rootQueue.Count > 0)
         {
-            var (sp, isShared, sourcePage) = rootQueue.Dequeue();
-            if (procedureSnapshots.TryGetValue(sp.SpId, out var existing))
+            var batch = new List<(int SpId, bool IsShared, string SourcePage)>(rootQueue.Count);
+            while (rootQueue.Count > 0)
             {
-                if (!isShared && existing.IsShared)
+                batch.Add(rootQueue.Dequeue());
+            }
+
+            var pending = new List<(int SpId, bool IsShared, string SourcePage)>();
+            foreach (var candidate in batch)
+            {
+                if (procedureSnapshots.TryGetValue(candidate.SpId, out var existingSnapshot))
                 {
-                    existing.IsShared = false;
-                    foreach (var dependencyId in existing.DependencyProcedureIds)
+                    if (!candidate.IsShared && existingSnapshot.IsShared)
                     {
-                        if (storedProcedureById.TryGetValue(dependencyId, out var nested))
+                        existingSnapshot.IsShared = false;
+                        foreach (var dependencyId in existingSnapshot.DependencyProcedureIds)
                         {
-                            rootQueue.Enqueue((nested, false, sourcePage));
+                            rootQueue.Enqueue((dependencyId, false, candidate.SourcePage));
                         }
                     }
-                }
-                continue;
-            }
 
-            var spDetail = await schemaRepo.GetSpByIdAsync(sp.SpId);
-            if (spDetail == null)
-            {
-                blockers.Add($"Stored procedure '{NormalizeQualifiedName(sp.SchemaName, sp.ProcedureName)}' is missing its full definition in metadata. Re-sync the project.");
-                continue;
-            }
-
-            var persistedProcedureDependencies = await patcherRepo.GetSpProcedureDependenciesAsync(request.ProjectId, sp.SpId, ct);
-            var persistedTableDependencies = await patcherRepo.GetSpOutboundDependenciesAsync(request.ProjectId, sp.SpId, ct);
-            var persistedColumnDependencies = await patcherRepo.GetSpColumnDependenciesAsync(request.ProjectId, sp.SpId, ct);
-            var liveDependencies = dependencyAnalysisService.ExtractDependencies(spDetail.Definition, sp.SpId, "SP");
-            var liveProcedureDependencies = ResolveLiveProcedureDependencies(liveDependencies, storedProcedureMap);
-            var liveTableDependencies = ResolveLiveTableDependencies(liveDependencies, tableLookup);
-            var liveColumnDependencies = await ResolveLiveColumnDependenciesAsync(
-                liveDependencies,
-                tableLookup,
-                tableColumnsCache);
-            var hasDynamicSql = HasDynamicSql(spDetail.Definition);
-
-            if (persistedProcedureDependencies.Count == 0 && liveProcedureDependencies.Count != 0)
-            {
-                warnings.Add($"Stored procedure '{NormalizeQualifiedName(spDetail.SchemaName, spDetail.ProcedureName)}' is using live SP dependency parsing because no persisted SP dependency metadata was found.");
-            }
-
-            if (persistedTableDependencies.Count == 0 && liveTableDependencies.Count != 0)
-            {
-                warnings.Add($"Stored procedure '{NormalizeQualifiedName(spDetail.SchemaName, spDetail.ProcedureName)}' is using live table dependency parsing because no persisted table dependency metadata was found.");
-            }
-
-            if (persistedColumnDependencies.Count == 0 && liveColumnDependencies.Count != 0)
-            {
-                warnings.Add($"Stored procedure '{NormalizeQualifiedName(spDetail.SchemaName, spDetail.ProcedureName)}' is using live column dependency parsing because no persisted column dependency metadata was found.");
-            }
-
-            var procedureDependencies = MergeProcedureDependencies(persistedProcedureDependencies, liveProcedureDependencies);
-            var tableDependencies = MergeTableDependencies(persistedTableDependencies, liveTableDependencies);
-            var columnDependencies = MergeColumnDependencies(persistedColumnDependencies, liveColumnDependencies);
-
-            if (hasDynamicSql)
-            {
-                var procedureName = NormalizeQualifiedName(spDetail.SchemaName, spDetail.ProcedureName);
-                var dynamicTables = ResolveDynamicSqlTableDependencies(spDetail.Definition, tableLookup);
-                if (dynamicTables.Count != 0)
-                {
-                    tableDependencies = MergeTableDependencies(tableDependencies, dynamicTables);
-                }
-
-                warnings.Add($"Stored procedure '{procedureName}' contains dynamic SQL. Patch generation is continuing with best-effort dependency metadata; validate compatibility.sql manually before deployment.");
-
-                if (procedureDependencies.Count == 0 && tableDependencies.Count == 0 && columnDependencies.Count == 0)
-                {
-                    warnings.Add($"Stored procedure '{procedureName}' contains dynamic SQL and no resolved dependencies were found in metadata. Runtime objects referenced inside the dynamic statement will not be validated automatically.");
-                }
-            }
-
-            var snapshot = new PatchProcedureSnapshot
-            {
-                SpId = spDetail.SpId,
-                ProcedureName = spDetail.ProcedureName,
-                SchemaName = spDetail.SchemaName ?? "dbo",
-                Definition = spDetail.Definition,
-                IsShared = isShared,
-                HasDynamicSql = hasDynamicSql,
-                DependencyProcedureIds = [.. procedureDependencies.Select(d => d.SpId).Distinct()],
-                TableIds = [.. tableDependencies.Select(d => d.TableId).Distinct()],
-                ColumnIds = [.. columnDependencies.Select(d => d.ColumnId).Distinct()]
-            };
-
-            procedureSnapshots[snapshot.SpId] = snapshot;
-
-            foreach (var procedureDependency in procedureDependencies)
-            {
-                if (!TryResolveStoredProcedure(storedProcedureMap, NormalizeQualifiedName(procedureDependency.SchemaName, procedureDependency.ProcedureName), out var nestedProcedure))
-                {
-                    blockers.Add($"Nested stored procedure '{NormalizeQualifiedName(procedureDependency.SchemaName, procedureDependency.ProcedureName)}' was found in dependencies but is missing from synced metadata.");
                     continue;
                 }
 
-                rootQueue.Enqueue((nestedProcedure, snapshot.IsShared, sourcePage));
+                pending.Add(candidate);
             }
 
-            foreach (var tableDependency in tableDependencies)
+            if (pending.Count == 0)
             {
-                if (!requiredColumnsByTable.ContainsKey(tableDependency.TableId))
-                {
-                    requiredColumnsByTable[tableDependency.TableId] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                }
+                continue;
             }
 
-            foreach (var columnDependency in columnDependencies)
+            var pendingSpIds = pending.Select(item => item.SpId).Distinct().ToList();
+            var spDetailsById = await patcherRepo.GetStoredProceduresByIdsAsync(pendingSpIds, ct);
+            var persistedProcedureDependenciesBySp = await patcherRepo.GetSpProcedureDependenciesAsync(request.ProjectId, pendingSpIds, ct);
+            var persistedTableDependenciesBySp = await patcherRepo.GetSpOutboundDependenciesAsync(request.ProjectId, pendingSpIds, ct);
+            var persistedColumnDependenciesBySp = await patcherRepo.GetSpColumnDependenciesAsync(request.ProjectId, pendingSpIds, ct);
+
+            foreach (var pendingItem in pending)
             {
-                if (!requiredColumnsByTable.TryGetValue(columnDependency.TableId, out var columns))
+                if (procedureSnapshots.TryGetValue(pendingItem.SpId, out var existingSnapshot))
                 {
-                    columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    requiredColumnsByTable[columnDependency.TableId] = columns;
+                    if (!pendingItem.IsShared && existingSnapshot.IsShared)
+                    {
+                        existingSnapshot.IsShared = false;
+                        foreach (var dependencyId in existingSnapshot.DependencyProcedureIds)
+                        {
+                            rootQueue.Enqueue((dependencyId, false, pendingItem.SourcePage));
+                        }
+                    }
+
+                    continue;
                 }
 
-                columns.Add(columnDependency.ColumnName);
+                if (!storedProcedureById.TryGetValue(pendingItem.SpId, out var storedProcedure))
+                {
+                    blockers.Add($"Stored procedure id '{pendingItem.SpId}' is missing from synced metadata. Re-sync the project before generating a patch.");
+                    continue;
+                }
+
+                if (!spDetailsById.TryGetValue(pendingItem.SpId, out var spDetail))
+                {
+                    blockers.Add($"Stored procedure '{NormalizeQualifiedName(storedProcedure.SchemaName, storedProcedure.ProcedureName)}' is missing its full definition in metadata. Re-sync the project.");
+                    continue;
+                }
+
+                var persistedProcedureDependencies = persistedProcedureDependenciesBySp.TryGetValue(pendingItem.SpId, out var procedureDeps)
+                    ? procedureDeps
+                    : [];
+                var persistedTableDependencies = persistedTableDependenciesBySp.TryGetValue(pendingItem.SpId, out var tableDeps)
+                    ? tableDeps
+                    : [];
+                var persistedColumnDependencies = persistedColumnDependenciesBySp.TryGetValue(pendingItem.SpId, out var columnDeps)
+                    ? columnDeps
+                    : [];
+
+                var liveDependencies = dependencyAnalysisService.ExtractDependencies(spDetail.Definition, pendingItem.SpId, "SP");
+                var liveProcedureDependencies = ResolveLiveProcedureDependencies(liveDependencies, storedProcedureMap);
+                var liveTableDependencies = ResolveLiveTableDependencies(liveDependencies, tableLookup);
+                var liveColumnDependencies = await ResolveLiveColumnDependenciesAsync(
+                    liveDependencies,
+                    tableLookup,
+                    tableColumnsLookupCache,
+                    tableColumnsListCache);
+                var hasDynamicSql = HasDynamicSql(spDetail.Definition);
+
+                if (persistedProcedureDependencies.Count == 0 && liveProcedureDependencies.Count != 0)
+                {
+                    warnings.Add($"Stored procedure '{NormalizeQualifiedName(spDetail.SchemaName, spDetail.ProcedureName)}' is using live SP dependency parsing because no persisted SP dependency metadata was found.");
+                }
+
+                if (persistedTableDependencies.Count == 0 && liveTableDependencies.Count != 0)
+                {
+                    warnings.Add($"Stored procedure '{NormalizeQualifiedName(spDetail.SchemaName, spDetail.ProcedureName)}' is using live table dependency parsing because no persisted table dependency metadata was found.");
+                }
+
+                if (persistedColumnDependencies.Count == 0 && liveColumnDependencies.Count != 0)
+                {
+                    warnings.Add($"Stored procedure '{NormalizeQualifiedName(spDetail.SchemaName, spDetail.ProcedureName)}' is using live column dependency parsing because no persisted column dependency metadata was found.");
+                }
+
+                var procedureDependencies = MergeProcedureDependencies(persistedProcedureDependencies, liveProcedureDependencies);
+                var tableDependencies = MergeTableDependencies(persistedTableDependencies, liveTableDependencies);
+                var columnDependencies = MergeColumnDependencies(persistedColumnDependencies, liveColumnDependencies);
+
+                if (hasDynamicSql)
+                {
+                    var procedureName = NormalizeQualifiedName(spDetail.SchemaName, spDetail.ProcedureName);
+                    var dynamicTables = ResolveDynamicSqlTableDependencies(spDetail.Definition, tableLookup);
+                    if (dynamicTables.Count != 0)
+                    {
+                        tableDependencies = MergeTableDependencies(tableDependencies, dynamicTables);
+                    }
+
+                    warnings.Add($"Stored procedure '{procedureName}' contains dynamic SQL. Patch generation is continuing with best-effort dependency metadata; validate compatibility.sql manually before deployment.");
+
+                    if (procedureDependencies.Count == 0 && tableDependencies.Count == 0 && columnDependencies.Count == 0)
+                    {
+                        warnings.Add($"Stored procedure '{procedureName}' contains dynamic SQL and no resolved dependencies were found in metadata. Runtime objects referenced inside the dynamic statement will not be validated automatically.");
+                    }
+                }
+
+                var snapshot = new PatchProcedureSnapshot
+                {
+                    SpId = spDetail.SpId,
+                    ProcedureName = spDetail.ProcedureName,
+                    SchemaName = spDetail.SchemaName ?? "dbo",
+                    Definition = spDetail.Definition,
+                    IsShared = pendingItem.IsShared,
+                    HasDynamicSql = hasDynamicSql,
+                    DependencyProcedureIds = [.. procedureDependencies.Select(d => d.SpId).Distinct()],
+                    TableIds = [.. tableDependencies.Select(d => d.TableId).Distinct()],
+                    ColumnIds = [.. columnDependencies.Select(d => d.ColumnId).Distinct()]
+                };
+
+                procedureSnapshots[snapshot.SpId] = snapshot;
+
+                foreach (var procedureDependency in procedureDependencies)
+                {
+                    StoredProcedureListDto? nestedProcedure = null;
+                    if (storedProcedureById.TryGetValue(procedureDependency.SpId, out var nestedById))
+                    {
+                        nestedProcedure = nestedById;
+                    }
+                    else if (TryResolveStoredProcedure(
+                        storedProcedureMap,
+                        NormalizeQualifiedName(procedureDependency.SchemaName, procedureDependency.ProcedureName),
+                        out var nestedByName))
+                    {
+                        nestedProcedure = nestedByName;
+                    }
+
+                    if (nestedProcedure == null)
+                    {
+                        blockers.Add($"Nested stored procedure '{NormalizeQualifiedName(procedureDependency.SchemaName, procedureDependency.ProcedureName)}' was found in dependencies but is missing from synced metadata.");
+                        continue;
+                    }
+
+                    rootQueue.Enqueue((nestedProcedure.SpId, snapshot.IsShared, pendingItem.SourcePage));
+                }
+
+                foreach (var tableDependency in tableDependencies)
+                {
+                    if (!requiredColumnsByTable.ContainsKey(tableDependency.TableId))
+                    {
+                        requiredColumnsByTable[tableDependency.TableId] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    }
+                }
+
+                foreach (var columnDependency in columnDependencies)
+                {
+                    if (!requiredColumnsByTable.TryGetValue(columnDependency.TableId, out var columns))
+                    {
+                        columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        requiredColumnsByTable[columnDependency.TableId] = columns;
+                    }
+
+                    columns.Add(columnDependency.ColumnName);
+                }
             }
         }
 
@@ -197,16 +275,23 @@ public sealed partial class PatchManifestBuilder(
         var allTableIds = procedureSnapshots.Values.SelectMany(p => p.TableIds)
             .Union(requiredColumnsByTable.Keys)
             .Distinct();
-        foreach (var tableId in allTableIds)
+        var orderedTableIds = allTableIds.ToList();
+        var tablesById = await patcherRepo.GetTablesByIdsAsync(orderedTableIds, ct);
+        var columnsByTableId = await patcherRepo.GetColumnsByTableIdsAsync(orderedTableIds, ct);
+        var indexesByTableId = await patcherRepo.GetIndexesByTableIdsAsync(orderedTableIds, ct);
+        var foreignKeysByTableId = await patcherRepo.GetForeignKeysByTableIdsAsync(orderedTableIds, ct);
+
+        foreach (var tableId in orderedTableIds)
         {
-            var tableMetadata = await schemaRepo.GetTableByIdAsync(tableId);
-            if (tableMetadata == null)
+            if (!tablesById.TryGetValue(tableId, out var tableMetadata))
             {
                 blockers.Add($"Table dependency '{tableId}' is missing from synced metadata. Re-sync the project before generating a patch.");
                 continue;
             }
 
-            var columns = await schemaRepo.GetStoredColumnsAsync(tableId);
+            var columns = columnsByTableId.TryGetValue(tableId, out var tableColumns)
+                ? tableColumns
+                : [];
             if (columns.Count == 0)
             {
                 blockers.Add($"Table '{NormalizeQualifiedName(tableMetadata.SchemaName, tableMetadata.TableName)}' has no stored column metadata. Re-sync the project before generating a patch.");
@@ -242,7 +327,7 @@ public sealed partial class PatchManifestBuilder(
                     IsIdentity = c.IsIdentity,
                     DefaultValue = c.DefaultValue
                 })],
-                Indexes = [.. (await schemaRepo.GetStoredIndexesAsync(tableId))
+                Indexes = [.. (indexesByTableId.TryGetValue(tableId, out var indexRows) ? indexRows : [])
                     .Select(i => new PatchIndexSnapshot
                     {
                         IndexName = i.IndexName,
@@ -255,7 +340,7 @@ public sealed partial class PatchManifestBuilder(
                             ColumnOrder = c.ColumnOrder
                         })]
                     })],
-                ForeignKeys = [.. (await schemaRepo.GetStoredForeignKeysAsync(tableId))
+                ForeignKeys = [.. (foreignKeysByTableId.TryGetValue(tableId, out var foreignKeyRows) ? foreignKeyRows : [])
                     .Select(f => new PatchForeignKeySnapshot
                     {
                         ColumnName = f.ColumnName,
@@ -263,8 +348,8 @@ public sealed partial class PatchManifestBuilder(
                         ReferencedSchemaName = f.ReferencedSchemaName,
                         ReferencedColumnName = f.ReferencedColumnName,
                         ForeignKeyName = f.ForeignKeyName,
-                        OnDeleteAction = f.OnDeleteAction,
-                        OnUpdateAction = f.OnUpdateAction
+                        OnDeleteAction = NormalizeReferentialAction(f.OnDeleteAction),
+                        OnUpdateAction = NormalizeReferentialAction(f.OnUpdateAction)
                     })],
                 RequiredColumnNames = requiredColumns
             });
@@ -445,7 +530,8 @@ public sealed partial class PatchManifestBuilder(
     private async Task<List<SpColumnDependencyRow>> ResolveLiveColumnDependenciesAsync(
         IEnumerable<Dependency> liveDependencies,
         IReadOnlyDictionary<string, TableMetadataDto> tableLookup,
-        Dictionary<int, List<ColumnMetadataDto>> tableColumnsCache)
+        Dictionary<int, Dictionary<string, ColumnMetadataDto>> tableColumnsLookupCache,
+        Dictionary<int, List<ColumnMetadataDto>> tableColumnsListCache)
     {
         var resolved = new List<SpColumnDependencyRow>();
 
@@ -462,14 +548,19 @@ public sealed partial class PatchManifestBuilder(
                 continue;
             }
 
-            if (!tableColumnsCache.TryGetValue(table.TableId, out var columns))
+            if (!tableColumnsLookupCache.TryGetValue(table.TableId, out var columnLookup))
             {
-                columns = await schemaRepo.GetStoredColumnsAsync(table.TableId);
-                tableColumnsCache[table.TableId] = columns;
+                if (!tableColumnsListCache.TryGetValue(table.TableId, out var columns))
+                {
+                    columns = await schemaRepo.GetStoredColumnsAsync(table.TableId);
+                    tableColumnsListCache[table.TableId] = columns;
+                }
+
+                columnLookup = columns.ToDictionary(column => column.ColumnName, StringComparer.OrdinalIgnoreCase);
+                tableColumnsLookupCache[table.TableId] = columnLookup;
             }
 
-            var column = columns.FirstOrDefault(c => c.ColumnName.Equals(parsed.Value.ColumnName, StringComparison.OrdinalIgnoreCase));
-            if (column == null)
+            if (!columnLookup.TryGetValue(parsed.Value.ColumnName, out var column))
             {
                 continue;
             }
@@ -583,6 +674,12 @@ public sealed partial class PatchManifestBuilder(
         var columnName = parts[^1];
         var tableReference = string.Join('.', parts.Take(parts.Length - 1));
         return (tableReference, columnName);
+    }
+
+    private static string NormalizeReferentialAction(string action)
+    {
+        var normalized = action?.Trim().ToUpperInvariant() ?? "NO ACTION";
+        return s_allowedReferentialActions.Contains(normalized) ? normalized : "NO ACTION";
     }
 
     // ──────────────────────────────────────────────

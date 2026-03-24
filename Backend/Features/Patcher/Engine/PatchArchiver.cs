@@ -26,16 +26,38 @@ public sealed partial class PatchArchiver
     {
         var filesIncluded = new List<string>();
         var warnings = new List<string>();
+        var projectRoot = PatchPathSafety.NormalizePath(config.ProjectRootPath!, nameof(config.ProjectRootPath));
+        var viewRoot = PatchPathSafety.ResolveRelativePathUnderRoot(projectRoot, config.ViewDirPath!, nameof(config.ViewDirPath));
+        var scriptRoot = PatchPathSafety.ResolveRelativePathUnderRoot(projectRoot, config.ScriptDirPath!, nameof(config.ScriptDirPath));
+        var patchDownloadRoot = PatchPathSafety.ResolvePath(projectRoot, config.PatchDownloadPath!, nameof(config.PatchDownloadPath));
 
-        using var zipStream = new MemoryStream();
-        using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
+        var zipFileName = $"patch_{safePatchName}_{timestamp}.zip";
+        Directory.CreateDirectory(patchDownloadRoot);
+        var zipFilePath = Path.Combine(patchDownloadRoot, zipFileName);
+
+        await using var fileStream = new FileStream(
+            zipFilePath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            81920,
+            useAsync: true);
+        using (var archive = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
         {
-            foreach (var mapping in request.PageMappings)
+            var uniqueMappings = request.PageMappings
+                .GroupBy(mapping => PatcherRepository.BuildPageKey(mapping.DomainName, mapping.PageName), StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList();
+
+            foreach (var mapping in uniqueMappings)
             {
-                var cshtmlPath = BuildFilePath(config.ProjectRootPath!, config.ViewDirPath!, mapping.DomainName, $"{mapping.PageName}.cshtml");
+                ValidatePathSegment(mapping.DomainName, nameof(mapping.DomainName));
+                ValidatePathSegment(mapping.PageName, nameof(mapping.PageName));
+
+                var cshtmlPath = BuildPageFilePath(viewRoot, mapping.DomainName, $"{mapping.PageName}.cshtml");
                 if (File.Exists(cshtmlPath))
                 {
-                    var entryPath = Path.GetRelativePath(config.ProjectRootPath!, cshtmlPath).Replace('\\', '/');
+                    var entryPath = BuildSafeArchiveEntry(projectRoot, cshtmlPath);
                     await AddFileToArchiveAsync(archive, entryPath, cshtmlPath, ct);
                     filesIncluded.Add(entryPath);
                 }
@@ -44,10 +66,10 @@ public sealed partial class PatchArchiver
                     warnings.Add($"View file not found: {cshtmlPath}");
                 }
 
-                var jsPath = BuildFilePath(config.ProjectRootPath!, config.ScriptDirPath!, mapping.DomainName, $"{mapping.PageName}.js");
+                var jsPath = BuildPageFilePath(scriptRoot, mapping.DomainName, $"{mapping.PageName}.js");
                 if (File.Exists(jsPath))
                 {
-                    var entryPath = Path.GetRelativePath(config.ProjectRootPath!, jsPath).Replace('\\', '/');
+                    var entryPath = BuildSafeArchiveEntry(projectRoot, jsPath);
                     await AddFileToArchiveAsync(archive, entryPath, jsPath, ct);
                     filesIncluded.Add(entryPath);
                 }
@@ -59,39 +81,30 @@ public sealed partial class PatchArchiver
                 if (mapping.IsNewPage)
                 {
                     var menuSql = GenerateMenuPermissionSql(mapping.PageName, mapping.DomainName);
-                    var menuEntry = $"sql/{mapping.DomainName}_{mapping.PageName}_{timestamp}/menu_permission.sql";
-                    AddTextToArchive(archive, menuEntry, menuSql);
+                    var menuEntry = PatchPathSafety.NormalizeArchiveEntryPath(
+                        $"sql/{mapping.DomainName}_{mapping.PageName}_{timestamp}/menu_permission.sql");
+                    await AddTextToArchiveAsync(archive, menuEntry, menuSql, ct);
                     filesIncluded.Add(menuEntry);
                 }
             }
 
-            var sqlDir = $"sql/{safePatchName}_{timestamp}";
+            var sqlDir = PatchPathSafety.NormalizeArchiveEntryPath($"sql/{safePatchName}_{timestamp}");
 
-            var compatibilityEntry = $"{sqlDir}/compatibility.sql";
-            AddTextToArchive(archive, compatibilityEntry, artifacts.CompatibilitySql);
+            var compatibilityEntry = PatchPathSafety.NormalizeArchiveEntryPath($"{sqlDir}/compatibility.sql");
+            await AddTextToArchiveAsync(archive, compatibilityEntry, artifacts.CompatibilitySql, ct);
             filesIncluded.Add(compatibilityEntry);
 
-            var updateEntry = $"{sqlDir}/update.sql";
-            AddTextToArchive(archive, updateEntry, artifacts.UpdateSql);
+            var updateEntry = PatchPathSafety.NormalizeArchiveEntryPath($"{sqlDir}/update.sql");
+            await AddTextToArchiveAsync(archive, updateEntry, artifacts.UpdateSql, ct);
             filesIncluded.Add(updateEntry);
 
-            var rollbackEntry = $"{sqlDir}/rollback.sql";
-            AddTextToArchive(archive, rollbackEntry, artifacts.RollbackSql);
+            var rollbackEntry = PatchPathSafety.NormalizeArchiveEntryPath($"{sqlDir}/rollback.sql");
+            await AddTextToArchiveAsync(archive, rollbackEntry, artifacts.RollbackSql, ct);
             filesIncluded.Add(rollbackEntry);
 
-            var manifestEntry = $"{sqlDir}/manifest.json";
-            AddTextToArchive(archive, manifestEntry, artifacts.ManifestJson);
+            var manifestEntry = PatchPathSafety.NormalizeArchiveEntryPath($"{sqlDir}/manifest.json");
+            await AddTextToArchiveAsync(archive, manifestEntry, artifacts.ManifestJson, ct);
             filesIncluded.Add(manifestEntry);
-        }
-
-        var zipFileName = $"patch_{safePatchName}_{timestamp}.zip";
-        Directory.CreateDirectory(config.PatchDownloadPath!);
-        var zipFilePath = Path.Combine(config.PatchDownloadPath!, zipFileName);
-
-        zipStream.Position = 0;
-        await using (var fileStream = new FileStream(zipFilePath, FileMode.Create))
-        {
-            await zipStream.CopyToAsync(fileStream, ct);
         }
 
         return (zipFilePath, filesIncluded, warnings);
@@ -119,9 +132,26 @@ public sealed partial class PatchArchiver
             .Replace("{Timestamp}", timestamp);
     }
 
-    private static string BuildFilePath(string rootPath, string relativeDir, string domain, string fileName)
+    private static string BuildPageFilePath(string domainRoot, string domain, string fileName)
     {
-        return Path.Combine(rootPath, relativeDir, domain, fileName);
+        var fullPath = Path.GetFullPath(Path.Combine(domainRoot, domain, fileName));
+        PatchPathSafety.EnsurePathIsUnderRoot(fullPath, domainRoot, nameof(domainRoot));
+        return fullPath;
+    }
+
+    private static string BuildSafeArchiveEntry(string projectRoot, string filePath)
+    {
+        PatchPathSafety.EnsurePathIsUnderRoot(filePath, projectRoot, nameof(projectRoot));
+        var relativePath = Path.GetRelativePath(projectRoot, filePath);
+        return PatchPathSafety.NormalizeArchiveEntryPath(relativePath);
+    }
+
+    private static void ValidatePathSegment(string value, string parameterName)
+    {
+        if (!AlphanumericDashRegex().IsMatch(value))
+        {
+            throw new InvalidOperationException($"{parameterName} contains invalid characters.");
+        }
     }
 
     private static async Task AddFileToArchiveAsync(ZipArchive archive, string entryName, string filePath, CancellationToken ct)
@@ -133,11 +163,12 @@ public sealed partial class PatchArchiver
         await entryStream.FlushAsync(ct);
     }
 
-    private static void AddTextToArchive(ZipArchive archive, string entryName, string content)
+    private static async Task AddTextToArchiveAsync(ZipArchive archive, string entryName, string content, CancellationToken ct)
     {
         var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
-        using var entryStream = entry.Open();
-        using var writer = new StreamWriter(entryStream, Encoding.UTF8);
-        writer.Write(content);
+        await using var entryStream = entry.Open();
+        await using var writer = new StreamWriter(entryStream, Encoding.UTF8);
+        await writer.WriteAsync(content.AsMemory(), ct);
+        await writer.FlushAsync(ct);
     }
 }
