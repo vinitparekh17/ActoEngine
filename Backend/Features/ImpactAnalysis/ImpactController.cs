@@ -2,6 +2,7 @@ using ActoEngine.WebApi.Api.ApiModels;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Domain;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.Contracts;
 using ActoEngine.WebApi.Features.ImpactAnalysis.Engine.VerdictBuilder;
+using ActoEngine.WebApi.Features.LogicalFk;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ActoEngine.WebApi.Features.ImpactAnalysis;
@@ -15,6 +16,8 @@ namespace ActoEngine.WebApi.Features.ImpactAnalysis;
 public sealed class ImpactController(
     IImpactFacade impactFacade,
     ImpactVerdictBuilder verdictBuilder,
+    IDependencyOrchestrationService dependencyOrchestrationService,
+    ILogicalFkService logicalFkService,
     ILogger<ImpactController> logger) : ControllerBase
 {
     private readonly ILogger<ImpactController> _logger = logger;
@@ -128,5 +131,47 @@ public sealed class ImpactController(
                 response,
                 "Impact analysis completed"
             ));
+    }
+
+    /// <summary>
+    /// Re-runs dependency extraction from all SPs + logical FK detection.
+    /// Call this after making changes to SP definitions or schema.
+    /// </summary>
+    [HttpPost("~/api/projects/{projectId:int}/reanalyze")]
+    public async Task<ActionResult<ApiResponse<ReanalyzeResponse>>> Reanalyze(
+        [FromRoute] int projectId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Re-analyze requested for ProjectId={ProjectId}", projectId);
+
+        try
+        {
+            // 1. Re-extract SP dependencies (delete + rebuild)
+            await dependencyOrchestrationService.AnalyzeProjectAsync(projectId);
+
+            // 2. Re-run logical FK detection
+            await logicalFkService.DetectAndPersistCandidatesAsync(projectId, cancellationToken);
+
+            _logger.LogInformation(
+                "Re-analyze completed for ProjectId={ProjectId}", projectId);
+
+            return Ok(ApiResponse<ReanalyzeResponse>.Success(
+                new ReanalyzeResponse
+                {
+                    Success = true,
+                    Message = "Dependencies and logical FK detection re-analyzed successfully."
+                },
+                "Re-analysis completed"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Re-analyze failed for ProjectId={ProjectId}", projectId);
+
+            return StatusCode(500, ApiResponse<ReanalyzeResponse>.Failure(
+                "Re-analysis failed",
+                [ex.Message]));
+        }
     }
 }
