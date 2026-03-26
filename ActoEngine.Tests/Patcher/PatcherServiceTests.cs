@@ -158,7 +158,8 @@ public class PatcherServiceTests
 
         var manifestBuilder = new PatchManifestBuilder(_patcherRepo, _mappingRepo, _schemaRepo, _dependencyAnalysisService);
         var archiver = new PatchArchiver();
-        return new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, manifestBuilder, _scriptRenderer, archiver, _logger);
+        var applyScriptBuilder = Substitute.For<IPatchApplyScriptBuilder>();
+        return new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, manifestBuilder, _scriptRenderer, archiver, applyScriptBuilder, _logger);
     }
 
     private sealed class TempDirectory : IDisposable

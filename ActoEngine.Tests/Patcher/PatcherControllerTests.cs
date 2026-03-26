@@ -88,6 +88,9 @@ public class PatcherControllerTests
         var zipPath = Path.Combine(patchesRoot, "patch_reports_sales_26-03-2026_07-08-47.zip");
         await File.WriteAllTextAsync(zipPath, "zip-bytes");
 
+        _patcherService.BuildPatchScript(Arg.Any<string>())
+            .Returns($"Write-Host 'Applying {Path.GetFileName(zipPath)}'; Get-FileHash -LiteralPath $zipPath -Algorithm SHA256; Write-Host 'backup_';");
+
         _patcherRepo.GetPatchByIdAsync(42, 7, Arg.Any<CancellationToken>())
             .Returns(new PatchHistoryRecord
             {
@@ -124,7 +127,6 @@ public class PatcherControllerTests
         var controller = new PatcherController(
             _patcherService,
             _patcherRepo,
-            new PatchApplyScriptBuilder(),
             _logger);
 
         var httpContext = new DefaultHttpContext();
