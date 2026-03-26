@@ -96,6 +96,24 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+function getDownloadFileName(response: Response, fallbackFileName: string): string {
+  const disposition = response.headers.get("content-disposition");
+  if (!disposition) return fallbackFileName;
+
+  const encodedMatch = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    return decodeURIComponent(encodedMatch[1]);
+  }
+
+  const quotedMatch = disposition.match(/filename\s*=\s*"([^"]+)"/i);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  const plainMatch = disposition.match(/filename\s*=\s*([^;]+)/i);
+  return plainMatch?.[1]?.trim() || fallbackFileName;
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function ConfidenceBar({ value }: { value: number | null }) {
@@ -267,7 +285,7 @@ function PageGroup({
 }
 // ─── History Row ──────────────────────────────────────────────────────────────
 
-function HistoryRow({ item, onDownload, onCopyPath }: { item: PatchHistoryRecord; onDownload: (patchId: number) => void; onCopyPath: (path: string) => void; }) {
+function HistoryRow({ item, onDownload, onDownloadScript, onCopyPath }: { item: PatchHistoryRecord; onDownload: (patchId: number) => void; onDownloadScript: (patchId: number) => void; onCopyPath: (path: string) => void; }) {
   const [expanded, setExpanded] = useState(false);
   const pages: any[] = item.pages ?? [];
 
@@ -330,6 +348,9 @@ function HistoryRow({ item, onDownload, onCopyPath }: { item: PatchHistoryRecord
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => onCopyPath(item.patchFilePath || "")}>
             <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10" onClick={() => onDownloadScript(item.patchId)} title="Download apply script">
+            <FileCode className="h-3.5 w-3.5" />
           </Button>
           <Button size="icon" variant="ghost" className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10" onClick={() => onDownload(item.patchId)}>
             <Download className="h-3.5 w-3.5" />
@@ -457,25 +478,44 @@ export default function PatcherPage() {
     await generatePatch.mutateAsync(payload);
   };
 
+  const downloadFile = async (endpoint: string, fallbackFileName: string, successMessage: string) => {
+    const response = await fetch(endpoint, { credentials: "include" });
+    if (!response.ok) throw new Error("Download failed");
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const fileName = getDownloadFileName(response, fallbackFileName);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(successMessage);
+  };
+
   const downloadPatch = async (patchId: number) => {
     try {
-      const response = await fetch(
+      await downloadFile(
         `${API_BASE_URL}/patcher/download/${patchId}`,
-        { credentials: "include" }
+        `patch-${patchId}.zip`,
+        "Patch downloaded successfully."
       );
-      if (!response.ok) throw new Error("Download failed");
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `patch-${patchId}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast.success("Patch downloaded successfully.");
     } catch (err: any) {
       toast.error(err.message || "Failed to download patch.");
+    }
+  };
+
+  const downloadPatchScript = async (patchId: number) => {
+    try {
+      await downloadFile(
+        `${API_BASE_URL}/patcher/download-script/${patchId}`,
+        `patch-${patchId}.ps1`,
+        "Patch script downloaded successfully."
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to download patch script.");
     }
   };
 
@@ -818,6 +858,7 @@ export default function PatcherPage() {
                         <HistoryRow
                           item={item}
                           onDownload={downloadPatch}
+                          onDownloadScript={downloadPatchScript}
                           onCopyPath={(path) => {
                             navigator.clipboard.writeText(path);
                             toast.success("Server path copied");

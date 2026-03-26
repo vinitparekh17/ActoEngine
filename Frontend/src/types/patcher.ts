@@ -56,6 +56,7 @@ export interface PagePatchStatus {
 export interface PatchGenerationResponse {
   patchId: number;
   downloadPath: string;
+  scriptDownloadPath?: string | null;
   filesIncluded: string[];
   warnings: string[];
   generatedAt: string;
