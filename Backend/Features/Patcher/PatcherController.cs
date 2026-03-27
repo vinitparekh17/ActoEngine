@@ -110,54 +110,17 @@ public class PatcherController(
     {
         try
         {
-            var userId = HttpContext.GetUserId();
-            if (userId == null) return Unauthorized(ApiResponse<object>.Failure("Unauthorized", ["User ID not found in token."]));
-            var patch = await patcherRepo.GetPatchByIdAsync(patchId, userId.Value, ct);
-            if (patch == null)
+            var resolvedPatch = await ResolvePatchDownloadAsync(patchId, ct);
+            if (resolvedPatch.ErrorResult != null)
             {
-                return NotFound(ApiResponse<object>.Failure(
-                    "Patch not found", [$"No patch with ID {patchId} exists."]));
+                return resolvedPatch.ErrorResult;
             }
 
-            if (string.IsNullOrWhiteSpace(patch.PatchFilePath))
-            {
-                return NotFound(ApiResponse<object>.Failure(
-                    "Patch file not found", ["The patch file no longer exists on disk."]));
-            }
-
-            var config = await patcherRepo.GetPatchConfigAsync(patch.ProjectId, ct);
-            var patchStorageRoot = config?.PatchDownloadPath;
-            if (string.IsNullOrWhiteSpace(patchStorageRoot))
-            {
-                return NotFound(ApiResponse<object>.Failure(
-                    "Patch file not found", ["The patch file no longer exists on disk."]));
-            }
-
-            string resolvedPatchPath;
-            string resolvedStorageRoot;
-            try
-            {
-                resolvedPatchPath = Path.GetFullPath(patch.PatchFilePath);
-                resolvedStorageRoot = Path.GetFullPath(patchStorageRoot);
-            }
-            catch
-            {
-                return NotFound(ApiResponse<object>.Failure(
-                    "Patch file not found", ["The patch file no longer exists on disk."]));
-            }
-
-            var rootWithSeparator = resolvedStorageRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                                    + Path.DirectorySeparatorChar;
-            var pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-
-            if (!resolvedPatchPath.StartsWith(rootWithSeparator, pathComparison) || !System.IO.File.Exists(resolvedPatchPath))
-            {
-                return NotFound(ApiResponse<object>.Failure(
-                    "Patch file not found", ["The patch file no longer exists on disk."]));
-            }
-
-            var fileName = Path.GetFileName(resolvedPatchPath);
-            return PhysicalFile(resolvedPatchPath, "application/zip", fileName, enableRangeProcessing: true);
+            return PhysicalFile(
+                resolvedPatch.FilePath!,
+                "application/zip",
+                resolvedPatch.DownloadFileName!,
+                enableRangeProcessing: true);
         }
         catch (OperationCanceledException)
         {
@@ -167,6 +130,36 @@ public class PatcherController(
         catch (Exception ex)
         {
             log.LogError(ex, "Error downloading patch {PatchId}", patchId);
+            return StatusCode(500, ApiResponse<object>.Failure(
+                "Download failed", ["An unexpected error occurred."]));
+        }
+    }
+
+    [HttpGet("download-script/{patchId}")]
+    [RequirePermission("StoredProcedures:Create")]
+    public async Task<IActionResult> DownloadPatchScript(int patchId, CancellationToken ct)
+    {
+        try
+        {
+            var resolvedPatch = await ResolvePatchDownloadAsync(patchId, ct);
+            if (resolvedPatch.ErrorResult != null)
+            {
+                return resolvedPatch.ErrorResult;
+            }
+
+            var scriptContent = patcherService.BuildPatchScript(resolvedPatch.FilePath!);
+            var scriptFileName = Path.GetFileNameWithoutExtension(resolvedPatch.DownloadFileName!) + ".ps1";
+            var scriptBytes = System.Text.Encoding.UTF8.GetBytes(scriptContent);
+            return File(scriptBytes, "text/plain; charset=utf-8", scriptFileName);
+        }
+        catch (OperationCanceledException)
+        {
+            log.LogInformation("Patch script download cancelled for patch {PatchId}", patchId);
+            return StatusCode(499);
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "Error downloading patch script {PatchId}", patchId);
             return StatusCode(500, ApiResponse<object>.Failure(
                 "Download failed", ["An unexpected error occurred."]));
         }
@@ -323,5 +316,92 @@ public class PatcherController(
             return StatusCode(500, ApiResponse<string>.Failure(
                 "Config update failed", ["An unexpected error occurred."]));
         }
+    }
+
+    private async Task<ResolvedPatchDownload> ResolvePatchDownloadAsync(int patchId, CancellationToken ct)
+    {
+        var userId = HttpContext.GetUserId();
+        if (userId == null)
+        {
+            return new ResolvedPatchDownload
+            {
+                ErrorResult = Unauthorized(ApiResponse<object>.Failure("Unauthorized", ["User ID not found in token."]))
+            };
+        }
+
+        var patch = await patcherRepo.GetPatchByIdAsync(patchId, userId.Value, ct);
+        if (patch == null)
+        {
+            return new ResolvedPatchDownload
+            {
+                ErrorResult = NotFound(ApiResponse<object>.Failure(
+                    "Patch not found", [$"No patch with ID {patchId} exists."]))
+            };
+        }
+
+        if (string.IsNullOrWhiteSpace(patch.PatchFilePath))
+        {
+            return CreateMissingPatchDownload();
+        }
+
+        var config = await patcherRepo.GetPatchConfigAsync(patch.ProjectId, ct);
+        if (config == null || string.IsNullOrWhiteSpace(config.PatchDownloadPath))
+        {
+            return CreateMissingPatchDownload();
+        }
+
+        string resolvedPatchPath;
+        string resolvedStorageRoot;
+        try
+        {
+            resolvedPatchPath = PatchPathSafety.NormalizePath(patch.PatchFilePath, nameof(patch.PatchFilePath));
+            if (string.IsNullOrWhiteSpace(config.ProjectRootPath))
+            {
+                return CreateMissingPatchDownload();
+            }
+
+            var projectRootPath = PatchPathSafety.NormalizePath(config.ProjectRootPath, nameof(config.ProjectRootPath));
+            resolvedStorageRoot = PatchPathSafety.ResolvePath(projectRootPath, config.PatchDownloadPath, nameof(config.PatchDownloadPath));
+        }
+        catch
+        {
+            return CreateMissingPatchDownload();
+        }
+
+        try
+        {
+            PatchPathSafety.EnsurePathIsUnderRoot(resolvedPatchPath, resolvedStorageRoot, nameof(config.PatchDownloadPath));
+        }
+        catch
+        {
+            return CreateMissingPatchDownload();
+        }
+
+        if (!System.IO.File.Exists(resolvedPatchPath))
+        {
+            return CreateMissingPatchDownload();
+        }
+
+        return new ResolvedPatchDownload
+        {
+            FilePath = resolvedPatchPath,
+            DownloadFileName = Path.GetFileName(resolvedPatchPath)
+        };
+    }
+
+    private ResolvedPatchDownload CreateMissingPatchDownload()
+    {
+        return new ResolvedPatchDownload
+        {
+            ErrorResult = NotFound(ApiResponse<object>.Failure(
+                "Patch file not found", ["The patch file no longer exists on disk."]))
+        };
+    }
+
+    internal sealed class ResolvedPatchDownload
+    {
+        public string? FilePath { get; init; }
+        public string? DownloadFileName { get; init; }
+        public IActionResult? ErrorResult { get; init; }
     }
 }

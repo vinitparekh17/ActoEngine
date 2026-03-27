@@ -11,6 +11,8 @@ public interface IPatcherService
 {
     Task<List<PagePatchStatus>> CheckPatchStatusAsync(PatchStatusRequest request, CancellationToken ct = default);
     Task<PatchGenerationResponse> GeneratePatchAsync(PatchGenerationRequest request, int? userId = null, CancellationToken ct = default);
+
+    string BuildPatchScript(string patchPath);
 }
 
 /// <summary>
@@ -24,12 +26,14 @@ public sealed partial class PatcherService(
     PatchManifestBuilder manifestBuilder,
     IPatchScriptRenderer scriptRenderer,
     PatchArchiver archiver,
+    IPatchApplyScriptBuilder patchApplyScriptBuilder,
     ILogger<PatcherService> log) : IPatcherService
 {
     [GeneratedRegex(@"^[A-Za-z0-9_\-]+$")]
     private static partial Regex SafePathSegmentRegex();
     private static readonly JsonSerializerOptions s_signatureJsonOptions = new() { WriteIndented = false };
     private readonly IPatchScriptRenderer _scriptRenderer = scriptRenderer;
+
 
     public async Task<List<PagePatchStatus>> CheckPatchStatusAsync(PatchStatusRequest request, CancellationToken ct = default)
     {
@@ -145,6 +149,7 @@ public sealed partial class PatcherService(
             {
                 PatchId = 0,
                 DownloadPath = string.Empty,
+                ScriptDownloadPath = null,
                 FilesIncluded = [],
                 Warnings = [.. manifest.Warnings.Append("No procedures or tables found in the manifest. Nothing to generate.").Distinct(StringComparer.OrdinalIgnoreCase)],
                 GeneratedAt = DateTime.UtcNow
@@ -210,12 +215,17 @@ public sealed partial class PatcherService(
         {
             PatchId = patchId,
             DownloadPath = zipFilePath,
+            ScriptDownloadPath = $"/api/patcher/download-script/{patchId}",
             FilesIncluded = filesIncluded,
             Warnings = [.. warnings.Distinct(StringComparer.OrdinalIgnoreCase)],
             GeneratedAt = generatedAt
         };
     }
 
+    public string BuildPatchScript(string patchPath)
+    {
+        return patchApplyScriptBuilder.Build(patchPath);
+    }
     // ──────────────────────────────────────────────
     //  Private helpers
     // ──────────────────────────────────────────────

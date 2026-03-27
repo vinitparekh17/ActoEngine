@@ -66,6 +66,7 @@ public class PatchGenerationResponse
 {
     public int PatchId { get; set; }
     public required string DownloadPath { get; set; }
+    public string? ScriptDownloadPath { get; set; }
     public required List<string> FilesIncluded { get; set; }
     public required List<string> Warnings { get; set; }
     public DateTime GeneratedAt { get; set; }

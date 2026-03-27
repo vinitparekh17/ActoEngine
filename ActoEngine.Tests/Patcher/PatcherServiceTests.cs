@@ -158,7 +158,8 @@ public class PatcherServiceTests
 
         var manifestBuilder = new PatchManifestBuilder(_patcherRepo, _mappingRepo, _schemaRepo, _dependencyAnalysisService);
         var archiver = new PatchArchiver();
-        return new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, manifestBuilder, _scriptRenderer, archiver, _logger);
+        var applyScriptBuilder = Substitute.For<IPatchApplyScriptBuilder>();
+        return new PatcherService(_patcherRepo, _mappingRepo, _projectRepo, manifestBuilder, _scriptRenderer, archiver, applyScriptBuilder, _logger);
     }
 
     private sealed class TempDirectory : IDisposable
@@ -304,6 +305,7 @@ public class PatcherServiceTests
         var response = await service.GeneratePatchAsync(request, userId: 1);
 
         Assert.Equal(501, response.PatchId);
+        Assert.Equal("/api/patcher/download-script/501", response.ScriptDownloadPath);
         Assert.Contains(response.FilesIncluded, file => file.EndsWith("compatibility.sql", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(response.FilesIncluded, file => file.EndsWith("update.sql", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(response.Warnings, w => w.Contains("SHOULD_BE_IGNORED", StringComparison.OrdinalIgnoreCase));
@@ -411,6 +413,7 @@ public class PatcherServiceTests
             ]
         }, userId: 1);
 
+        Assert.Equal("/api/patcher/download-script/777", response.ScriptDownloadPath);
         Assert.Contains(response.FilesIncluded, file => file.EndsWith("rollback.sql", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(response.FilesIncluded, file => file.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
         Assert.True(File.Exists(response.DownloadPath));
@@ -505,6 +508,7 @@ public class PatcherServiceTests
         }, userId: 1);
 
         Assert.Equal(901, response.PatchId);
+        Assert.Equal("/api/patcher/download-script/901", response.ScriptDownloadPath);
         Assert.Contains(response.Warnings, warning => warning.Contains("dynamic SQL", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(response.FilesIncluded, file => file.EndsWith("compatibility.sql", StringComparison.OrdinalIgnoreCase));
 
@@ -625,6 +629,7 @@ public class PatcherServiceTests
             ]
         }, userId: 1);
 
+        Assert.Equal("/api/patcher/download-script/902", response.ScriptDownloadPath);
         using var archive = ZipFile.OpenRead(response.DownloadPath);
         var manifestEntry = archive.Entries.Single(e => e.FullName.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
         using var manifestStream = manifestEntry.Open();
@@ -770,6 +775,7 @@ public class PatcherServiceTests
             ]
         }, userId: 1);
 
+        Assert.Equal("/api/patcher/download-script/903", response.ScriptDownloadPath);
         using var archive = ZipFile.OpenRead(response.DownloadPath);
         var manifestEntry = archive.Entries.Single(e => e.FullName.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase));
         using var manifestStream = manifestEntry.Open();

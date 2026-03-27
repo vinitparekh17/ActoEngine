@@ -71,6 +71,13 @@ const repairTemplateFromError = (template: string, errorMessage: string): Repair
     };
 };
 
+const escapeHtmlForTextarea = (value: string): string => {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+};
+
 export default function AdvancedJsRenderGenerator() {
     const [xmlInput, setXmlInput] = useState<string>('');
     const [entities, setEntities] = useState<Entity[]>([]);
@@ -311,11 +318,11 @@ export default function AdvancedJsRenderGenerator() {
         setTimeout(() => setRepairStatus('idle'), 1500);
     };
 
-    // Actual HTML Preview utilizing an iframe sandbox and jsrender CDN
+    // Actual HTML Preview utilizing an iframe sandbox and a CSP-safe template renderer
     const actualPreviewIframeSrc = useMemo(() => {
         if (!activeTemplate || Object.keys(xmlToJson).length === 0) return '';
-        const serializedTemplate = JSON.stringify(activeTemplate).replace(/<\/script/gi, '<\\/script');
-        const serializedData = JSON.stringify(xmlToJson).replace(/<\/script/gi, '<\\/script');
+        const serializedTemplate = escapeHtmlForTextarea(activeTemplate);
+        const serializedData = escapeHtmlForTextarea(JSON.stringify(xmlToJson));
         const bootstrapCssHref = bootstrapVersion === '4'
             ? 'https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css'
             : 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css';
@@ -323,36 +330,14 @@ export default function AdvancedJsRenderGenerator() {
         return `
       <html>
         <head>
-          <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
-          <script src="https://cdn.jsdelivr.net/npm/jsrender@1.0.13/jsrender.min.js"></script>
           <link href="${bootstrapCssHref}" rel="stylesheet">
           <style>body { padding: 1rem; font-family: system-ui, sans-serif; }</style>
         </head>
         <body>
           <div id="output">Rendering...</div>
-          <script id="user-tmpl" type="text/x-jsrender"></script>
-          <script>
-            function notifyParent(type, message) {
-              try {
-                if (window.parent && window.parent !== window) {
-                  window.parent.postMessage({ source: 'ajr-preview', type: type, message: message }, '*');
-                }
-              } catch (_) {}
-            }
-
-            try {
-              const data = ${serializedData};
-              const templateNode = document.getElementById('user-tmpl');
-              templateNode.textContent = ${serializedTemplate};
-              const tmpl = $.templates(templateNode.textContent || '');
-              document.getElementById('output').innerHTML = tmpl.render(data);
-              notifyParent('render-success');
-            } catch (e) {
-              const msg = e && e.message ? e.message : String(e);
-              notifyParent('render-error', msg);
-              document.getElementById('output').innerHTML = '<div class="alert alert-danger">Error rendering template: ' + msg + '</div>';
-            }
-          </script>
+          <textarea id="ajr-template" hidden>${serializedTemplate}</textarea>
+          <textarea id="ajr-data" hidden>${serializedData}</textarea>
+          <script src="/ajr-preview-runner.js"></script>
         </body>
       </html>
     `;

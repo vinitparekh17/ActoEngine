@@ -114,6 +114,7 @@ namespace ActoEngine.WebApi.Shared.Extensions
             // Patcher Services
             services.AddScoped<IPatcherRepository, PatcherRepository>();
             services.AddScoped<IPatchScriptRenderer, PatchScriptRenderer>();
+            services.AddScoped<IPatchApplyScriptBuilder, PatchApplyScriptBuilder>();
             services.AddScoped<PatchManifestBuilder>();
             services.AddScoped<PatchArchiver>();
             services.AddScoped<IPatcherService, PatcherService>();
