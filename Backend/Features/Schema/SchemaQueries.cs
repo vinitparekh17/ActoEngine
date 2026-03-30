@@ -228,10 +228,10 @@ public static class SchemaSyncQueries
             WHERE ProjectId = @ProjectId AND ProcedureName = @ProcedureName AND ClientId = @ClientId
         )
         INSERT INTO SpMetadata (
-            ProjectId, ClientId, SchemaName, ProcedureName, Definition, CreatedBy, CreatedAt
+            ProjectId, ClientId, SchemaName, ProcedureName, Definition, CreatedBy, CreatedAt, SourceModifyDate
         )
         VALUES (
-            @ProjectId, @ClientId, @SchemaName, @ProcedureName, @Definition, @UserId, GETUTCDATE()
+            @ProjectId, @ClientId, @SchemaName, @ProcedureName, @Definition, @UserId, GETUTCDATE(), GETUTCDATE()
         )";
 
     // Foreign key relationships - Target database queries
