@@ -148,7 +148,7 @@ public class PatcherController(
             }
 
             var scriptContent = patcherService.BuildPatchScript(resolvedPatch.FilePath!);
-            var scriptFileName = Path.GetFileNameWithoutExtension(resolvedPatch.DownloadFileName!) + ".ps1";
+            var scriptFileName = Path.GetFileNameWithoutExtension(resolvedPatch.DownloadFileName!) + ".bat";
             var scriptBytes = System.Text.Encoding.UTF8.GetBytes(scriptContent);
             return File(scriptBytes, "text/plain; charset=utf-8", scriptFileName);
         }

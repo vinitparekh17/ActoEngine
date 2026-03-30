@@ -89,7 +89,7 @@ public class PatcherControllerTests
         await File.WriteAllTextAsync(zipPath, "zip-bytes");
 
         _patcherService.BuildPatchScript(Arg.Any<string>())
-            .Returns($"Write-Host 'Applying {Path.GetFileName(zipPath)}'; Get-FileHash -LiteralPath $zipPath -Algorithm SHA256; Write-Host 'backup_';");
+            .Returns($"@echo off\r\nset \"ZIP_FILE={Path.GetFileName(zipPath)}\"\r\ncertutil -hashfile patch SHA256\r\nset \"BACKUP_DIR=backup_\"\r\n");
 
         _patcherRepo.GetPatchByIdAsync(42, 7, Arg.Any<CancellationToken>())
             .Returns(new PatchHistoryRecord
@@ -114,11 +114,11 @@ public class PatcherControllerTests
 
         var file = Assert.IsType<FileContentResult>(result);
         Assert.Equal("text/plain; charset=utf-8", file.ContentType);
-        Assert.Equal("patch_reports_sales_26-03-2026_07-08-47.ps1", file.FileDownloadName);
+        Assert.Equal("patch_reports_sales_26-03-2026_07-08-47.bat", file.FileDownloadName);
 
         var script = System.Text.Encoding.UTF8.GetString(file.FileContents);
         Assert.Contains("patch_reports_sales_26-03-2026_07-08-47.zip", script);
-        Assert.Contains("Get-FileHash -LiteralPath $zipPath -Algorithm SHA256", script);
+        Assert.Contains("certutil -hashfile", script);
         Assert.Contains("backup_", script);
     }
 

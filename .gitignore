@@ -88,6 +88,8 @@ secrets.json
 .env.production
 !.env.example
 v-notes*
+.claude
+CLAUDE.MD
 
 # Secrets directory (keep only .example files)
 secrets/*

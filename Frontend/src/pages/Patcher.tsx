@@ -511,7 +511,7 @@ export default function PatcherPage() {
     try {
       await downloadFile(
         `${API_BASE_URL}/patcher/download-script/${patchId}`,
-        `patch-${patchId}.ps1`,
+        `patch-${patchId}.bat`,
         "Patch script downloaded successfully."
       );
     } catch (err: any) {
