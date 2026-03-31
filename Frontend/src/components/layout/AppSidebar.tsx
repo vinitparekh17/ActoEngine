@@ -15,6 +15,7 @@ import {
   Key,
   GitBranch,
   Code,
+  BookOpen,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -51,6 +52,7 @@ const SIDEBAR_ITEMS = [
   { icon: Binary, label: "SP Generator", href: "/sp-builder" },
   { icon: Palette, label: "Form Builder", href: "/form-builder" },
   { icon: Code, label: "JS Render Generator", href: "/js-render-generator" },
+  { icon: BookOpen, label: "Snippet Library", href: "/snippets" },
   { icon: Users, label: "Client Management", href: "/clients" },
   {
     icon: UserCog,

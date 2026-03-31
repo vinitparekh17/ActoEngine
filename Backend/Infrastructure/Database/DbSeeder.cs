@@ -202,6 +202,12 @@ public class DatabaseSeeder(
             new { PermissionKey = "StoredProcedures:Delete", Resource = "StoredProcedures", Action = "Delete", Description = "Delete stored procedures", Category = "SP Builder" },
             new { PermissionKey = "StoredProcedures:Execute", Resource = "StoredProcedures", Action = "Execute", Description = "Execute stored procedures", Category = "SP Builder" },
 
+            // Snippet Library
+            new { PermissionKey = "Snippets:Read", Resource = "Snippets", Action = "Read", Description = "View code snippets", Category = "Snippet Library" },
+            new { PermissionKey = "Snippets:Create", Resource = "Snippets", Action = "Create", Description = "Create new code snippets", Category = "Snippet Library" },
+            new { PermissionKey = "Snippets:Update", Resource = "Snippets", Action = "Update", Description = "Update own code snippets", Category = "Snippet Library" },
+            new { PermissionKey = "Snippets:Delete", Resource = "Snippets", Action = "Delete", Description = "Delete own code snippets", Category = "Snippet Library" },
+
             // System
             new { PermissionKey = "System:ViewLogs", Resource = "System", Action = "ViewLogs", Description = "View system logs", Category = "System" },
             new { PermissionKey = "System:ManageSettings", Resource = "System", Action = "ManageSettings", Description = "Manage system settings", Category = "System" }
@@ -220,11 +226,13 @@ public class DatabaseSeeder(
         }
 
         var userPermissions = permissions.Where(p =>
-            // User: Read + Context Create/Update (excluding Delete/Review)
+            // User: Read + Context Create/Update (excluding Delete/Review) + Snippet Create/Update
             p.PermissionKey.EndsWith(":Read") ||
             (p.PermissionKey.StartsWith("Contexts:") &&
              p.Action != "Delete" &&
-             p.Action != "Review")
+             p.Action != "Review") ||
+            (p.PermissionKey.StartsWith("Snippets:") &&
+             p.Action != "Delete")
         ).Select(p => p.PermissionKey);
 
         foreach (var key in userPermissions)

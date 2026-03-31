@@ -31,7 +31,7 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
     .WithScriptsEmbeddedInAssembly(
         ExecutingAssembly,
         script => script.Contains("Migrations")) // Filter to migrations folder
-    .WithTransaction()
+    .WithoutTransaction()
     .LogToConsole()
     .Build();
 

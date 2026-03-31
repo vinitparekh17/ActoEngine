@@ -20,6 +20,7 @@ using ActoEngine.WebApi.Features.ProjectClients;
 using ActoEngine.WebApi.Features.Projects;
 using ActoEngine.WebApi.Features.Roles;
 using ActoEngine.WebApi.Features.Schema;
+using ActoEngine.WebApi.Features.Snippets;
 using ActoEngine.WebApi.Features.SpBuilder;
 using ActoEngine.WebApi.Features.Users;
 using ActoEngine.WebApi.Infrastructure.Database;
@@ -119,6 +120,10 @@ namespace ActoEngine.WebApi.Shared.Extensions
             services.AddScoped<PatchArchiver>();
             services.AddScoped<IPatcherService, PatcherService>();
             services.AddScoped<IPageMappingRepository, PageMappingRepository>();
+
+            // Snippet Library Services
+            services.AddScoped<ISnippetRepository, SnippetRepository>();
+            services.AddScoped<ISnippetService, SnippetService>();
 
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddSingleton<ITokenHasher, TokenHasher>();

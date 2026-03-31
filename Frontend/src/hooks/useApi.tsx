@@ -219,6 +219,13 @@ export const queryKeys = {
     byTable: (projectId: number, tableId: number) =>
       ["logical-fks", projectId, "table", tableId] as const,
   },
+  snippets: {
+    all: () => ["snippets"] as const,
+    list: (search: string, language: string, tag: string, sortBy: string, page: number) =>
+      ["snippets", "list", search, language, tag, sortBy, page] as const,
+    detail: (id: number) => ["snippets", id] as const,
+    filters: () => ["snippets", "filters"] as const,
+  },
 };
 
 // ============================================
