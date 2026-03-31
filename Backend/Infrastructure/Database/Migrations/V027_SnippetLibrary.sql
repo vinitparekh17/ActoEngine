@@ -100,15 +100,15 @@ END
 -- --- FULL-TEXT SEARCH ---
 
 -- Full-Text Search on Title + Description
---IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs WHERE name = 'SnippetFTCatalog')
---BEGIN
---    CREATE FULLTEXT CATALOG SnippetFTCatalog;
---END
+IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs WHERE name = 'SnippetFTCatalog')
+BEGIN
+    CREATE FULLTEXT CATALOG SnippetFTCatalog;
+END
 
---IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes WHERE object_id = OBJECT_ID('dbo.Snippets'))
---BEGIN
---    CREATE FULLTEXT INDEX ON dbo.Snippets(Title, Description)
---        KEY INDEX PK_Snippets
---        ON SnippetFTCatalog
---        WITH CHANGE_TRACKING AUTO;
---END
+IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes WHERE object_id = OBJECT_ID('dbo.Snippets'))
+BEGIN
+    CREATE FULLTEXT INDEX ON dbo.Snippets(Title, Description)
+        KEY INDEX PK_Snippets
+        ON SnippetFTCatalog
+        WITH CHANGE_TRACKING AUTO;
+END

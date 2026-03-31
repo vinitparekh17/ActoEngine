@@ -1,6 +1,8 @@
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    build:
+      context: ./Backend/Infrastructure/Database
+      dockerfile: Dockerfile.sqlserver
     container_name: actoengine-sqlserver
     # WORKAROUND: user:root is required for Docker named volumes on Linux.
     # SQL Server 2022's mssql user cannot write to the volume without this.

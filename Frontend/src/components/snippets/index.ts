@@ -1,4 +1,5 @@
 export { SnippetCard } from "./SnippetCard";
 export { SnippetFilterBar } from "./SnippetFilterBar";
-export { SnippetFormModal } from "./SnippetFormModal";
-export { SnippetDetailModal } from "./SnippetDetailModal";
+export { DetailView } from "./DetailView";
+export { EditView } from "./EditView";
+export { EmptyView } from "./EmptyView";
