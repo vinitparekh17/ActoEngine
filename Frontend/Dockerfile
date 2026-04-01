@@ -11,7 +11,7 @@ COPY . .
 RUN npm run build
 
 # Production Stage
-FROM nginx:stable-alpine
+FROM nginx:1.29.7-alpine3.23
 # Copy built assets
 COPY --from=build /app/dist /usr/share/nginx/html
 # Copy custom nginx config

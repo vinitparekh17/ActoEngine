@@ -3,7 +3,7 @@ import {
   Plus,
   TerminalSquare,
   ChevronLeft, ChevronRight,
-  Heart, Pencil, Trash2, Maximize2,
+  Heart, Pencil, Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -208,6 +208,8 @@ export default function SnippetLibraryPage() {
 
     if (viewMode === "detail" && selectedSnippet) {
       const isOwner = user?.userId === selectedSnippet.createdBy;
+      const isAdmin = user?.role === "Admin";
+      const canModify = isOwner || isAdmin;
       return (
         <div className="flex items-center gap-2">
           <Button
@@ -219,7 +221,7 @@ export default function SnippetLibraryPage() {
             <Heart className={cn("h-3.5 w-3.5", selectedSnippet.isFavorited && "fill-red-500")} />
             {selectedSnippet.isFavorited ? "Favorited" : "Favorite"}
           </Button>
-          {isOwner && (
+          {canModify && (
             <>
               <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={openEdit}>
                 <Pencil className="h-3.5 w-3.5" /> Edit
@@ -233,14 +235,6 @@ export default function SnippetLibraryPage() {
               </Button>
             </>
           )}
-          <Button
-            variant="ghost" size="sm"
-            className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
-            onClick={() => setIsEditorFullscreen(true)}
-            title="Expand code editor"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </Button>
         </div>
       );
     }
@@ -343,11 +337,9 @@ export default function SnippetLibraryPage() {
           </div>
         </header>
 
-        {/* ─── Master Scroll Area ──────────────────────────────────── */}
-        <ScrollArea className="flex-1 w-full bg-muted/10 dark:bg-muted/5">
-
-          {/* LIST VIEW */}
-          {viewMode === "list" && (
+        {/* ─── List View (needs scrolling) ─────────────────────────── */}
+        {viewMode === "list" && (
+          <ScrollArea className="flex-1 w-full bg-muted/10 dark:bg-muted/5">
             <div className="max-w-[1920px] mx-auto w-full p-6 lg:p-8 space-y-6">
               <SnippetFilterBar
                 search={search}
@@ -356,9 +348,9 @@ export default function SnippetLibraryPage() {
                 sortBy={sortBy}
                 filterOptions={filterOptions}
                 onSearchChange={setSearch}
-                onLanguageChange={setLanguage}
-                onTagChange={setTag}
-                onSortChange={setSortBy}
+                onLanguageChange={(v) => { setLanguage(v); setPage(1); }}
+                onTagChange={(v) => { setTag(v); setPage(1); }}
+                onSortChange={(v) => { setSortBy(v); setPage(1); }}
                 onClearFilters={handleClearFilters}
               />
 
@@ -411,45 +403,46 @@ export default function SnippetLibraryPage() {
                 </div>
               )}
             </div>
-          )}
+          </ScrollArea>
+        )}
 
-          {/* DETAIL VIEW */}
-          {viewMode === "detail" && (
-            isLoadingDetail ? (
+        {/* ─── Detail View (direct flex child — no ScrollArea wrapper) ── */}
+        {viewMode === "detail" && (
+          isLoadingDetail ? (
+            <div className="flex-1 overflow-y-auto">
               <div className="max-w-5xl mx-auto w-full py-8 px-6 lg:px-8 space-y-6">
                 <Skeleton className="w-full h-[80px] rounded-xl" />
                 <Skeleton className="w-full h-[600px] rounded-xl" />
               </div>
-            ) : selectedSnippet ? (
-              <DetailView
-                snippet={selectedSnippet}
-                currentUserId={user?.userId}
-                isFavoriting={favoritingId === selectedSnippet.snippetId}
-                isEditorFullscreen={isEditorFullscreen}
-                onToggleFullscreen={() => setIsEditorFullscreen((v) => !v)}
-                onBack={handleBackToList}
-                onEdit={openEdit}
-                onFavorite={() => handleFavorite(selectedSnippet.snippetId)}
-                onCopy={() => handleCopy(selectedSnippet.snippetId)}
-                onDelete={() => setDeleteTarget(selectedSnippet)}
-              />
-            ) : (
-              <EmptyView hasFilters={false} onClear={() => { }} onCreate={openCreate} />
-            )
-          )}
-
-          {/* EDIT/CREATE VIEW */}
-          {(viewMode === "create" || viewMode === "edit") && (
-            <EditView
-              isEditing={viewMode === "edit"}
-              editingSnippet={editingSnippet}
-              isPending={isPendingMutation}
-              onSubmit={viewMode === "edit" ? handleUpdate : handleCreate}
-              onCancel={handleCancelEdit}
+            </div>
+          ) : selectedSnippet ? (
+            <DetailView
+              snippet={selectedSnippet}
+              currentUserId={user?.userId}
+              isFavoriting={favoritingId === selectedSnippet.snippetId}
+              isEditorFullscreen={isEditorFullscreen}
+              onToggleFullscreen={() => setIsEditorFullscreen((v) => !v)}
+              onBack={handleBackToList}
+              onEdit={openEdit}
+              onFavorite={() => handleFavorite(selectedSnippet.snippetId)}
+              onCopy={() => handleCopy(selectedSnippet.snippetId)}
+              onDelete={() => setDeleteTarget(selectedSnippet)}
             />
-          )}
+          ) : (
+            <EmptyView hasFilters={false} onClear={() => { }} onCreate={openCreate} />
+          )
+        )}
 
-        </ScrollArea>
+        {/* ─── Edit / Create View (direct flex child — no ScrollArea wrapper) ── */}
+        {(viewMode === "create" || viewMode === "edit") && (
+          <EditView
+            isEditing={viewMode === "edit"}
+            editingSnippet={editingSnippet}
+            isPending={isPendingMutation}
+            onSubmit={viewMode === "edit" ? handleUpdate : handleCreate}
+            onCancel={handleCancelEdit}
+          />
+        )}
 
         {/* Delete confirmation Dialog */}
         <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, lazy } from 'react';
 import { Copy, AlertCircle, RefreshCw, CheckSquare, Square, GripVertical, ChevronDown, ChevronRight, Eye, Code, LayoutTemplate } from 'lucide-react';
-import Editor from '@monaco-editor/react';
+const Editor = lazy(() => import("@monaco-editor/react"));
 import {
     buildPathGuard,
     type DisplayMode,

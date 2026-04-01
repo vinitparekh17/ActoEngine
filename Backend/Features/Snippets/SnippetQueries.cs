@@ -60,8 +60,7 @@ public static class SnippetQueries
         WHERE SnippetId = @SnippetId AND IsActive = 1";
 
     public const string ToggleFavoriteCheck = @"
-        SELECT COUNT(*) FROM SnippetFavorites
-        WHERE SnippetId = @SnippetId AND UserId = @UserId";
+        SELECT CASE WHEN EXISTS(SELECT 1 FROM SnippetFavorites WHERE SnippetId = @SnippetId AND UserId = @UserId) THEN 1 ELSE 0 END";
 
     public const string AddFavorite = @"
         INSERT INTO SnippetFavorites (SnippetId, UserId, CreatedAt)

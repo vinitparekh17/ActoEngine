@@ -26,14 +26,15 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
             throw;
         }
 
+        // Most migrations run inside a DbUp-managed transaction for safety.
         var upgrader = DeployChanges.To
-    .SqlDatabase(_connectionString)
-    .WithScriptsEmbeddedInAssembly(
-        ExecutingAssembly,
-        script => script.Contains("Migrations")) // Filter to migrations folder
-    .WithoutTransaction()
-    .LogToConsole()
-    .Build();
+            .SqlDatabase(_connectionString)
+            .WithScriptsEmbeddedInAssembly(
+                ExecutingAssembly,
+                script => script.Contains("Migrations") && !script.Contains("V027_SnippetLibrary"))
+            .WithTransaction()
+            .LogToConsole()
+            .Build();
 
         var result = upgrader.PerformUpgrade();
 
@@ -41,6 +42,24 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
         {
             logger.LogError(result.Error, "Database migration failed");
             throw new InvalidOperationException("Database migration failed. See logs for details.", result.Error);
+        }
+
+        // V027 creates a FULLTEXT CATALOG which cannot run inside a transaction.
+        var ftsUpgrader = DeployChanges.To
+            .SqlDatabase(_connectionString)
+            .WithScriptsEmbeddedInAssembly(
+                ExecutingAssembly,
+                script => script.Contains("V027_SnippetLibrary"))
+            .WithoutTransaction()
+            .LogToConsole()
+            .Build();
+
+        var ftsResult = ftsUpgrader.PerformUpgrade();
+
+        if (!ftsResult.Successful)
+        {
+            logger.LogError(ftsResult.Error, "Database migration failed (FTS)");
+            throw new InvalidOperationException("Database migration failed. See logs for details.", ftsResult.Error);
         }
 
         logger.LogInformation("Database migration completed successfully.");

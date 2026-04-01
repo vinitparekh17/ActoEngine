@@ -1,6 +1,7 @@
 using ActoEngine.WebApi.Infrastructure.Database;
 using ActoEngine.WebApi.Shared;
 using Dapper;
+using Microsoft.Data.SqlClient;
 
 namespace ActoEngine.WebApi.Features.Snippets;
 
@@ -11,7 +12,7 @@ public interface ISnippetRepository
     Task<int> CreateAsync(Snippet snippet, List<string> tags, CancellationToken cancellationToken = default);
     Task<bool> UpdateAsync(Snippet snippet, List<string> tags, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(int snippetId, int userId, CancellationToken cancellationToken = default);
-    Task IncrementCopyCountAsync(int snippetId, CancellationToken cancellationToken = default);
+    Task<bool> IncrementCopyCountAsync(int snippetId, CancellationToken cancellationToken = default);
     Task<bool> ToggleFavoriteAsync(int snippetId, int userId, CancellationToken cancellationToken = default);
     Task<SnippetFilterOptions> GetFilterOptionsAsync(CancellationToken cancellationToken = default);
 }
@@ -37,15 +38,16 @@ public class SnippetRepository(
             // "COMMON_AUDITLOG_SUMMARY_CRUD" via CONTAINS. LIKE handles this correctly.
             if (!string.IsNullOrWhiteSpace(listParams.Search))
             {
-                var searchTerm = listParams.Search.Trim().Replace("\"", "").Replace("'", "''");
-                var ftsPrefix = $"\"{searchTerm}*\"";
-                var likeTerm = $"%{searchTerm}%";
+                var rawTerm = listParams.Search.Trim();
+                var ftsToken = rawTerm.Replace("\"", "").Replace("'", "''");
+                var ftsPrefix = $"\"{ftsToken}*\"";
+                var likeTerm = $"%{rawTerm}%";
 
                 whereClauses.Add(@"(
                     (LEN(@SearchTerm) > 0 AND CONTAINS((s.Title, s.Description), @FtsSearch))
                     OR s.Code LIKE @LikeTerm
                 )");
-                parameters.Add("SearchTerm", searchTerm);
+                parameters.Add("SearchTerm", rawTerm);
                 parameters.Add("FtsSearch", ftsPrefix);
                 parameters.Add("LikeTerm", likeTerm);
             }
@@ -261,14 +263,15 @@ public class SnippetRepository(
         }
     }
 
-    public async Task IncrementCopyCountAsync(int snippetId, CancellationToken cancellationToken = default)
+    public async Task<bool> IncrementCopyCountAsync(int snippetId, CancellationToken cancellationToken = default)
     {
         try
         {
-            await ExecuteAsync(
+            var rowsAffected = await ExecuteAsync(
                 SnippetQueries.IncrementCopyCount,
                 new { SnippetId = snippetId },
                 cancellationToken);
+            return rowsAffected > 0;
         }
         catch (Exception ex)
         {
@@ -294,8 +297,15 @@ public class SnippetRepository(
             }
             else
             {
-                await connection.ExecuteAsync(
-                    new CommandDefinition(SnippetQueries.AddFavorite, new { SnippetId = snippetId, UserId = userId }, cancellationToken: cancellationToken));
+                try
+                {
+                    await connection.ExecuteAsync(
+                        new CommandDefinition(SnippetQueries.AddFavorite, new { SnippetId = snippetId, UserId = userId }, cancellationToken: cancellationToken));
+                }
+                catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
+                {
+                    // Concurrent insert already added the favorite — treat as success
+                }
                 return true; // favorited
             }
         }

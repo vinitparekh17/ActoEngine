@@ -7,7 +7,7 @@ public interface ISnippetService
     Task<SnippetDetailResponse> CreateSnippetAsync(CreateSnippetRequest request, int userId);
     Task<bool> UpdateSnippetAsync(int snippetId, UpdateSnippetRequest request, int userId, bool isAdmin);
     Task<bool> DeleteSnippetAsync(int snippetId, int userId, bool isAdmin);
-    Task IncrementCopyCountAsync(int snippetId);
+    Task<bool> IncrementCopyCountAsync(int snippetId);
     Task<bool> ToggleFavoriteAsync(int snippetId, int userId);
     Task<SnippetFilterOptions> GetFilterOptionsAsync();
 }
@@ -131,11 +131,11 @@ public class SnippetService(
         }
     }
 
-    public async Task IncrementCopyCountAsync(int snippetId)
+    public async Task<bool> IncrementCopyCountAsync(int snippetId)
     {
         try
         {
-            await _snippetRepository.IncrementCopyCountAsync(snippetId);
+            return await _snippetRepository.IncrementCopyCountAsync(snippetId);
         }
         catch (Exception ex)
         {

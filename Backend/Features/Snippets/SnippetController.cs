@@ -33,7 +33,7 @@ public class SnippetController(ISnippetService snippetService) : ControllerBase
             Language = language,
             Tag = tag,
             SortBy = sortBy,
-            Page = page,
+            Page = Math.Max(page, 1),
             PageSize = Math.Clamp(pageSize, 1, 50)
         };
 
@@ -68,26 +68,19 @@ public class SnippetController(ISnippetService snippetService) : ControllerBase
     [RequirePermission("Snippets:Create")]
     public async Task<IActionResult> CreateSnippet([FromBody] CreateSnippetRequest request)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ApiResponse<object>.Failure("Invalid request data",
-                [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
-
         var userId = HttpContext.GetUserId();
         if (userId == null)
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
 
         var created = await _snippetService.CreateSnippetAsync(request, userId.Value);
-        return Ok(ApiResponse<SnippetDetailResponse>.Success(created, "Snippet created successfully"));
+        return CreatedAtAction(nameof(GetSnippet), new { snippetId = created.SnippetId },
+            ApiResponse<SnippetDetailResponse>.Success(created, "Snippet created successfully"));
     }
 
     [HttpPut("{snippetId}")]
     [RequirePermission("Snippets:Update")]
     public async Task<IActionResult> UpdateSnippet(int snippetId, [FromBody] UpdateSnippetRequest request)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ApiResponse<object>.Failure("Invalid request data",
-                [.. ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))]));
-
         var userId = HttpContext.GetUserId();
         if (userId == null)
             return Unauthorized(ApiResponse<object>.Failure("User not authenticated"));
@@ -120,7 +113,10 @@ public class SnippetController(ISnippetService snippetService) : ControllerBase
     [RequirePermission("Snippets:Read")]
     public async Task<IActionResult> RecordCopy(int snippetId)
     {
-        await _snippetService.IncrementCopyCountAsync(snippetId);
+        var updated = await _snippetService.IncrementCopyCountAsync(snippetId);
+        if (!updated)
+            return NotFound(ApiResponse<object>.Failure("Snippet not found"));
+
         return Ok(ApiResponse<object>.Success(new { }, "Copy recorded"));
     }
 

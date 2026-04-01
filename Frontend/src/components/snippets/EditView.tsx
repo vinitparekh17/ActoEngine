@@ -1,6 +1,6 @@
 import { CreateSnippetRequest, MONACO_LANGUAGE_MAP, SNIPPET_LANGUAGES, SnippetDetail } from "@/types/snippet";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, Fragment } from "react";
 import z from "zod";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
@@ -10,14 +10,14 @@ import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { cn } from "@/lib/utils";
-import { Check, ChevronDown, Copy, Maximize2, Minimize2 } from "lucide-react";
+import { CodeWindowFrame, langBadgeClass } from "./CodeWindowFrame";
 
 const snippetSchema = z.object({
   title: z.string().min(1, "Title is required").max(200, "Max 200 characters"),
   language: z.string().min(1, "Language is required"),
   code: z.string().min(1, "Code is required"),
   description: z.string().max(500, "Max 500 characters").optional(),
-  notes: z.string().optional(),
+  notes: z.string().max(2000, "Max 2000 characters").optional(),
   tagsInput: z.string().optional(),
 });
 type SnippetFormValues = z.infer<typeof snippetSchema>;
@@ -30,19 +30,6 @@ interface EditViewProps {
   onCancel: () => void;
 }
 const MonacoEditor = lazy(() => import("@monaco-editor/react"));
-
-// ─── Language accent colors ───────────────────────────────────────────────────
-function langBadgeClass(lang: string): string {
-  const l = lang.toLowerCase();
-  if (l.includes("sql")) return "text-blue-400 border-blue-500/30 bg-blue-500/10";
-  if (l.includes("js") || l.includes("javascript")) return "text-yellow-400 border-yellow-500/30 bg-yellow-500/10";
-  if (l.includes("ts") || l.includes("typescript")) return "text-sky-400 border-sky-500/30 bg-sky-500/10";
-  if (l.includes("c#") || l.includes("csharp")) return "text-purple-400 border-purple-500/30 bg-purple-500/10";
-  if (l.includes("python")) return "text-green-400 border-green-500/30 bg-green-500/10";
-  if (l.includes("html") || l.includes("css")) return "text-orange-400 border-orange-500/30 bg-orange-500/10";
-  if (l.includes("json") || l.includes("xml")) return "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
-  return "text-[#a0a0a0] border-[#404040] bg-transparent";
-}
 
 export function EditView({ isEditing, editingSnippet, isPending, onSubmit, onCancel }: EditViewProps) {
   const editorRef = useRef<unknown>(null);
@@ -86,67 +73,33 @@ export function EditView({ isEditing, editingSnippet, isPending, onSubmit, onCan
     } catch { }
   };
 
-  // ─── Mac Window Title Bar ────────────────────────────────────────────
-  const windowTitleBar = (
-    <div
-      className="flex items-center justify-between px-4 shrink-0 relative"
-      style={{ background: "#2d2d2d", borderBottom: "1px solid #3c3c3c", minHeight: 40 }}
-    >
-      {/* Traffic lights */}
-      <div className="flex items-center gap-1.5">
-        <span className="w-3 h-3 rounded-full inline-block" style={{ background: "#ff5f57" }} />
-        <span className="w-3 h-3 rounded-full inline-block" style={{ background: "#febc2e" }} />
-        <span className="w-3 h-3 rounded-full inline-block" style={{ background: "#28c840" }} />
-      </div>
-
-      {/* Centered: Language selector embedded in title bar */}
-      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-        <Badge
-          variant="outline"
-          className={cn("text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border pointer-events-none", langBadgeClass(selectedLanguage))}
-        >
-          {selectedLanguage}
-        </Badge>
-        <Controller
-          name="language" control={control}
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger
-                className="h-6 text-[11px] font-mono text-[#c0c0c0] bg-[#3c3c3c] border-[#555] hover:bg-[#454545] focus:ring-0 focus:ring-offset-0 rounded px-2 w-auto gap-1"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="font-mono text-xs">
-                {SNIPPET_LANGUAGES.map((lang) => (
-                  <SelectItem key={lang} value={lang} className="text-xs">{lang}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        <span className="text-[11px] text-[#606060] font-mono hidden sm:block">{monacoLang}</span>
-      </div>
-
-      {/* Right: Copy + Fullscreen */}
-      <div className="flex items-center gap-1">
-        <Button
-          type="button" size="sm" variant="ghost"
-          className="h-7 text-xs text-[#d4d4d4] hover:text-white hover:bg-[#404040] px-2"
-          onClick={handleCopyCode}
-        >
-          {copied ? <Check className="h-3.5 w-3.5 text-emerald-400 mr-1.5" /> : <Copy className="h-3.5 w-3.5 mr-1.5" />}
-          {copied ? "Copied!" : "Copy"}
-        </Button>
-        <Button
-          type="button" size="sm" variant="ghost"
-          className="h-7 w-7 p-0 text-[#808080] hover:text-white hover:bg-[#404040]"
-          onClick={() => setIsEditorFullscreen((v) => !v)}
-          title={isEditorFullscreen ? "Exit fullscreen" : "Fullscreen"}
-        >
-          {isEditorFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-        </Button>
-      </div>
-    </div>
+  const titleBarCenter = (
+    <Fragment>
+      <Badge
+        variant="outline"
+        className={cn("text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border pointer-events-none", langBadgeClass(selectedLanguage))}
+      >
+        {selectedLanguage}
+      </Badge>
+      <Controller
+        name="language" control={control}
+        render={({ field }) => (
+          <Select value={field.value} onValueChange={field.onChange}>
+            <SelectTrigger
+              className="h-6 text-[11px] font-mono text-[#c0c0c0] bg-[#3c3c3c] border-[#555] hover:bg-[#454545] focus:ring-0 focus:ring-offset-0 rounded px-2 w-auto gap-1"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="font-mono text-xs">
+              {SNIPPET_LANGUAGES.map((lang) => (
+                <SelectItem key={lang} value={lang} className="text-xs">{lang}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      />
+      <span className="text-[11px] text-[#606060] font-mono hidden sm:block">{monacoLang}</span>
+    </Fragment>
   );
 
   // ─── Monaco Editor ───────────────────────────────────────────────────
@@ -179,12 +132,17 @@ export function EditView({ isEditing, editingSnippet, isPending, onSubmit, onCan
   if (isEditorFullscreen) {
     return (
       <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur flex flex-col">
-        <div className="flex flex-col h-full rounded-none overflow-hidden border-0" style={{ background: "#1e1e1e" }}>
-          {windowTitleBar}
-          <div className="flex-1 w-full">
-            {monacoEditor}
-          </div>
-        </div>
+        <CodeWindowFrame
+          language={selectedLanguage}
+          monacoLang={monacoLang}
+          onCopy={handleCopyCode}
+          onToggleFullscreen={() => setIsEditorFullscreen(false)}
+          isFullscreen={true}
+          copied={copied}
+          titleBarCenter={titleBarCenter}
+        >
+          {monacoEditor}
+        </CodeWindowFrame>
       </div>
     );
   }
@@ -208,18 +166,18 @@ export function EditView({ isEditing, editingSnippet, isPending, onSubmit, onCan
 
           {/* LEFT: 60% — Mac Terminal Window */}
           <div className="lg:w-[60%] h-64 lg:h-full p-4 lg:p-6 flex flex-col">
-            <div
-              className={cn(
-                "flex-1 rounded-xl overflow-hidden border shadow-xl flex flex-col",
-                errors.code ? "border-destructive/60" : "border-[#3c3c3c]"
-              )}
-              style={{ background: "#1e1e1e" }}
+            <CodeWindowFrame
+              language={selectedLanguage}
+              monacoLang={monacoLang}
+              onCopy={handleCopyCode}
+              onToggleFullscreen={() => setIsEditorFullscreen(true)}
+              isFullscreen={false}
+              copied={copied}
+              titleBarCenter={titleBarCenter}
+              className={cn("flex-1", errors.code ? "border-destructive/60" : "border-[#3c3c3c]")}
             >
-              {windowTitleBar}
-              <div className="flex-1 w-full min-h-0">
-                {monacoEditor}
-              </div>
-            </div>
+              {monacoEditor}
+            </CodeWindowFrame>
             {errors.code && <p className="text-xs text-destructive mt-1.5">{errors.code.message}</p>}
           </div>
 
@@ -275,6 +233,7 @@ export function EditView({ isEditing, editingSnippet, isPending, onSubmit, onCan
                   {...register("notes")}
                   className="resize-none text-sm"
                 />
+                {errors.notes && <p className="text-xs text-destructive">{errors.notes.message}</p>}
               </div>
 
               {/* Divider + actions (visible on mobile since header hides on mobile) */}

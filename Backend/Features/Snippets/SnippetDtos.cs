@@ -19,6 +19,7 @@ public class CreateSnippetRequest
     [StringLength(500, ErrorMessage = "Description must be at most 500 characters")]
     public string? Description { get; set; }
 
+    [MaxLength(2000, ErrorMessage = "Notes must be at most 2000 characters")]
     public string? Notes { get; set; }
 
     public List<string> Tags { get; set; } = [];
@@ -41,6 +42,7 @@ public class UpdateSnippetRequest
     [StringLength(500, ErrorMessage = "Description must be at most 500 characters")]
     public string? Description { get; set; }
 
+    [MaxLength(2000, ErrorMessage = "Notes must be at most 2000 characters")]
     public string? Notes { get; set; }
 
     public List<string> Tags { get; set; } = [];
