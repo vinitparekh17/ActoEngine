@@ -100,7 +100,7 @@ export default function SnippetLibraryPage() {
   });
 
   const copyMutation = useApiPost<void, { snippetId: number }>("/Snippet/:snippetId/copy", {
-    showSuccessToast: false, showErrorToast: false,
+    showSuccessToast: false, showErrorToast: false, invalidateKeys: invalidateAll,
   });
 
   // ─── Handlers ───────────────────────────────────────────────────────

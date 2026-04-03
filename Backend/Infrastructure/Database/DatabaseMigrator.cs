@@ -1,8 +1,10 @@
 // Infrastructure/Data/DatabaseMigrator.cs
 using Dapper;
 using DbUp;
+using DbUp.Engine;
 using Microsoft.Data.SqlClient;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Infrastructure.Database;
 
@@ -27,42 +29,52 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
         }
 
         // Most migrations run inside a DbUp-managed transaction for safety.
-        var upgrader = DeployChanges.To
+        ExecuteMigrationPhase(
+            script => script.Contains("Migrations") && GetMigrationVersion(script) != 27,
+            withoutTransaction: false,
+            phaseLabel: "Main");
+
+        // V027 creates a FULLTEXT CATALOG which cannot run inside a transaction.
+        ExecuteMigrationPhase(
+            script => GetMigrationVersion(script) == 27,
+            withoutTransaction: true,
+            phaseLabel: "FTS");
+
+        logger.LogInformation("Database migration completed successfully.");
+    }
+
+    private void ExecuteMigrationPhase(Func<string, bool> scriptFilter, bool withoutTransaction, string phaseLabel)
+    {
+        var scripts = ExecutingAssembly
+            .GetManifestResourceNames()
+            .Where(scriptFilter)
+            .OrderBy(GetMigrationVersion)
+            .Select(scriptName => new SqlScript(scriptName, GetEmbeddedScriptOrThrow(scriptName)))
+            .ToArray();
+
+        var builder = DeployChanges.To
             .SqlDatabase(_connectionString)
-            .WithScriptsEmbeddedInAssembly(
-                ExecutingAssembly,
-                script => script.Contains("Migrations") && !script.Contains("V027_SnippetLibrary"))
-            .WithTransaction()
-            .LogToConsole()
-            .Build();
+            .WithScripts(scripts);
+
+        var upgrader = withoutTransaction
+            ? builder.WithoutTransaction().LogToConsole().Build()
+            : builder.WithTransaction().LogToConsole().Build();
 
         var result = upgrader.PerformUpgrade();
 
         if (!result.Successful)
         {
-            logger.LogError(result.Error, "Database migration failed");
-            throw new InvalidOperationException("Database migration failed. See logs for details.", result.Error);
+            logger.LogError(result.Error, "Database migration failed ({PhaseLabel})", phaseLabel);
+            throw new InvalidOperationException($"Database migration failed. See logs for details. ({phaseLabel})", result.Error);
         }
+    }
 
-        // V027 creates a FULLTEXT CATALOG which cannot run inside a transaction.
-        var ftsUpgrader = DeployChanges.To
-            .SqlDatabase(_connectionString)
-            .WithScriptsEmbeddedInAssembly(
-                ExecutingAssembly,
-                script => script.Contains("V027_SnippetLibrary"))
-            .WithoutTransaction()
-            .LogToConsole()
-            .Build();
-
-        var ftsResult = ftsUpgrader.PerformUpgrade();
-
-        if (!ftsResult.Successful)
-        {
-            logger.LogError(ftsResult.Error, "Database migration failed (FTS)");
-            throw new InvalidOperationException("Database migration failed. See logs for details.", ftsResult.Error);
-        }
-
-        logger.LogInformation("Database migration completed successfully.");
+    private static int GetMigrationVersion(string resourceName)
+    {
+        var match = Regex.Match(resourceName, @"\bV(?<version>\d+)_", RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups["version"].Value, out var version)
+            ? version
+            : int.MaxValue;
     }
 
     private static string GetEmbeddedScriptOrThrow(string scriptName)

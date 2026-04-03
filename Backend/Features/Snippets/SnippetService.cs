@@ -21,15 +21,7 @@ public class SnippetService(
 
     public async Task<PaginatedResult<SnippetListResponse>> GetSnippetsAsync(SnippetListParams listParams, int currentUserId)
     {
-        try
-        {
-            return await _snippetRepository.GetAllAsync(listParams, currentUserId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving snippets");
-            throw;
-        }
+        return await _snippetRepository.GetAllAsync(listParams, currentUserId);
     }
 
     public async Task<SnippetDetailResponse?> GetSnippetByIdAsync(int snippetId, int currentUserId)
@@ -64,7 +56,12 @@ public class SnippetService(
             _logger.LogInformation("Created snippet {SnippetId} by user {UserId}", snippetId, userId);
 
             var created = await _snippetRepository.GetByIdAsync(snippetId, userId);
-            return created!;
+            if (created == null)
+            {
+                throw new InvalidOperationException($"Created snippet {snippetId} could not be loaded.");
+            }
+
+            return created;
         }
         catch (Exception ex)
         {

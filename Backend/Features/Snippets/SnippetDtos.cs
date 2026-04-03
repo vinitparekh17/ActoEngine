@@ -13,7 +13,7 @@ public class CreateSnippetRequest
     public string Code { get; set; } = default!;
 
     [Required(ErrorMessage = "Language is required")]
-    [StringLength(50, ErrorMessage = "Language must be at most 50 characters")]
+    [StringLength(50, MinimumLength = 1, ErrorMessage = "Language must be between 1 and 50 characters")]
     public string Language { get; set; } = default!;
 
     [StringLength(500, ErrorMessage = "Description must be at most 500 characters")]
@@ -36,7 +36,7 @@ public class UpdateSnippetRequest
     public string Code { get; set; } = default!;
 
     [Required(ErrorMessage = "Language is required")]
-    [StringLength(50, ErrorMessage = "Language must be at most 50 characters")]
+    [StringLength(50, MinimumLength = 1, ErrorMessage = "Language must be between 1 and 50 characters")]
     public string Language { get; set; } = default!;
 
     [StringLength(500, ErrorMessage = "Description must be at most 500 characters")]

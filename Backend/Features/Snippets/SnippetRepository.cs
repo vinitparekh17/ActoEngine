@@ -70,6 +70,7 @@ public class SnippetRepository(
             {
                 "popular" => "s.CopyCount DESC, s.CreatedAt DESC",
                 "favorites" => "FavoriteCount DESC, s.CreatedAt DESC",
+                "recent" => "s.CreatedAt DESC",
                 "title" => "s.Title ASC",
                 _ => "s.CreatedAt DESC"
             };

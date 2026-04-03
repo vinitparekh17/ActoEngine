@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, lazy } from 'react';
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 import { Copy, AlertCircle, RefreshCw, CheckSquare, Square, GripVertical, ChevronDown, ChevronRight, Eye, Code, LayoutTemplate } from 'lucide-react';
 const Editor = lazy(() => import("@monaco-editor/react"));
 import {
@@ -554,13 +554,15 @@ export default function AdvancedJsRenderGenerator() {
 
                         {activeTab === 'code' && (
                             <div className="h-full w-full">
-                                <Editor
-                                    height="100%"
-                                    defaultLanguage="html"
-                                    theme={isDarkMode ? 'vs-dark' : 'light'}
-                                    value={activeTemplate}
-                                    options={{ minimap: { enabled: false }, fontSize: 13, wordWrap: 'on' }}
-                                />
+                                <Suspense fallback={<div className="flex h-full items-center justify-center text-sm font-medium text-muted-foreground">Loading editor...</div>}>
+                                    <Editor
+                                        height="100%"
+                                        defaultLanguage="html"
+                                        theme={isDarkMode ? 'vs-dark' : 'light'}
+                                        value={activeTemplate}
+                                        options={{ minimap: { enabled: false }, fontSize: 13, wordWrap: 'on' }}
+                                    />
+                                </Suspense>
                             </div>
                         )}
                     </div>

@@ -188,14 +188,23 @@ public class AuthService(
                 return null;
             }
 
+            var user = await _userRepository.GetByIdAsync(tokenRecord.UserID);
+            if (user == null)
+            {
+                _logger.LogDebug("Access token user {UserId} was not found", tokenRecord.UserID);
+                return null;
+            }
+
             var claims = new[]
             {
-                        new Claim("sub", tokenRecord.UserID.ToString()),
-                        new Claim("user_id", tokenRecord.UserID.ToString()),
-                        new Claim("token_type", "access"),
-                        new Claim("exp", ((DateTimeOffset)tokenRecord.SessionExpiresAt).ToUnixTimeSeconds().ToString()),
-                        new Claim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
-                    };
+                new Claim("sub", tokenRecord.UserID.ToString()),
+                new Claim("user_id", tokenRecord.UserID.ToString()),
+                new Claim("token_type", "access"),
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("role", user.Role),
+                new Claim("exp", ((DateTimeOffset)tokenRecord.SessionExpiresAt).ToUnixTimeSeconds().ToString()),
+                new Claim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
+            };
 
             var identity = new ClaimsIdentity(claims, "custom_token");
             var principal = new ClaimsPrincipal(identity);

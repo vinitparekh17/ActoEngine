@@ -8,12 +8,12 @@ import { cn } from "@/lib/utils";
 export function langBadgeClass(lang: string): string {
   const l = lang.toLowerCase();
   if (l.includes("sql")) return "text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20";
+  if (l.includes("json") || l.includes("xml")) return "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20";
   if (l.includes("js") || l.includes("javascript")) return "text-yellow-600 bg-yellow-50 dark:bg-yellow-500/10 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/20";
   if (l.includes("ts") || l.includes("typescript")) return "text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20";
   if (l.includes("c#") || l.includes("csharp")) return "text-purple-600 bg-purple-50 dark:bg-purple-500/10 dark:text-purple-400 border-purple-200 dark:border-purple-500/20";
   if (l.includes("python")) return "text-green-600 bg-green-50 dark:bg-green-500/10 dark:text-green-400 border-green-200 dark:border-green-500/20";
   if (l.includes("html") || l.includes("css")) return "text-orange-600 bg-orange-50 dark:bg-orange-500/10 dark:text-orange-400 border-orange-200 dark:border-orange-500/20";
-  if (l.includes("json") || l.includes("xml")) return "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20";
   return "text-muted-foreground bg-muted border-border";
 }
 
@@ -98,6 +98,7 @@ export function CodeWindowFrame({
               variant="ghost"
               className="h-7 w-7 p-0 text-[#808080] hover:text-white hover:bg-[#404040]"
               onClick={onToggleFullscreen}
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
