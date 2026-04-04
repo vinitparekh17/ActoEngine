@@ -1,4 +1,5 @@
 using ActoEngine.WebApi.Features.Auth;
+using ActoEngine.WebApi.Features.Users;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using System.Security.Cryptography;
@@ -9,13 +10,14 @@ namespace ActoEngine.Tests.Auth;
 public class ExtensionAuthServiceTests
 {
     private readonly IExtensionAuthRepository _repo = Substitute.For<IExtensionAuthRepository>();
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly TokenHasher _tokenHasher = new();
     private readonly ILogger<ExtensionAuthService> _logger = Substitute.For<ILogger<ExtensionAuthService>>();
 
     [Fact]
     public async Task ExchangeCodeAsync_WithValidVerifier_ReturnsTokensAndConsumesCode()
     {
-        var service = new ExtensionAuthService(_repo, _tokenHasher, _logger);
+        var service = new ExtensionAuthService(_repo, _userRepository, _tokenHasher, _logger);
         var code = "auth-code-1";
         // To be valid under PKCE, verifier needs to be 43-128 chars.
         var verifier = "1234567890123456789012345678901234567890123";
@@ -55,7 +57,7 @@ public class ExtensionAuthServiceTests
     [Fact]
     public async Task ExchangeCodeAsync_WithVerifierMismatch_Throws()
     {
-        var service = new ExtensionAuthService(_repo, _tokenHasher, _logger);
+        var service = new ExtensionAuthService(_repo, _userRepository, _tokenHasher, _logger);
         var code = "auth-code-2";
         var codeHash = _tokenHasher.HashToken(code);
         const string clientId = "abc";
@@ -89,7 +91,7 @@ public class ExtensionAuthServiceTests
     [Fact]
     public async Task RefreshAsync_RotatesTokens()
     {
-        var service = new ExtensionAuthService(_repo, _tokenHasher, _logger);
+        var service = new ExtensionAuthService(_repo, _userRepository, _tokenHasher, _logger);
         var refreshToken = "refresh-1";
         var refreshHash = _tokenHasher.HashToken(refreshToken);
 
@@ -121,7 +123,7 @@ public class ExtensionAuthServiceTests
     [Fact]
     public async Task CreateAuthorizationCodeAsync_WithMismatchedRedirectHost_Throws()
     {
-        var service = new ExtensionAuthService(_repo, _tokenHasher, _logger);
+        var service = new ExtensionAuthService(_repo, _userRepository, _tokenHasher, _logger);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CreateAuthorizationCodeAsync(
@@ -139,7 +141,7 @@ public class ExtensionAuthServiceTests
     [Fact]
     public async Task ValidateAccessTokenAsync_ValidToken_ReturnsPrincipal()
     {
-        var service = new ExtensionAuthService(_repo, _tokenHasher, _logger);
+        var service = new ExtensionAuthService(_repo, _userRepository, _tokenHasher, _logger);
         var accessToken = "access-1";
         var accessHash = _tokenHasher.HashToken(accessToken);
 
@@ -154,6 +156,16 @@ public class ExtensionAuthServiceTests
                 RefreshToken = "refreshHash",
                 RefreshExpiresAt = DateTime.UtcNow.AddDays(1)
             });
+        _userRepository.GetByIdAsync(321, Arg.Any<CancellationToken>())
+            .Returns(new User(
+                userID: 321,
+                username: "extension-user",
+                passwordHash: "hashed-password",
+                fullName: "Extension User",
+                isActive: true,
+                role: "User",
+                createdAt: DateTime.UtcNow,
+                createdBy: "tests"));
 
         var principal = await service.ValidateAccessTokenAsync(accessToken);
 
