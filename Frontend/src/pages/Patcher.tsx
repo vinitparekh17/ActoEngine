@@ -21,7 +21,8 @@ import {
   Package
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { downloadApiFile } from "@/lib/api";
+import { cn, formatCompactRelativeTime } from "@/lib/utils";
 import type {
   BulkMappingActionRequest,
   MappingStatus,
@@ -34,8 +35,6 @@ import type {
   UpdateMappingRequest,
 } from "@/types/patcher";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5093/api";
 
 type GroupedMappings = Record<string, PageMapping[]>;
 
@@ -79,36 +78,6 @@ function buildPatchPayload(projectId: number, pageKeys: string[], patchName: str
   };
 }
 
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = diffMs / (1000 * 60 * 60);
-  const diffDays = diffHours / 24;
-
-  if (diffHours < 1) return "Just now";
-  if (diffHours < 24) return `${Math.floor(diffHours)}h ago`;
-  if (diffDays < 2) return "Yesterday";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
-function getDownloadFileName(response: Response, fallbackFileName: string): string {
-  const disposition = response.headers.get("content-disposition");
-  if (!disposition) return fallbackFileName;
-
-  const encodedMatch = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
-  if (encodedMatch?.[1]) {
-    return decodeURIComponent(encodedMatch[1]);
-  }
-
-  const quotedMatch = disposition.match(/filename\s*=\s*"([^"]+)"/i);
-  if (quotedMatch?.[1]) {
-    return quotedMatch[1];
-  }
-
-  const plainMatch = disposition.match(/filename\s*=\s*([^;]+)/i);
-  return plainMatch?.[1]?.trim() || fallbackFileName;
-}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -317,7 +286,7 @@ function HistoryRow({ item, onDownload, onDownloadScript, onCopyPath }: { item: 
             <span>#{item.patchId}</span>
             <span className="text-border">•</span>
             <span className="flex items-center gap-1 font-sans">
-              <Clock className="w-3 h-3" /> {formatRelativeTime(item.generatedAt)}
+              <Clock className="w-3 h-3" /> {formatCompactRelativeTime(item.generatedAt)}
             </span>
             {(item as any).filesIncluded?.length != null && (
               <>
@@ -474,30 +443,10 @@ export default function PatcherPage() {
     await generatePatch.mutateAsync(payload);
   };
 
-  const downloadFile = async (endpoint: string, fallbackFileName: string, successMessage: string) => {
-    const response = await fetch(endpoint, { credentials: "include" });
-    if (!response.ok) throw new Error("Download failed");
-
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const fileName = getDownloadFileName(response, fallbackFileName);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast.success(successMessage);
-  };
-
   const downloadPatch = async (patchId: number) => {
     try {
-      await downloadFile(
-        `${API_BASE_URL}/patcher/download/${patchId}`,
-        `patch-${patchId}.zip`,
-        "Patch downloaded successfully."
-      );
+      await downloadApiFile(`/patcher/download/${patchId}`, `patch-${patchId}.zip`);
+      toast.success("Patch downloaded successfully.");
     } catch (err: any) {
       toast.error(err.message || "Failed to download patch.");
     }
@@ -505,11 +454,11 @@ export default function PatcherPage() {
 
   const downloadPatchScript = async (patchId: number) => {
     try {
-      await downloadFile(
-        `${API_BASE_URL}/patcher/download-script/${patchId}`,
+      await downloadApiFile(
+        `/patcher/download-script/${patchId}`,
         `patch-${patchId}.bat`,
-        "Patch script downloaded successfully."
       );
+      toast.success("Patch script downloaded successfully.");
     } catch (err: any) {
       toast.error(err.message || "Failed to download patch script.");
     }

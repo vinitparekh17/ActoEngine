@@ -356,31 +356,6 @@ export function getExpertiseLabel(level: ExpertiseLevel): string {
   }
 }
 
-export function formatRelativeTime(dateString: string): string {
-  const past = new Date(dateString);
-  const time = past.getTime();
-
-  if (isNaN(time)) {
-    return "invalid date";
-  }
-
-  const now = new Date();
-  const diffInMs = now.getTime() - time;
-
-  if (diffInMs < 0) {
-    return "in the future";
-  }
-
-  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-  if (diffInDays === 0) return "today";
-  if (diffInDays === 1) return "yesterday";
-  if (diffInDays < 7) return `${diffInDays} days ago`;
-  if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
-  if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
-  return `${Math.floor(diffInDays / 365)} years ago`;
-}
-
 export function parseValidationRules(
   jsonString?: string,
 ): ValidationRule | null {

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "@/lib/api";
+import { buildApiUrl } from "@/config/backend";
 import type { SyncStatusResponse } from "@/types/project";
 
 export interface SyncStatusData {
@@ -50,31 +51,10 @@ function isTerminalStatus(status: string | null | undefined): boolean {
   return status === "Completed" || status.startsWith("Failed");
 }
 
-function normalizeApiBaseUrl(rawUrl: string): string {
-  let normalized = rawUrl;
-
-  if (!normalized) {
-    return normalized;
-  }
-
-  while (normalized.endsWith("/")) {
-    normalized = normalized.slice(0, -1);
-  }
-
-  if (normalized.endsWith("/api")) {
-    normalized = normalized.slice(0, -4);
-  }
-
-  return normalized;
-}
-
 /**
  * Fetches a short-lived one-time ticket for SSE authentication
  */
-async function fetchSseTicket(
-  projectId: number,
-  apiUrl: string,
-): Promise<string | null> {
+async function fetchSseTicket(projectId: number): Promise<string | null> {
   try {
     const response = await api.post<{ ticket: string; expiresIn: number }>(
       `/projects/${projectId}/sync-status/ticket`,
@@ -91,18 +71,18 @@ async function fetchSseTicket(
  */
 async function createSseConnection(
   projectId: number,
-  apiUrl: string,
   onError: (error: string) => void,
 ): Promise<SseConnection | null> {
   // Fetch one-time ticket for SSE authentication
-  const ticket = await fetchSseTicket(projectId, apiUrl);
+  const ticket = await fetchSseTicket(projectId);
   if (!ticket) {
     onError("Failed to obtain SSE ticket");
     return null;
   }
 
-  const baseUrl = normalizeApiBaseUrl(apiUrl);
-  const sseUrl = `${baseUrl}/api/projects/${projectId}/sync-status/stream?ticket=${encodeURIComponent(ticket)}`;
+  const sseUrl = buildApiUrl(
+    `/projects/${projectId}/sync-status/stream?ticket=${encodeURIComponent(ticket)}`,
+  );
 
   console.log(`[SSE] Creating new connection for project ${projectId}`);
   const eventSource = new EventSource(sseUrl, { withCredentials: true });
@@ -194,7 +174,6 @@ async function createSseConnection(
  */
 async function getOrCreateSseConnection(
   projectId: number,
-  apiUrl: string,
   onError: (error: string) => void,
 ): Promise<SseConnection | null> {
   // If connection already exists, return it
@@ -210,7 +189,7 @@ async function getOrCreateSseConnection(
   }
 
   // Create a new connection and store the promise to prevent race conditions
-  const connectionPromise = createSseConnection(projectId, apiUrl, onError)
+  const connectionPromise = createSseConnection(projectId, onError)
     .then((connection) => {
       // Clear the pending entry on success or failure
       pendingSseConnections.delete(projectId);
@@ -229,11 +208,10 @@ async function getOrCreateSseConnection(
 
 async function subscribeToSse(
   projectId: number,
-  apiUrl: string,
   callback: (data: SyncStatusData | { error: string; message: string }) => void,
   onError: (error: string) => void,
 ): Promise<(() => void) | null> {
-  const connection = await getOrCreateSseConnection(projectId, apiUrl, onError);
+  const connection = await getOrCreateSseConnection(projectId, onError);
   if (!connection) {
     // Don't call onError here - getOrCreateSseConnection already called it
     return null;
@@ -296,9 +274,6 @@ export function useSyncStatus(
   const mountedRef = useRef<boolean>(true);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const hasFetchedRef = useRef<boolean>(false);
-  const apiUrl = normalizeApiBaseUrl(
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:5093",
-  );
 
   /**
    * Fetch sync status via REST API (one-time)
@@ -399,7 +374,6 @@ export function useSyncStatus(
 
         const localUnsub = await subscribeToSse(
           projectId,
-          apiUrl,
           (data) => {
             if (!mountedRef.current) return;
 
@@ -452,7 +426,7 @@ export function useSyncStatus(
       mountedRef.current = false;
       cleanup();
     };
-  }, [enabled, projectId, useSSE, apiUrl, fetchSyncStatus, reconnectCounter]);
+  }, [enabled, projectId, useSSE, fetchSyncStatus, reconnectCounter]);
 
   return {
     status,

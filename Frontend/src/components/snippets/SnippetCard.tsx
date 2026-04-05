@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn, formatCompactRelativeTime } from "@/lib/utils";
 import type { SnippetListItem } from "@/types/snippet";
 import { Clock, Copy, Heart, User } from "lucide-react";
 
@@ -6,7 +6,6 @@ interface SnippetCardProps {
   snippet: SnippetListItem;
   onClick: () => void;
 }
-// ─── Language accent colors ───────────────────────────────────────────────────
 
 function langAccent(lang: string): string {
   const l = lang.toLowerCase();
@@ -21,27 +20,8 @@ function langAccent(lang: string): string {
   return "#94a3b8";
 }
 
-
-// ─── Relative time helper ─────────────────────────────────────────────────────
-
-function getRelativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-
 export function SnippetCard({ snippet, onClick }: SnippetCardProps) {
-  const date = new Date(snippet.createdAt);
-  const relative = getRelativeTime(date);
+  const relative = formatCompactRelativeTime(snippet.createdAt, "recently");
 
   return (
     <div
@@ -49,18 +29,16 @@ export function SnippetCard({ snippet, onClick }: SnippetCardProps) {
       className={cn(
         "group relative flex flex-col h-[220px] p-5 rounded-2xl cursor-pointer transition-all duration-300",
         "bg-card border border-border/40 shadow-sm",
-        "hover:border-primary/30 hover:shadow-md hover:bg-accent/5"
+        "hover:border-primary/30 hover:shadow-md hover:bg-accent/5",
       )}
     >
-      {/* Sleek top edge glow on hover */}
       <div
         className="absolute top-0 inset-x-0 h-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
         style={{
-          background: `linear-gradient(90deg, transparent, ${langAccent(snippet.language)}, transparent)`
+          background: `linear-gradient(90deg, transparent, ${langAccent(snippet.language)}, transparent)`,
         }}
       />
 
-      {/* Header: Minimalist Language Dot & Stats */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <div
@@ -74,19 +52,30 @@ export function SnippetCard({ snippet, onClick }: SnippetCardProps) {
 
         <div className="flex items-center gap-2.5 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/80">
           {snippet.copyCount > 0 && (
-            <div className="flex items-center gap-1 text-[11px] font-medium" title={`${snippet.copyCount} copies`}>
+            <div
+              className="flex items-center gap-1 text-[11px] font-medium"
+              title={`${snippet.copyCount} copies`}
+            >
               <Copy className="h-3 w-3" /> {snippet.copyCount}
             </div>
           )}
           {snippet.favoriteCount > 0 && (
-            <div className="flex items-center gap-1 text-[11px] font-medium" title={`${snippet.favoriteCount} favorites`}>
-              <Heart className={cn("h-3 w-3", snippet.isFavorited && "fill-red-500 text-red-500")} /> {snippet.favoriteCount}
+            <div
+              className="flex items-center gap-1 text-[11px] font-medium"
+              title={`${snippet.favoriteCount} favorites`}
+            >
+              <Heart
+                className={cn(
+                  "h-3 w-3",
+                  snippet.isFavorited && "fill-red-500 text-red-500",
+                )}
+              />{" "}
+              {snippet.favoriteCount}
             </div>
           )}
         </div>
       </div>
 
-      {/* Body: Title & Desc */}
       <div className="space-y-1.5">
         <h3 className="text-base font-semibold text-foreground leading-tight line-clamp-2 group-hover:text-primary transition-colors">
           {snippet.title}
@@ -102,9 +91,7 @@ export function SnippetCard({ snippet, onClick }: SnippetCardProps) {
         )}
       </div>
 
-      {/* Footer: Tags & Meta */}
       <div className="mt-auto pt-2 flex flex-col gap-3.5">
-        {/* Soft tags */}
         <div className="flex flex-wrap gap-1.5 overflow-hidden h-[22px]">
           {snippet.tags.slice(0, 3).map((t) => (
             <span
@@ -121,7 +108,6 @@ export function SnippetCard({ snippet, onClick }: SnippetCardProps) {
           )}
         </div>
 
-        {/* Author and Date (No dividing lines) */}
         <div className="flex items-center justify-between text-[11px] text-muted-foreground/70">
           <span className="flex items-center gap-1.5 font-medium truncate pr-2">
             <User className="h-3 w-3 opacity-60" /> {snippet.authorName}

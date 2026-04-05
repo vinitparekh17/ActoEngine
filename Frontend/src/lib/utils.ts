@@ -33,6 +33,47 @@ export function formatRelativeTime(
 }
 
 /**
+ * Formats a timestamp into a compact relative label for dense UI surfaces.
+ * Examples: "just now", "3h ago", "Yesterday", "Apr 5"
+ */
+export function formatCompactRelativeTime(
+  dateValue: DateValue,
+  fallback: string = "recently",
+): string {
+  if (!dateValue) return fallback;
+
+  const date = typeof dateValue === "string" ? new Date(dateValue) : dateValue;
+
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  const diffMs = Date.now() - date.getTime();
+
+  if (diffMs < 0) {
+    return format(date, "MMM d, yyyy");
+  }
+
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 2) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+
+  const currentYear = new Date().getFullYear();
+  return format(
+    date,
+    date.getFullYear() === currentYear ? "MMM d" : "MMM d, yyyy",
+  );
+}
+
+/**
  * Safely formats a date string or Date object with a custom format
  * Returns a fallback string if the date is invalid
  *
