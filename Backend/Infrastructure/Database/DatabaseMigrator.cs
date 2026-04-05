@@ -1,8 +1,10 @@
 // Infrastructure/Data/DatabaseMigrator.cs
 using Dapper;
 using DbUp;
+using DbUp.Engine;
 using Microsoft.Data.SqlClient;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace ActoEngine.WebApi.Infrastructure.Database;
 
@@ -26,24 +28,53 @@ public class DatabaseMigrator(IConfiguration configuration, ILogger<DatabaseMigr
             throw;
         }
 
-        var upgrader = DeployChanges.To
-    .SqlDatabase(_connectionString)
-    .WithScriptsEmbeddedInAssembly(
-        ExecutingAssembly,
-        script => script.Contains("Migrations")) // Filter to migrations folder
-    .WithTransaction()
-    .LogToConsole()
-    .Build();
+        // Most migrations run inside a DbUp-managed transaction for safety.
+        ExecuteMigrationPhase(
+            script => script.Contains("Migrations") && GetMigrationVersion(script) != 27,
+            withoutTransaction: false,
+            phaseLabel: "Main");
+
+        // V027 creates a FULLTEXT CATALOG which cannot run inside a transaction.
+        ExecuteMigrationPhase(
+            script => GetMigrationVersion(script) == 27,
+            withoutTransaction: true,
+            phaseLabel: "FTS");
+
+        logger.LogInformation("Database migration completed successfully.");
+    }
+
+    private void ExecuteMigrationPhase(Func<string, bool> scriptFilter, bool withoutTransaction, string phaseLabel)
+    {
+        var scripts = ExecutingAssembly
+            .GetManifestResourceNames()
+            .Where(scriptFilter)
+            .OrderBy(GetMigrationVersion)
+            .Select(scriptName => new SqlScript(scriptName, GetEmbeddedScriptOrThrow(scriptName)))
+            .ToArray();
+
+        var builder = DeployChanges.To
+            .SqlDatabase(_connectionString)
+            .WithScripts(scripts);
+
+        var upgrader = withoutTransaction
+            ? builder.WithoutTransaction().LogToConsole().Build()
+            : builder.WithTransaction().LogToConsole().Build();
 
         var result = upgrader.PerformUpgrade();
 
         if (!result.Successful)
         {
-            logger.LogError(result.Error, "Database migration failed");
-            throw new InvalidOperationException("Database migration failed. See logs for details.", result.Error);
+            logger.LogError(result.Error, "Database migration failed ({PhaseLabel})", phaseLabel);
+            throw new InvalidOperationException($"Database migration failed. See logs for details. ({phaseLabel})", result.Error);
         }
+    }
 
-        logger.LogInformation("Database migration completed successfully.");
+    private static int GetMigrationVersion(string resourceName)
+    {
+        var match = Regex.Match(resourceName, @"\bV(?<version>\d+)_", RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups["version"].Value, out var version)
+            ? version
+            : int.MaxValue;
     }
 
     private static string GetEmbeddedScriptOrThrow(string scriptName)

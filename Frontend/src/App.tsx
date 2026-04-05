@@ -23,6 +23,7 @@ import UserManagementPage from "@/pages/UserManagement";
 import RoleManagementPage from "@/pages/RoleManagement";
 import EntityDetailPage from "@/pages/EntityDetailPage";
 import AdvancedJsRenderGenerator from "@/pages/AdvancedJsRenderGenerator";
+import SnippetLibraryPage from "@/pages/SnippetLibrary";
 import PatcherPage from "@/pages/Patcher";
 import { AccessDenied } from "./components/feedback/AccessDenied";
 import { FullscreenProvider } from "./hooks/useFullscreen";
@@ -167,6 +168,14 @@ function AppRoutes() {
           element={
             <PermissionRoute permission="Forms:Read">
               <AdvancedJsRenderGenerator />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="snippets"
+          element={
+            <PermissionRoute permission="Snippets:Read">
+              <SnippetLibraryPage />
             </PermissionRoute>
           }
         />

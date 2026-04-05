@@ -1,0 +1,19 @@
+FROM mcr.microsoft.com/mssql/server:2022-latest
+
+# Switch to root to install Full-Text Search package
+USER root
+
+# The base image includes Microsoft's apt repo but the GPG key or sources
+# may need refreshing. Re-add the Microsoft repo to ensure mssql-server-fts
+# is available, then install it.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl gnupg && \
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg && \
+    curl -fsSL https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2022.list | tee /etc/apt/sources.list.d/mssql-server-2022.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends mssql-server-fts && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Switch back to mssql user
+USER mssql

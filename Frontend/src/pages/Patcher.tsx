@@ -18,11 +18,7 @@ import {
   Clock, PackageCheck, LayoutDashboard, Share2, ShieldAlert, X,
   Search,
   ChevronRight,
-  Package,
-  Zap,
-  Check,
-  RefreshCw,
-  PackagePlus
+  Package
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";

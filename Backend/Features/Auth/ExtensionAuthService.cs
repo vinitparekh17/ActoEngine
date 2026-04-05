@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using ActoEngine.WebApi.Features.Users;
 
 namespace ActoEngine.WebApi.Features.Auth;
 
@@ -23,6 +24,7 @@ public interface IExtensionAuthService
 
 public partial class ExtensionAuthService(
     IExtensionAuthRepository extensionAuthRepository,
+    IUserRepository userRepository,
     ITokenHasher tokenHasher,
     ILogger<ExtensionAuthService> logger) : IExtensionAuthService
 {
@@ -195,12 +197,21 @@ public partial class ExtensionAuthService(
                 return null;
             }
 
+            var user = await userRepository.GetByIdAsync(session.UserID);
+            if (user == null)
+            {
+                logger.LogWarning("Extension access token user {UserId} was not found.", session.UserID);
+                return null;
+            }
+
             var claims = new[]
             {
                 new Claim("sub", session.UserID.ToString()),
                 new Claim("user_id", session.UserID.ToString()),
                 new Claim("token_type", "extension_access"),
                 new Claim("client_id", session.ClientId),
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("role", user.Role),
                 new Claim("exp", ((DateTimeOffset)session.AccessExpiresAt).ToUnixTimeSeconds().ToString()),
                 new Claim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
             };
