@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Bell, Check, CheckCircle2, Loader2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatRelativeTime } from "@/lib/utils";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -115,7 +115,7 @@ export default function NotificationDropdown() {
                   <p className="text-sm font-medium leading-none">{notif.title}</p>
                   <p className="text-xs text-muted-foreground line-clamp-2">{notif.message}</p>
                   <p className="text-[10px] text-muted-foreground font-medium pt-1">
-                    {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
+                    {formatRelativeTime(notif.createdAt, "recently")}
                   </p>
                 </div>
                 {!notif.isRead && (

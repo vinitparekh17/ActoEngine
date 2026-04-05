@@ -3,7 +3,7 @@ import { AlertTriangle, Calendar, User } from "lucide-react";
 import { MONACO_LANGUAGE_MAP, SnippetDetail } from "@/types/snippet";
 import { Badge } from "../ui/badge";
 import { Alert } from "../ui/alert";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { CodeWindowFrame, langBadgeClass } from "./CodeWindowFrame";
 interface DetailViewProps {
   snippet: SnippetDetail;
@@ -67,7 +67,7 @@ export function DetailView({ snippet, isFavoriting: _isFavoriting, isEditorFulls
               </Badge>
               <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
                 <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> {snippet.authorName}</span>
-                <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {new Date(snippet.createdAt).toLocaleDateString()}</span>
+                <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {formatDate(snippet.createdAt, "PPP", "N/A")}</span>
               </div>
             </div>
 

@@ -15,6 +15,7 @@
  */
 
 import { ApiError, type ApiResponse, type ErrorResponse } from "@/types/api";
+import { API_BASE_URL, BACKEND_ORIGIN } from "@/config/backend";
 
 // ============================================
 // Type Guards for Backend Response Shapes
@@ -57,6 +58,27 @@ function getCookie(name: string): string | null {
   return null;
 }
 
+function getDownloadFileName(
+  response: Response,
+  fallbackFileName: string,
+): string {
+  const disposition = response.headers.get("content-disposition");
+  if (!disposition) return fallbackFileName;
+
+  const encodedMatch = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    return decodeURIComponent(encodedMatch[1]);
+  }
+
+  const quotedMatch = disposition.match(/filename\s*=\s*"([^"]+)"/i);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  const plainMatch = disposition.match(/filename\s*=\s*([^;]+)/i);
+  return plainMatch?.[1]?.trim() || fallbackFileName;
+}
+
 // ============================================
 // API Client Class
 // ============================================
@@ -87,23 +109,47 @@ class ApiClient {
     this.onUnauthorized = handler;
   }
 
+  private buildUrl(endpoint: string): string {
+    if (/^https?:\/\//i.test(endpoint)) {
+      return endpoint;
+    }
+
+    const normalizedEndpoint = endpoint.startsWith("/")
+      ? endpoint
+      : `/${endpoint}`;
+
+    if (
+      normalizedEndpoint === "/api" ||
+      normalizedEndpoint.startsWith("/api/")
+    ) {
+      return `${BACKEND_ORIGIN}${normalizedEndpoint}`;
+    }
+
+    return `${this.baseUrl}${normalizedEndpoint}`;
+  }
+
+  private buildHeaders(
+    extraHeaders?: HeadersInit,
+    includeJsonContentType: boolean = true,
+  ): HeadersInit {
+    const csrfToken = getCookie("XSRF-TOKEN");
+
+    return {
+      ...(includeJsonContentType ? { "Content-Type": "application/json" } : {}),
+      ...(csrfToken ? { "X-CSRF-TOKEN": csrfToken } : {}),
+      ...extraHeaders,
+    };
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {},
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-
-    const csrfToken = getCookie("XSRF-TOKEN");
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      // Attach CSRF token if present
-      ...(csrfToken ? { "X-CSRF-TOKEN": csrfToken } : {}),
-      ...options.headers,
-    };
+    const url = this.buildUrl(endpoint);
 
     const response = await fetch(url, {
       ...options,
-      headers,
+      headers: this.buildHeaders(options.headers),
       credentials: "include",
     });
 
@@ -233,6 +279,38 @@ class ApiClient {
       body: body ? JSON.stringify(body) : undefined,
     });
   }
+
+  async download(endpoint: string, fallbackFileName: string): Promise<string> {
+    const response = await fetch(this.buildUrl(endpoint), {
+      method: "GET",
+      headers: this.buildHeaders(undefined, false),
+      credentials: "include",
+    });
+
+    this.handleAuthErrors(response);
+
+    if (!response.ok) {
+      const body = await this.parseResponseBody(response);
+      this.handleApiErrors(response, body);
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const fileName = getDownloadFileName(response, fallbackFileName);
+
+    try {
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+
+    return fileName;
+  }
 }
 
 // Initialize unauthorized handler (call this in your app setup)
@@ -247,8 +325,13 @@ export function initializeApiClient(onUnauthorized: OnUnauthorized) {
  * Singleton API client instance
  *
  * Base URL can be configured via VITE_API_BASE_URL environment variable.
- * Defaults to 'https://localhost:7150/api' for same-origin requests.
+ * Defaults to 'http://localhost:5093' as the backend origin.
  */
-export const api = new ApiClient(
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5093/api",
-);
+export const api = new ApiClient(API_BASE_URL);
+
+export async function downloadApiFile(
+  endpoint: string,
+  fallbackFileName: string,
+): Promise<string> {
+  return api.download(endpoint, fallbackFileName);
+}
