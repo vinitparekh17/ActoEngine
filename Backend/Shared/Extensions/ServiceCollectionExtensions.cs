@@ -34,10 +34,16 @@ namespace ActoEngine.WebApi.Shared.Extensions
                     var corsOriginsConfig = configuration["CORS_ALLOWED_ORIGINS"];
                     string[] allowedOrigins;
 
-                    if (!string.IsNullOrWhiteSpace(corsOriginsConfig))
+                    var parsedOrigins = string.IsNullOrWhiteSpace(corsOriginsConfig)
+                        ? []
+                        : corsOriginsConfig.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                    if (parsedOrigins.Length > 0)
                     {
-                        // Parse comma-separated list
-                        allowedOrigins = corsOriginsConfig.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        // Use the env-var list only when it contains at least one valid entry;
+                        // an all-commas value like ",,," would produce an empty array and
+                        // should fall through to the configured / default fallback below.
+                        allowedOrigins = parsedOrigins;
                     }
                     else
                     {

@@ -87,19 +87,34 @@ class SPAHandler(SimpleHTTPRequestHandler):
             connection.request(self.command, upstream_path, body=body, headers=forward_headers)
             response = connection.getresponse()
             payload = response.read()
-        except Exception as exc:
-            self.send_error(502, f"Upstream API request failed: {exc}")
+        except (OSError, http.client.HTTPException) as exc:
+            # Log full details internally; expose only a generic message to the client
+            # so internal hostnames / stack traces are not leaked in the response body.
+            self.log_error("Upstream proxy error: %s", exc)
+            self.send_error(502, "Upstream API request failed")
             return
         finally:
             connection.close()
 
         self.send_response(response.status, response.reason)
+        upstream_content_length: str | None = None
         for key, value in response.getheaders():
             lower_key = key.lower()
-            if lower_key in HOP_BY_HOP_HEADERS or lower_key in {"content-length", "date", "server"}:
+            if lower_key in HOP_BY_HOP_HEADERS or lower_key in {"date", "server"}:
+                continue
+            if lower_key == "content-length":
+                # Capture the upstream value; we will decide below which to emit.
+                upstream_content_length = value
                 continue
             self.send_header(key, value)
-        self.send_header("Content-Length", str(len(payload)))
+        if self.command == "HEAD":
+            # For HEAD the body is always empty (per HTTP spec), so we must preserve
+            # the upstream Content-Length so clients learn the true resource size.
+            if upstream_content_length is not None:
+                self.send_header("Content-Length", upstream_content_length)
+        else:
+            # For all other methods rewrite with the actual payload length we read.
+            self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
 
         if self.command != "HEAD" and payload:
