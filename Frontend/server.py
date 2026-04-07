@@ -17,7 +17,8 @@ import http.client
 import os
 import signal
 import sys
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+import threading
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
 HOP_BY_HOP_HEADERS = {
@@ -36,7 +37,9 @@ class SPAHandler(SimpleHTTPRequestHandler):
     """Serve static files; proxy /api requests; SPA fallback for unknown routes."""
 
     def _is_api_request(self) -> bool:
-        return self.path == "/api" or self.path.startswith("/api/")
+        # Strip query string so "/api?health=1" is correctly identified as an API path.
+        clean_path = self.path.split("?", 1)[0]
+        return clean_path == "/api" or clean_path.startswith("/api/")
 
     def _proxy_api_request(self) -> None:
         target = self.server.api_origin_parts
@@ -51,7 +54,13 @@ class SPAHandler(SimpleHTTPRequestHandler):
         body = None
         content_length_header = self.headers.get("Content-Length")
         if content_length_header:
-            content_length = int(content_length_header)
+            try:
+                content_length = int(content_length_header)
+                if content_length < 0:
+                    raise ValueError("Content-Length must be non-negative")
+            except ValueError:
+                self.send_error(400, "Invalid Content-Length header")
+                return
             body = self.rfile.read(content_length)
 
         forward_headers = {}
@@ -104,12 +113,18 @@ class SPAHandler(SimpleHTTPRequestHandler):
         # translate_path strips query strings and normalizes the path
         fs_path = self.translate_path(self.path)
 
-        # Serve the file if it exists and is not a directory
         if os.path.isfile(fs_path):
             super().do_GET()
             return
 
-        # SPA fallback: let the client-side router handle the route
+        # If the request looks like a static asset (has a file extension), return 404
+        # so browsers get a proper error instead of HTML masquerading as the asset.
+        url_path = self.path.split("?", 1)[0]
+        if os.path.splitext(url_path)[1]:
+            self.send_error(404, "File not found")
+            return
+
+        # SPA fallback: let the client-side router handle extensionless routes.
         self.path = "/index.html"
         super().do_GET()
 
@@ -121,6 +136,11 @@ class SPAHandler(SimpleHTTPRequestHandler):
         fs_path = self.translate_path(self.path)
         if os.path.isfile(fs_path):
             super().do_HEAD()
+            return
+
+        url_path = self.path.split("?", 1)[0]
+        if os.path.splitext(url_path)[1]:
+            self.send_error(404, "File not found")
             return
 
         self.path = "/index.html"
@@ -161,8 +181,8 @@ class SPAHandler(SimpleHTTPRequestHandler):
             super().log_message(fmt, *args)
 
 
-class SPAServer(HTTPServer):
-    """HTTPServer subclass that carries extra config."""
+class SPAServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer subclass that carries extra config."""
 
     def __init__(self, *args, quiet: bool = False, api_origin: str = "", **kwargs):
         self.quiet = quiet
@@ -209,8 +229,13 @@ def main() -> None:
         api_origin=api_origin,
     )
 
-    # Graceful shutdown on SIGTERM (e.g. systemd / Docker stop)
-    signal.signal(signal.SIGTERM, lambda *_: server.shutdown())
+    # Graceful shutdown on SIGTERM (e.g. systemd / Docker stop).
+    # server.shutdown() blocks until serve_forever() returns, so it must run on a
+    # different thread than the one running serve_forever() to avoid a deadlock.
+    signal.signal(
+        signal.SIGTERM,
+        lambda *_: threading.Thread(target=server.shutdown, daemon=True).start(),
+    )
 
     proxy_info = f" | API proxy -> {api_origin}" if api_origin else " | API proxy disabled"
     print(
