@@ -239,7 +239,7 @@ public class PatchScriptRendererTests
     }
 
     [Fact]
-    public void Render_CompatibilitySql_DefaultRepairs_AreLimitedToRequiredColumns()
+    public void Render_CompatibilitySql_DefaultRepairs_IncludeAllSnapshottedColumns()
     {
         var renderer = new PatchScriptRenderer();
         var manifest = CreateTestManifest(
@@ -269,7 +269,7 @@ public class PatchScriptRendererTests
 
         Assert.Contains("DF_Orders_Status", sql);
         Assert.Contains("N'[dbo].[Orders].[Status]', 'Default constraint is missing.'", sql);
-        Assert.DoesNotContain("DF_Orders_OptionalFlag", sql);
+        Assert.Contains("DF_Orders_OptionalFlag", sql);
         Assert.DoesNotContain("N'[dbo].[Orders].[OptionalFlag]', 'Default constraint is missing.'", sql);
     }
 

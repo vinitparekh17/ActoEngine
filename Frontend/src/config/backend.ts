@@ -1,4 +1,4 @@
-export const DEFAULT_BACKEND_ORIGIN = "http://localhost:5093";
+export const DEFAULT_BACKEND_ORIGIN = "" // Your backend origin here, e.g., "http://localhost:5000"
 
 export function normalizeBackendOrigin(rawValue?: string | null): string {
   let normalized = rawValue?.trim() ?? "";

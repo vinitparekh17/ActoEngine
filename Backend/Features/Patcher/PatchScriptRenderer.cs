@@ -261,7 +261,8 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
     {
         var qualifiedTable = QualifiedName(table.SchemaName, table.TableName);
         var objectLiteral = SqlUnicodeLiteral(qualifiedTable);
-        var requiredColumns = GetRequiredColumns(table);
+        var requiredSet = new HashSet<string>(table.RequiredColumnNames, StringComparer.OrdinalIgnoreCase);
+        var allColumns = table.Columns.OrderBy(c => c.ColumnName, StringComparer.OrdinalIgnoreCase).ToList();
 
         sb.AppendLine($"IF OBJECT_ID({objectLiteral}, 'U') IS NULL");
         sb.AppendLine($"    INSERT INTO @Issues VALUES ('REPAIRABLE', 'TABLE', {objectLiteral}, 'Table is missing and full metadata is available to create it.');");
@@ -270,21 +271,33 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
         sb.AppendLine($"    INSERT INTO @Issues VALUES ('OK', 'TABLE', {objectLiteral}, 'Table exists.');");
 
         // ── Column checks (nested inside table-exists) ──
-        foreach (var column in requiredColumns)
+        // Required columns: check for existence (missing = BLOCKER/REPAIRABLE) then compatibility.
+        // Non-required columns: check compatibility only if the column is present — never block on absence.
+        foreach (var column in allColumns)
         {
             var columnLiteral = SqlUnicodeLiteral($"{qualifiedTable}.{Bracket(column.ColumnName)}");
-            var missingSeverity = CanRepairMissingColumn(column) ? "REPAIRABLE" : "BLOCKER";
+            var isRequired = requiredSet.Contains(column.ColumnName);
 
-            sb.AppendLine($"    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
-            sb.AppendLine($"        INSERT INTO @Issues VALUES ('{missingSeverity}', 'COLUMN', {columnLiteral}, '{EscapeSql(BuildMissingColumnMessage(column))}');");
-            sb.AppendLine("    ELSE");
-            sb.AppendLine("    BEGIN");
+            if (isRequired)
+            {
+                var missingSeverity = CanRepairMissingColumn(column) ? "REPAIRABLE" : "BLOCKER";
+                sb.AppendLine($"    IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
+                sb.AppendLine($"        INSERT INTO @Issues VALUES ('{missingSeverity}', 'COLUMN', {columnLiteral}, '{EscapeSql(BuildMissingColumnMessage(column))}');");
+                sb.AppendLine("    ELSE");
+                sb.AppendLine("    BEGIN");
+            }
+            else
+            {
+                sb.AppendLine($"    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
+                sb.AppendLine("    BEGIN");
+            }
+
             sb.AppendLine($"        IF EXISTS ({BuildColumnMismatchQuery(table, column)})");
             sb.AppendLine($"            INSERT INTO @Issues VALUES ('BLOCKER', 'COLUMN', {columnLiteral}, '{EscapeSql(BuildColumnMismatchMessage(column))}');");
             sb.AppendLine("        ELSE");
             sb.AppendLine($"            INSERT INTO @Issues VALUES ('OK', 'COLUMN', {columnLiteral}, 'Column is compatible.');");
 
-            if (!string.IsNullOrWhiteSpace(column.DefaultValue))
+            if (isRequired && !string.IsNullOrWhiteSpace(column.DefaultValue))
             {
                 if (!IsSafeDefaultExpression(column.DefaultValue!))
                 {
@@ -334,18 +347,25 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
     private static void AppendBlockerPrecheck(StringBuilder sb, PatchTableSnapshot table)
     {
         var objectLiteral = SqlUnicodeLiteral(QualifiedName(table.SchemaName, table.TableName));
-        foreach (var column in GetRequiredColumns(table))
+        var requiredSet = new HashSet<string>(table.RequiredColumnNames, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var column in table.Columns)
         {
-            if (!CanRepairMissingColumn(column))
+            var isRequired = requiredSet.Contains(column.ColumnName);
+
+            // Only required non-repairable columns block on absence
+            if (isRequired && !CanRepairMissingColumn(column))
             {
                 sb.AppendLine($"IF OBJECT_ID({objectLiteral}, 'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({objectLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");
                 sb.AppendLine("    SET @BlockerCount = @BlockerCount + 1;");
             }
 
+            // All columns: type/nullability mismatch is always a blocker
             sb.AppendLine($"IF OBJECT_ID({objectLiteral}, 'U') IS NOT NULL AND EXISTS ({BuildColumnMismatchQuery(table, column)})");
             sb.AppendLine("    SET @BlockerCount = @BlockerCount + 1;");
 
-            if (!string.IsNullOrWhiteSpace(column.DefaultValue) && !IsSafeDefaultExpression(column.DefaultValue))
+            // Unsafe default only applies to required columns (repairs are scoped to required)
+            if (isRequired && !string.IsNullOrWhiteSpace(column.DefaultValue) && !IsSafeDefaultExpression(column.DefaultValue))
             {
                 sb.AppendLine($"IF OBJECT_ID({objectLiteral}, 'U') IS NOT NULL");
                 sb.AppendLine("    SET @BlockerCount = @BlockerCount + 1;");
@@ -357,10 +377,13 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
     {
         var qualifiedTable = QualifiedName(table.SchemaName, table.TableName);
         var tableLiteral = SqlUnicodeLiteral(qualifiedTable);
-        var requiredColumns = GetRequiredColumns(table);
+        // Use all columns — mirrors AppendTableCompatibilityChecks and AppendBlockerPrecheck.
+        // Relying on RequiredColumnNames here would silently omit any column that was not
+        // captured by the (potentially incomplete) dependency analysis.
+        var allColumns = table.Columns.OrderBy(c => c.ColumnName, StringComparer.OrdinalIgnoreCase).ToList();
         var repairStatements = new List<string>();
 
-        foreach (var column in requiredColumns)
+        foreach (var column in allColumns)
         {
             if (!CanRepairMissingColumn(column))
             {
@@ -371,7 +394,7 @@ internal sealed partial class PatchScriptRenderer : IPatchScriptRenderer
             repairStatements.Add($"                    EXEC(N'ALTER TABLE {qualifiedTable} ADD {EscapeForNestedExec(BuildColumnDefinition(column))}');");
         }
 
-        foreach (var column in requiredColumns.Where(c => !string.IsNullOrWhiteSpace(c.DefaultValue) && IsSafeDefaultExpression(c.DefaultValue!)))
+        foreach (var column in allColumns.Where(c => !string.IsNullOrWhiteSpace(c.DefaultValue) && IsSafeDefaultExpression(c.DefaultValue!)))
         {
             var constraintName = DefaultConstraintName(table, column);
             repairStatements.Add($"                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID({tableLiteral}) AND name = N'{EscapeSql(column.ColumnName)}')");

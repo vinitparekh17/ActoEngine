@@ -138,6 +138,9 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
 
     private readonly Stack<string> _contextStack = new();
 
+    // CTE names defined in WITH clauses — references to these are not real table dependencies
+    private readonly HashSet<string> _cteNames = new(StringComparer.OrdinalIgnoreCase);
+
     // Scoped alias resolution: inner scopes shadow outer ones
     private readonly Stack<Dictionary<string, string>> _aliasScopeStack = new();
 
@@ -158,6 +161,20 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
     private bool _inFromClause = false;
     private bool _inJoin = false;
     private bool _inJoinCondition = false;
+
+    /// <summary>
+    /// Registers the CTE name before descending into its body, so any self-reference
+    /// inside a recursive CTE (and any reference to this CTE in the outer query) is
+    /// correctly identified as a non-table reference and skipped by Visit(NamedTableReference).
+    /// </summary>
+    public override void ExplicitVisit(CommonTableExpression node)
+    {
+        if (node.ExpressionName != null)
+        {
+            _cteNames.Add(node.ExpressionName.Value);
+        }
+        base.ExplicitVisit(node);
+    }
 
     public override void ExplicitVisit(QuerySpecification node)
     {
@@ -294,6 +311,15 @@ internal class SqlDependencyVisitor : TSqlFragmentVisitor
     public override void Visit(NamedTableReference node)
     {
         string? tableName = GetFullTableName(node);
+
+        // Skip CTE references — they are declared in WITH clauses and are not real tables.
+        // Skipping also prevents CTE aliases from being added to the alias map, which would
+        // cause column references through that alias to be attributed to a real table that
+        // happens to share the same name as the CTE.
+        if (tableName != null && _cteNames.Contains(tableName))
+        {
+            return;
+        }
 
         // Default to the current stack context
         string modificationType = _contextStack.Count > 0 ? _contextStack.Peek() : "SELECT";
