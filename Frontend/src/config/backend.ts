@@ -1,4 +1,4 @@
-export const DEFAULT_BACKEND_ORIGIN = "http://localhost:5093";
+export const DEFAULT_BACKEND_ORIGIN = "" // Your backend origin here, e.g., "http://localhost:5000"
 
 export function normalizeBackendOrigin(rawValue?: string | null): string {
   let normalized = rawValue?.trim() ?? "";
@@ -36,6 +36,22 @@ function getRuntimeApiBaseUrl(): string | undefined {
 
 export const BACKEND_ORIGIN = resolveBackendOrigin(getRuntimeApiBaseUrl());
 export const API_BASE_URL = `${BACKEND_ORIGIN}/api`;
+
+// Warn developers early when the backend origin is not configured, so silent
+// misrouting (all API requests going to relative URLs) is immediately visible.
+// This only fires in development; production builds never execute this branch.
+if (
+  typeof import.meta !== "undefined" &&
+  "env" in import.meta &&
+  import.meta.env.MODE === "development" &&
+  !BACKEND_ORIGIN
+) {
+  console.warn(
+    "[backend.ts] VITE_API_BASE_URL is not set — API requests will use relative URLs (e.g. /api/...).\n" +
+      "This works only when Vite is configured with a proxy. " +
+      "Set VITE_API_BASE_URL=http://localhost:<port> in your .env.local to route directly to the backend."
+  );
+}
 
 export function buildApiUrl(path: string): string {
   const trimmedPath = path.trim();

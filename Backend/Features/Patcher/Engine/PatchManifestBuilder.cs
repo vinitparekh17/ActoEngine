@@ -298,16 +298,14 @@ public sealed partial class PatchManifestBuilder(
                 continue;
             }
 
-            requiredColumnsByTable.TryGetValue(tableId, out var requiredSet);
-            var hasStoredColumnDependencies = requiredSet is { Count: > 0 };
-            var requiredColumns = hasStoredColumnDependencies
-                ? requiredSet!.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList()
-                : [.. columns.Select(c => c.ColumnName)];
-
-            if (!hasStoredColumnDependencies)
-            {
-                warnings.Add($"No column-level dependencies were stored for table '{NormalizeQualifiedName(tableMetadata.SchemaName, tableMetadata.TableName)}'. Falling back to the full table snapshot.");
-            }
+            // Always treat every synced column as required.
+            // Partial column-dependency tracking (persisted + live analysis) misses unqualified
+            // column references in SP bodies (e.g. "SET IsReturn = @v" with no table alias),
+            // so if we used only the tracked subset we would silently exclude columns like
+            // IsReturn from missing-column detection and repair.  Using the full column list
+            // is conservative but correct: CanRepairMissingColumn still guards which missing
+            // columns can be auto-added vs flagged as blockers.
+            List<string> requiredColumns = [.. columns.Select(c => c.ColumnName)];
 
             tableSnapshots.Add(new PatchTableSnapshot
             {

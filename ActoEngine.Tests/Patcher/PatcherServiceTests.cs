@@ -644,7 +644,7 @@ public class PatcherServiceTests
     }
 
     [Fact]
-    public async Task GeneratePatchAsync_FallsBackToFullColumnSnapshot_WhenTableHasNoColumnDependencies()
+    public async Task GeneratePatchAsync_UsesFullColumnSnapshot_WhenTableHasNoColumnDependencies()
     {
         var service = CreateService();
 
@@ -794,6 +794,6 @@ public class PatcherServiceTests
         Assert.Contains("OrderId", requiredColumns);
         Assert.Contains("Status", requiredColumns);
         Assert.Equal(2, requiredColumns.Count);
-        Assert.Contains(response.Warnings, warning => warning.Contains("full table snapshot", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(response.Warnings, warning => warning.Contains("full table snapshot", StringComparison.OrdinalIgnoreCase));
     }
 }
